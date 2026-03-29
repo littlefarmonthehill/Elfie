@@ -771,6 +771,10 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   // Price floor: lots with unit_price below this value are skipped (and any existing BO listing is deactivated).
   // null / 0 = no floor (sync everything regardless of price).
   syncPriceFloor:       decimal("sync_price_floor").$type<number>(),
+  // Bulk Lots sync settings (Bulkinator bundles)
+  syncBulkLots:         boolean("sync_bulk_lots").default(false).notNull(),  // Include active bulk lots in channel sync
+  bulkLotsItemType:     text("bulk_lots_item_type").default('PART'),         // BO item type for bulk lot listings (PART, MINIFIG, etc.)
+  bulkLotsStockRoom:    text("bulk_lots_stock_room"),                         // BO stockroom to place bulk lots in (null = main store)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;
@@ -793,9 +797,6 @@ export const bulkLots = pgTable("bulk_lots", {
   bulkType:    text("bulk_type").notNull(),             // 'same_part' | 'mixed_parts'
   unitPrice:   decimal("unit_price", { precision: 10, scale: 2 }), // Price for the entire bundle
   status:      text("status").notNull().default('draft'), // 'draft' | 'active' | 'inactive'
-  // Channel sync settings
-  itemType:    text("item_type").default('PART'),      // BL item type (PART, MINIFIG, etc.)
-  stockRoomId: text("stock_room_id"),                  // Which stockroom on BO (A/B/C or null = main)
   // Channel metadata — populated once the lot is pushed to BO
   boLotId:     text("bo_lot_id"),
   lastSyncedAt: timestamp("last_synced_at"),
