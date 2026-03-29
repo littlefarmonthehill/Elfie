@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ } from "lucide-react";
 import { printPicklist } from "./PackingSlip";
 
 type WarehouseLocation = {
@@ -78,8 +78,19 @@ function picklistMutationOptions<TVariables>(
   };
 }
 
+const SORT_DIR_KEY = 'picklist-sort-dir';
+
 export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
   const [filter, setFilter] = useState<Filter>('all');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => {
+    try { return (localStorage.getItem(SORT_DIR_KEY) as 'asc' | 'desc') ?? 'asc'; } catch { return 'asc'; }
+  });
+
+  const toggleSortDir = () => setSortDir(prev => {
+    const next = prev === 'asc' ? 'desc' : 'asc';
+    try { localStorage.setItem(SORT_DIR_KEY, next); } catch {}
+    return next;
+  });
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // ── Scan-to-pick state ──
@@ -274,13 +285,15 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
+  const cmpDir = (n: number) => sortDir === 'asc' ? n : -n;
+
   const handlePrint = async () => {
     const sortedItems = [...flatItems].sort((a, b) => {
-      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+      const pk = cmpDir(partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
       if (pk !== 0) return pk;
-      const condCmp = (a.condition || '').localeCompare(b.condition || '');
+      const condCmp = cmpDir((a.condition || '').localeCompare(b.condition || ''));
       if (condCmp !== 0) return condCmp;
-      return (a.colorName || '').localeCompare(b.colorName || '');
+      return cmpDir((a.colorName || '').localeCompare(b.colorName || ''));
     });
     await printPicklist(sortedItems);
   };
@@ -297,11 +310,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const flatItems: BinPicklistItem[] = filteredPicklistData
     .flatMap(bin => bin.items)
     .sort((a, b) => {
-      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+      const pk = cmpDir(partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
       if (pk !== 0) return pk;
-      const condCmp = (a.condition || '').localeCompare(b.condition || '');
+      const condCmp = cmpDir((a.condition || '').localeCompare(b.condition || ''));
       if (condCmp !== 0) return condCmp;
-      return (a.colorName || '').localeCompare(b.colorName || '');
+      return cmpDir((a.colorName || '').localeCompare(b.colorName || ''));
     });
 
   const groupedBins = filteredPicklistData.reduce((acc, bin) => {
@@ -313,7 +326,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     return acc;
   }, {} as Record<string, Record<string, BinPicklist[]>>);
 
-  const sortedAisles = Object.keys(groupedBins).sort((a, b) => b.localeCompare(a));
+  const sortedAisles = Object.keys(groupedBins).sort((a, b) =>
+    sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a)
+  );
 
   if (isLoading) {
     return (
@@ -356,6 +371,23 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
           >
             <Package className="h-3 w-3" />
             To Pick
+          </button>
+
+          {/* Separator */}
+          <div className="w-px h-5 bg-gray-700 shrink-0" />
+
+          {/* Sort direction toggle */}
+          <button
+            onClick={toggleSortDir}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700"
+            title={sortDir === 'asc' ? 'Sort A → Z (click to reverse)' : 'Sort Z → A (click to reverse)'}
+            data-testid="button-picklist-sort-dir"
+          >
+            {sortDir === 'asc'
+              ? <ArrowUpAZ className="w-3.5 h-3.5" />
+              : <ArrowDownAZ className="w-3.5 h-3.5" />
+            }
+            {sortDir === 'asc' ? 'A–Z' : 'Z–A'}
           </button>
 
           {/* Separator */}

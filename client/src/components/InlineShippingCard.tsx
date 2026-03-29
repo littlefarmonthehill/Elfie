@@ -132,8 +132,7 @@ const TEST_FROM_ADDRESS = {
   country: "US", phone: "4155559999", email: "test@easypost.com",
 };
 
-const PROD_FROM_ADDRESS = {
-  name: "E.L.F.I.E.", company: "E.L.F.I.E.",
+const BASE_PROD_FROM_ADDRESS = {
   street1: "PO Box 202", city: "Lanesboro",
   state: "MN", zip: "55949", country: "US",
   phone: "5072670202", email: "shipping@elfie.app",
@@ -154,6 +153,10 @@ export default function InlineShippingCard({
 
   const { data: appSettings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
+  });
+
+  const { data: org } = useQuery<{ name: string; address?: string }>({
+    queryKey: ['/api/org'],
   });
 
   const { data: serviceMappings = {} } = useQuery<Record<string, string>>({
@@ -356,7 +359,11 @@ export default function InlineShippingCard({
     setSelectedRateId(null);
     setShipmentId(null);
     try {
-      const fromAddress = isTestMode ? TEST_FROM_ADDRESS : PROD_FROM_ADDRESS;
+      const fromAddress = isTestMode ? TEST_FROM_ADDRESS : {
+        ...BASE_PROD_FROM_ADDRESS,
+        name: org?.name ?? "E.L.F.I.E.",
+        company: "E.L.F.I.E.",
+      };
       const result: any = await apiRequest("POST", "/api/shipments/create", {
         orderId, itemIdsToShip: [], fromAddress,
         parcel: buildParcel(pkg, l, w_, h, w, wu),
