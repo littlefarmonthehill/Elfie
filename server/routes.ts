@@ -9567,8 +9567,9 @@ Format search_web URLs as markdown links.`;
       const orgId = reqOrgId(req);
       const { itemNo } = req.params;
       const result = await db.execute(sql`
-        SELECT bi.id, bi.item_no, bi.color_id, bc.name AS color_name, bc.rgb AS color_rgb,
-               bi.new_or_used, bi.quantity, bi.unit_price
+        SELECT bi.id, bi.item_no, bi.item_type, bi.color_id, bc.name AS color_name, bc.rgb AS color_rgb,
+               bi.new_or_used, bi.quantity, bi.unit_price,
+               bi.is_stock_room, bi.stock_room_id
         FROM bl_inventory bi
         LEFT JOIN bl_colors bc ON bi.color_id = bc.id
         WHERE bi.org_id = ${orgId}

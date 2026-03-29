@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -356,8 +356,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
   // Fetch all inventory variants (same item_no, any color/condition)
   const { data: variants } = useQuery<Array<{
-    id: number; color_id: number | null; color_name: string | null; color_rgb: string | null;
+    id: number; item_no: string; item_type: string | null;
+    color_id: number | null; color_name: string | null; color_rgb: string | null;
     new_or_used: string; quantity: number; unit_price: string | null;
+    is_stock_room: boolean | null; stock_room_id: string | null;
   }>>({
     queryKey: ['/api/inventory/variants', data.itemNo],
     queryFn: async () => {
@@ -1469,104 +1471,66 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
             {/* Variants in Inventory */}
-            {variants && variants.length > 0 && (() => {
-              // Group by color so New/Used appear as columns
-              const colorMap = new Map<string | number, {
-                colorId: number | null; colorName: string | null; colorRgb: string | null;
-                N: typeof variants[0] | null; U: typeof variants[0] | null;
-              }>();
-              for (const v of variants) {
-                const key = v.color_id ?? 'none';
-                if (!colorMap.has(key)) {
-                  colorMap.set(key, { colorId: v.color_id, colorName: v.color_name, colorRgb: v.color_rgb, N: null, U: null });
-                }
-                const grp = colorMap.get(key)!;
-                if (v.new_or_used === 'N') grp.N = v;
-                else if (v.new_or_used === 'U') grp.U = v;
-              }
-              const groups = Array.from(colorMap.values());
-              const fmtCell = (v: typeof variants[0] | null) => v
-                ? <><span className="text-gray-400 font-mono text-[9px]">{v.quantity}x</span><span className={`font-mono text-[10px] ml-1 ${v.id === data.id ? 'text-violet-300' : 'text-white'}`}>{v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—'}{v.id === data.id ? <span className="text-[8px] text-violet-400 ml-0.5">★</span> : null}</span></>
-                : <span className="text-gray-600 text-[9px]">—</span>;
-              return (
-                <div className="app-card-muted p-2.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Layers className="h-3.5 w-3.5 text-violet-400" />
-                    <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
-                    <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  {/* Header row */}
-                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-2 pb-1 border-b border-white/10">
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Color</span>
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-lego-green w-20 text-right">New</span>
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-400 w-20 text-right">Used</span>
-                  </div>
-                  <div className="space-y-0.5 mt-1">
-                    {groups.map((grp) => {
-                      const isCurrent = grp.N?.id === data.id || grp.U?.id === data.id;
-                      return (
-                        <div
-                          key={grp.colorId ?? 'none'}
-                          className={`grid grid-cols-[1fr_auto_auto] gap-x-3 items-center rounded px-2 py-1 ${isCurrent ? 'bg-violet-900/30' : 'bg-white/5'}`}
-                        >
-                          {/* Color */}
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div
-                              className="w-3 h-3 rounded-full shrink-0 border border-white/20"
-                              style={{ background: grp.colorRgb ? `#${grp.colorRgb}` : '#555' }}
-                            />
-                            <span className="text-[10px] text-gray-300 truncate" title={grp.colorName ?? undefined}>
-                              {grp.colorName ?? `#${grp.colorId ?? '—'}`}
-                            </span>
-                          </div>
-                          {/* New */}
-                          <div className="w-20 text-right flex items-center justify-end gap-1">{fmtCell(grp.N)}</div>
-                          {/* Used */}
-                          <div className="w-20 text-right flex items-center justify-end gap-1">{fmtCell(grp.U)}</div>
+            {variants && variants.length > 0 && (
+              <div className="app-card-muted p-2.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Layers className="h-3.5 w-3.5 text-violet-400" />
+                  <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
+                  <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
+                </div>
+                {/* Header */}
+                <div className="grid gap-x-2 px-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
+                  style={{ gridTemplateColumns: '1fr 2rem 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
+                  <span>Color</span>
+                  <span className="text-center">Type</span>
+                  <span className="text-center">Cond</span>
+                  <span className="text-center">Stkrm</span>
+                  <span className="text-right">Lot ID</span>
+                  <span className="text-right">Qty</span>
+                  <span className="text-right">Price</span>
+                </div>
+                <div className="space-y-0.5 mt-1">
+                  {variants.map((v) => {
+                    const isCurrent = v.id === data.id;
+                    const stockroom = v.is_stock_room ? (v.stock_room_id || 'SR') : '—';
+                    const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
+                    return (
+                      <div
+                        key={v.id}
+                        className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5'}`}
+                        style={{ gridTemplateColumns: '1fr 2rem 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
+                      >
+                        {/* Color */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
+                            style={{ background: v.color_rgb ? `#${v.color_rgb}` : '#555' }} />
+                          <span className={`truncate ${isCurrent ? 'text-violet-200 font-medium' : 'text-gray-300'}`} title={v.color_name ?? undefined}>
+                            {v.color_name ?? `#${v.color_id ?? '—'}`}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                  {variants.some(v => v.id === data.id) && (
-                    <p className="text-[8px] text-violet-400/70 mt-2 px-2">★ this lot</p>
-                  )}
+                        {/* Item Type */}
+                        <span className="text-center text-gray-400 font-mono">{v.item_type ?? '—'}</span>
+                        {/* Condition */}
+                        <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
+                          {v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used}
+                        </span>
+                        {/* Stockroom */}
+                        <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
+                        {/* Lot ID */}
+                        <span className={`text-right font-mono ${isCurrent ? 'text-violet-300' : 'text-gray-400'}`}>#{v.id}</span>
+                        {/* Qty */}
+                        <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
+                        {/* Price */}
+                        <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
-
-            {/* Identifiers */}
-            <div className="app-card-muted p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Tag className="h-3.5 w-3.5 text-blue-400" />
-                <p className="text-[10px] md:text-sm font-bold text-blue-400">IDENTIFIERS</p>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Inventory ID:</span>
-                  <span className="text-white font-mono">#{data.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Part Number:</span>
-                  <span className="text-white font-mono">{data.itemNo}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Item Type:</span>
-                  <span className="text-white font-mono">{data.itemType}</span>
-                </div>
-                {data.colorId !== null && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Color ID:</span>
-                    <span className="text-white font-mono">#{data.colorId}</span>
-                  </div>
-                )}
-                {data.bindId && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Bind ID:</span>
-                    <span className="text-white font-mono">#{data.bindId}</span>
-                  </div>
+                {variants.some(v => v.id === data.id) && (
+                  <p className="text-[8px] text-violet-400/60 mt-1.5 px-1.5">Highlighted row = this lot</p>
                 )}
               </div>
-            </div>
+            )}
 
             {/* Inventory Settings */}
             <div className="app-card-muted p-2.5">
