@@ -362,7 +362,7 @@ export default function InlineShippingCard({
       const fromAddress = isTestMode ? TEST_FROM_ADDRESS : {
         ...BASE_PROD_FROM_ADDRESS,
         name: org?.name ?? "E.L.F.I.E.",
-        company: "E.L.F.I.E.",
+        company: "",
       };
       const result: any = await apiRequest("POST", "/api/shipments/create", {
         orderId, itemIdsToShip: [], fromAddress,
