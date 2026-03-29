@@ -369,7 +369,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
       return res.json();
     },
     enabled: !data.loading && !!data.itemNo,
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
   // Fetch all warehouse locations for this inventory item.
@@ -1483,14 +1483,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
                 </div>
                 {/* Column header */}
-                <div className="grid gap-x-2 px-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
-                  style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 3rem 4rem' }}>
+                <div className="grid gap-x-2 pl-3 pr-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
+                  style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 4rem 3rem' }}>
                   <span className="text-center">Cond</span>
                   <span className="text-right">Lot ID</span>
                   <span className="text-right">Qty</span>
                   <span className="text-right">Price</span>
-                  <span className="text-center">Stkrm</span>
                   <span className="text-right">Created</span>
+                  <span className="text-center">Stkrm</span>
                 </div>
                 {/* Grouped by color */}
                 <div className="space-y-2 mt-1">
@@ -1523,12 +1523,16 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                             const isCurrent = v.id === data.id;
                             const stockroom = v.is_stock_room ? (v.stock_room_id || 'SR') : '—';
                             const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
+                            const createdDate = v.date_created ? (() => {
+                              const d = new Date(v.date_created);
+                              return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                            })() : '—';
                             return (
                               <div
                                 key={v.id}
                                 onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
-                                className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
-                                style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 3rem 4rem' }}
+                                className={`grid gap-x-2 items-center rounded pl-3 pr-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
+                                style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 4rem 3rem' }}
                               >
                                 {/* Condition */}
                                 <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
@@ -1540,12 +1544,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                                 <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
                                 {/* Price */}
                                 <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
+                                {/* Date Created */}
+                                <span className="text-right font-mono text-[9px] text-gray-500">{createdDate}</span>
                                 {/* Stockroom */}
                                 <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
-                                {/* Date Created */}
-                                <span className="text-right font-mono text-[9px] text-gray-500">
-                                  {v.date_created ? new Date(v.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}
-                                </span>
                               </div>
                             );
                           })}
