@@ -1483,7 +1483,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
                 </div>
                 {/* Column header */}
-                <div className="grid gap-x-2 pl-3 pr-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
+                <div className="grid gap-x-2 pl-6 pr-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
                   style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 4rem 3rem' }}>
                   <span className="text-center">Cond</span>
                   <span className="text-right">Lot ID</span>
@@ -1531,7 +1531,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                               <div
                                 key={v.id}
                                 onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
-                                className={`grid gap-x-2 items-center rounded pl-3 pr-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
+                                className={`grid gap-x-2 items-center rounded pl-6 pr-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
                                 style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 4rem 3rem' }}
                               >
                                 {/* Condition */}
