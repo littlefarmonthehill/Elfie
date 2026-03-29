@@ -2347,6 +2347,11 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS bulk_lot_items_inv_idx ON bulk_lot_items(bl_inventory_id)`);
     console.log('[Migration] Phase-96 (bulk_lots + bulk_lot_items tables) complete.');
 
+    // Phase-97: Add feedback_prompt to platform_settings (correct table — Phase-91 mistakenly
+    // added it to app_settings instead). Uses IF NOT EXISTS so it is safe to re-run.
+    await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS feedback_prompt text`);
+    console.log('[Migration] Phase-97 (feedback_prompt on platform_settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
