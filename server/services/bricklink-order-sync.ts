@@ -249,10 +249,29 @@ async function processBrickLinkOrder(
 
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
+  const addr = shipping?.address || {};
 
-  // Debug: log the address fields received from BL API (only when state is missing)
-  if (shipping?.address && !shipping.address.state && !shipping.address.state_or_province) {
-    console.warn(`[BL Order ${blOrder.order_id}] Address has no state field. Keys: ${Object.keys(shipping.address).join(', ')}`);
+  // Resolve state: try every known BL API field variant, then fall back to
+  // parsing the "full" formatted address string (e.g. "City, ST 12345\nCountry").
+  const resolveState = (): string => {
+    // Direct field variants BrickLink has used across API versions
+    const direct = addr.state || addr.state_or_province || addr.province || addr.region || '';
+    if (direct) return direct;
+    // Last resort: parse from the full formatted address string.
+    // BL formats US addresses as "...\nCity, ST ZIP\nCountry" or "City, ST  ZIP".
+    const full: string = addr.full || '';
+    if (full) {
+      // Match "XX" state abbreviation preceded by ", " and followed by whitespace+digits or end
+      const m = full.match(/,\s+([A-Z]{2})\s+\d/);
+      if (m) return m[1];
+    }
+    return '';
+  };
+  const resolvedState = resolveState();
+
+  // Log the raw address whenever state comes up empty — helps diagnose BL API changes.
+  if (addr && !resolvedState) {
+    console.warn(`[BL Order ${blOrder.order_id}] State empty after all fallbacks. Raw address: ${JSON.stringify(addr)}`);
   }
 
   const orderData = {
@@ -266,13 +285,13 @@ async function processBrickLinkOrder(
     customerUsername: blOrder.buyer_name || null,
     customerEmail: blOrder.buyer_email || null,
     shipTo: JSON.stringify({
-      name: shipping?.address?.name?.full || '',
-      street1: shipping?.address?.address1 || '',
-      street2: shipping?.address?.address2 || '',
-      city: shipping?.address?.city || '',
-      state: shipping?.address?.state || shipping?.address?.state_or_province || '',
-      postalCode: shipping?.address?.postal_code || '',
-      country: shipping?.address?.country_code || '',
+      name: addr.name?.full || '',
+      street1: addr.address1 || '',
+      street2: addr.address2 || '',
+      city: addr.city || '',
+      state: resolvedState,
+      postalCode: addr.postal_code || '',
+      country: addr.country_code || '',
     }),
     billTo: null,
     shipByDate: null,

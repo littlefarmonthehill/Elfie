@@ -213,7 +213,11 @@ async function processBrickOwlOrder(
       address1: brickOwlOrderData.ship_street_1 || '',
       address2: brickOwlOrderData.ship_street_2 || '',
       city: brickOwlOrderData.ship_city || '',
-      state: brickOwlOrderData.ship_region || '',
+      // BrickOwl API has used ship_region, ship_state, and ship_province across versions.
+      state: brickOwlOrderData.ship_region
+          || brickOwlOrderData.ship_state
+          || brickOwlOrderData.ship_province
+          || '',
       postalCode: brickOwlOrderData.ship_post_code || '',
       country: brickOwlOrderData.ship_country_code || '',
     }),
