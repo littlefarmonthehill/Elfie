@@ -395,12 +395,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
 
   const createRequest: CreateShipmentRequest = {
     toAddress: shipTo,
-    // Inject the order ref into the company line of the sender address so it always
-    // appears visibly on the label (label_message is unreliable for USPS Ground Advantage)
-    fromAddress: {
-      ...request.fromAddress,
-      company: orderRef ?? request.fromAddress.company ?? '',
-    },
+    fromAddress: request.fromAddress,
     parcel: request.parcel,
     reference: orderRef,
     customsInfo,

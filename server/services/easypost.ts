@@ -153,7 +153,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
         options: {
           label_format: 'PDF',
           label_size: '4x6',
-          ...(request.reference ? { label_message: request.reference } : {}),
+          // print_custom_1 is EasyPost's "Customer Reference" field — prints visibly on USPS labels
+          ...(request.reference ? { print_custom_1: request.reference } : {}),
         },
         reference: request.reference,
         // Customs info for international shipments
