@@ -2174,6 +2174,49 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feedback_prompt text`);
     console.log('[Migration] Phase-91 (feedback_prompt on app_settings) complete.');
 
+    // Phase-92: Add "Buyer Feedback" L2 capability + L3 features to the capability tree.
+    // Uses explicit WHERE NOT EXISTS with separate queries to avoid pg parameter type-inference issues.
+    const existingBf = await client.query(
+      `SELECT id FROM product_capabilities WHERE title = 'Buyer Feedback' AND level = 2 LIMIT 1`
+    );
+    if (existingBf.rows.length === 0) {
+      const omL1 = await client.query(
+        `SELECT id FROM product_capabilities WHERE title = 'Order Management' AND level = 1 LIMIT 1`
+      );
+      if (omL1.rows.length > 0) {
+        await client.query(
+          `INSERT INTO product_capabilities (title, level, parent_id, cap_status) VALUES ('Buyer Feedback', 2, $1, 'built')`,
+          [omL1.rows[0].id]
+        );
+      }
+    }
+    const bfCapRow = await client.query(
+      `SELECT id FROM product_capabilities WHERE title = 'Buyer Feedback' AND level = 2 LIMIT 1`
+    );
+    if (bfCapRow.rows.length > 0) {
+      const bfParentId: number = bfCapRow.rows[0].id;
+      const bfL3s = [
+        ['AI-drafted feedback comments', 'built'],
+        ['Custom prompt configuration', 'built'],
+        ['BrickLink & BrickOwl channel posting', 'built'],
+        ['Bulk send with partial success handling', 'built'],
+        ['Feedback prompt in IE strategy onboarding', 'built'],
+      ];
+      for (const [title, status] of bfL3s) {
+        const exists = await client.query(
+          `SELECT 1 FROM product_capabilities WHERE title = $1 AND level = 3 AND parent_id = $2 LIMIT 1`,
+          [title, bfParentId]
+        );
+        if (exists.rows.length === 0) {
+          await client.query(
+            `INSERT INTO product_capabilities (title, level, parent_id, cap_status) VALUES ($1, 3, $2, $3)`,
+            [title, bfParentId, status]
+          );
+        }
+      }
+    }
+    console.log('[Migration] Phase-92 (Buyer Feedback capability tree) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
