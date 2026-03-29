@@ -1482,51 +1482,72 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
                   <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
                 </div>
-                {/* Header */}
+                {/* Column header */}
                 <div className="grid gap-x-2 px-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
-                  style={{ gridTemplateColumns: '1fr 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
-                  <span>Color</span>
+                  style={{ gridTemplateColumns: '2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
                   <span className="text-center">Cond</span>
                   <span className="text-center">Stkrm</span>
                   <span className="text-right">Lot ID</span>
                   <span className="text-right">Qty</span>
                   <span className="text-right">Price</span>
                 </div>
-                <div className="space-y-0.5 mt-1">
-                  {variants.map((v) => {
-                    const isCurrent = v.id === data.id;
-                    const stockroom = v.is_stock_room ? (v.stock_room_id || 'SR') : '—';
-                    const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
-                    return (
-                      <div
-                        key={v.id}
-                        onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
-                        className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
-                        style={{ gridTemplateColumns: '1fr 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
-                      >
-                        {/* Color */}
-                        <div className="flex items-center gap-1.5 min-w-0">
+                {/* Grouped by color */}
+                <div className="space-y-2 mt-1">
+                  {(() => {
+                    const groups: { colorId: number | null; colorName: string | null; colorRgb: string | null; lots: typeof variants }[] = [];
+                    const seen = new Map<string, number>();
+                    for (const v of variants) {
+                      const key = String(v.color_id ?? 'null');
+                      if (seen.has(key)) {
+                        groups[seen.get(key)!].lots.push(v);
+                      } else {
+                        seen.set(key, groups.length);
+                        groups.push({ colorId: v.color_id, colorName: v.color_name, colorRgb: v.color_rgb, lots: [v] });
+                      }
+                    }
+                    return groups.map((g) => (
+                      <div key={String(g.colorId)}>
+                        {/* Color group header */}
+                        <div className="flex items-center gap-1.5 px-1 mb-0.5">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
-                            style={{ background: v.color_rgb ? `#${v.color_rgb}` : '#555' }} />
-                          <span className={`truncate ${isCurrent ? 'text-violet-200 font-medium' : 'text-gray-300'}`} title={v.color_name ?? undefined}>
-                            {v.color_name ?? `#${v.color_id ?? '—'}`}
+                            style={{ background: g.colorRgb ? `#${g.colorRgb}` : '#555' }} />
+                          <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide truncate">
+                            {g.colorName ?? `Color #${g.colorId ?? '—'}`}
                           </span>
+                          <span className="text-[8px] text-gray-600 ml-auto">{g.lots.length} lot{g.lots.length !== 1 ? 's' : ''}</span>
                         </div>
-                        {/* Condition */}
-                        <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
-                          {v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used}
-                        </span>
-                        {/* Stockroom */}
-                        <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
-                        {/* Lot ID */}
-                        <span className={`text-right font-mono ${isCurrent ? 'text-violet-300' : 'text-gray-400'}`}>#{v.id}</span>
-                        {/* Qty */}
-                        <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
-                        {/* Price */}
-                        <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
+                        {/* Lots in this color group */}
+                        <div className="space-y-0.5">
+                          {g.lots.map((v) => {
+                            const isCurrent = v.id === data.id;
+                            const stockroom = v.is_stock_room ? (v.stock_room_id || 'SR') : '—';
+                            const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
+                            return (
+                              <div
+                                key={v.id}
+                                onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
+                                className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
+                                style={{ gridTemplateColumns: '2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
+                              >
+                                {/* Condition */}
+                                <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
+                                  {v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used}
+                                </span>
+                                {/* Stockroom */}
+                                <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
+                                {/* Lot ID */}
+                                <span className={`text-right font-mono ${isCurrent ? 'text-violet-300' : 'text-gray-400'}`}>#{v.id}</span>
+                                {/* Qty */}
+                                <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
+                                {/* Price */}
+                                <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
                 {variants.some(v => v.id === data.id) && (
                   <p className="text-[8px] text-violet-400/60 mt-1.5 px-1.5">Highlighted row = this lot</p>
