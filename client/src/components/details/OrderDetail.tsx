@@ -35,6 +35,8 @@ interface OrderDetailProps {
       name: string;
       quantity: number;
       price: number;
+      colorId?: number | null;
+      blInventoryId?: number | null;
       currentInventoryQty?: number | null;
       stockWarning?: boolean;
       competingOrderCount?: number | null;
@@ -523,7 +525,18 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
             {data.items.map((item, index) => (
               <div
                 key={index}
-                onClick={() => item.partNumber && onItemClick?.('inventory', `bricklink-${item.partNumber}`)}
+                onClick={() => {
+                  if (!onItemClick) return;
+                  // Prefer the actual BL inventory lot ID — matches the exact lot sold
+                  if (item.blInventoryId) {
+                    onItemClick('inventory', item.blInventoryId);
+                  } else if (item.partNumber && item.colorId != null) {
+                    // Color-aware catalog lookup (handler parses __c{colorId} suffix)
+                    onItemClick('inventory', `bricklink-${item.partNumber}__c${item.colorId}`);
+                  } else if (item.partNumber) {
+                    onItemClick('inventory', `bricklink-${item.partNumber}`);
+                  }
+                }}
                 className={`grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 rounded transition-colors cursor-pointer ${item.stockWarning ? 'bg-amber-400/5 hover:bg-amber-400/10' : 'hover:bg-lego-green/5'}`}
                 data-testid={`order-item-row-${index}`}
               >

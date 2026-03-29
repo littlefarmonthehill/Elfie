@@ -5335,6 +5335,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: item.name,
             quantity: item.quantity,
             price: Number(item.unitPrice) || 0,
+            colorId: item.colorId ?? null,
+            blInventoryId: invId ?? null,
             currentInventoryQty,
             stockWarning,
             competingOrderCount: demand?.orderCount ?? null,
