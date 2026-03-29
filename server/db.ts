@@ -2170,6 +2170,10 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT true`);
     console.log('[Migration] Phase-90 (is_public column on plan_configs + plans) complete.');
 
+    // Phase-91: Add feedback_prompt column to app_settings for custom AI feedback instructions.
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS feedback_prompt text`);
+    console.log('[Migration] Phase-91 (feedback_prompt on app_settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

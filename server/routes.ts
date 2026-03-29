@@ -17327,14 +17327,18 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       const shipDate = order.shipDate ? new Date(order.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
       const isRepeat = repeatCount > 1;
 
-      const systemPrompt = `You are E.L.F.I.E., the AI assistant for a LEGO reselling store that operates on BrickLink and BrickOwl.
-Generate a brief, genuine seller feedback comment (1–2 sentences, max 200 characters) that the store owner will post on ${marketplace} for this buyer.
-Requirements:
-- Match the tone exactly to the rating — positive is warm and appreciative, neutral is matter-of-fact, negative is professional but firm
-- Be specific: mention the buyer by username, reference the transaction if relevant
-- Do NOT use clichés like "Great buyer!" alone or "Would recommend!"
-- If the buyer is a repeat customer, briefly acknowledge their loyalty in a positive rating
-- Output ONLY the comment text — no quotes, no explanation, no JSON`;
+      // Fetch org's custom feedback prompt (fall back to built-in default)
+      const DEFAULT_FEEDBACK_SYSTEM_PROMPT = `You are E.L.F.I.E., the AI assistant for a LEGO reselling store that operates on BrickLink and BrickOwl.\nGenerate a brief, genuine seller feedback comment (1–2 sentences, max 200 characters) that the store owner will post on ${marketplace} for this buyer.\nRequirements:\n- Match the tone exactly to the rating — positive is warm and appreciative, neutral is matter-of-fact, negative is professional but firm\n- Be specific: mention the buyer by username, reference the transaction if relevant\n- Do NOT use clichés like "Great buyer!" alone or "Would recommend!"\n- If the buyer is a repeat customer, briefly acknowledge their loyalty in a positive rating\n- Output ONLY the comment text — no quotes, no explanation, no JSON`;
+
+      const [orgSettings] = await db
+        .select({ feedbackPrompt: appSettings.feedbackPrompt })
+        .from(appSettings)
+        .where(eq(appSettings.orgId, orgId))
+        .limit(1);
+
+      const systemPrompt = orgSettings?.feedbackPrompt?.trim()
+        ? `${orgSettings.feedbackPrompt.trim()}\n\nIMPORTANT: Output ONLY the comment text — no quotes, no explanation, no JSON. Max 200 characters.`
+        : DEFAULT_FEEDBACK_SYSTEM_PROMPT;
 
       const userPrompt = `Rating: ${ratingLabels[rating ?? 'positive'] ?? ratingLabels.positive}
 Buyer: ${buyer}

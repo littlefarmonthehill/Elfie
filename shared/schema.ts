@@ -685,6 +685,7 @@ export const platformSettings = pgTable("platform_settings", {
   openaiApiKey: text("openai_api_key"),
   selectedModel: text("selected_model").default('gpt-4o-mini'),
   systemPrompt: text("system_prompt"),
+  feedbackPrompt: text("feedback_prompt"),  // Custom instructions for E.L.F.I.E. feedback generation
   // Billing
   stripeSecretKey: text("stripe_secret_key"),
   stripeEnvironment: text("stripe_environment").default('live').notNull(),

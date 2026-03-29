@@ -2443,6 +2443,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [feedbackPrompt, setFeedbackPrompt] = useState("");
   const [showDefaultPrompt, setShowDefaultPrompt] = useState(false);
   const [defaultPromptText, setDefaultPromptText] = useState("");
   const [elfieAnalyzing, setElfieAnalyzing] = useState(false);
@@ -3406,6 +3407,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setOpenaiApiKey(unmask(settings.openaiApiKey));
       setSelectedModel(settings.selectedModel || "gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
+      setFeedbackPrompt((settings as any).feedbackPrompt || "");
       setBricklinkConsumerKey(unmask(settings.bricklinkConsumerKey));
       setBricklinkConsumerSecret(unmask(settings.bricklinkConsumerSecret));
       setBricklinkTokenValue(unmask(settings.bricklinkTokenValue));
@@ -6477,6 +6479,49 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <strong>Powered by OpenAI:</strong> E.L.F.I.E. runs on OpenAI GPT-4o — no API key required. Semantic search uses OpenAI text-embedding-3-small.
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Customer Feedback Prompt */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-100 mb-1">Customer Feedback Prompt</h3>
+                  <p className="text-[10px] text-gray-500 mb-3">Custom instructions for E.L.F.I.E. when generating feedback comments for buyers. Leave blank to use the built-in default.</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <Label htmlFor="feedback-prompt" className="text-xs text-gray-400">AI Feedback Instructions</Label>
+                      {feedbackPrompt && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          data-testid="button-clear-feedback-prompt"
+                          onClick={() => {
+                            setFeedbackPrompt('');
+                            updateSettingsMutation.mutate({ feedbackPrompt: null } as any);
+                          }}
+                          className="text-[10px] text-gray-500"
+                        >
+                          Reset to Default
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea
+                      id="feedback-prompt"
+                      placeholder="Leave blank to use the built-in default. Example: Keep it warm but concise. Always address the buyer by username. For repeat customers, acknowledge their loyalty."
+                      value={feedbackPrompt}
+                      onChange={(e) => setFeedbackPrompt(e.target.value)}
+                      onBlur={() => {
+                        updateSettingsMutation.mutate({ feedbackPrompt: feedbackPrompt || null } as any);
+                      }}
+                      className="text-xs font-mono min-h-[100px] resize-y"
+                      data-testid="textarea-feedback-prompt"
+                    />
+                    <p className="sm-description">
+                      {feedbackPrompt
+                        ? 'Using your custom feedback prompt. Tool constraints (max length, output format) are always appended automatically.'
+                        : 'No custom prompt — using built-in default. E.L.F.I.E. generates warm, buyer-specific comments matched to the rating tone.'}
+                    </p>
                   </div>
                 </div>
 
