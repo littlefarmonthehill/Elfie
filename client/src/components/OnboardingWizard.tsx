@@ -138,6 +138,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [ieStratOrders, setIeStratOrders] = useState("");
   const [ieStratCustomer, setIeStratCustomer] = useState("");
   const [ieStratMarket, setIeStratMarket] = useState("");
+  const [ieStratFeedback, setIeStratFeedback] = useState("");
 
   // Step 6 — Subscribe
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
@@ -218,17 +219,25 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   };
 
   const handleStep2 = async (skip = false) => {
-    const hasContent = ieStratVision || ieStratSuccess || ieStratPricing || ieStratInventory || ieStratOrders || ieStratCustomer || ieStratMarket;
+    const hasIeStrat = !!(ieStratVision || ieStratSuccess || ieStratPricing || ieStratInventory || ieStratOrders || ieStratCustomer || ieStratMarket);
+    const hasContent = hasIeStrat || !!ieStratFeedback.trim();
     if (!skip && hasContent) {
-      await saveIeStratMutation.mutateAsync({
-        visionMission: ieStratVision || null,
-        successFactors: ieStratSuccess || null,
-        pricingStrategy: ieStratPricing || null,
-        inventoryStrategy: ieStratInventory || null,
-        ordersStrategy: ieStratOrders || null,
-        customerStrategy: ieStratCustomer || null,
-        marketStrategy: ieStratMarket || null,
-      });
+      const saves: Promise<any>[] = [];
+      if (hasIeStrat) {
+        saves.push(saveIeStratMutation.mutateAsync({
+          visionMission: ieStratVision || null,
+          successFactors: ieStratSuccess || null,
+          pricingStrategy: ieStratPricing || null,
+          inventoryStrategy: ieStratInventory || null,
+          ordersStrategy: ieStratOrders || null,
+          customerStrategy: ieStratCustomer || null,
+          marketStrategy: ieStratMarket || null,
+        }));
+      }
+      if (ieStratFeedback.trim()) {
+        saves.push(saveSettingsMutation.mutateAsync({ feedbackPrompt: ieStratFeedback.trim() }));
+      }
+      await Promise.all(saves);
     }
     setStep(3);
   };
@@ -548,6 +557,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                     { icon: ShoppingCart, color: "text-blue-400", label: "Orders Agent", placeholder: "Fulfilment priorities — speed, accuracy, bundling? Any order-level rules?", value: ieStratOrders, setter: setIeStratOrders, testId: "textarea-onboard-strat-orders" },
                     { icon: Users, color: "text-pink-400", label: "Customer Agent", placeholder: "How to handle repeat buyers, problem orders, or VIP customers?", value: ieStratCustomer, setter: setIeStratCustomer, testId: "textarea-onboard-strat-customer" },
                     { icon: Globe, color: "text-teal-400", label: "Market Agent", placeholder: "What market signals matter most — BrickLink trends, rare finds, forum buzz?", value: ieStratMarket, setter: setIeStratMarket, testId: "textarea-onboard-strat-market" },
+                    { icon: ThumbsUp, color: "text-teal-400", label: "Feedback Agent", placeholder: "How should E.L.F.I.E. write buyer feedback comments? E.g. 'Be warm but brief. Always mention the buyer by username. For repeat buyers, acknowledge their loyalty.'", value: ieStratFeedback, setter: setIeStratFeedback, testId: "textarea-onboard-strat-feedback" },
                   ].map(({ icon: Icon, color, label, placeholder, value, setter, testId }) => (
                     <div key={label} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
