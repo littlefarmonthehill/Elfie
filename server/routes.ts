@@ -10882,6 +10882,7 @@ Format search_web URLs as markdown links.`;
         syncLotWeight:    true,
         syncStockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
         syncItemTypes:    {},
+        syncPriceFloor:   null,
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -10892,9 +10893,20 @@ Format search_web URLs as markdown links.`;
     try {
       const orgId = reqOrgId(req);
       const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight'] as const;
-      const patch: Record<string, boolean | Record<string, string>> = {};
+      const patch: Record<string, boolean | number | null | Record<string, string>> = {};
       for (const key of boolAllowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
+      }
+      // syncPriceFloor: null (clear) or a non-negative number
+      if ('syncPriceFloor' in req.body) {
+        const raw = req.body.syncPriceFloor;
+        if (raw === null) {
+          patch.syncPriceFloor = null;
+        } else if (typeof raw === 'number' && isFinite(raw) && raw >= 0) {
+          patch.syncPriceFloor = raw;
+        } else {
+          console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncPriceFloor for ${reqOrgId(req)}:`, raw);
+        }
       }
       // syncStockroomModes: { A: 'skip'|'hidden'|'active', B: ..., C: ... }
       if ('syncStockroomModes' in req.body) {
@@ -10941,6 +10953,7 @@ Format search_web URLs as markdown links.`;
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
           syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
           syncItemTypes:    (patch.syncItemTypes as Record<string, boolean>) ?? {},
+          syncPriceFloor:   (patch.syncPriceFloor as number | null) ?? null,
         }).returning();
         console.log(`[ChannelSyncConfig] PATCH inserted — syncStockroomModes:`, JSON.stringify(inserted?.syncStockroomModes), 'syncItemTypes:', JSON.stringify(inserted?.syncItemTypes));
         return res.json(inserted);

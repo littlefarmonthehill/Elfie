@@ -830,11 +830,13 @@ export interface SyncFieldConfig {
   stockroomModes:   Record<string, 'skip' | 'hidden' | 'active'>;
   // Per-item-type inclusion: { 'P': false } excludes Parts; missing key or true = include. Empty = all types synced.
   syncItemTypes:    Record<string, boolean>;
+  // Price floor: lots priced below this are skipped (and existing BO listings deactivated). 0 / null = no floor.
+  priceFloor:       number | null;
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: true,
   bulkQty: true, lotWeight: true, stockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
-  syncItemTypes: {},
+  syncItemTypes: {}, priceFloor: null,
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -992,6 +994,31 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: item.unitPrice ? parseFloat(item.unitPrice) : 0,
+            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            qtyChanged: false,
+            priceChanged: false,
+            hasNonQtyChange: true,
+            for_sale: 0,
+          });
+        }
+      }
+      result.lotsSkipped++;
+      continue;
+    }
+
+    // Price floor filter: if a floor is configured and the lot's price is below it,
+    // deactivate any existing BO listing and skip creating/updating it.
+    const lotPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
+    if (fields.priceFloor && fields.priceFloor > 0 && lotPrice < fields.priceFloor) {
+      const existingTaggedLot = taggedLotMap.get(item.id.toString());
+      if (existingTaggedLot) {
+        const boForSaleVal = parseInt(String(existingTaggedLot.for_sale ?? '1'));
+        if (boForSaleVal !== 0) {
+          toUpdate.push({
+            blItemNo: item.itemNo,
+            lot_id: existingTaggedLot.lot_id,
+            absolute_quantity: item.quantity,
+            price: lotPrice,
             condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
             qtyChanged: false,
             priceChanged: false,

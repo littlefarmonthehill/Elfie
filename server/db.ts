@@ -2308,6 +2308,13 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS item_type_images_item_idx ON item_type_images(org_id, item_no, item_type)`);
     console.log('[Migration] Phase-94 (user_images + lot_images + item_type_images) complete.');
 
+    // Phase-95: Add sync_price_floor column to channel_sync_config
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        ADD COLUMN IF NOT EXISTS sync_price_floor numeric
+    `);
+    console.log('[Migration] Phase-95 (sync_price_floor on channel_sync_config) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

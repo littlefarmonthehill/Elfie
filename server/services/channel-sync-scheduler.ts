@@ -211,6 +211,8 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
           bulkQty:      cfgRow.syncBulkQty,
           lotWeight:    cfgRow.syncLotWeight,
           stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          syncItemTypes: (cfgRow.syncItemTypes as Record<string, boolean>) ?? {},
+          priceFloor:   cfgRow.syncPriceFloor ? parseFloat(String(cfgRow.syncPriceFloor)) : null,
         };
       } catch { /* use defaults */ }
     }

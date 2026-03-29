@@ -2559,6 +2559,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
   const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [syncItemTypes, setSyncItemTypes] = useState<Record<string, boolean>>({});
+  const [syncPriceFloor, setSyncPriceFloor] = useState<string>('');
   const [channelItemGroupsOpen, setChannelItemGroupsOpen] = useState(false);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
@@ -2829,6 +2830,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     syncBulkQty: boolean; syncLotWeight: boolean;
     syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>;
     syncItemTypes: Record<string, boolean>;
+    syncPriceFloor: number | null;
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
@@ -2848,10 +2850,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
     setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
     setSyncItemTypes(channelSyncFieldConfig.syncItemTypes ?? {});
+    const floor = channelSyncFieldConfig.syncPriceFloor;
+    setSyncPriceFloor(floor != null && Number(floor) > 0 ? String(floor) : '');
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean> }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -2860,6 +2864,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         toast({ title: 'Stockroom settings saved', description: 'BrickOwl will use these settings on the next sync.' });
       } else if ('syncItemTypes' in variables) {
         toast({ title: 'Item group settings saved', description: 'BrickOwl will use these settings on the next sync.' });
+      } else if ('syncPriceFloor' in variables) {
+        const v = variables.syncPriceFloor;
+        toast({ title: 'Price floor saved', description: v != null && v > 0 ? `Lots under $${v.toFixed(2)} will be excluded from the next sync.` : 'Price floor cleared — all lots will sync.' });
       }
     },
     onError: (err) => {
@@ -2873,6 +2880,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
         setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
         setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
+        const floor = channelSyncFieldConfig.syncPriceFloor;
+        setSyncPriceFloor(floor != null && Number(floor) > 0 ? String(floor) : '');
       }
       toast({
         title: 'Failed to save sync settings',
@@ -6251,6 +6260,48 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 );
                               })}
                             </div>
+                          </div>
+                          {/* Price Floor */}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Price Floor</p>
+                            <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                              Lots priced below this amount will be skipped on sync — and any existing BrickOwl listings for those lots will be deactivated. Leave blank to sync all lots regardless of price.
+                            </p>
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 px-3 py-2.5 flex items-center gap-2">
+                              <span className="text-xs text-gray-400 select-none">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="e.g. 0.05"
+                                value={syncPriceFloor}
+                                onChange={(e) => setSyncPriceFloor(e.target.value)}
+                                onBlur={() => {
+                                  const parsed = parseFloat(syncPriceFloor);
+                                  const floor = !syncPriceFloor || isNaN(parsed) || parsed <= 0 ? null : parsed;
+                                  updateSyncFieldMutation.mutate({ syncPriceFloor: floor });
+                                }}
+                                className="flex-1 bg-transparent text-xs text-gray-200 placeholder-gray-600 outline-none"
+                                data-testid="input-sync-price-floor"
+                              />
+                              {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
+                                <button
+                                  onClick={() => {
+                                    setSyncPriceFloor('');
+                                    updateSyncFieldMutation.mutate({ syncPriceFloor: null });
+                                  }}
+                                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                                  data-testid="button-clear-price-floor"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
+                              <p className="text-[10px] text-amber-400/80 mt-1.5">
+                                Lots under ${parseFloat(syncPriceFloor).toFixed(2)} will not be listed on BrickOwl.
+                              </p>
+                            )}
                           </div>
                         </div>
                       )}
