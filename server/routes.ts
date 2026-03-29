@@ -17243,6 +17243,76 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // ── Customer Feedback Tracking ────────────────────────────────────────────
+  // GET /api/orders/feedback-pending — orders that shipped but no feedback left yet
+  app.get("/api/orders/feedback-pending", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          marketplace: orders.marketplace,
+          customerUsername: orders.customerUsername,
+          orderStatus: orders.orderStatus,
+          shipDate: orders.shipDate,
+          orderDate: orders.orderDate,
+          orderTotal: orders.orderTotal,
+          feedbackLeftAt: orders.feedbackLeftAt,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.orgId, orgId),
+            eq(orders.isTest, false),
+            isNull(orders.feedbackLeftAt),
+            inArray(orders.orderStatus, ['Shipped', 'Completed']),
+          )
+        )
+        .orderBy(desc(orders.shipDate));
+      res.json(rows);
+    } catch (err: any) {
+      console.error("Error fetching feedback-pending orders:", err);
+      res.status(500).json({ error: "Failed to fetch feedback-pending orders" });
+    }
+  });
+
+  // POST /api/orders/:orderId/feedback-left — mark feedback as left
+  app.post("/api/orders/:orderId/feedback-left", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const [updated] = await db
+        .update(orders)
+        .set({ feedbackLeftAt: new Date() })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .returning({ id: orders.id, feedbackLeftAt: orders.feedbackLeftAt });
+      if (!updated) return res.status(404).json({ error: "Order not found" });
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Error marking feedback-left:", err);
+      res.status(500).json({ error: "Failed to mark feedback as left" });
+    }
+  });
+
+  // POST /api/orders/:orderId/feedback-undo — undo feedback mark
+  app.post("/api/orders/:orderId/feedback-undo", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const [updated] = await db
+        .update(orders)
+        .set({ feedbackLeftAt: null })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .returning({ id: orders.id });
+      if (!updated) return res.status(404).json({ error: "Order not found" });
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Error undoing feedback-left:", err);
+      res.status(500).json({ error: "Failed to undo feedback mark" });
+    }
+  });
+
   // Dry-Run Order Sync Tester - Test with historical orders
   app.post("/api/orders/dry-run-test", isApproved, async (req: any, res) => {
     try {

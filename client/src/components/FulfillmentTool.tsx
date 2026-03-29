@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight, Star, CheckCheck, RotateCcw } from "lucide-react";
 
 import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
@@ -244,7 +244,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 
 export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (orderId: string) => void } = {}) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
+  const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const drawerPanelRef = useRef<HTMLDivElement>(null);
@@ -539,6 +539,25 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     refetchInterval: 60000,
   });
   const allPicklistItems: PicklistBinItem[] = picklistBins.flatMap(b => b.items);
+
+  type FeedbackOrder = {
+    id: string; orderNumber: string; marketplace: string | null;
+    customerUsername: string | null; orderStatus: string;
+    shipDate: string | null; orderDate: string; orderTotal: string;
+    feedbackLeftAt: string | null;
+  };
+  const { data: feedbackPending = [], refetch: refetchFeedback } = useQuery<FeedbackOrder[]>({
+    queryKey: ['/api/orders/feedback-pending'],
+    staleTime: 0,
+  });
+  const markFeedbackMutation = useMutation({
+    mutationFn: (orderId: string) => apiRequest('POST', `/api/orders/${orderId}/feedback-left`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] }); },
+  });
+  const undoFeedbackMutation = useMutation({
+    mutationFn: (orderId: string) => apiRequest('POST', `/api/orders/${orderId}/feedback-undo`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] }); },
+  });
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
 
   // Orders that have at least one item with insufficient stock (race / oversell scenario)
@@ -1263,6 +1282,19 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
             Shipping
           </button>
           <button
+            onClick={() => setActiveTab('feedback')}
+            className={`tool-tab ${activeTab === 'feedback' ? 'border-teal-400 text-teal-300' : 'tool-tab-off'}`}
+            data-testid="tab-feedback"
+          >
+            <Star className="w-3.5 h-3.5" />
+            Feedback
+            {feedbackPending.length > 0 && (
+              <span className="ml-1 text-[9px] font-bold bg-teal-500/20 text-teal-300 rounded-full px-1.5 py-0.5 tabular-nums">
+                {feedbackPending.length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setDrawerOpen(true)}
             data-testid="button-open-orders-drawer"
             title="Open orders panel"
@@ -1371,6 +1403,90 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         <div className="mt-3">
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders} />
+        ) : activeTab === 'feedback' ? (
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-teal-400" />
+                <span className="text-sm font-bold text-teal-300">Customer Feedback</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500">
+                  {feedbackPending.length} order{feedbackPending.length !== 1 ? 's' : ''} need feedback
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => refetchFeedback()} className="text-gray-400 h-7 px-2">
+                  <RotateCcw className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+
+            {feedbackPending.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-12 text-center">
+                <CheckCheck className="w-8 h-8 text-teal-500/60" />
+                <p className="text-sm font-semibold text-teal-300">All caught up!</p>
+                <p className="text-xs text-gray-500">No shipped orders are missing feedback.</p>
+              </div>
+            ) : (
+              (() => {
+                const groups = new Map<string, typeof feedbackPending>();
+                for (const o of feedbackPending) {
+                  const key = o.marketplace ?? 'Unknown';
+                  if (!groups.has(key)) groups.set(key, []);
+                  groups.get(key)!.push(o);
+                }
+                return Array.from(groups.entries()).map(([marketplace, orders]) => (
+                  <div key={marketplace} className="app-card-muted rounded-lg overflow-hidden">
+                    {/* Marketplace header */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-teal-900/10">
+                      <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                      <span className="text-xs font-bold text-teal-300 uppercase tracking-wide">{marketplace}</span>
+                      <span className="ml-auto text-[10px] text-gray-500 tabular-nums">{orders.length}</span>
+                    </div>
+                    {/* Order rows */}
+                    <div className="divide-y divide-white/5">
+                      {orders.map(o => {
+                        const shipped = o.shipDate ? new Date(o.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+                        const total = o.orderTotal ? `$${parseFloat(o.orderTotal).toFixed(2)}` : '—';
+                        const isPending = markFeedbackMutation.isPending;
+                        return (
+                          <div key={o.id} className="flex items-center gap-2 px-3 py-2 hover-elevate" data-testid={`feedback-row-${o.id}`}>
+                            {/* Buyer */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold text-white truncate" data-testid={`text-buyer-${o.id}`}>
+                                  {o.customerUsername ?? 'Unknown Buyer'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-gray-500 font-mono">#{shortCode(o.orderNumber)}</span>
+                                <span className="text-[9px] text-gray-600">·</span>
+                                <span className="text-[10px] text-gray-500">Shipped {shipped}</span>
+                                <span className="text-[9px] text-gray-600">·</span>
+                                <span className="text-[10px] text-gray-400 font-mono tabular-nums">{total}</span>
+                              </div>
+                            </div>
+                            {/* Mark Done */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isPending}
+                              onClick={() => markFeedbackMutation.mutate(o.id)}
+                              className="text-teal-400 hover:text-teal-300 text-xs shrink-0 gap-1"
+                              data-testid={`button-feedback-done-${o.id}`}
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              Done
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()
+            )}
+          </div>
         ) : (
           <div className="space-y-4">
 

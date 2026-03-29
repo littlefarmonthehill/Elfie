@@ -343,6 +343,7 @@ export const orders = pgTable("orders", {
   workflowStatus: text("workflow_status").default('new').notNull(),
   mergeDetectedAt: timestamp("merge_detected_at"), // Legacy: was set when BO order merge detected. No longer actively written.
   mergeGroupId: varchar("merge_group_id"),           // Set on both the original and delta order when a BO merge spawns a new order
+  feedbackLeftAt: timestamp("feedback_left_at"),     // Set when seller manually confirms feedback was left on the channel
 }, (table) => ({
   orgIdIdx: index("orders_org_id_idx").on(table.orgId),
   orgIdDateIdx: index("orders_org_id_date_idx").on(table.orgId, table.orderDate),
