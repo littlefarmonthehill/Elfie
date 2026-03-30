@@ -1426,7 +1426,42 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
       </div>
       <div className="border-b border-border flex-shrink-0" />
 
-      {/* Flat set list */}
+      {/* Totals summary bar */}
+      {filtered.length > 0 && (() => {
+        const fmtT = (v: number) => v > 0 ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+        const tot = filtered.reduce((acc, set) => {
+          const lA = setMaxPrice(set, 'stockAvgPrice'); const lM = setMaxPrice(set, 'stockMaxPrice');
+          const sA = setMaxPrice(set, 'soldAvgPrice');  const sM = setMaxPrice(set, 'soldMaxPrice');
+          return {
+            lAvg: acc.lAvg + (lA > 0 ? lA : 0),
+            lMax: acc.lMax + (lM > 0 ? lM : 0),
+            sAvg: acc.sAvg + (sA > 0 ? sA : 0),
+            sMax: acc.sMax + (sM > 0 ? sM : 0),
+          };
+        }, { lAvg: 0, lMax: 0, sAvg: 0, sMax: 0 });
+        return (
+          <div className="px-4 py-2 border-b border-border bg-muted/10 flex-shrink-0">
+            <div className="text-[8px] text-muted-foreground/45 uppercase tracking-wider mb-1">
+              Totals · {filtered.length} set{filtered.length !== 1 ? 's' : ''}
+            </div>
+            <div className="grid text-[9px]" style={{ gridTemplateColumns: '2.8rem 1fr 1fr 1fr 1fr', columnGap: '4px' }}>
+              <span className="text-muted-foreground/40" />
+              <span className="text-muted-foreground/40 text-right">L.Avg</span>
+              <span className="text-muted-foreground/40 text-right">L.Max</span>
+              <span className="text-muted-foreground/40 text-right">S.Avg</span>
+              <span className="text-muted-foreground/40 text-right">S.Max</span>
+            </div>
+            <div className="grid text-[9px] font-mono" style={{ gridTemplateColumns: '2.8rem 1fr 1fr 1fr 1fr', columnGap: '4px' }}>
+              <span className="text-muted-foreground/50 text-[8px] self-center">All</span>
+              <span className="text-foreground/80 text-right tabular-nums">{fmtT(tot.lAvg)}</span>
+              <span className="text-foreground/55 text-right tabular-nums">{fmtT(tot.lMax)}</span>
+              <span className="text-foreground/80 text-right tabular-nums">{fmtT(tot.sAvg)}</span>
+              <span className="text-foreground/55 text-right tabular-nums">{fmtT(tot.sMax)}</span>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground/60 text-sm">
@@ -1493,27 +1528,25 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                     {Object.keys(priceByCondition).length > 0 && (
                       <div className="mt-1.5 text-[9px]">
                         {/* Column header — shown once above all condition rows */}
-                        <div className="grid mb-0.5" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem 3.2rem', columnGap: '2px' }}>
+                        <div className="grid mb-0.5" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem', columnGap: '2px' }}>
                           <span />
                           <span className="text-muted-foreground/40 text-right">L.Avg</span>
                           <span className="text-muted-foreground/40 text-right">L.Max</span>
                           <span className="text-muted-foreground/40 text-right">S.Avg</span>
                           <span className="text-muted-foreground/40 text-right">S.Max</span>
-                          <span className="text-[#00FFEE]/30 text-right">POM</span>
                         </div>
                         {/* One data row per condition */}
                         {Object.entries(priceByCondition).map(([cond, lot]) => {
-                          const hasAny = lot.stockAvgPrice || lot.soldAvgPrice || lot.suggestedPrice;
+                          const hasAny = lot.stockAvgPrice || lot.soldAvgPrice;
                           if (!hasAny) return null;
                           const condCls = cond === 'N' ? 'text-emerald-400' : 'text-amber-400';
                           return (
-                            <div key={cond} className="grid items-center" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem 3.2rem', columnGap: '2px', rowGap: '1px' }}>
+                            <div key={cond} className="grid items-center" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem', columnGap: '2px', rowGap: '1px' }}>
                               <span className={`font-semibold uppercase tracking-wide ${condCls}`}>{cond === 'N' ? 'New' : 'Used'}</span>
                               <span className="font-mono text-foreground/80 text-right tabular-nums">{fmt(lot.stockAvgPrice)}</span>
                               <span className="font-mono text-foreground/55 text-right tabular-nums">{fmt(lot.stockMaxPrice)}</span>
                               <span className="font-mono text-foreground/80 text-right tabular-nums">{fmt(lot.soldAvgPrice)}</span>
                               <span className="font-mono text-foreground/55 text-right tabular-nums">{fmt(lot.soldMaxPrice)}</span>
-                              <span className="font-mono text-[#00FFEE]/75 text-right tabular-nums">{fmt(lot.suggestedPrice)}</span>
                             </div>
                           );
                         })}
