@@ -1330,7 +1330,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
         await apiRequest('POST', '/api/priceomatic/fetch-pricing', {
           itemNo: l.itemNo,
           itemType: 'SET',
-          colorId: 0,
+          colorId: null,
           newOrUsed: l.newOrUsed,
         });
       } catch { /* ignore individual failures */ }

@@ -9760,7 +9760,7 @@ Format search_web URLs as markdown links.`;
         LEFT JOIN price_guide_cache pgc
           ON pgc.item_no = bi.item_no
           AND pgc.item_type = 'SET'
-          AND pgc.color_id = 0
+          AND pgc.color_id = -1
           AND pgc.new_or_used = bi.new_or_used
         WHERE bi.org_id = ${orgId}
           AND bi.item_type = 'SET'
