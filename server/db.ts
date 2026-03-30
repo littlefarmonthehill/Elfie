@@ -2370,6 +2370,16 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE bulk_lots ADD COLUMN IF NOT EXISTS bo_boid text`);
     console.log('[Migration] Phase-100 (bo_boid on bulk_lots) complete.');
 
+    // Phase-101: Add sale readiness fields to bl_inventory (primarily for sets).
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS has_instructions boolean`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS has_box boolean`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS pct_complete integer`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS completeness_notes text`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS missing_pieces integer`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS missing_lots integer`);
+    await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS sale_location varchar(5)`);
+    console.log('[Migration] Phase-101 (sale readiness fields on bl_inventory) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

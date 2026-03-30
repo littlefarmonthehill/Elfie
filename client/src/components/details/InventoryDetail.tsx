@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -146,6 +146,14 @@ interface InventoryDetailProps {
     myWeight?: string | null;
     updatedAt?: string | null;
     priceOMagic?: PriceOMagicData | null;
+    // Sale readiness fields
+    hasInstructions?: boolean | null;
+    hasBox?: boolean | null;
+    pctComplete?: number | null;
+    completenessNotes?: string | null;
+    missingPieces?: number | null;
+    missingLots?: number | null;
+    saleLocation?: string | null;
   };
   onBrickLinkClick?: (url: string) => void;
   onOpenSettings?: (section?: string) => void;
@@ -337,6 +345,32 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const lotFileInputRef = useRef<HTMLInputElement>(null);
   const itemTypeFileInputRef = useRef<HTMLInputElement>(null);
   const priceOMagic = data.priceOMagic;
+
+  // ── Sale Readiness ───────────────────────────────────────────────────────────
+  const [readiness, setReadiness] = useState({
+    hasInstructions: data.hasInstructions ?? null as boolean | null,
+    hasBox: data.hasBox ?? null as boolean | null,
+    pctComplete: data.pctComplete ?? null as number | null,
+    completenessNotes: data.completenessNotes ?? '' as string,
+    missingPieces: data.missingPieces ?? null as number | null,
+    missingLots: data.missingLots ?? null as number | null,
+    saleLocation: data.saleLocation ?? '' as string,
+  });
+  const [readinessSaved, setReadinessSaved] = useState(false);
+
+  const readinessMutation = useMutation({
+    mutationFn: (patch: Partial<typeof readiness>) =>
+      apiRequest('PATCH', `/api/inventory/${data.id}/readiness`, patch),
+    onSuccess: () => {
+      setReadinessSaved(true);
+      setTimeout(() => setReadinessSaved(false), 2000);
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory', data.id] });
+    },
+  });
+
+  function saveReadinessField(patch: Partial<typeof readiness>) {
+    readinessMutation.mutate(patch);
+  }
 
   // ── User Images ─────────────────────────────────────────────────────────────
   const imagesEnabled = !data.loading && !!data.id && !!data.itemNo && !!data.itemType;
@@ -1528,6 +1562,152 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
+            {/* Sale Readiness */}
+            <div className="app-card-muted p-2.5">
+              <div className="flex items-center gap-1.5 mb-3">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <p className="text-[10px] md:text-sm font-bold text-emerald-400 uppercase tracking-wide">Sale Readiness</p>
+                {readinessSaved && (
+                  <span className="ml-auto text-[9px] text-emerald-400 font-medium animate-pulse">Saved</span>
+                )}
+              </div>
+
+              {/* Y/N toggles row */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {/* Instructions */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Instructions</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        const v = readiness.hasInstructions === true ? null : true;
+                        setReadiness(r => ({ ...r, hasInstructions: v }));
+                        saveReadinessField({ hasInstructions: v });
+                      }}
+                      data-testid="btn-readiness-instructions-yes"
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${readiness.hasInstructions === true ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
+                    >Y</button>
+                    <button
+                      onClick={() => {
+                        const v = readiness.hasInstructions === false ? null : false;
+                        setReadiness(r => ({ ...r, hasInstructions: v }));
+                        saveReadinessField({ hasInstructions: v });
+                      }}
+                      data-testid="btn-readiness-instructions-no"
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${readiness.hasInstructions === false ? 'bg-rose-500/30 border-rose-500/60 text-rose-300' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
+                    >N</button>
+                  </div>
+                </div>
+
+                {/* Box */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Box</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        const v = readiness.hasBox === true ? null : true;
+                        setReadiness(r => ({ ...r, hasBox: v }));
+                        saveReadinessField({ hasBox: v });
+                      }}
+                      data-testid="btn-readiness-box-yes"
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${readiness.hasBox === true ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
+                    >Y</button>
+                    <button
+                      onClick={() => {
+                        const v = readiness.hasBox === false ? null : false;
+                        setReadiness(r => ({ ...r, hasBox: v }));
+                        saveReadinessField({ hasBox: v });
+                      }}
+                      data-testid="btn-readiness-box-no"
+                      className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${readiness.hasBox === false ? 'bg-rose-500/30 border-rose-500/60 text-rose-300' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
+                    >N</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Numeric + text fields */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                {/* Pct Complete */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">% Complete</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={readiness.pctComplete ?? ''}
+                    onChange={e => setReadiness(r => ({ ...r, pctComplete: e.target.value === '' ? null : Number(e.target.value) }))}
+                    onBlur={() => saveReadinessField({ pctComplete: readiness.pctComplete })}
+                    placeholder="0–100"
+                    data-testid="input-readiness-pct-complete"
+                    className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600"
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Location</span>
+                  <Input
+                    type="text"
+                    maxLength={5}
+                    value={readiness.saleLocation}
+                    onChange={e => setReadiness(r => ({ ...r, saleLocation: e.target.value.toUpperCase().slice(0, 5) }))}
+                    onBlur={() => saveReadinessField({ saleLocation: readiness.saleLocation || null })}
+                    placeholder="e.g. A1-B"
+                    data-testid="input-readiness-location"
+                    className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600 font-mono"
+                  />
+                </div>
+
+                {/* Missing Pieces */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Missing Pieces</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={readiness.missingPieces ?? ''}
+                    onChange={e => setReadiness(r => ({ ...r, missingPieces: e.target.value === '' ? null : Number(e.target.value) }))}
+                    onBlur={() => saveReadinessField({ missingPieces: readiness.missingPieces })}
+                    placeholder="0"
+                    data-testid="input-readiness-missing-pieces"
+                    className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600"
+                  />
+                </div>
+
+                {/* Missing Lots */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Missing Lots</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={readiness.missingLots ?? ''}
+                    onChange={e => setReadiness(r => ({ ...r, missingLots: e.target.value === '' ? null : Number(e.target.value) }))}
+                    onBlur={() => saveReadinessField({ missingLots: readiness.missingLots })}
+                    placeholder="0"
+                    data-testid="input-readiness-missing-lots"
+                    className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600"
+                  />
+                </div>
+              </div>
+
+              {/* Overview of Complete — full width */}
+              <div className="flex flex-col gap-1 mt-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Overview of Complete</span>
+                  <span className="text-[9px] text-gray-600">{readiness.completenessNotes.length}/50</span>
+                </div>
+                <Input
+                  type="text"
+                  maxLength={50}
+                  value={readiness.completenessNotes}
+                  onChange={e => setReadiness(r => ({ ...r, completenessNotes: e.target.value.slice(0, 50) }))}
+                  onBlur={() => saveReadinessField({ completenessNotes: readiness.completenessNotes || null })}
+                  placeholder="Brief description of completeness…"
+                  data-testid="input-readiness-completeness-notes"
+                  className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600"
+                />
+              </div>
+            </div>
+
             {/* Variants in Inventory */}
             {variants && variants.length > 0 && (
               <div className="app-card-muted p-2.5">

@@ -12548,6 +12548,14 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
           tierQuantity3: blInventory.tierQuantity3,
           myWeight: blInventory.myWeight,
           updatedAt: blInventory.updatedAt,
+          // Sale readiness fields
+          hasInstructions: blInventory.hasInstructions,
+          hasBox: blInventory.hasBox,
+          pctComplete: blInventory.pctComplete,
+          completenessNotes: blInventory.completenessNotes,
+          missingPieces: blInventory.missingPieces,
+          missingLots: blInventory.missingLots,
+          saleLocation: blInventory.saleLocation,
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
@@ -12563,6 +12571,48 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
     } catch (error) {
       console.error("Error fetching item by ID:", error);
       res.status(500).json({ error: "Failed to fetch item" });
+    }
+  });
+
+  // Update sale readiness fields for an inventory item
+  app.patch("/api/inventory/:id/readiness", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const itemId = parseInt(req.params.id);
+      if (isNaN(itemId)) return res.status(400).json({ error: "Invalid item ID" });
+
+      const {
+        hasInstructions,
+        hasBox,
+        pctComplete,
+        completenessNotes,
+        missingPieces,
+        missingLots,
+        saleLocation,
+      } = req.body;
+
+      const updates: Record<string, any> = {};
+      if (hasInstructions !== undefined) updates.hasInstructions = hasInstructions;
+      if (hasBox !== undefined) updates.hasBox = hasBox;
+      if (pctComplete !== undefined) updates.pctComplete = pctComplete === null ? null : Math.min(100, Math.max(0, Number(pctComplete)));
+      if (completenessNotes !== undefined) updates.completenessNotes = completenessNotes ? String(completenessNotes).slice(0, 50) : null;
+      if (missingPieces !== undefined) updates.missingPieces = missingPieces === null ? null : Number(missingPieces);
+      if (missingLots !== undefined) updates.missingLots = missingLots === null ? null : Number(missingLots);
+      if (saleLocation !== undefined) updates.saleLocation = saleLocation ? String(saleLocation).slice(0, 5).toUpperCase() : null;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      await db
+        .update(blInventory)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, itemId)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating sale readiness:", error);
+      res.status(500).json({ error: "Failed to update sale readiness" });
     }
   });
 

@@ -177,6 +177,14 @@ export const blInventory = pgTable("bl_inventory", {
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),               // Soft delete: set when item disappears from BL; cleared if it reappears
+  // Sale readiness fields (primarily for sets)
+  hasInstructions: boolean("has_instructions"),
+  hasBox: boolean("has_box"),
+  pctComplete: integer("pct_complete"),             // 0–100
+  completenessNotes: text("completeness_notes"),    // max 50 chars
+  missingPieces: integer("missing_pieces"),
+  missingLots: integer("missing_lots"),
+  saleLocation: varchar("sale_location", { length: 5 }),
 }, (table) => ({
   // Index for quantity-based filtering (general queries)
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),
