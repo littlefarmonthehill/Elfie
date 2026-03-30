@@ -1231,8 +1231,61 @@ function LotReadinessRow({ lot, onSaved, onItemClick }: { lot: SetLot; onSaved: 
   );
 }
 
+type SetSortKey =
+  | 'name'
+  | 'listed_avg_desc' | 'listed_max_desc'
+  | 'sold_avg_desc'   | 'sold_max_desc'
+  | 'pom_desc'
+  | 'ready_asc';
+
+const SET_SORT_OPTIONS: { value: SetSortKey; label: string }[] = [
+  { value: 'name',            label: 'Name A–Z'      },
+  { value: 'listed_avg_desc', label: 'Listed Avg ↓'  },
+  { value: 'listed_max_desc', label: 'Listed Max ↓'  },
+  { value: 'sold_avg_desc',   label: 'Sold Avg ↓'    },
+  { value: 'sold_max_desc',   label: 'Sold Max ↓'    },
+  { value: 'pom_desc',        label: 'POM ↓'         },
+  { value: 'ready_asc',       label: 'Readiness ↑'   },
+];
+
+function setMaxPrice(set: SetGroup, field: keyof SetLot): number {
+  let max = -Infinity;
+  for (const lot of set.lots) {
+    const v = lot[field];
+    if (v != null) {
+      const n = parseFloat(v as string);
+      if (!isNaN(n) && n > max) max = n;
+    }
+  }
+  return max === -Infinity ? -1 : max;
+}
+
+function setReadyFrac(set: SetGroup): number {
+  const total = set.lots.length;
+  if (total === 0) return 0;
+  const ready = set.lots.filter(l =>
+    l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null
+  ).length;
+  return ready / total;
+}
+
+function sortSets(sets: SetGroup[], key: SetSortKey): SetGroup[] {
+  const s = [...sets];
+  switch (key) {
+    case 'name':            return s.sort((a, b) => a.itemName.localeCompare(b.itemName));
+    case 'listed_avg_desc': return s.sort((a, b) => setMaxPrice(b, 'stockAvgPrice') - setMaxPrice(a, 'stockAvgPrice'));
+    case 'listed_max_desc': return s.sort((a, b) => setMaxPrice(b, 'stockMaxPrice') - setMaxPrice(a, 'stockMaxPrice'));
+    case 'sold_avg_desc':   return s.sort((a, b) => setMaxPrice(b, 'soldAvgPrice')  - setMaxPrice(a, 'soldAvgPrice'));
+    case 'sold_max_desc':   return s.sort((a, b) => setMaxPrice(b, 'soldMaxPrice')  - setMaxPrice(a, 'soldMaxPrice'));
+    case 'pom_desc':        return s.sort((a, b) => setMaxPrice(b, 'suggestedPrice') - setMaxPrice(a, 'suggestedPrice'));
+    case 'ready_asc':       return s.sort((a, b) => setReadyFrac(a) - setReadyFrac(b));
+    default: return s;
+  }
+}
+
 function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?: (id: number) => void }) {
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SetSortKey>('name');
   const [pomRunning, setPomRunning] = useState(false);
   const [pomProgress, setPomProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -1243,8 +1296,11 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
     refetchOnWindowFocus: false,
   });
 
-  const filtered = (sets ?? []).filter(s =>
-    !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
+  const filtered = sortSets(
+    (sets ?? []).filter(s =>
+      !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
+    ),
+    sortKey,
   );
 
   // Unpriced lots (for badge) and all lots (for full POM run)
@@ -1307,7 +1363,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
     <div className="flex flex-col min-h-0 flex-1">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
           <input
             type="text"
@@ -1318,6 +1374,17 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
             data-testid="input-sets-search"
           />
         </div>
+        {/* Sort control */}
+        <select
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value as SetSortKey)}
+          className="h-7 px-1.5 text-[10px] bg-muted/30 border border-border rounded text-foreground focus:outline-none focus:border-muted-foreground shrink-0"
+          data-testid="select-sets-sort"
+        >
+          {SET_SORT_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
         <button
           onClick={runPom}
