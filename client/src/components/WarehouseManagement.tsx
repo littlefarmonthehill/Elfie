@@ -201,8 +201,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Server-side search — fires when there's a debounced query, bypasses the pre-load limit
   const { data: serverSearchResults = [], isFetching: serverSearchLoading } = useQuery<any[]>({
     queryKey: ['/api/warehouse/inventory/search', debouncedSearch],
-    queryFn: async () => {
-      const res = await fetch(`/api/warehouse/inventory/search?q=${encodeURIComponent(debouncedSearch)}`);
+    queryFn: async ({ queryKey }) => {
+      const q = queryKey[1] as string;
+      const res = await fetch(`/api/warehouse/inventory/search?q=${encodeURIComponent(q)}`);
       if (!res.ok) throw new Error('Search failed');
       return res.json();
     },
