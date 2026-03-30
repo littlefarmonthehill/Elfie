@@ -1244,7 +1244,6 @@ const SET_SORT_OPTIONS: { value: SetSortKey; label: string; chip: string }[] = [
   { value: 'listed_max_desc', label: 'Listed Max ↓', chip: 'L.Max ↓' },
   { value: 'sold_avg_desc',   label: 'Sold Avg ↓',   chip: 'S.Avg ↓' },
   { value: 'sold_max_desc',   label: 'Sold Max ↓',   chip: 'S.Max ↓' },
-  { value: 'pom_desc',        label: 'POM ↓',        chip: 'POM ↓'   },
   { value: 'ready_asc',       label: 'Readiness ↑',  chip: 'Ready ↑' },
 ];
 
