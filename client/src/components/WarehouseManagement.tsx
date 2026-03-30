@@ -1215,13 +1215,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   )}
                 </>
               )}
-              {activeView === 'lots' && unassignedInventory.length > 0 && (
-                <Button size="sm" variant="outline" onClick={() => setFillBinDialogOpen(true)}
-                  className="text-[10px] md:text-xs" data-testid="button-fill-bin">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Fill a Bin
-                </Button>
-              )}
               {activeView === 'bins' && (
                 <Button size="sm" variant="outline" onClick={() => setBulkDialogOpen(true)}
                   className="text-[10px] md:text-xs" data-testid="button-bulk-create-bins">
@@ -1248,22 +1241,37 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </div>
           </div>
 
-          {/* Bulk assignment bar */}
-          {selectedItems.size > 0 && (
+          {/* Persistent bin selector for lots view */}
+          {activeView === 'lots' && bins.length > 0 && (
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <Select value={bulkBinId} onValueChange={setBulkBinId}>
+                <SelectTrigger className="h-8 text-xs flex-1 min-w-[140px]" data-testid="select-assign-bin">
+                  <SelectValue placeholder="Select a bin…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bins.map((b: any) => (
+                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedItems.size > 0 && (
+                <>
+                  <span className="text-xs text-muted-foreground shrink-0">{selectedItems.size} selected</span>
+                  <Button size="sm" onClick={handleBulkAssign} disabled={!bulkBinId} data-testid="button-assign-lots">
+                    Assign
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())} data-testid="button-clear-selection">
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Bulk assignment bar (bins / shelves / aisles) */}
+          {selectedItems.size > 0 && activeView !== 'lots' && (
             <div className="flex items-center gap-2 mb-3 p-2 bg-muted/30 rounded-md flex-wrap">
               <span className="text-xs font-medium">{selectedItems.size} selected</span>
-              {activeView === 'lots' && (
-                <Select value={bulkBinId} onValueChange={setBulkBinId}>
-                  <SelectTrigger className="h-7 text-xs flex-1 min-w-[120px]">
-                    <SelectValue placeholder="Assign to bin…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bins.map((b: any) => (
-                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
               {activeView === 'bins' && depth >= 2 && (
                 <Select value={bulkShelfId} onValueChange={setBulkShelfId}>
                   <SelectTrigger className="h-7 text-xs flex-1 min-w-[120px]">
@@ -1290,7 +1298,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </SelectContent>
                 </Select>
               )}
-              {activeView === 'lots' && <Button size="sm" onClick={handleBulkAssign} className="text-xs h-7">Assign</Button>}
               {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
                 <>
                   <Button
