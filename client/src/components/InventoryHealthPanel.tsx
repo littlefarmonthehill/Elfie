@@ -1439,7 +1439,12 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
               const fmt = (v: string | null) => v ? `$${parseFloat(v).toFixed(2)}` : '—';
 
               return (
-                <div key={set.itemNo} className="flex items-start gap-3 px-4 py-2.5" data-testid={`set-row-${set.itemNo}`}>
+                <button
+                  key={set.itemNo}
+                  onClick={() => set.lots[0] && onItemClick?.(set.lots[0].id)}
+                  className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover-elevate"
+                  data-testid={`set-row-${set.itemNo}`}
+                >
                   {/* Thumbnail */}
                   <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden mt-0.5">
                     {set.thumbnailUrl ? (
@@ -1457,11 +1462,11 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                       {set.yearReleased && <span className="text-[10px] text-muted-foreground/50">·</span>}
                       {set.yearReleased && <span className="text-[10px] text-muted-foreground/60">{set.yearReleased}</span>}
                       <span className="text-[10px] text-muted-foreground/50">·</span>
-                      {/* Lot ID chips — clickable */}
-                      {set.lots.map(lot => (
+                      {/* Lot ID chips — clickable; only relevant when set has multiple lots */}
+                      {set.lots.length > 1 && set.lots.map(lot => (
                         <button
                           key={lot.id}
-                          onClick={() => onItemClick?.(lot.id)}
+                          onClick={(e) => { e.stopPropagation(); onItemClick?.(lot.id); }}
                           className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
                             lot.newOrUsed === 'N'
                               ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40'
@@ -1522,7 +1527,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                       {readyLots}/{totalLots}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
