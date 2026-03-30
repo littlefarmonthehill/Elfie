@@ -1042,6 +1042,7 @@ function DiscrepancyAreaButton({ area, onSelectArea }: { area: DiscrepancyArea; 
 
 interface ScopeData {
   totalLots: number;
+  activeTotalLots: number;
   inScopeLots: number;
   softDeletedLots: number;
   skipLots: number;
@@ -1049,8 +1050,13 @@ interface ScopeData {
   activeLots: number;
   mainStoreLots: number;
   zeroQtyInScope: number;
+  itemTypeExcludedLots: number;
+  priceFloorExcludedLots: number;
+  priceFloor: number | null;
+  excludedItemTypes: string[];
   stockroomModes: Record<string, string>;
   stockroomBreakdown: Array<{ id: string; mode: string; lots: number; zeroQtyLots: number }>;
+  exclusions: Array<{ reason: string; count: number }>;
 }
 
 function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
@@ -1081,8 +1087,6 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
 
   if (!scope) return null;
 
-  const skipRows = scope.stockroomBreakdown.filter(r => r.mode === 'skip');
-
   return (
     <div className="rounded-md border border-gray-700/50 bg-gray-800/20 p-3 space-y-3" data-testid="panel-sync-scope">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Sync Scope</p>
@@ -1096,29 +1100,41 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
             <p className="text-[10px] text-gray-400">lots in scope</p>
           </div>
           <div className="space-y-1">
+            {/* Base: total BL lots */}
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] text-gray-500">Main store</span>
+              <span className="text-[10px] text-gray-500">BL total</span>
               <span className="text-[10px] font-mono text-gray-300">{scope.totalLots.toLocaleString()}</span>
             </div>
+            {/* Negative contributors — each reduces the total toward in-scope */}
             {scope.softDeletedLots > 0 && (
               <div className="flex items-center justify-between gap-1">
                 <span className="text-[10px] text-gray-600">Soft-deleted</span>
                 <span className="text-[10px] font-mono text-gray-600">−{scope.softDeletedLots.toLocaleString()}</span>
               </div>
             )}
-            {skipRows.map(r => (
+            {scope.stockroomBreakdown.filter(r => r.mode === 'skip').map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
                 <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
                 <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
               </div>
             ))}
+            {scope.itemTypeExcludedLots > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-gray-600">Item type excluded</span>
+                <span className="text-[10px] font-mono text-gray-600">−{scope.itemTypeExcludedLots.toLocaleString()}</span>
+              </div>
+            )}
+            {scope.priceFloorExcludedLots > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-gray-600">Below price floor</span>
+                <span className="text-[10px] font-mono text-gray-600">−{scope.priceFloorExcludedLots.toLocaleString()}</span>
+              </div>
+            )}
+            {/* Zero-qty — informational, plain line, no warning styling */}
             {scope.zeroQtyInScope > 0 && (
               <div className="flex items-center justify-between gap-1 pt-0.5 border-t border-gray-700/40">
-                <span className="flex items-center gap-1 text-[10px] text-amber-500/80">
-                  <AlertTriangle className="w-2.5 h-2.5" />
-                  Zero-qty in scope
-                </span>
-                <span className="text-[10px] font-mono text-amber-500/80">{scope.zeroQtyInScope.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-500">Zero-qty in scope</span>
+                <span className="text-[10px] font-mono text-gray-400">{scope.zeroQtyInScope.toLocaleString()}</span>
               </div>
             )}
           </div>
