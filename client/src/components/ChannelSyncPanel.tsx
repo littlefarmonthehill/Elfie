@@ -1105,19 +1105,30 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
               <span className="text-[10px] text-gray-500">BL total</span>
               <span className="text-[10px] font-mono text-gray-300">{scope.totalLots.toLocaleString()}</span>
             </div>
-            {/* Negative contributors — each reduces the total toward in-scope */}
+            {/* Soft-deleted — always a deduction */}
             {scope.softDeletedLots > 0 && (
               <div className="flex items-center justify-between gap-1">
                 <span className="text-[10px] text-gray-600">Soft-deleted</span>
                 <span className="text-[10px] font-mono text-gray-600">−{scope.softDeletedLots.toLocaleString()}</span>
               </div>
             )}
-            {scope.stockroomBreakdown.filter(r => r.mode === 'skip').map(r => (
+            {/* All stockrooms — skip = deduction, others = included */}
+            {scope.stockroomBreakdown.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
-                <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
+                {r.mode === 'skip' ? (
+                  <>
+                    <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
+                    <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] text-gray-500">Stockroom {r.id} ({r.mode})</span>
+                    <span className="text-[10px] font-mono text-gray-400">{r.lots.toLocaleString()}</span>
+                  </>
+                )}
               </div>
             ))}
+            {/* Config-based deductions */}
             {scope.itemTypeExcludedLots > 0 && (
               <div className="flex items-center justify-between gap-1">
                 <span className="text-[10px] text-gray-600">Item type excluded</span>
