@@ -1121,6 +1121,13 @@ function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void })
         {saved && <span className="ml-auto text-[9px] text-emerald-400 animate-pulse">Saved</span>}
       </div>
 
+      {/* BL Description */}
+      {lot.description && (
+        <p className="text-[10px] text-gray-400 leading-snug px-0.5 border-l-2 border-white/10 pl-2">
+          {lot.description}
+        </p>
+      )}
+
       {/* Row 1: Instructions + Box Y/N */}
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
@@ -1139,32 +1146,18 @@ function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void })
         </div>
       </div>
 
-      {/* Row 2: % Complete + Location */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">% Complete</span>
-          <input
-            type="number" min={0} max={100}
-            value={r.pctComplete ?? ''}
-            onChange={e => setR(p => ({ ...p, pctComplete: e.target.value === '' ? null : Number(e.target.value) }))}
-            onBlur={() => save({ pctComplete: r.pctComplete })}
-            placeholder="0–100"
-            className={inputCls}
-            data-testid={`input-pct-${lot.id}`}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Location</span>
-          <input
-            type="text" maxLength={5}
-            value={r.saleLocation}
-            onChange={e => setR(p => ({ ...p, saleLocation: e.target.value.toUpperCase().slice(0, 5) }))}
-            onBlur={() => save({ saleLocation: r.saleLocation || null })}
-            placeholder="e.g. A1"
-            className={`${inputCls} font-mono`}
-            data-testid={`input-loc-${lot.id}`}
-          />
-        </div>
+      {/* Row 2: % Complete */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">% Complete</span>
+        <input
+          type="number" min={0} max={100}
+          value={r.pctComplete ?? ''}
+          onChange={e => setR(p => ({ ...p, pctComplete: e.target.value === '' ? null : Number(e.target.value) }))}
+          onBlur={() => save({ pctComplete: r.pctComplete })}
+          placeholder="0–100"
+          className={inputCls}
+          data-testid={`input-pct-${lot.id}`}
+        />
       </div>
 
       {/* Row 3: Missing Pieces + Missing Lots */}
@@ -1247,7 +1240,6 @@ function SetsReadinessView({ open }: { open: boolean }) {
       lot.hasInstructions === true,
       lot.hasBox === true,
       lot.pctComplete !== null,
-      !!lot.saleLocation,
     ];
     const done = checks.filter(Boolean).length;
     const pct = Math.round(done / checks.length * 100);
@@ -1308,7 +1300,7 @@ function SetsReadinessView({ open }: { open: boolean }) {
               const isOpen = expanded.has(set.itemNo);
               const totalLots = set.lots.length;
               const readyLots = set.lots.filter(l =>
-                l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null && !!l.saleLocation
+                l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null
               ).length;
 
               return (
