@@ -1505,8 +1505,8 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                       {set.yearReleased && <span className="text-[10px] text-muted-foreground/50">·</span>}
                       {set.yearReleased && <span className="text-[10px] text-muted-foreground/60">{set.yearReleased}</span>}
                       <span className="text-[10px] text-muted-foreground/50">·</span>
-                      {/* Lot ID chips — clickable; only relevant when set has multiple lots */}
-                      {set.lots.length > 1 && set.lots.map(lot => (
+                      {/* Lot condition chips — always shown; colour = N (green) / U (amber) */}
+                      {set.lots.map(lot => (
                         <button
                           key={lot.id}
                           onClick={(e) => { e.stopPropagation(); onItemClick?.(lot.id); }}
@@ -1518,7 +1518,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                           data-testid={`btn-lot-chip-${lot.id}`}
                           title={`${lot.newOrUsed === 'N' ? 'New' : 'Used'} · Qty ${lot.quantity}${lot.unitPrice ? ` · $${parseFloat(lot.unitPrice).toFixed(2)}` : ''}`}
                         >
-                          #{lot.id}
+                          {lot.newOrUsed === 'N' ? 'New' : 'Used'}
                         </button>
                       ))}
                     </div>
