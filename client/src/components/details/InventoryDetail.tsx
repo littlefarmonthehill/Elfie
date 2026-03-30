@@ -886,143 +886,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               )}
             </div>
 
-            {/* Warehouse Location */}
-            <div className="app-card-muted p-2.5">
-              <div className="flex items-center justify-between gap-1.5 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-blue-400" />
-                  <p className="text-[10px] md:text-sm font-bold text-blue-400">WAREHOUSE LOCATION</p>
-                  {warehouseLocation && warehouseLocation.length > 1 && (
-                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
-                      {warehouseLocation.length} bins
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-                  onClick={() => { setShowBinPicker(v => !v); setBinSearch(''); }}
-                  data-testid="button-assign-bin-toggle"
-                  title="Assign to a bin"
-                >
-                  {showBinPicker ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                  {showBinPicker ? 'Cancel' : 'Assign'}
-                </button>
-              </div>
-
-              {/* Inline bin picker */}
-              {showBinPicker && (
-                <div className="mb-2 space-y-1.5">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Search bins…"
-                      value={binSearch}
-                      onChange={e => setBinSearch(e.target.value)}
-                      className="w-full pl-6 pr-2 py-1.5 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
-                      data-testid="input-bin-search"
-                    />
-                  </div>
-                  {!allBins ? (
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 py-1">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Loading bins…
-                    </div>
-                  ) : filteredBins.length === 0 ? (
-                    <p className="text-[10px] text-gray-500 italic py-1">No bins found</p>
-                  ) : (
-                    <div className="max-h-40 overflow-y-auto space-y-0.5 rounded border border-white/10 bg-black/20">
-                      {filteredBins.map((b: any) => {
-                        const alreadyAssigned = assignedBinIds.has(b.id);
-                        const label = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' › ');
-                        return (
-                          <button
-                            key={b.id}
-                            disabled={alreadyAssigned || assignBinMutation.isPending}
-                            onClick={() => assignBinMutation.mutate(b.id)}
-                            className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-between gap-2"
-                            data-testid={`button-assign-bin-${b.id}`}
-                          >
-                            <span className="text-white truncate">{label}</span>
-                            {alreadyAssigned && (
-                              <span className="text-[9px] text-green-400 shrink-0">assigned</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {warehouseLocation && warehouseLocation.length > 0 ? (
-                <div className="space-y-2">
-                  {warehouseLocation.map((loc: any, idx: number) => (
-                    <div key={loc.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        {warehouseLocation.length > 1 && (
-                          <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider">Location {idx + 1}</p>
-                        )}
-                        <button
-                          className="ml-auto text-[9px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                          disabled={removeLocationMutation.isPending}
-                          onClick={() => removeLocationMutation.mutate(loc.id)}
-                          data-testid={`button-remove-location-${loc.id}`}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
-                            {loc.aisleName || '—'}
-                          </p>
-                        </div>
-                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid={`card-shelf-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-shelf-${idx}`}>
-                            {loc.shelfName || '—'}
-                          </p>
-                        </div>
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
-                            {loc.binName || '—'}
-                          </p>
-                        </div>
-                      </div>
-                      {(loc.bagLabel || loc.quantity != null) && (
-                        <div className="flex gap-1.5">
-                          {loc.bagLabel && (
-                            <div className="flex-1 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid={`card-bag-${idx}`}>
-                              <p className="text-[9px] text-blue-400 font-bold mb-0.5">BAG</p>
-                              <p className="text-xs font-semibold text-white">{loc.bagLabel}</p>
-                            </div>
-                          )}
-                          {loc.quantity != null && (
-                            <div className="flex-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 text-center" data-testid={`card-qty-${idx}`}>
-                              <p className="text-[9px] text-yellow-400 font-bold mb-0.5">QTY IN BIN</p>
-                              <p className="text-xs font-semibold text-white">{loc.quantity}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {idx < warehouseLocation.length - 1 && (
-                        <div className="border-t border-white/5 mt-1" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                !showBinPicker && (
-                  <p className="text-[10px] md:text-sm text-gray-400 italic">
-                    Not assigned to a warehouse location
-                  </p>
-                )
-              )}
-            </div>
-
             {/* When First Available & Physical Details */}
             {priceOMagic && (priceOMagic.yearReleased || priceOMagic.weight || priceOMagic.dimensionX) && (
               <div className="app-card-muted p-2.5">
@@ -1719,6 +1582,143 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
+            {/* Warehouse Location */}
+            <div className="app-card-muted p-2.5">
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                  <p className="text-[10px] md:text-sm font-bold text-blue-400">WAREHOUSE LOCATION</p>
+                  {warehouseLocation && warehouseLocation.length > 1 && (
+                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
+                      {warehouseLocation.length} bins
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                  onClick={() => { setShowBinPicker(v => !v); setBinSearch(''); }}
+                  data-testid="button-assign-bin-toggle"
+                  title="Assign to a bin"
+                >
+                  {showBinPicker ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                  {showBinPicker ? 'Cancel' : 'Assign'}
+                </button>
+              </div>
+
+              {/* Inline bin picker */}
+              {showBinPicker && (
+                <div className="mb-2 space-y-1.5">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Search bins…"
+                      value={binSearch}
+                      onChange={e => setBinSearch(e.target.value)}
+                      className="w-full pl-6 pr-2 py-1.5 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                      data-testid="input-bin-search"
+                    />
+                  </div>
+                  {!allBins ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 py-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading bins…
+                    </div>
+                  ) : filteredBins.length === 0 ? (
+                    <p className="text-[10px] text-gray-500 italic py-1">No bins found</p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto space-y-0.5 rounded border border-white/10 bg-black/20">
+                      {filteredBins.map((b: any) => {
+                        const alreadyAssigned = assignedBinIds.has(b.id);
+                        const label = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' › ');
+                        return (
+                          <button
+                            key={b.id}
+                            disabled={alreadyAssigned || assignBinMutation.isPending}
+                            onClick={() => assignBinMutation.mutate(b.id)}
+                            className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-between gap-2"
+                            data-testid={`button-assign-bin-${b.id}`}
+                          >
+                            <span className="text-white truncate">{label}</span>
+                            {alreadyAssigned && (
+                              <span className="text-[9px] text-green-400 shrink-0">assigned</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {warehouseLocation && warehouseLocation.length > 0 ? (
+                <div className="space-y-2">
+                  {warehouseLocation.map((loc: any, idx: number) => (
+                    <div key={loc.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        {warehouseLocation.length > 1 && (
+                          <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider">Location {idx + 1}</p>
+                        )}
+                        <button
+                          className="ml-auto text-[9px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                          disabled={removeLocationMutation.isPending}
+                          onClick={() => removeLocationMutation.mutate(loc.id)}
+                          data-testid={`button-remove-location-${loc.id}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
+                            {loc.aisleName || '—'}
+                          </p>
+                        </div>
+                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid={`card-shelf-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-shelf-${idx}`}>
+                            {loc.shelfName || '—'}
+                          </p>
+                        </div>
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
+                            {loc.binName || '—'}
+                          </p>
+                        </div>
+                      </div>
+                      {(loc.bagLabel || loc.quantity != null) && (
+                        <div className="flex gap-1.5">
+                          {loc.bagLabel && (
+                            <div className="flex-1 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid={`card-bag-${idx}`}>
+                              <p className="text-[9px] text-blue-400 font-bold mb-0.5">BAG</p>
+                              <p className="text-xs font-semibold text-white">{loc.bagLabel}</p>
+                            </div>
+                          )}
+                          {loc.quantity != null && (
+                            <div className="flex-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 text-center" data-testid={`card-qty-${idx}`}>
+                              <p className="text-[9px] text-yellow-400 font-bold mb-0.5">QTY IN BIN</p>
+                              <p className="text-xs font-semibold text-white">{loc.quantity}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {idx < warehouseLocation.length - 1 && (
+                        <div className="border-t border-white/5 mt-1" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !showBinPicker && (
+                  <p className="text-[10px] md:text-sm text-gray-400 italic">
+                    Not assigned to a warehouse location
+                  </p>
+                )
+              )}
+            </div>
+
             {/* Sale Readiness */}
             <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-3">
