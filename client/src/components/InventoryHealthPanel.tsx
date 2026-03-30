@@ -1222,7 +1222,6 @@ function LotReadinessRow({ lot, onSaved, onItemClick }: { lot: SetLot; onSaved: 
 }
 
 function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?: (id: number) => void }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [pomRunning, setPomRunning] = useState(false);
   const [pomProgress, setPomProgress] = useState<{ done: number; total: number } | null>(null);
@@ -1274,30 +1273,6 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
     }));
     setPomRunning(false);
     setTimeout(() => { setPomProgress(null); refetch(); }, 1200);
-  }
-
-  function toggleExpand(itemNo: string) {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(itemNo)) next.delete(itemNo); else next.add(itemNo);
-      return next;
-    });
-  }
-
-  function expandAll() { setExpanded(new Set((sets ?? []).map(s => s.itemNo))); }
-  function collapseAll() { setExpanded(new Set()); }
-
-  // Readiness badge helper
-  function readinessBadge(lot: SetLot) {
-    const checks = [
-      lot.hasInstructions === true,
-      lot.hasBox === true,
-      lot.pctComplete !== null,
-    ];
-    const done = checks.filter(Boolean).length;
-    const pct = Math.round(done / checks.length * 100);
-    const color = pct === 100 ? 'text-emerald-400' : pct >= 50 ? 'text-amber-400' : 'text-rose-400';
-    return <span className={`text-[9px] font-mono font-semibold ${color}`}>{pct}%</span>;
   }
 
   if (isLoading) {
@@ -1360,14 +1335,12 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
         {pomProgress && !pomRunning && (
           <span className="text-[10px] text-emerald-400 whitespace-nowrap">Done</span>
         )}
-        <button onClick={expandAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↓</button>
-        <button onClick={collapseAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↑</button>
         <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-sets-refresh">
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Set groups */}
+      {/* Flat set list */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground/60 text-sm">
@@ -1376,64 +1349,56 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
         ) : (
           <div className="divide-y divide-border/50">
             {filtered.map(set => {
-              const isOpen = expanded.has(set.itemNo);
               const totalLots = set.lots.length;
               const readyLots = set.lots.filter(l =>
                 l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null
               ).length;
 
               return (
-                <div key={set.itemNo} data-testid={`set-group-${set.itemNo}`}>
-                  {/* Set header row */}
-                  <button
-                    onClick={() => toggleExpand(set.itemNo)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover-elevate text-left"
-                    data-testid={`btn-set-expand-${set.itemNo}`}
-                  >
-                    {/* Thumbnail */}
-                    <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden">
-                      {set.thumbnailUrl ? (
-                        <img src={set.thumbnailUrl} alt={set.itemName} className="w-full h-full object-contain" />
-                      ) : (
-                        <Package className="w-4 h-4 text-muted-foreground/40" />
-                      )}
-                    </div>
+                <div key={set.itemNo} className="flex items-center gap-3 px-4 py-2.5" data-testid={`set-row-${set.itemNo}`}>
+                  {/* Thumbnail */}
+                  <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden">
+                    {set.thumbnailUrl ? (
+                      <img src={set.thumbnailUrl} alt={set.itemName} className="w-full h-full object-contain" />
+                    ) : (
+                      <Package className="w-4 h-4 text-muted-foreground/40" />
+                    )}
+                  </div>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-foreground truncate">{set.itemName}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono text-muted-foreground">{set.itemNo}</span>
-                        {set.yearReleased && <span className="text-[10px] text-muted-foreground/60">{set.yearReleased}</span>}
-                        <span className="text-[10px] text-muted-foreground">{totalLots} lot{totalLots !== 1 ? 's' : ''}</span>
-                      </div>
-                    </div>
-
-                    {/* Readiness summary */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <div className="text-[9px] text-muted-foreground">Ready</div>
-                        <div className={`text-[10px] font-mono font-semibold ${readyLots === totalLots ? 'text-emerald-400' : readyLots > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                          {readyLots}/{totalLots}
-                        </div>
-                      </div>
-                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`} />
-                    </div>
-                  </button>
-
-                  {/* Expanded lots */}
-                  {isOpen && (
-                    <div className="px-4 pb-3 space-y-2">
+                  {/* Info + lot chips */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-foreground truncate">{set.itemName}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-muted-foreground">{set.itemNo}</span>
+                      {set.yearReleased && <span className="text-[10px] text-muted-foreground/50">·</span>}
+                      {set.yearReleased && <span className="text-[10px] text-muted-foreground/60">{set.yearReleased}</span>}
+                      <span className="text-[10px] text-muted-foreground/50">·</span>
+                      {/* Lot ID chips — clickable */}
                       {set.lots.map(lot => (
-                        <LotReadinessRow
+                        <button
                           key={lot.id}
-                          lot={lot}
-                          onSaved={() => {}}
-                          onItemClick={onItemClick}
-                        />
+                          onClick={() => onItemClick?.(lot.id)}
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
+                            lot.newOrUsed === 'N'
+                              ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40'
+                              : 'border-amber-500/40 text-amber-400 bg-amber-950/30 hover:bg-amber-900/40'
+                          }`}
+                          data-testid={`btn-lot-chip-${lot.id}`}
+                          title={`${lot.newOrUsed === 'N' ? 'New' : 'Used'} · Qty ${lot.quantity}${lot.unitPrice ? ` · $${parseFloat(lot.unitPrice).toFixed(2)}` : ''}`}
+                        >
+                          #{lot.id}
+                        </button>
                       ))}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Readiness score */}
+                  <div className="text-right shrink-0">
+                    <div className="text-[9px] text-muted-foreground">Ready</div>
+                    <div className={`text-[10px] font-mono font-semibold ${readyLots === totalLots ? 'text-emerald-400' : readyLots > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                      {readyLots}/{totalLots}
+                    </div>
+                  </div>
                 </div>
               );
             })}
