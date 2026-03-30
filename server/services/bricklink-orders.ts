@@ -299,3 +299,44 @@ export async function updateBrickLinkOrderShipped(
 
   console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
 }
+
+// Mark a BrickLink order as COMPLETED via the BL API
+export async function updateBrickLinkOrderToCompleted(
+  blOrderNumber: string,
+  consumerKey: string,
+  consumerSecret: string,
+  tokenValue: string,
+  tokenSecret: string,
+): Promise<void> {
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function: getOAuthSignature().hash_function,
+  });
+
+  const token = {
+    key: cleanToken(tokenValue),
+    secret: cleanToken(tokenSecret),
+  };
+
+  const statusUrl = `${BRICKLINK_API_BASE}/orders/${blOrderNumber}/status`;
+  const statusData = { field: 'status', value: 'COMPLETED' };
+  const statusRequest = { url: statusUrl, method: 'PUT', body: statusData };
+  const authHeader = oauth.toHeader(oauth.authorize(statusRequest, token));
+
+  const response = await fetch(statusUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': authHeader.Authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(statusData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`BrickLink mark COMPLETED error: ${response.status} ${errorText}`);
+  }
+
+  console.log(`✅ BrickLink order ${blOrderNumber} marked COMPLETED`);
+}

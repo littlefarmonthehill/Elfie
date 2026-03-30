@@ -18228,9 +18228,15 @@ Write a 1–2 sentence feedback comment for this order.`;
       const { orderId } = req.params;
       const { rating, comment } = req.body as { rating?: string; comment?: string };
 
-      // Fetch the order to get marketplace + channel order number
+      // Fetch the order to get marketplace + channel order number + customer info
       const [order] = await db
-        .select({ marketplace: orders.marketplace, orderNumber: orders.orderNumber })
+        .select({
+          marketplace: orders.marketplace,
+          orderNumber: orders.orderNumber,
+          customerEmail: orders.customerEmail,
+          customerUsername: orders.customerUsername,
+          orderTotal: orders.orderTotal,
+        })
         .from(orders)
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
         .limit(1);
@@ -18252,8 +18258,52 @@ Write a 1–2 sentence feedback comment for this order.`;
             }
           }
         } catch (adapterErr: any) {
-          // Log but don't block — we still mark as done locally
           console.warn(`[Feedback] Adapter error for marketplace "${order.marketplace}":`, adapterErr.message);
+        }
+      }
+
+      // BrickLink drive-through: mark COMPLETED on BL + send thank-you email (best-effort)
+      if (order.marketplace === 'BrickLink' && order.orderNumber) {
+        // 1. Update BrickLink order status to COMPLETED
+        try {
+          const settings = await getOrgSettings(orgId);
+          if (settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret &&
+              settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret) {
+            const { updateBrickLinkOrderToCompleted } = await import('./services/bricklink-orders.js');
+            await updateBrickLinkOrderToCompleted(
+              order.orderNumber,
+              settings.bricklinkConsumerKey,
+              settings.bricklinkConsumerSecret,
+              settings.bricklinkTokenValue,
+              settings.bricklinkTokenSecret,
+            );
+          }
+        } catch (blErr: any) {
+          console.warn(`[Feedback] BL COMPLETED update failed for order ${orderId}:`, blErr.message);
+        }
+
+        // 2. Update local DB status to completed
+        try {
+          await db.update(orders)
+            .set({ orderStatus: 'completed' })
+            .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+        } catch (dbErr: any) {
+          console.warn(`[Feedback] Local status update failed for order ${orderId}:`, dbErr.message);
+        }
+
+        // 3. Send thank-you email if buyer email is available
+        if (order.customerEmail) {
+          try {
+            const { sendFeedbackFollowupEmail } = await import('./email.js');
+            await sendFeedbackFollowupEmail(
+              order.customerEmail,
+              order.customerUsername ?? 'Valued Customer',
+              'BrickLink',
+              order.orderTotal,
+            );
+          } catch (emailErr: any) {
+            console.warn(`[Feedback] Thank-you email failed for order ${orderId}:`, emailErr.message);
+          }
         }
       }
 

@@ -52,6 +52,48 @@ export async function sendPasswordResetEmail(
   }
 }
 
+export async function sendFeedbackFollowupEmail(
+  to: string,
+  buyerUsername: string,
+  marketplace: string,
+  orderTotal: string | null,
+): Promise<void> {
+  const total = orderTotal ? `$${parseFloat(orderTotal).toFixed(2)}` : null;
+  const displayMarket = marketplace === 'BrickLink' ? 'BrickLink' : marketplace;
+  try {
+    await resend.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject: `Thank you for your ${displayMarket} order!`,
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f172a;color:#e2e8f0;border-radius:12px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#1B7CE5,#00FFEE);padding:24px 32px;">
+            <h1 style="margin:0;font-size:22px;font-weight:700;color:#fff;">PlanetBrick</h1>
+            <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.85);">Powered by E.L.F.I.E.</p>
+          </div>
+          <div style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:15px;">Hi ${buyerUsername},</p>
+            <p style="margin:0 0 20px;font-size:15px;color:#94a3b8;">
+              Thank you for your${total ? ` <strong style="color:#e2e8f0;">${total}</strong>` : ''} order on ${displayMarket}!
+              We hope everything arrived safely and in perfect condition.
+            </p>
+            <p style="margin:0 0 20px;font-size:15px;color:#94a3b8;">
+              If you have any questions or concerns, feel free to reach out through ${displayMarket} messaging — we're happy to help.
+            </p>
+            <p style="margin:0;font-size:14px;color:#64748b;">
+              We appreciate your support and look forward to your next order!
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Feedback follow-up sent to ${to} (${buyerUsername})`);
+  } catch (err) {
+    console.error(`[Email] Failed to send feedback follow-up to ${to}:`, err);
+    throw err;
+  }
+}
+
 export async function sendApprovalEmail(
   to: string,
   name: string,
