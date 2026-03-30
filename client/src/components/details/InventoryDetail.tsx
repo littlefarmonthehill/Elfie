@@ -340,6 +340,8 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
   const [setsSearch, setSetsSearch] = useState('');
+  const [partsDialogOpen, setPartsDialogOpen] = useState(false);
+  const [partsSearch, setPartsSearch] = useState('');
   const [uploadingLot, setUploadingLot] = useState(false);
   const [uploadingItemType, setUploadingItemType] = useState(false);
   const lotFileInputRef = useRef<HTMLInputElement>(null);
@@ -508,6 +510,33 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   });
 
   const setsTotal = setsData?.total ?? setsCountData?.total ?? null;
+
+  // Parts in this set (only for SET item type)
+  const isSet = data.itemType === 'SET';
+  const { data: partsInSetData, isLoading: loadingPartsInSet } = useQuery<{
+    total: number;
+    parts: Array<{
+      partNum: string;
+      colorId: number | null;
+      quantity: number;
+      partName: string | null;
+      colorName: string | null;
+      thumbnailUrl: string | null;
+      storedImageKey: string | null;
+      colorRgb: string | null;
+    }>;
+  }>({
+    queryKey: [`/api/inventory/${data.itemNo}/parts-in-set`],
+    enabled: partsDialogOpen && isSet && !!data.itemNo,
+  });
+
+  const filteredParts = partsInSetData?.parts?.filter((p) => {
+    if (!partsSearch.trim()) return true;
+    const q = partsSearch.toLowerCase();
+    return p.partNum.toLowerCase().includes(q) ||
+      (p.partName || '').toLowerCase().includes(q) ||
+      (p.colorName || '').toLowerCase().includes(q);
+  }) ?? [];
 
   const filteredSets = setsData?.sets?.filter((set) => {
     if (!setsSearch.trim()) return true;
@@ -968,6 +997,44 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 <div className="h-3 bg-gray-800/50 rounded animate-pulse mt-1.5 w-32" />
               )}
             </button>
+
+            {/* Parts in Set — only for SET items */}
+            {isSet && (
+              <button
+                type="button"
+                className="app-card-muted p-2.5 cursor-pointer hover-elevate transition-colors w-full text-left"
+                onClick={() => setPartsDialogOpen(true)}
+                data-testid="button-parts-in-set"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-blue-400" />
+                    <p className="text-[10px] md:text-sm font-bold text-blue-400">PARTS IN SET</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {partsInSetData && (
+                      <Badge variant="secondary" className="text-[10px]" data-testid="badge-parts-count">
+                        {partsInSetData.total} {partsInSetData.total === 1 ? 'part' : 'parts'}
+                      </Badge>
+                    )}
+                    <ExternalLink className="h-3 w-3 text-gray-500" />
+                  </div>
+                </div>
+                {partsInSetData && partsInSetData.total > 0 && (
+                  <p className="text-[10px] md:text-xs text-gray-400 mt-1.5">
+                    Tap to view all {partsInSetData.total} parts in this set
+                  </p>
+                )}
+                {partsInSetData && partsInSetData.total === 0 && (
+                  <p className="text-[10px] md:text-xs text-gray-500 mt-1.5 italic">
+                    No part data found — Rebrickable sync may be needed
+                  </p>
+                )}
+                {!partsInSetData && (
+                  <p className="text-[10px] md:text-xs text-gray-400 mt-1.5">Tap to load parts list</p>
+                )}
+              </button>
+            )}
           </TabsContent>
 
           {/* Pricing Tab */}
@@ -2112,6 +2179,131 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Parts in Set Dialog */}
+          {isSet && (
+            <Dialog open={partsDialogOpen} onOpenChange={(open) => { setPartsDialogOpen(open); if (!open) setPartsSearch(''); }}>
+              <DialogContent className="max-w-3xl max-h-[80vh]" aria-describedby="parts-dialog-description">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold text-white flex items-center flex-wrap gap-2">
+                    <span>Parts in {data.itemNo}</span>
+                    {data.description && (
+                      <span className="text-sm font-normal text-gray-400 truncate max-w-[200px]">{data.description}</span>
+                    )}
+                    {partsInSetData && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {partsInSetData.total} {partsInSetData.total === 1 ? 'part' : 'parts'}
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                {partsInSetData && !loadingPartsInSet && partsInSetData.parts.length > 5 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+                    <Input
+                      placeholder="Search by part number, name, or color..."
+                      value={partsSearch}
+                      onChange={(e) => setPartsSearch(e.target.value)}
+                      className="pl-8 text-xs h-8 bg-gray-800/50 border-gray-700"
+                      data-testid="input-parts-search"
+                    />
+                  </div>
+                )}
+                <div id="parts-dialog-description" className="overflow-y-auto max-h-[calc(80vh-160px)]">
+                  {loadingPartsInSet && (
+                    <div className="space-y-1">
+                      {[1,2,3,4,5,6].map((i) => (
+                        <div key={i} className="h-12 bg-gray-800/50 rounded animate-pulse" />
+                      ))}
+                    </div>
+                  )}
+                  {!loadingPartsInSet && filteredParts.length > 0 && (
+                    <div className="space-y-0.5">
+                      {partsSearch.trim() && (
+                        <p className="text-[10px] text-gray-500 mb-1.5 px-1">
+                          {filteredParts.length} of {partsInSetData!.total} parts match "{partsSearch.trim()}"
+                        </p>
+                      )}
+                      {filteredParts.map((part, index) => (
+                        <div
+                          key={`${part.partNum}-${part.colorId}`}
+                          className={`rounded px-3 py-2 flex items-center gap-3 ${
+                            index % 2 === 0 ? 'bg-gray-800/30' : 'bg-gray-800/50'
+                          }`}
+                          data-testid={`part-row-${part.partNum}-${part.colorId}`}
+                        >
+                          {/* Thumbnail */}
+                          <div className="flex-shrink-0 w-9 h-9 rounded bg-gray-700/50 overflow-hidden flex items-center justify-center">
+                            {part.thumbnailUrl ? (
+                              <img
+                                src={part.thumbnailUrl}
+                                alt={part.partName || part.partNum}
+                                className="w-full h-full object-contain"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            ) : (
+                              <Package className="h-4 w-4 text-gray-600" />
+                            )}
+                          </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] md:text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
+                                {part.partNum}
+                              </span>
+                              {part.colorName && (
+                                <div className="flex items-center gap-1">
+                                  <div
+                                    className="w-2.5 h-2.5 rounded-full border border-gray-600 flex-shrink-0"
+                                    style={{ backgroundColor: part.colorRgb ? `#${part.colorRgb}` : '#666' }}
+                                  />
+                                  <span className="text-[10px] text-gray-400 truncate">{part.colorName}</span>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] md:text-xs text-gray-300 truncate mt-0.5">
+                              {part.partName || 'Unknown Part'}
+                            </p>
+                          </div>
+                          {/* Quantity */}
+                          <span className="text-[10px] md:text-sm text-lego-yellow font-bold whitespace-nowrap flex-shrink-0">
+                            {part.quantity}×
+                          </span>
+                          {/* BrickLink link */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${part.partNum}`, '_blank', 'noopener,noreferrer');
+                            }}
+                            className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
+                            data-testid={`link-part-${part.partNum}`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!loadingPartsInSet && partsSearch.trim() && filteredParts.length === 0 && partsInSetData && partsInSetData.total > 0 && (
+                    <div className="text-center py-8">
+                      <Search className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">No parts match "{partsSearch.trim()}"</p>
+                    </div>
+                  )}
+                  {!loadingPartsInSet && partsInSetData?.parts && partsInSetData.parts.length === 0 && (
+                    <div className="text-center py-12">
+                      <Layers className="h-10 w-10 text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">No part data found for this set</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Run a Rebrickable set-parts sync to populate this data
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
 
           <button
             onClick={(e) => {

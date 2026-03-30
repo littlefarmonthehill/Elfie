@@ -7110,6 +7110,49 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Parts in a SET (from Rebrickable set_part_relationships)
+  app.get("/api/inventory/:setNum/parts-in-set", isApproved, async (req: any, res) => {
+    try {
+      const { setNum } = req.params;
+      const search = (req.query.search as string || '').trim().toLowerCase();
+
+      const rows = await db
+        .select({
+          partNum:        setPartRelationships.partNum,
+          colorId:        setPartRelationships.colorId,
+          quantity:       setPartRelationships.quantity,
+          partName:       blCatalog.itemName,
+          colorName:      blCatalog.colorName,
+          thumbnailUrl:   blCatalog.thumbnailUrl,
+          storedImageKey: blCatalog.storedImageKey,
+          colorRgb:       blColors.rgb,
+        })
+        .from(setPartRelationships)
+        .leftJoin(
+          blCatalog,
+          sql`${blCatalog.itemNo} = ${setPartRelationships.partNum}
+            AND ${blCatalog.itemType} = 'PART'
+            AND ${blCatalog.colorId} = COALESCE(${setPartRelationships.colorId}, 0)`
+        )
+        .leftJoin(blColors, eq(blColors.id, setPartRelationships.colorId))
+        .where(eq(setPartRelationships.setNum, setNum))
+        .orderBy(setPartRelationships.partNum);
+
+      const filtered = search
+        ? rows.filter(r =>
+            (r.partNum   ?? '').toLowerCase().includes(search) ||
+            (r.partName  ?? '').toLowerCase().includes(search) ||
+            (r.colorName ?? '').toLowerCase().includes(search)
+          )
+        : rows;
+
+      res.json({ total: filtered.length, parts: filtered });
+    } catch (error) {
+      console.error("Get parts-in-set error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to get parts for set" });
+    }
+  });
+
   // Batch Embed Inventory Items
   app.post("/api/embeddings/inventory/batch", isApproved, async (req, res) => {
     try {
