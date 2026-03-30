@@ -2819,6 +2819,31 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && (activeSection === 'autoSync' || (activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler')),
   });
   const brickOwlTarget = platformSyncData?.targets?.find(t => t.name === 'BrickOwl');
+
+  type SyncScopeData = {
+    totalLots: number;
+    activeTotalLots: number;
+    inScopeLots: number;
+    softDeletedLots: number;
+    skipLots: number;
+    hiddenLots: number;
+    activeLots: number;
+    mainStoreLots: number;
+    zeroQtyInScope: number;
+    itemTypeExcludedLots: number;
+    priceFloorExcludedLots: number;
+    priceFloor: number | null;
+    excludedItemTypes: string[];
+    stockroomModes: Record<string, string>;
+    stockroomBreakdown: Array<{ id: string; mode: string; lots: number; zeroQtyLots: number }>;
+    exclusions: Array<{ reason: string; count: number }>;
+  };
+  const { data: syncScopeData } = useQuery<SyncScopeData>({
+    queryKey: ['/api/channel-sync/scope'],
+    enabled: open && (activeSection === 'autoSync' || activeSection === 'platforms'),
+    staleTime: 30000,
+  });
+
   const channelSyncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/platform-sync/sync', { platform: 'BrickOwl', limit: 10 }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] }); },
@@ -6129,6 +6154,37 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <div className="px-4 py-2.5">
                         <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                       </div>
+                      {/* Sync Scope — in-scope lot count + exclusion breakdown */}
+                      {syncScopeData && (
+                        <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-scope">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
+                            <span className="text-[10px] text-gray-500">{syncScopeData.totalLots.toLocaleString()} total BL lots</span>
+                          </div>
+                          {/* Main in-scope stat */}
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-lg font-bold text-white font-mono" data-testid="stat-scope-in-scope">{syncScopeData.inScopeLots.toLocaleString()}</span>
+                            <span className="text-[11px] text-gray-400">lots in scope</span>
+                          </div>
+                          {/* Exclusion breakdown */}
+                          {syncScopeData.exclusions.length > 0 ? (
+                            <div className="space-y-1">
+                              {syncScopeData.exclusions.map((ex) => (
+                                <div key={ex.reason} className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-gray-500 truncate">{ex.reason}</span>
+                                  <span className="text-[10px] font-mono text-amber-400 shrink-0">-{ex.count.toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-600">No exclusion rules active</p>
+                          )}
+                          {/* Zero-qty note */}
+                          {syncScopeData.zeroQtyInScope > 0 && (
+                            <p className="text-[10px] text-gray-600 pt-0.5">{syncScopeData.zeroQtyInScope.toLocaleString()} in-scope lots have 0 qty (will deactivate on BO)</p>
+                          )}
+                        </div>
+                      )}
                       {/* Last sync result */}
                       {channelLastResult && (
                         <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">

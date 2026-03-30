@@ -10463,10 +10463,23 @@ Format search_web URLs as markdown links.`;
           // Read the sync config so the discrepancy view matches the sync engine's filters.
           const [syncCfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
           const syncStockroomModes: Record<string, string> = (syncCfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
+          const syncItemTypesCmp = (syncCfgRow?.syncItemTypes as Record<string, boolean> | null) ?? {};
+          const discrepPriceFloor = typeof syncCfgRow?.syncPriceFloor === 'number' ? syncCfgRow.syncPriceFloor : null;
+
           // Helper: returns true when the sync engine would skip this BL item (stockroom filter).
           // Only 'skip' mode items are excluded — 'hidden', 'sync', and 'active' items appear in reports.
           const isStockroomFiltered = (blItem: any) =>
             !!blItem.isStockRoom && (syncStockroomModes[blItem.stockRoomId ?? ''] ?? 'skip') === 'skip';
+          // Helper: returns true if item type is explicitly excluded in the sync config.
+          const isItemTypeFiltered = (blItem: any) =>
+            Object.keys(syncItemTypesCmp).length > 0 && syncItemTypesCmp[blItem.itemType ?? ''] === false;
+          // Helper: returns true if the lot price is below the configured price floor.
+          const isPriceFloorFiltered = (blItem: any) =>
+            !!discrepPriceFloor && discrepPriceFloor > 0 &&
+            (blItem.unitPrice == null || parseFloat(blItem.unitPrice) < discrepPriceFloor);
+          // Combined exclusion check — mirrors what the sync engine does.
+          const isSyncExcluded = (blItem: any) =>
+            isStockroomFiltered(blItem) || isItemTypeFiltered(blItem) || isPriceFloorFiltered(blItem);
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching.
           // Exclude soft-deleted lots — they should not be listed on BO, so missing them is correct.
@@ -10523,9 +10536,9 @@ Format search_web URLs as markdown links.`;
             
             matchedBlIds.add(blInventoryId);
 
-            // Skip field comparisons for BL stockroom items the sync engine won't touch.
+            // Skip field comparisons for BL items the sync engine would exclude.
             // (still tracked in matchedBlIds so they don't appear as "missing" either)
-            if (isStockroomFiltered(blItem)) continue;
+            if (isSyncExcluded(blItem)) continue;
 
             const boQty = parseInt(boLot.qty || '0');
             // Use base_price (the listing price we set) not price (which is sale-adjusted).
@@ -10719,7 +10732,7 @@ Format search_web URLs as markdown links.`;
           // Collect all unmatched active BL lots
           const unmatchedEntries: [number, any][] = [];
           for (const [inventoryId, blItem] of Array.from(blItemsMap.entries())) {
-            if (!matchedBlIds.has(inventoryId) && !isStockroomFiltered(blItem) && (blItem.quantity ?? 0) > 0) {
+            if (!matchedBlIds.has(inventoryId) && !isSyncExcluded(blItem) && (blItem.quantity ?? 0) > 0) {
               unmatchedEntries.push([inventoryId, blItem]);
             }
           }
@@ -11050,19 +11063,79 @@ Format search_web URLs as markdown links.`;
       }
 
       const softDeletedLots = totalLotsAll - activeTotalLots;
-      const inScopeLots = activeTotalLots - skipLots;
+
+      // Item-type exclusion: count non-deleted, non-stockroom-skipped lots whose item_type
+      // is explicitly false in syncItemTypes config
+      const syncItemTypesCfg = (cfgRow?.syncItemTypes as Record<string, boolean> | null) ?? {};
+      const excludedItemTypes = Object.entries(syncItemTypesCfg)
+        .filter(([, v]) => v === false)
+        .map(([k]) => k);
+
+      // Safe JSON string of stockroom modes for use in SQL JSONB expressions
+      const stockroomModesJson = JSON.stringify(stockroomModes);
+
+      let itemTypeExcludedLots = 0;
+      if (excludedItemTypes.length > 0) {
+        // Exclude stockroom-skip items by checking the per-row stockroom condition
+        const [itRow] = await db.execute(sql`
+          SELECT COUNT(*) AS cnt
+          FROM bl_inventory
+          WHERE org_id = ${orgId}
+            AND deleted_at IS NULL
+            AND item_type = ANY(${excludedItemTypes})
+            AND NOT (
+              is_stock_room = TRUE
+              AND stock_room_id IS NOT NULL
+              AND (${stockroomModesJson}::jsonb->>stock_room_id) = 'skip'
+            )
+        `);
+        itemTypeExcludedLots = Number((itRow as any)?.cnt ?? 0);
+      }
+
+      // Price floor exclusion: count non-deleted lots below the floor (not already type-excluded or stockroom-skipped)
+      const priceFloor = typeof cfgRow?.syncPriceFloor === 'number' ? cfgRow.syncPriceFloor : null;
+      let priceFloorExcludedLots = 0;
+      if (priceFloor && priceFloor > 0) {
+        const [pfRow] = await db.execute(sql`
+          SELECT COUNT(*) AS cnt
+          FROM bl_inventory
+          WHERE org_id = ${orgId}
+            AND deleted_at IS NULL
+            AND (unit_price IS NULL OR CAST(unit_price AS NUMERIC) < ${priceFloor})
+            AND NOT (
+              is_stock_room = TRUE
+              AND stock_room_id IS NOT NULL
+              AND (${stockroomModesJson}::jsonb->>stock_room_id) = 'skip'
+            )
+        `);
+        priceFloorExcludedLots = Number((pfRow as any)?.cnt ?? 0);
+      }
+
+      const inScopeLots = activeTotalLots - skipLots - itemTypeExcludedLots - priceFloorExcludedLots;
+
+      // Build exclusion breakdown for UI display
+      const exclusions: Array<{ reason: string; count: number }> = [];
+      if (skipLots > 0)               exclusions.push({ reason: 'Stockroom (Skip mode)', count: skipLots });
+      if (itemTypeExcludedLots > 0)   exclusions.push({ reason: 'Item type excluded', count: itemTypeExcludedLots });
+      if (priceFloorExcludedLots > 0) exclusions.push({ reason: `Price floor (< $${priceFloor?.toFixed(2)})`, count: priceFloorExcludedLots });
 
       res.json({
         totalLots: totalLotsAll,       // unfiltered — matches inventory dashboard
-        inScopeLots,
+        activeTotalLots,               // non-deleted
+        inScopeLots,                   // what the sync engine will actually process
         softDeletedLots,
         skipLots,
         hiddenLots,
         activeLots,
         mainStoreLots,
         zeroQtyInScope,
+        itemTypeExcludedLots,
+        priceFloorExcludedLots,
+        priceFloor,
+        excludedItemTypes,
         stockroomModes,
         stockroomBreakdown: stockroomBreakdown.sort((a, b) => a.id.localeCompare(b.id)),
+        exclusions,
       });
     } catch (error) {
       console.error('[Scope] error:', error);
@@ -11094,10 +11167,12 @@ Format search_web URLs as markdown links.`;
         remarks:          cfgRow.syncRemarks,
         description:      cfgRow.syncDescription,
         tierPrice:        cfgRow.syncTierPrice,
-        salePercent:  cfgRow.syncSalePercent,
-        bulkQty:      cfgRow.syncBulkQty,
-        lotWeight:    cfgRow.syncLotWeight,
-        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+        salePercent:      cfgRow.syncSalePercent,
+        bulkQty:          cfgRow.syncBulkQty,
+        lotWeight:        cfgRow.syncLotWeight,
+        stockroomModes:   (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+        syncItemTypes:    (cfgRow.syncItemTypes as Record<string, boolean> | null) ?? {},
+        priceFloor:       typeof cfgRow.syncPriceFloor === 'number' ? cfgRow.syncPriceFloor : null,
       } : { ...defaultSyncFields };
 
       const modesStr = Object.entries(syncFields.stockroomModes).map(([k, v]) => `${k}:${v}`).join(',');
