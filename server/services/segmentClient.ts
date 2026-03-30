@@ -8,12 +8,13 @@ import http from 'http';
 
 const SEG_PORT    = 5001;
 const SCRIPT      = path.resolve('./server/services/segment_service.py');
-const COLD_TIMEOUT = 300_000; // 5 min — production torch+torchvision cold-start can be slow
-const WARM_TIMEOUT =  15_000; // 15 s  — restart after crash
+const COLD_TIMEOUT = 1_200_000; // 20 min — prod cold-start: torch install + CLIP download can be slow
+const WARM_TIMEOUT =    15_000; // 15 s   — restart after crash (model already on disk)
 
 let proc: ChildProcess | null = null;
 let ready = false;
 let startedAt = 0;
+let hasEverBeenReady = false; // distinguishes first-boot from crash-restart
 
 // ── Scan priority flag ──────────────────────────────────────────────────────
 // Incremented when a Brickanalyzer scan starts processing, decremented when it
@@ -53,6 +54,7 @@ export function startService() {
       if (line) console.log(`[SegService] ${line}`);
       if (line.includes('Starting on port')) {
         ready = true;
+        hasEverBeenReady = true;
         console.log(`[SegClient] Service ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
       }
     });
@@ -65,6 +67,7 @@ export function startService() {
       // Flask prints startup info to stderr — use it as a ready signal too
       if (line.includes('Running on')) {
         ready = true;
+        hasEverBeenReady = true;
         console.log(`[SegClient] Service ready (stderr signal) in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
       }
       // Suppress noisy but harmless lines:
@@ -88,9 +91,9 @@ export function startService() {
 function waitReady(): Promise<void> {
   if (ready) return Promise.resolve();
 
-  // Use longer timeout for cold starts (process hasn't been running long)
-  const elapsed   = Date.now() - startedAt;
-  const timeoutMs = elapsed < 5_000 ? COLD_TIMEOUT : WARM_TIMEOUT;
+  // First-ever boot: allow full COLD_TIMEOUT (20 min) for package install + model download.
+  // Crash/restart: model already on disk so WARM_TIMEOUT (15 s) is plenty.
+  const timeoutMs = hasEverBeenReady ? WARM_TIMEOUT : COLD_TIMEOUT;
 
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
