@@ -1238,20 +1238,22 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
     !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Collect all lots without a price across all set groups
+  // Unpriced lots (for badge) and all lots (for full POM run)
   const unpricedLots = (sets ?? []).flatMap(s =>
     s.lots.filter(l => !l.unitPrice || parseFloat(l.unitPrice) === 0)
       .map(l => ({ lotId: l.id, itemNo: s.itemNo, newOrUsed: l.newOrUsed }))
   );
+  const allPomLots = (sets ?? []).flatMap(s =>
+    s.lots.map(l => ({ lotId: l.id, itemNo: s.itemNo, newOrUsed: l.newOrUsed }))
+  );
 
   async function runPom() {
-    if (pomRunning || unpricedLots.length === 0) return;
+    if (pomRunning || allPomLots.length === 0) return;
     setPomRunning(true);
-    setPomProgress({ done: 0, total: unpricedLots.length });
     let done = 0;
-    // Deduplicate by itemNo+newOrUsed (one API call per unique combo)
+    // Deduplicate by itemNo+newOrUsed (one API call per unique set+condition combo)
     const seen = new Set<string>();
-    const unique = unpricedLots.filter(l => {
+    const unique = allPomLots.filter(l => {
       const key = `${l.itemNo}|${l.newOrUsed}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -1332,27 +1334,29 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
           />
         </div>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
-        {unpricedLots.length > 0 && (
-          <button
-            onClick={runPom}
-            disabled={pomRunning}
-            className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap"
-            data-testid="button-sets-run-pom"
-            title={`Fetch price guide for ${unpricedLots.length} unpriced lot${unpricedLots.length !== 1 ? 's' : ''}`}
-          >
-            {pomRunning ? (
-              <>
-                <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                {pomProgress ? `${pomProgress.done}/${pomProgress.total}` : '…'}
-              </>
-            ) : (
-              <>
-                <DollarSign className="w-2.5 h-2.5" />
-                POM ({unpricedLots.length})
-              </>
-            )}
-          </button>
-        )}
+        <button
+          onClick={runPom}
+          disabled={pomRunning}
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap"
+          data-testid="button-sets-run-pom"
+          title={
+            unpricedLots.length > 0
+              ? `Fetch price guide for ${unpricedLots.length} unpriced lot${unpricedLots.length !== 1 ? 's' : ''}`
+              : `Refresh market pricing for all ${allPomLots.length} set lot${allPomLots.length !== 1 ? 's' : ''}`
+          }
+        >
+          {pomRunning ? (
+            <>
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              {pomProgress ? `${pomProgress.done}/${pomProgress.total}` : '…'}
+            </>
+          ) : (
+            <>
+              <DollarSign className="w-2.5 h-2.5" />
+              {unpricedLots.length > 0 ? `POM (${unpricedLots.length})` : 'POM All'}
+            </>
+          )}
+        </button>
         {pomProgress && !pomRunning && (
           <span className="text-[10px] text-emerald-400 whitespace-nowrap">Done</span>
         )}
