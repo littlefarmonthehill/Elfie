@@ -5287,7 +5287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eq(orders.orgId, orgId),
             eq(orders.isTest, false),
             isNull(orders.feedbackLeftAt),
-            inArray(orders.orderStatus, ['Shipped', 'Completed']),
+            inArray(orders.orderStatus, ['shipped', 'completed']),
           )
         )
         .orderBy(desc(orders.shipDate));
