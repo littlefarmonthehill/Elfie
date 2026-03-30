@@ -18291,20 +18291,6 @@ Write a 1–2 sentence feedback comment for this order.`;
           console.warn(`[Feedback] Local status update failed for order ${orderId}:`, dbErr.message);
         }
 
-        // 3. Send thank-you email if buyer email is available
-        if (order.customerEmail) {
-          try {
-            const { sendFeedbackFollowupEmail } = await import('./email.js');
-            await sendFeedbackFollowupEmail(
-              order.customerEmail,
-              order.customerUsername ?? 'Valued Customer',
-              'BrickLink',
-              order.orderTotal,
-            );
-          } catch (emailErr: any) {
-            console.warn(`[Feedback] Thank-you email failed for order ${orderId}:`, emailErr.message);
-          }
-        }
       }
 
       // Mark as done in our DB regardless
