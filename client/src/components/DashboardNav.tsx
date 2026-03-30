@@ -22,6 +22,7 @@ interface DashboardNavProps {
   onSelect: (dashboard: DashboardType) => void;
   hideOpsCentral?: boolean;
   onHiddenChange?: (hidden: boolean) => void;
+  ordersCount?: number;
 }
 
 export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
@@ -34,7 +35,7 @@ export const dashboards: { id: DashboardType; label: string; color: string; acti
 
 const SWIPE_THRESHOLD = 30;
 
-export default function DashboardNav({ active, onSelect, hideOpsCentral, onHiddenChange }: DashboardNavProps) {
+export default function DashboardNav({ active, onSelect, hideOpsCentral, onHiddenChange, ordersCount = 0 }: DashboardNavProps) {
   const [isHidden, setIsHidden] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
@@ -121,6 +122,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
           {filtered.map((dashboard) => {
             const isActive = active === dashboard.id;
             const Icon = dashboard.icon;
+            const showOrdersBadge = dashboard.id === 'orders' && ordersCount > 0 && !isActive;
 
             return (
               <button
@@ -144,6 +146,12 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
                     )} />
                   )}
                   <Icon className="relative w-5 h-5 shrink-0" strokeWidth={isActive ? 2.2 : 1.6} />
+                  {showOrdersBadge && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lego-orange opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-lego-orange" />
+                    </span>
+                  )}
                 </div>
                 <span className={cn(
                   "text-[10px] font-medium truncate max-w-full",
@@ -176,9 +184,10 @@ interface DashboardNavRailProps {
   onSelect: (dashboard: DashboardType) => void;
   hideOpsCentral?: boolean;
   compact?: boolean;
+  ordersCount?: number;
 }
 
-export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact }: DashboardNavRailProps) {
+export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact, ordersCount = 0 }: DashboardNavRailProps) {
   const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
 
   return (
@@ -186,6 +195,7 @@ export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact }: 
       {filtered.map((dashboard) => {
         const isActive = active === dashboard.id;
         const Icon = dashboard.icon;
+        const showOrdersBadge = dashboard.id === 'orders' && ordersCount > 0 && !isActive;
 
         return (
           <button
@@ -225,6 +235,12 @@ export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact }: 
                 className={cn("relative shrink-0", compact ? "w-4 h-4" : "w-5 h-5")}
                 strokeWidth={isActive ? 2.2 : 1.6}
               />
+              {showOrdersBadge && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lego-orange opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-lego-orange" />
+                </span>
+              )}
             </div>
 
             {!compact && (

@@ -1184,6 +1184,7 @@ export default function Home() {
                   <DashboardNavRail
                     active={activeDashboard}
                     onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
+                    ordersCount={fulfillmentStats?.unfulfilled ?? 0}
                   />
                 </div>
 
@@ -1604,6 +1605,7 @@ export default function Home() {
             onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
             hideOpsCentral={false}
             onHiddenChange={setNavHidden}
+            ordersCount={fulfillmentStats?.unfulfilled ?? 0}
           />
         </div>
       )}
