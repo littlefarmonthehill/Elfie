@@ -826,8 +826,8 @@ export interface SyncFieldConfig {
   salePercent:      boolean; // sale_percent — opt-in, BO sales may be independently managed
   bulkQty:          boolean;  // bulk_qty — minimum order quantity (BL bulk)
   lotWeight:        boolean;  // lot_weight — custom lot weight (BL myWeight)
-  // Per-stockroom mode: 'skip' = ignore, 'hidden' = deactivate existing + don't create new, 'active' = sync as normal for-sale lot
-  stockroomModes:   Record<string, 'skip' | 'hidden' | 'active'>;
+  // Per-stockroom mode: 'skip' = ignore entirely, 'hidden' = deactivate existing + don't create new (legacy), 'sync' = create/maintain on BO hidden (for_sale=0), 'active' = sync as normal for-sale lot (for_sale=1)
+  stockroomModes:   Record<string, 'skip' | 'hidden' | 'active' | 'sync'>;
   // Per-item-type inclusion: { 'P': false } excludes Parts; missing key or true = include. Empty = all types synced.
   syncItemTypes:    Record<string, boolean>;
   // Price floor: lots priced below this are skipped (and existing BO listings deactivated). 0 / null = no floor.
@@ -1033,7 +1033,7 @@ export async function syncBrickLinkToBrickOwl(
 
     // Determine the sync mode for this item's stockroom.
     // Non-stockroom items always proceed as 'active'.
-    const stockroomMode: 'skip' | 'hidden' | 'active' = item.isStockRoom
+    const stockroomMode: 'skip' | 'hidden' | 'active' | 'sync' = item.isStockRoom
       ? (fields.stockroomModes[item.stockRoomId ?? ''] ?? 'skip')
       : 'active';
     if (stockroomMode === 'skip') {

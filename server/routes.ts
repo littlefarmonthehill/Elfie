@@ -10464,7 +10464,7 @@ Format search_web URLs as markdown links.`;
           const [syncCfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
           const syncStockroomModes: Record<string, string> = (syncCfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
           // Helper: returns true when the sync engine would skip this BL item (stockroom filter).
-          // Only 'skip' mode items are excluded — 'hidden' and 'active' items appear in reports.
+          // Only 'skip' mode items are excluded — 'hidden', 'sync', and 'active' items appear in reports.
           const isStockroomFiltered = (blItem: any) =>
             !!blItem.isStockRoom && (syncStockroomModes[blItem.stockRoomId ?? ''] ?? 'skip') === 'skip';
 
@@ -10973,7 +10973,7 @@ Format search_web URLs as markdown links.`;
           salePercent:  cfgRow.syncSalePercent,
           bulkQty:      cfgRow.syncBulkQty,
           lotWeight:    cfgRow.syncLotWeight,
-          stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
         } : { ...defaultSyncFields };
       }
 
@@ -11097,7 +11097,7 @@ Format search_web URLs as markdown links.`;
         salePercent:  cfgRow.syncSalePercent,
         bulkQty:      cfgRow.syncBulkQty,
         lotWeight:    cfgRow.syncLotWeight,
-        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
       } : { ...defaultSyncFields };
 
       const modesStr = Object.entries(syncFields.stockroomModes).map(([k, v]) => `${k}:${v}`).join(',');
@@ -11168,10 +11168,10 @@ Format search_web URLs as markdown links.`;
           console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncPriceFloor for ${reqOrgId(req)}:`, raw);
         }
       }
-      // syncStockroomModes: { A: 'skip'|'hidden'|'active', B: ..., C: ... }
+      // syncStockroomModes: { A: 'skip'|'hidden'|'active'|'sync'|'sync', B: ..., C: ... }
       if ('syncStockroomModes' in req.body) {
         const raw = req.body.syncStockroomModes;
-        const validModes = new Set(['skip', 'hidden', 'active']);
+        const validModes = new Set(['skip', 'hidden', 'active', 'sync']);
         if (raw && typeof raw === 'object' && !Array.isArray(raw) &&
             Object.values(raw).every((v: unknown) => typeof v === 'string' && validModes.has(v as string))) {
           patch.syncStockroomModes = raw as Record<string, string>;
@@ -11211,7 +11211,7 @@ Format search_web URLs as markdown links.`;
           syncSalePercent:  (patch.syncSalePercent    as boolean)  ?? true,
           syncBulkQty:      (patch.syncBulkQty        as boolean)  ?? true,
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
-          syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
           syncItemTypes:    (patch.syncItemTypes as Record<string, boolean>) ?? {},
           syncPriceFloor:   (patch.syncPriceFloor as number | null) ?? null,
         }).returning();

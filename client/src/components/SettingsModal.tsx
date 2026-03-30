@@ -2557,7 +2557,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldSalePercent,      setSyncFieldSalePercent]      = useState(true);
   const [syncFieldBulkQty,          setSyncFieldBulkQty]          = useState(true);
   const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
-  const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
+  const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'|'sync'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [syncItemTypes, setSyncItemTypes] = useState<Record<string, boolean>>({});
   const [syncBulkLots, setSyncBulkLots] = useState(false);
   const [syncPriceFloor, setSyncPriceFloor] = useState<string>('');
@@ -2829,7 +2829,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean;
     syncTierPrice: boolean; syncSalePercent: boolean;
     syncBulkQty: boolean; syncLotWeight: boolean;
-    syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>;
+    syncStockroomModes: Record<string, 'skip'|'hidden'|'active'|'sync'>;
     syncItemTypes: Record<string, boolean>;
     syncPriceFloor: number | null;
     syncBulkLots: boolean;
@@ -2858,7 +2858,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null; syncBulkLots: boolean }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'|'sync'>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null; syncBulkLots: boolean }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -6273,29 +6273,47 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">BrickLink Stockrooms</p>
                             <p className="text-[10px] text-gray-500 mb-1.5 leading-relaxed">
-                              <strong className="text-gray-400">Sync on</strong> — creates new listings and keeps existing ones active.{' '}
-                              <strong className="text-gray-400">Sync off</strong> — skips new items; deactivates any already-listed lots.
+                              <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
+                              <strong className="text-gray-400">Sync</strong> — create on BrickOwl but keep hidden from buyers.{' '}
+                              <strong className="text-gray-400">Active</strong> — sync as normal for-sale listings.
                             </p>
                             <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
                               {(['A', 'B', 'C'] as const).map((id) => {
-                                const isSynced = syncStockroomModes[id] === 'active';
+                                const mode = syncStockroomModes[id] ?? 'skip';
+                                const statusText: Record<string, string> = {
+                                  skip:   'Ignored — not tracked on BrickOwl',
+                                  hidden: 'Legacy hidden — new items skipped, existing deactivated',
+                                  sync:   'Linked on BrickOwl, hidden from buyers',
+                                  active: 'Live on BrickOwl as for-sale listings',
+                                };
                                 return (
                                   <div key={id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                                     <div className="min-w-0">
                                       <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
-                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                                        {isSynced ? 'Syncing — listings are active on BrickOwl' : 'Not syncing — new items skipped, existing deactivated'}
-                                      </p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{statusText[mode] ?? mode}</p>
                                     </div>
-                                    <Switch
-                                      checked={isSynced}
-                                      onCheckedChange={(checked) => {
-                                        const next = { ...syncStockroomModes, [id]: checked ? 'active' : 'hidden' } as Record<string, 'skip'|'hidden'|'active'>;
-                                        setSyncStockroomModes(next);
-                                        updateSyncFieldMutation.mutate({ syncStockroomModes: next });
-                                      }}
-                                      data-testid={`switch-sync-stockroom-${id}`}
-                                    />
+                                    <div className="flex items-center gap-0.5 rounded border border-gray-700 bg-gray-900 p-0.5 shrink-0">
+                                      {(['skip', 'sync', 'active'] as const).map((opt) => (
+                                        <button
+                                          key={opt}
+                                          onClick={() => {
+                                            const next = { ...syncStockroomModes, [id]: opt } as Record<string, 'skip'|'hidden'|'active'|'sync'>;
+                                            setSyncStockroomModes(next);
+                                            updateSyncFieldMutation.mutate({ syncStockroomModes: next });
+                                          }}
+                                          data-testid={`button-sync-stockroom-${id}-${opt}`}
+                                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                            mode === opt
+                                              ? opt === 'skip'   ? 'bg-gray-700 text-gray-200'
+                                              : opt === 'sync'   ? 'bg-blue-600/70 text-blue-100'
+                                              :                    'bg-green-600/70 text-green-100'
+                                              : 'text-gray-500 hover:text-gray-300'
+                                          }`}
+                                        >
+                                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
                                 );
                               })}
