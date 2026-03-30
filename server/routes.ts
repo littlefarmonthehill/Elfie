@@ -9751,7 +9751,11 @@ Format search_web URLs as markdown links.`;
           pgc.sold_min_price,
           pgc.sold_max_price,
           pgc.sold_total_lots,
-          pgc.suggested_price
+          pgc.suggested_price,
+          (SELECT STRING_AGG(wb.name, ', ' ORDER BY wb.name)
+           FROM inventory_locations il
+           JOIN wh_bins wb ON wb.id = il.bin_id
+           WHERE il.inventory_id = bi.id AND il.org_id = ${orgId}) AS bin_names
         FROM bl_inventory bi
         LEFT JOIN bl_catalog bc_cat
           ON bc_cat.item_no = bi.item_no
@@ -9812,6 +9816,7 @@ Format search_web URLs as markdown links.`;
           soldMaxPrice: row.sold_max_price ?? null,
           soldTotalLots: row.sold_total_lots ?? null,
           suggestedPrice: row.suggested_price ?? null,
+          binNames: row.bin_names ?? null,
         });
       }
 

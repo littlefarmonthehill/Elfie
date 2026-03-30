@@ -1066,6 +1066,7 @@ interface SetLot {
   soldMaxPrice: string | null;
   soldTotalLots: number | null;
   suggestedPrice: string | null;
+  binNames: string | null;
 }
 
 interface SetGroup {
@@ -1127,7 +1128,8 @@ function LotReadinessRow({ lot, onSaved, onItemClick }: { lot: SetLot; onSaved: 
         <span className="text-[10px] font-mono text-gray-400">#{lot.id}</span>
         <span className="text-[10px] font-mono text-white font-semibold">Qty: {r.quantity}</span>
         <span className="text-[10px] font-mono text-white">{price}</span>
-        {stockroomLabel && <span className="text-[10px] text-sky-400 font-mono">{stockroomLabel}</span>}
+        {r.binNames && <span className="text-[10px] text-sky-400 font-mono">{r.binNames}</span>}
+        {stockroomLabel && <span className="text-[10px] text-sky-400/60 font-mono">{stockroomLabel}</span>}
         {r.completeness && <span className="text-[10px] text-gray-500">{r.completeness === 'C' ? 'Complete' : r.completeness === 'B' ? 'w/Box' : r.completeness === 'I' ? 'w/Instr' : r.completeness}</span>}
         <div className="ml-auto flex items-center gap-1.5">
           {saved && <span className="text-[9px] text-emerald-400 animate-pulse">Saved</span>}
@@ -1518,9 +1520,10 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                               : 'border-amber-500/40 text-amber-400 bg-amber-950/30 hover:bg-amber-900/40'
                           }`}
                           data-testid={`btn-lot-chip-${lot.id}`}
-                          title={`${lot.newOrUsed === 'N' ? 'New' : 'Used'} · Qty ${lot.quantity}${lot.unitPrice ? ` · $${parseFloat(lot.unitPrice).toFixed(2)}` : ''}`}
+                          title={`${lot.newOrUsed === 'N' ? 'New' : 'Used'} · Qty ${lot.quantity}${lot.unitPrice ? ` · $${parseFloat(lot.unitPrice).toFixed(2)}` : ''}${lot.binNames ? ` · ${lot.binNames}` : ''}`}
                         >
-                          {lot.newOrUsed === 'N' ? 'New' : 'Used'}
+                          {lot.newOrUsed === 'N' ? 'New' : 'Used'} ×{lot.quantity}
+                          {lot.binNames && <span className="ml-1 text-sky-400/80">· {lot.binNames}</span>}
                         </button>
                       ))}
                     </div>
