@@ -1302,9 +1302,9 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
     sortKey,
   );
 
-  // Unpriced lots (for badge) and all lots (for full POM run)
-  const unpricedLots = (sets ?? []).flatMap(s =>
-    s.lots.filter(l => !l.unitPrice || parseFloat(l.unitPrice) === 0)
+  // Lots with no market price data at all (stock + sold both absent)
+  const unpricedMarketLots = (sets ?? []).flatMap(s =>
+    s.lots.filter(l => !l.stockAvgPrice && !l.soldAvgPrice)
       .map(l => ({ lotId: l.id, itemNo: s.itemNo, newOrUsed: l.newOrUsed }))
   );
   const allPomLots = (sets ?? []).flatMap(s =>
@@ -1312,12 +1312,14 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
   );
 
   async function runPom() {
-    if (pomRunning || allPomLots.length === 0) return;
+    // Target only unpriced lots when they exist, otherwise refresh everything
+    const targetLots = unpricedMarketLots.length > 0 ? unpricedMarketLots : allPomLots;
+    if (pomRunning || targetLots.length === 0) return;
     setPomRunning(true);
     let done = 0;
     // Deduplicate by itemNo+newOrUsed (one API call per unique set+condition combo)
     const seen = new Set<string>();
-    const unique = allPomLots.filter(l => {
+    const unique = targetLots.filter(l => {
       const key = `${l.itemNo}|${l.newOrUsed}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -1380,8 +1382,8 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
           className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap shrink-0"
           data-testid="button-sets-run-pom"
           title={
-            unpricedLots.length > 0
-              ? `Fetch price guide for ${unpricedLots.length} unpriced lot${unpricedLots.length !== 1 ? 's' : ''}`
+            unpricedMarketLots.length > 0
+              ? `Fetch market prices for ${unpricedMarketLots.length} set${unpricedMarketLots.length !== 1 ? 's' : ''} with no data`
               : `Refresh market pricing for all ${allPomLots.length} set lot${allPomLots.length !== 1 ? 's' : ''}`
           }
         >
@@ -1393,7 +1395,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
           ) : (
             <>
               <DollarSign className="w-2.5 h-2.5" />
-              {unpricedLots.length > 0 ? `POM (${unpricedLots.length})` : 'POM All'}
+              {unpricedMarketLots.length > 0 ? `POM (${unpricedMarketLots.length})` : 'POM All'}
             </>
           )}
         </button>
