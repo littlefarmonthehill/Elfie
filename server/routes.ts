@@ -5270,7 +5270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const rows = await db
-        .select({
+        .selectDistinct({
           id: orders.id,
           orderNumber: orders.orderNumber,
           marketplace: orders.marketplace,
@@ -5282,6 +5282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           feedbackLeftAt: orders.feedbackLeftAt,
         })
         .from(orders)
+        .innerJoin(shipments, eq(shipments.orderId, orders.id))
         .where(
           and(
             eq(orders.orgId, orgId),
