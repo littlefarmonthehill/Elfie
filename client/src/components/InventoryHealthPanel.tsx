@@ -1238,14 +1238,14 @@ type SetSortKey =
   | 'pom_desc'
   | 'ready_asc';
 
-const SET_SORT_OPTIONS: { value: SetSortKey; label: string }[] = [
-  { value: 'name',            label: 'Name A–Z'      },
-  { value: 'listed_avg_desc', label: 'Listed Avg ↓'  },
-  { value: 'listed_max_desc', label: 'Listed Max ↓'  },
-  { value: 'sold_avg_desc',   label: 'Sold Avg ↓'    },
-  { value: 'sold_max_desc',   label: 'Sold Max ↓'    },
-  { value: 'pom_desc',        label: 'POM ↓'         },
-  { value: 'ready_asc',       label: 'Readiness ↑'   },
+const SET_SORT_OPTIONS: { value: SetSortKey; label: string; chip: string }[] = [
+  { value: 'name',            label: 'Name A–Z',     chip: 'Name'    },
+  { value: 'listed_avg_desc', label: 'Listed Avg ↓', chip: 'L.Avg ↓' },
+  { value: 'listed_max_desc', label: 'Listed Max ↓', chip: 'L.Max ↓' },
+  { value: 'sold_avg_desc',   label: 'Sold Avg ↓',   chip: 'S.Avg ↓' },
+  { value: 'sold_max_desc',   label: 'Sold Max ↓',   chip: 'S.Max ↓' },
+  { value: 'pom_desc',        label: 'POM ↓',        chip: 'POM ↓'   },
+  { value: 'ready_asc',       label: 'Readiness ↑',  chip: 'Ready ↑' },
 ];
 
 function setMaxPrice(set: SetGroup, field: keyof SetLot): number {
@@ -1361,8 +1361,8 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
+      {/* Toolbar row 1: search + actions */}
+      <div className="flex items-center gap-2 px-4 pt-2 pb-1.5 flex-shrink-0">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
           <input
@@ -1374,22 +1374,11 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
             data-testid="input-sets-search"
           />
         </div>
-        {/* Sort control */}
-        <select
-          value={sortKey}
-          onChange={e => setSortKey(e.target.value as SetSortKey)}
-          className="h-7 px-1.5 text-[10px] bg-muted/30 border border-border rounded text-foreground focus:outline-none focus:border-muted-foreground shrink-0"
-          data-testid="select-sets-sort"
-        >
-          {SET_SORT_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
         <button
           onClick={runPom}
           disabled={pomRunning}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap"
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap shrink-0"
           data-testid="button-sets-run-pom"
           title={
             unpricedLots.length > 0
@@ -1410,12 +1399,32 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
           )}
         </button>
         {pomProgress && !pomRunning && (
-          <span className="text-[10px] text-emerald-400 whitespace-nowrap">Done</span>
+          <span className="text-[10px] text-emerald-400 whitespace-nowrap shrink-0">Done</span>
         )}
-        <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-sets-refresh">
+        <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors shrink-0" data-testid="button-sets-refresh">
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Toolbar row 2: sort chips */}
+      <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-none flex-shrink-0">
+        <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wide shrink-0 mr-0.5">Sort</span>
+        {SET_SORT_OPTIONS.map(o => (
+          <button
+            key={o.value}
+            onClick={() => setSortKey(o.value)}
+            className={`text-[10px] whitespace-nowrap px-2 py-0.5 rounded border transition-colors shrink-0 ${
+              sortKey === o.value
+                ? 'border-[#1B7CE5]/50 bg-[#1B7CE5]/15 text-[#1B7CE5]'
+                : 'border-border bg-muted/20 text-muted-foreground hover-elevate'
+            }`}
+            data-testid={`btn-sort-${o.value}`}
+          >
+            {o.chip}
+          </button>
+        ))}
+      </div>
+      <div className="border-b border-border flex-shrink-0" />
 
       {/* Flat set list */}
       <div className="flex-1 overflow-y-auto">
@@ -1480,44 +1489,36 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                       ))}
                     </div>
 
-                    {/* Market price guide — one row per condition */}
-                    {Object.entries(priceByCondition).map(([cond, lot]) => {
-                      const hasAnyPrice = lot.stockAvgPrice || lot.soldAvgPrice;
-                      if (!hasAnyPrice) return null;
-                      const label = cond === 'N' ? 'New' : 'Used';
-                      const labelCls = cond === 'N' ? 'text-emerald-400' : 'text-amber-400';
-                      return (
-                        <div key={cond} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-                          <span className={`text-[9px] font-semibold uppercase tracking-wide ${labelCls}`}>{label}</span>
-                          {/* Listed (Stock) */}
-                          {(lot.stockAvgPrice || lot.stockMaxPrice) && (
-                            <span className="text-[9px] text-muted-foreground">
-                              Listed:&nbsp;
-                              {lot.stockAvgPrice && <span className="font-mono text-foreground/80">{fmt(lot.stockAvgPrice)} avg</span>}
-                              {lot.stockAvgPrice && lot.stockMaxPrice && <span className="text-muted-foreground/50"> / </span>}
-                              {lot.stockMaxPrice && <span className="font-mono text-foreground/60">{fmt(lot.stockMaxPrice)} max</span>}
-                              {lot.stockTotalLots != null && <span className="text-muted-foreground/50"> ({lot.stockTotalLots} lots)</span>}
-                            </span>
-                          )}
-                          {/* Sold */}
-                          {(lot.soldAvgPrice || lot.soldMaxPrice) && (
-                            <span className="text-[9px] text-muted-foreground">
-                              Sold:&nbsp;
-                              {lot.soldAvgPrice && <span className="font-mono text-foreground/80">{fmt(lot.soldAvgPrice)} avg</span>}
-                              {lot.soldAvgPrice && lot.soldMaxPrice && <span className="text-muted-foreground/50"> / </span>}
-                              {lot.soldMaxPrice && <span className="font-mono text-foreground/60">{fmt(lot.soldMaxPrice)} max</span>}
-                              {lot.soldTotalLots != null && <span className="text-muted-foreground/50"> ({lot.soldTotalLots} sold)</span>}
-                            </span>
-                          )}
-                          {/* POM suggested */}
-                          {lot.suggestedPrice && (
-                            <span className="text-[9px] text-muted-foreground">
-                              POM:&nbsp;<span className="font-mono text-[#00FFEE]/80">{fmt(lot.suggestedPrice)}</span>
-                            </span>
-                          )}
+                    {/* Market price guide — aligned mini-table per condition */}
+                    {Object.keys(priceByCondition).length > 0 && (
+                      <div className="mt-1.5 text-[9px]">
+                        {/* Column header — shown once above all condition rows */}
+                        <div className="grid mb-0.5" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem 3.2rem', columnGap: '2px' }}>
+                          <span />
+                          <span className="text-muted-foreground/40 text-right">L.Avg</span>
+                          <span className="text-muted-foreground/40 text-right">L.Max</span>
+                          <span className="text-muted-foreground/40 text-right">S.Avg</span>
+                          <span className="text-muted-foreground/40 text-right">S.Max</span>
+                          <span className="text-[#00FFEE]/30 text-right">POM</span>
                         </div>
-                      );
-                    })}
+                        {/* One data row per condition */}
+                        {Object.entries(priceByCondition).map(([cond, lot]) => {
+                          const hasAny = lot.stockAvgPrice || lot.soldAvgPrice || lot.suggestedPrice;
+                          if (!hasAny) return null;
+                          const condCls = cond === 'N' ? 'text-emerald-400' : 'text-amber-400';
+                          return (
+                            <div key={cond} className="grid items-center" style={{ gridTemplateColumns: '2.8rem 3.8rem 3.8rem 3.8rem 3.8rem 3.2rem', columnGap: '2px', rowGap: '1px' }}>
+                              <span className={`font-semibold uppercase tracking-wide ${condCls}`}>{cond === 'N' ? 'New' : 'Used'}</span>
+                              <span className="font-mono text-foreground/80 text-right tabular-nums">{fmt(lot.stockAvgPrice)}</span>
+                              <span className="font-mono text-foreground/55 text-right tabular-nums">{fmt(lot.stockMaxPrice)}</span>
+                              <span className="font-mono text-foreground/80 text-right tabular-nums">{fmt(lot.soldAvgPrice)}</span>
+                              <span className="font-mono text-foreground/55 text-right tabular-nums">{fmt(lot.soldMaxPrice)}</span>
+                              <span className="font-mono text-[#00FFEE]/75 text-right tabular-nums">{fmt(lot.suggestedPrice)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Readiness score */}
