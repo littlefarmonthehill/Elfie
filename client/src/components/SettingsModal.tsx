@@ -6330,7 +6330,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">BrickLink Stockrooms</p>
                             <p className="text-[10px] text-gray-500 mb-1.5 leading-relaxed">
                               <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                              <strong className="text-gray-400">Sync</strong> — create on BrickOwl but keep hidden from buyers.{' '}
+                              <strong className="text-gray-400">Hidden</strong> — create on BrickOwl but keep hidden from buyers.{' '}
                               <strong className="text-gray-400">Active</strong> — sync as normal for-sale listings.
                             </p>
                             <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
@@ -6366,7 +6366,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                               : 'text-gray-500 hover:text-gray-300'
                                           }`}
                                         >
-                                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                          {opt === 'sync' ? 'Hidden' : opt.charAt(0).toUpperCase() + opt.slice(1)}
                                         </button>
                                       ))}
                                     </div>

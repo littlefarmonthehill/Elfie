@@ -1112,20 +1112,11 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
                 <span className="text-[10px] font-mono text-gray-600">−{scope.softDeletedLots.toLocaleString()}</span>
               </div>
             )}
-            {/* All stockrooms — skip = deduction, others = included */}
-            {scope.stockroomBreakdown.map(r => (
+            {/* Skip-mode stockrooms only — these are excluded from scope */}
+            {scope.stockroomBreakdown.filter(r => r.mode === 'skip').map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
-                {r.mode === 'skip' ? (
-                  <>
-                    <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
-                    <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[10px] text-gray-500">Stockroom {r.id} ({r.mode})</span>
-                    <span className="text-[10px] font-mono text-gray-400">{r.lots.toLocaleString()}</span>
-                  </>
-                )}
+                <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
+                <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
               </div>
             ))}
             {/* Config-based deductions */}
