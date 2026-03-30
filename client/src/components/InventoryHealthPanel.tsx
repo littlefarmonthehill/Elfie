@@ -1056,6 +1056,16 @@ interface SetLot {
   missingPieces: number | null;
   missingLots: number | null;
   saleLocation: string;
+  // Market price guide
+  stockAvgPrice: string | null;
+  stockMinPrice: string | null;
+  stockMaxPrice: string | null;
+  stockTotalLots: number | null;
+  soldAvgPrice: string | null;
+  soldMinPrice: string | null;
+  soldMaxPrice: string | null;
+  soldTotalLots: number | null;
+  suggestedPrice: string | null;
 }
 
 interface SetGroup {
@@ -1354,10 +1364,17 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                 l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null
               ).length;
 
+              // Deduplicate market price data by condition (N / U)
+              const priceByCondition: Record<string, SetLot> = {};
+              for (const lot of set.lots) {
+                if (!priceByCondition[lot.newOrUsed]) priceByCondition[lot.newOrUsed] = lot;
+              }
+              const fmt = (v: string | null) => v ? `$${parseFloat(v).toFixed(2)}` : '—';
+
               return (
-                <div key={set.itemNo} className="flex items-center gap-3 px-4 py-2.5" data-testid={`set-row-${set.itemNo}`}>
+                <div key={set.itemNo} className="flex items-start gap-3 px-4 py-2.5" data-testid={`set-row-${set.itemNo}`}>
                   {/* Thumbnail */}
-                  <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden mt-0.5">
                     {set.thumbnailUrl ? (
                       <img src={set.thumbnailUrl} alt={set.itemName} className="w-full h-full object-contain" />
                     ) : (
@@ -1365,7 +1382,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                     )}
                   </div>
 
-                  {/* Info + lot chips */}
+                  {/* Info + lot chips + price guide */}
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-foreground truncate">{set.itemName}</div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -1390,10 +1407,49 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                         </button>
                       ))}
                     </div>
+
+                    {/* Market price guide — one row per condition */}
+                    {Object.entries(priceByCondition).map(([cond, lot]) => {
+                      const hasAnyPrice = lot.stockAvgPrice || lot.soldAvgPrice;
+                      if (!hasAnyPrice) return null;
+                      const label = cond === 'N' ? 'New' : 'Used';
+                      const labelCls = cond === 'N' ? 'text-emerald-400' : 'text-amber-400';
+                      return (
+                        <div key={cond} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                          <span className={`text-[9px] font-semibold uppercase tracking-wide ${labelCls}`}>{label}</span>
+                          {/* Listed (Stock) */}
+                          {(lot.stockAvgPrice || lot.stockMaxPrice) && (
+                            <span className="text-[9px] text-muted-foreground">
+                              Listed:&nbsp;
+                              {lot.stockAvgPrice && <span className="font-mono text-foreground/80">{fmt(lot.stockAvgPrice)} avg</span>}
+                              {lot.stockAvgPrice && lot.stockMaxPrice && <span className="text-muted-foreground/50"> / </span>}
+                              {lot.stockMaxPrice && <span className="font-mono text-foreground/60">{fmt(lot.stockMaxPrice)} max</span>}
+                              {lot.stockTotalLots != null && <span className="text-muted-foreground/50"> ({lot.stockTotalLots} lots)</span>}
+                            </span>
+                          )}
+                          {/* Sold */}
+                          {(lot.soldAvgPrice || lot.soldMaxPrice) && (
+                            <span className="text-[9px] text-muted-foreground">
+                              Sold:&nbsp;
+                              {lot.soldAvgPrice && <span className="font-mono text-foreground/80">{fmt(lot.soldAvgPrice)} avg</span>}
+                              {lot.soldAvgPrice && lot.soldMaxPrice && <span className="text-muted-foreground/50"> / </span>}
+                              {lot.soldMaxPrice && <span className="font-mono text-foreground/60">{fmt(lot.soldMaxPrice)} max</span>}
+                              {lot.soldTotalLots != null && <span className="text-muted-foreground/50"> ({lot.soldTotalLots} sold)</span>}
+                            </span>
+                          )}
+                          {/* POM suggested */}
+                          {lot.suggestedPrice && (
+                            <span className="text-[9px] text-muted-foreground">
+                              POM:&nbsp;<span className="font-mono text-[#00FFEE]/80">{fmt(lot.suggestedPrice)}</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Readiness score */}
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 mt-0.5">
                     <div className="text-[9px] text-muted-foreground">Ready</div>
                     <div className={`text-[10px] font-mono font-semibold ${readyLots === totalLots ? 'text-emerald-400' : readyLots > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
                       {readyLots}/{totalLots}

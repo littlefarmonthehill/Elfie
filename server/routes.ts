@@ -9742,12 +9742,26 @@ Format search_web URLs as markdown links.`;
           COALESCE(bc_cat.item_name, bi.item_no) AS item_name,
           bc_cat.image_url,
           bc_cat.thumbnail_url,
-          bc_cat.year_released
+          bc_cat.year_released,
+          pgc.stock_avg_price,
+          pgc.stock_min_price,
+          pgc.stock_max_price,
+          pgc.stock_total_lots,
+          pgc.sold_avg_price,
+          pgc.sold_min_price,
+          pgc.sold_max_price,
+          pgc.sold_total_lots,
+          pgc.suggested_price
         FROM bl_inventory bi
         LEFT JOIN bl_catalog bc_cat
           ON bc_cat.item_no = bi.item_no
           AND bc_cat.item_type = 'SET'
           AND bc_cat.color_id = 0
+        LEFT JOIN price_guide_cache pgc
+          ON pgc.item_no = bi.item_no
+          AND pgc.item_type = 'SET'
+          AND pgc.color_id = 0
+          AND pgc.new_or_used = bi.new_or_used
         WHERE bi.org_id = ${orgId}
           AND bi.item_type = 'SET'
           AND bi.deleted_at IS NULL
@@ -9788,6 +9802,16 @@ Format search_web URLs as markdown links.`;
           missingPieces: row.missing_pieces,
           missingLots: row.missing_lots,
           saleLocation: row.sale_location ?? '',
+          // Market price guide
+          stockAvgPrice: row.stock_avg_price ?? null,
+          stockMinPrice: row.stock_min_price ?? null,
+          stockMaxPrice: row.stock_max_price ?? null,
+          stockTotalLots: row.stock_total_lots ?? null,
+          soldAvgPrice: row.sold_avg_price ?? null,
+          soldMinPrice: row.sold_min_price ?? null,
+          soldMaxPrice: row.sold_max_price ?? null,
+          soldTotalLots: row.sold_total_lots ?? null,
+          suggestedPrice: row.suggested_price ?? null,
         });
       }
 
