@@ -487,6 +487,38 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     },
   });
 
+  const [showBinPicker, setShowBinPicker] = useState(false);
+  const [binSearch, setBinSearch] = useState('');
+
+  const { data: allBins } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/bins'],
+    enabled: showBinPicker,
+  });
+
+  const assignBinMutation = useMutation({
+    mutationFn: (binId: number) =>
+      apiRequest('POST', '/api/warehouse/assign/inventory', { inventoryId: data.id, binId }),
+    onSuccess: () => {
+      setShowBinPicker(false);
+      setBinSearch('');
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations/inventory', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
+    },
+  });
+
+  const filteredBins = (allBins ?? []).filter(b => {
+    const q = binSearch.toLowerCase();
+    if (!q) return true;
+    return (
+      b.name?.toLowerCase().includes(q) ||
+      b.shelfName?.toLowerCase().includes(q) ||
+      b.aisleName?.toLowerCase().includes(q)
+    );
+  });
+
+  // Bins already assigned to this item (to disable duplicates)
+  const assignedBinIds = new Set((warehouseLocation ?? []).map((l: any) => l.binId));
+
   const { data: setsCountData } = useQuery<{ total: number }>({
     queryKey: [`/api/inventory/${data.itemNo}/${data.colorId || 0}/sets/count`],
     enabled: !!data.itemNo,
@@ -866,24 +898,80 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     </span>
                   )}
                 </div>
+                <button
+                  className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                  onClick={() => { setShowBinPicker(v => !v); setBinSearch(''); }}
+                  data-testid="button-assign-bin-toggle"
+                  title="Assign to a bin"
+                >
+                  {showBinPicker ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                  {showBinPicker ? 'Cancel' : 'Assign'}
+                </button>
               </div>
+
+              {/* Inline bin picker */}
+              {showBinPicker && (
+                <div className="mb-2 space-y-1.5">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Search bins…"
+                      value={binSearch}
+                      onChange={e => setBinSearch(e.target.value)}
+                      className="w-full pl-6 pr-2 py-1.5 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                      data-testid="input-bin-search"
+                    />
+                  </div>
+                  {!allBins ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 py-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading bins…
+                    </div>
+                  ) : filteredBins.length === 0 ? (
+                    <p className="text-[10px] text-gray-500 italic py-1">No bins found</p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto space-y-0.5 rounded border border-white/10 bg-black/20">
+                      {filteredBins.map((b: any) => {
+                        const alreadyAssigned = assignedBinIds.has(b.id);
+                        const label = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' › ');
+                        return (
+                          <button
+                            key={b.id}
+                            disabled={alreadyAssigned || assignBinMutation.isPending}
+                            onClick={() => assignBinMutation.mutate(b.id)}
+                            className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-between gap-2"
+                            data-testid={`button-assign-bin-${b.id}`}
+                          >
+                            <span className="text-white truncate">{label}</span>
+                            {alreadyAssigned && (
+                              <span className="text-[9px] text-green-400 shrink-0">assigned</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {warehouseLocation && warehouseLocation.length > 0 ? (
                 <div className="space-y-2">
                   {warehouseLocation.map((loc: any, idx: number) => (
                     <div key={loc.id} className="space-y-1.5">
-                      {warehouseLocation.length > 1 && (
-                        <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
+                        {warehouseLocation.length > 1 && (
                           <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider">Location {idx + 1}</p>
-                          <button
-                            className="text-[9px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                            disabled={removeLocationMutation.isPending}
-                            onClick={() => removeLocationMutation.mutate(loc.id)}
-                            data-testid={`button-remove-location-${loc.id}`}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        <button
+                          className="ml-auto text-[9px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                          disabled={removeLocationMutation.isPending}
+                          onClick={() => removeLocationMutation.mutate(loc.id)}
+                          data-testid={`button-remove-location-${loc.id}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
                           <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
@@ -927,9 +1015,11 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   ))}
                 </div>
               ) : (
-                <p className="text-[10px] md:text-sm text-gray-400 italic">
-                  Not assigned to a warehouse location
-                </p>
+                !showBinPicker && (
+                  <p className="text-[10px] md:text-sm text-gray-400 italic">
+                    Not assigned to a warehouse location
+                  </p>
+                )
               )}
             </div>
 
