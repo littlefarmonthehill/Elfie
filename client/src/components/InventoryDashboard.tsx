@@ -544,6 +544,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         <InventoryHealthPanel
           open={activeDrawer === 'inventoryhealth'}
           onOpenChange={(open) => { if (!open) onDrawerChange(null); }}
+          onItemClick={onItemClick}
         />
       )}
 

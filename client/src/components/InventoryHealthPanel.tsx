@@ -34,6 +34,7 @@ import {
   Trash2,
   MapPin,
   Search,
+  ExternalLink,
 } from "lucide-react";
 
 interface ItemTypeRow {
@@ -1066,7 +1067,7 @@ interface SetGroup {
   lots: SetLot[];
 }
 
-function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void }) {
+function LotReadinessRow({ lot, onSaved, onItemClick }: { lot: SetLot; onSaved: () => void; onItemClick?: (id: number) => void }) {
   const [r, setR] = useState({ ...lot });
   const [saved, setSaved] = useState(false);
 
@@ -1118,7 +1119,19 @@ function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void })
         <span className="text-[10px] font-mono text-white">{price}</span>
         {stockroomLabel && <span className="text-[10px] text-sky-400 font-mono">{stockroomLabel}</span>}
         {r.completeness && <span className="text-[10px] text-gray-500">{r.completeness === 'C' ? 'Complete' : r.completeness === 'B' ? 'w/Box' : r.completeness === 'I' ? 'w/Instr' : r.completeness}</span>}
-        {saved && <span className="ml-auto text-[9px] text-emerald-400 animate-pulse">Saved</span>}
+        <div className="ml-auto flex items-center gap-1.5">
+          {saved && <span className="text-[9px] text-emerald-400 animate-pulse">Saved</span>}
+          {onItemClick && (
+            <button
+              onClick={() => onItemClick(lot.id)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              data-testid={`btn-lot-open-${lot.id}`}
+              title="Open lot detail"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* BL Description */}
@@ -1208,9 +1221,11 @@ function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void })
   );
 }
 
-function SetsReadinessView({ open }: { open: boolean }) {
+function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?: (id: number) => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [pomRunning, setPomRunning] = useState(false);
+  const [pomProgress, setPomProgress] = useState<{ done: number; total: number } | null>(null);
 
   const { data: sets, isLoading, refetch } = useQuery<SetGroup[]>({
     queryKey: ['/api/inventory/sets-readiness'],
@@ -1222,6 +1237,42 @@ function SetsReadinessView({ open }: { open: boolean }) {
   const filtered = (sets ?? []).filter(s =>
     !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Collect all lots without a price across all set groups
+  const unpricedLots = (sets ?? []).flatMap(s =>
+    s.lots.filter(l => !l.unitPrice || parseFloat(l.unitPrice) === 0)
+      .map(l => ({ lotId: l.id, itemNo: s.itemNo, newOrUsed: l.newOrUsed }))
+  );
+
+  async function runPom() {
+    if (pomRunning || unpricedLots.length === 0) return;
+    setPomRunning(true);
+    setPomProgress({ done: 0, total: unpricedLots.length });
+    let done = 0;
+    // Deduplicate by itemNo+newOrUsed (one API call per unique combo)
+    const seen = new Set<string>();
+    const unique = unpricedLots.filter(l => {
+      const key = `${l.itemNo}|${l.newOrUsed}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    setPomProgress({ done: 0, total: unique.length });
+    await Promise.allSettled(unique.map(async (l) => {
+      try {
+        await apiRequest('POST', '/api/priceomatic/fetch-pricing', {
+          itemNo: l.itemNo,
+          itemType: 'SET',
+          colorId: 0,
+          newOrUsed: l.newOrUsed,
+        });
+      } catch { /* ignore individual failures */ }
+      done++;
+      setPomProgress({ done, total: unique.length });
+    }));
+    setPomRunning(false);
+    setTimeout(() => { setPomProgress(null); refetch(); }, 1200);
+  }
 
   function toggleExpand(itemNo: string) {
     setExpanded(prev => {
@@ -1281,6 +1332,30 @@ function SetsReadinessView({ open }: { open: boolean }) {
           />
         </div>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
+        {unpricedLots.length > 0 && (
+          <button
+            onClick={runPom}
+            disabled={pomRunning}
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-60 whitespace-nowrap"
+            data-testid="button-sets-run-pom"
+            title={`Fetch price guide for ${unpricedLots.length} unpriced lot${unpricedLots.length !== 1 ? 's' : ''}`}
+          >
+            {pomRunning ? (
+              <>
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                {pomProgress ? `${pomProgress.done}/${pomProgress.total}` : '…'}
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-2.5 h-2.5" />
+                POM ({unpricedLots.length})
+              </>
+            )}
+          </button>
+        )}
+        {pomProgress && !pomRunning && (
+          <span className="text-[10px] text-emerald-400 whitespace-nowrap">Done</span>
+        )}
         <button onClick={expandAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↓</button>
         <button onClick={collapseAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↑</button>
         <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-sets-refresh">
@@ -1350,6 +1425,7 @@ function SetsReadinessView({ open }: { open: boolean }) {
                           key={lot.id}
                           lot={lot}
                           onSaved={() => {}}
+                          onItemClick={onItemClick}
                         />
                       ))}
                     </div>
@@ -1370,9 +1446,10 @@ interface InventoryHealthPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inline?: boolean;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function InventoryHealthPanel({ open, onOpenChange, inline }: InventoryHealthPanelProps) {
+export default function InventoryHealthPanel({ open, onOpenChange, inline, onItemClick }: InventoryHealthPanelProps) {
   const [mainTab, setMainTab] = useState<'health' | 'sets'>('health');
   const [selectedCategory, setSelectedCategory] = useState<HealthCategory | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -1544,7 +1621,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
   );
 
   const innerContent = mainTab === 'sets' ? (
-    <SetsReadinessView open={open} />
+    <SetsReadinessView open={open} onItemClick={onItemClick ? (id) => onItemClick('inventory', id) : undefined} />
   ) : (
     <div className="flex-1 overflow-y-auto min-h-0">
       {showHistory ? (

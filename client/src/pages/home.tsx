@@ -555,7 +555,7 @@ export default function Home() {
     if (activeInventoryDrawer === 'inventoryhealth') {
       return (
         <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="Inventory Health" onClose={closeActiveDrawer}>
-          <InventoryHealthPanel open={true} onOpenChange={() => {}} inline />
+          <InventoryHealthPanel open={true} onOpenChange={() => {}} inline onItemClick={handleDashboardItemClick} />
         </ToolDrawer>
       );
     }
