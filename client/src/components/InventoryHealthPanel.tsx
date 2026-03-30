@@ -1553,13 +1553,6 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
                     )}
                   </div>
 
-                  {/* Readiness score */}
-                  <div className="text-right shrink-0 mt-0.5">
-                    <div className="text-[9px] text-muted-foreground">Ready</div>
-                    <div className={`text-[10px] font-mono font-semibold ${readyLots === totalLots ? 'text-emerald-400' : readyLots > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                      {readyLots}/{totalLots}
-                    </div>
-                  </div>
                 </button>
               );
             })}
