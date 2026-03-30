@@ -1069,8 +1069,8 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
   const boTotalLots    = brickOwl?.stats?.totalLots ?? 0;
   const boUnlinked     = brickOwl?.discrepancies?.unlinkedBoLots ?? 0;
   const boOrphaned     = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
-  const boLinked       = Math.max(0, boTotalLots - boUnlinked - boOrphaned);
-  const boHasIssues    = boUnlinked > 0 || boOrphaned > 0;
+  const boStandalone   = boUnlinked + boOrphaned;
+  const boLinked       = Math.max(0, boTotalLots - boStandalone);
   const missingLots    = brickOwl?.discrepancies?.missingLots ?? 0;
 
   if (isLoading) {
@@ -1148,37 +1148,26 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
           <div>
             <p className="text-sm font-mono font-bold text-gray-100">{boLinked.toLocaleString()}</p>
             <p className="text-[10px] text-gray-400">linked lots</p>
-            {missingLots > 0 && (
-              <p className="text-[10px] font-mono text-amber-500/70 mt-0.5">
-                + {missingLots.toLocaleString()} missing
-              </p>
-            )}
           </div>
           <div className="space-y-1">
+            {/* Base: BO total */}
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] text-gray-500">Total lots</span>
+              <span className="text-[10px] text-gray-500">BO total</span>
               <span className="text-[10px] font-mono text-gray-300">{boTotalLots.toLocaleString()}</span>
             </div>
-            {boUnlinked > 0 && (
+            {/* Missing: in BL scope but not on BO */}
+            {missingLots > 0 && (
               <div className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] text-amber-500/80">
-                  <Unlink className="w-2.5 h-2.5" />
-                  Unlinked
-                </span>
-                <span className="text-[10px] font-mono text-amber-500/80">{boUnlinked.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-600">Missing</span>
+                <span className="text-[10px] font-mono text-gray-600">+{missingLots.toLocaleString()}</span>
               </div>
             )}
-            {boOrphaned > 0 && (
+            {/* Standalone: on BO but not in BL scope (unlinked + orphaned) */}
+            {boStandalone > 0 && (
               <div className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] text-red-400/80">
-                  <GitMerge className="w-2.5 h-2.5" />
-                  Orphaned
-                </span>
-                <span className="text-[10px] font-mono text-red-400/80">{boOrphaned.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-600">Standalone</span>
+                <span className="text-[10px] font-mono text-gray-600">−{boStandalone.toLocaleString()}</span>
               </div>
-            )}
-            {!boHasIssues && boTotalLots > 0 && scope.inScopeLots <= boLinked && (
-              <p className="text-[10px] text-green-500/70">All lots linked</p>
             )}
           </div>
         </div>
