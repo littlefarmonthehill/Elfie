@@ -9671,6 +9671,90 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Sets readiness — all SET lots grouped by item, with full readiness fields
+  app.get("/api/inventory/sets-readiness", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const result = await db.execute(sql`
+        SELECT
+          bi.id,
+          bi.item_no,
+          bi.quantity,
+          bi.new_or_used,
+          bi.unit_price,
+          bi.my_cost,
+          bi.completeness,
+          bi.is_stock_room,
+          bi.stock_room_id,
+          bi.description,
+          bi.remarks,
+          bi.date_created,
+          bi.has_instructions,
+          bi.has_box,
+          bi.pct_complete,
+          bi.completeness_notes,
+          bi.missing_pieces,
+          bi.missing_lots,
+          bi.sale_location,
+          COALESCE(bc_cat.item_name, bi.item_no) AS item_name,
+          bc_cat.image_url,
+          bc_cat.thumbnail_url,
+          bc_cat.year_released
+        FROM bl_inventory bi
+        LEFT JOIN bl_catalog bc_cat
+          ON bc_cat.item_no = bi.item_no
+          AND bc_cat.item_type = 'SET'
+          AND bc_cat.color_id = 0
+        WHERE bi.org_id = ${orgId}
+          AND bi.item_type = 'SET'
+          AND bi.deleted_at IS NULL
+          AND bi.quantity > 0
+        ORDER BY bi.item_no, bi.new_or_used, bi.id
+      `);
+      const rows: any[] = (result as any).rows ?? [];
+
+      // Group lots by item_no
+      const grouped: Record<string, { itemNo: string; itemName: string; imageUrl: string | null; thumbnailUrl: string | null; yearReleased: number | null; lots: any[] }> = {};
+      for (const row of rows) {
+        if (!grouped[row.item_no]) {
+          grouped[row.item_no] = {
+            itemNo: row.item_no,
+            itemName: row.item_name ?? row.item_no,
+            imageUrl: row.image_url ?? null,
+            thumbnailUrl: row.thumbnail_url ?? null,
+            yearReleased: row.year_released ?? null,
+            lots: [],
+          };
+        }
+        grouped[row.item_no].lots.push({
+          id: row.id,
+          quantity: row.quantity,
+          newOrUsed: row.new_or_used,
+          unitPrice: row.unit_price,
+          myCost: row.my_cost,
+          completeness: row.completeness,
+          isStockRoom: row.is_stock_room,
+          stockRoomId: row.stock_room_id,
+          description: row.description,
+          remarks: row.remarks,
+          dateCreated: row.date_created,
+          hasInstructions: row.has_instructions,
+          hasBox: row.has_box,
+          pctComplete: row.pct_complete,
+          completenessNotes: row.completeness_notes ?? '',
+          missingPieces: row.missing_pieces,
+          missingLots: row.missing_lots,
+          saleLocation: row.sale_location ?? '',
+        });
+      }
+
+      res.json(Object.values(grouped).sort((a, b) => a.itemNo.localeCompare(b.itemNo)));
+    } catch (err) {
+      console.error('Error fetching sets readiness:', err);
+      res.status(500).json({ error: 'Failed to fetch sets readiness' });
+    }
+  });
+
   // ── Inventory Health ─────────────────────────────────────────────────────────
   // Summary counts for all health categories
   app.get("/api/inventory/health", isApproved, async (req: any, res) => {

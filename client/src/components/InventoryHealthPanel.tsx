@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Drawer,
   DrawerClose,
@@ -32,6 +33,7 @@ import {
   FileText,
   Trash2,
   MapPin,
+  Search,
 } from "lucide-react";
 
 interface ItemTypeRow {
@@ -1033,6 +1035,345 @@ function DetailView({ category, title, icon: Icon, accentColor }: {
   );
 }
 
+// ── Sets Readiness ────────────────────────────────────────────────────────────
+
+interface SetLot {
+  id: number;
+  quantity: number;
+  newOrUsed: string;
+  unitPrice: string | null;
+  myCost: string | null;
+  completeness: string | null;
+  isStockRoom: boolean;
+  stockRoomId: string | null;
+  description: string | null;
+  remarks: string | null;
+  hasInstructions: boolean | null;
+  hasBox: boolean | null;
+  pctComplete: number | null;
+  completenessNotes: string;
+  missingPieces: number | null;
+  missingLots: number | null;
+  saleLocation: string;
+}
+
+interface SetGroup {
+  itemNo: string;
+  itemName: string;
+  imageUrl: string | null;
+  thumbnailUrl: string | null;
+  yearReleased: number | null;
+  lots: SetLot[];
+}
+
+function LotReadinessRow({ lot, onSaved }: { lot: SetLot; onSaved: () => void }) {
+  const [r, setR] = useState({ ...lot });
+  const [saved, setSaved] = useState(false);
+
+  const { mutate } = useMutation({
+    mutationFn: (patch: Record<string, any>) =>
+      apiRequest('PATCH', `/api/inventory/${lot.id}/readiness`, patch),
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
+      onSaved();
+    },
+  });
+
+  function save(patch: Record<string, any>) { mutate(patch); }
+
+  function toggleBool(field: 'hasInstructions' | 'hasBox', target: boolean) {
+    const v = r[field] === target ? null : target;
+    setR(prev => ({ ...prev, [field]: v }));
+    save({ [field]: v });
+  }
+
+  const yesBtn = (field: 'hasInstructions' | 'hasBox') =>
+    `px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+      r[field] === true
+        ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300'
+        : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'
+    }`;
+  const noBtn = (field: 'hasInstructions' | 'hasBox') =>
+    `px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+      r[field] === false
+        ? 'bg-rose-500/30 border-rose-500/60 text-rose-300'
+        : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'
+    }`;
+
+  const inputCls = 'h-6 w-full text-[11px] bg-black/30 border border-white/10 rounded px-1.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-white/30';
+
+  const cond = r.newOrUsed === 'N' ? 'New' : 'Used';
+  const condColor = r.newOrUsed === 'N' ? 'text-emerald-400' : 'text-amber-400';
+  const price = r.unitPrice ? `$${parseFloat(r.unitPrice).toFixed(2)}` : '—';
+  const stockroomLabel = r.isStockRoom ? (r.stockRoomId ? `SR-${r.stockRoomId}` : 'SR') : null;
+
+  return (
+    <div className="border border-white/10 rounded-lg bg-black/20 p-2.5 space-y-2" data-testid={`lot-readiness-row-${lot.id}`}>
+      {/* Lot header */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={`text-[10px] font-bold ${condColor}`}>{cond}</span>
+        <span className="text-[10px] font-mono text-gray-400">#{lot.id}</span>
+        <span className="text-[10px] font-mono text-white font-semibold">Qty: {r.quantity}</span>
+        <span className="text-[10px] font-mono text-white">{price}</span>
+        {stockroomLabel && <span className="text-[10px] text-sky-400 font-mono">{stockroomLabel}</span>}
+        {r.completeness && <span className="text-[10px] text-gray-500">{r.completeness === 'C' ? 'Complete' : r.completeness === 'B' ? 'w/Box' : r.completeness === 'I' ? 'w/Instr' : r.completeness}</span>}
+        {saved && <span className="ml-auto text-[9px] text-emerald-400 animate-pulse">Saved</span>}
+      </div>
+
+      {/* Row 1: Instructions + Box Y/N */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Instructions</span>
+          <div className="flex gap-1">
+            <button onClick={() => toggleBool('hasInstructions', true)} className={yesBtn('hasInstructions')} data-testid={`btn-instr-yes-${lot.id}`}>Y</button>
+            <button onClick={() => toggleBool('hasInstructions', false)} className={noBtn('hasInstructions')} data-testid={`btn-instr-no-${lot.id}`}>N</button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Box</span>
+          <div className="flex gap-1">
+            <button onClick={() => toggleBool('hasBox', true)} className={yesBtn('hasBox')} data-testid={`btn-box-yes-${lot.id}`}>Y</button>
+            <button onClick={() => toggleBool('hasBox', false)} className={noBtn('hasBox')} data-testid={`btn-box-no-${lot.id}`}>N</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: % Complete + Location */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">% Complete</span>
+          <input
+            type="number" min={0} max={100}
+            value={r.pctComplete ?? ''}
+            onChange={e => setR(p => ({ ...p, pctComplete: e.target.value === '' ? null : Number(e.target.value) }))}
+            onBlur={() => save({ pctComplete: r.pctComplete })}
+            placeholder="0–100"
+            className={inputCls}
+            data-testid={`input-pct-${lot.id}`}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Location</span>
+          <input
+            type="text" maxLength={5}
+            value={r.saleLocation}
+            onChange={e => setR(p => ({ ...p, saleLocation: e.target.value.toUpperCase().slice(0, 5) }))}
+            onBlur={() => save({ saleLocation: r.saleLocation || null })}
+            placeholder="e.g. A1"
+            className={`${inputCls} font-mono`}
+            data-testid={`input-loc-${lot.id}`}
+          />
+        </div>
+      </div>
+
+      {/* Row 3: Missing Pieces + Missing Lots */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Missing Pcs</span>
+          <input
+            type="number" min={0}
+            value={r.missingPieces ?? ''}
+            onChange={e => setR(p => ({ ...p, missingPieces: e.target.value === '' ? null : Number(e.target.value) }))}
+            onBlur={() => save({ missingPieces: r.missingPieces })}
+            placeholder="0"
+            className={inputCls}
+            data-testid={`input-missing-pcs-${lot.id}`}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Missing Lots</span>
+          <input
+            type="number" min={0}
+            value={r.missingLots ?? ''}
+            onChange={e => setR(p => ({ ...p, missingLots: e.target.value === '' ? null : Number(e.target.value) }))}
+            onBlur={() => save({ missingLots: r.missingLots })}
+            placeholder="0"
+            className={inputCls}
+            data-testid={`input-missing-lots-${lot.id}`}
+          />
+        </div>
+      </div>
+
+      {/* Row 4: Overview (full width) */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Overview</span>
+          <span className="text-[9px] text-gray-600">{r.completenessNotes.length}/50</span>
+        </div>
+        <input
+          type="text" maxLength={50}
+          value={r.completenessNotes}
+          onChange={e => setR(p => ({ ...p, completenessNotes: e.target.value.slice(0, 50) }))}
+          onBlur={() => save({ completenessNotes: r.completenessNotes || null })}
+          placeholder="Brief description of completeness…"
+          className={inputCls}
+          data-testid={`input-notes-${lot.id}`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SetsReadinessView({ open }: { open: boolean }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+
+  const { data: sets, isLoading, refetch } = useQuery<SetGroup[]>({
+    queryKey: ['/api/inventory/sets-readiness'],
+    enabled: open,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const filtered = (sets ?? []).filter(s =>
+    !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function toggleExpand(itemNo: string) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(itemNo)) next.delete(itemNo); else next.add(itemNo);
+      return next;
+    });
+  }
+
+  function expandAll() { setExpanded(new Set((sets ?? []).map(s => s.itemNo))); }
+  function collapseAll() { setExpanded(new Set()); }
+
+  // Readiness badge helper
+  function readinessBadge(lot: SetLot) {
+    const checks = [
+      lot.hasInstructions === true,
+      lot.hasBox === true,
+      lot.pctComplete !== null,
+      !!lot.saleLocation,
+    ];
+    const done = checks.filter(Boolean).length;
+    const pct = Math.round(done / checks.length * 100);
+    const color = pct === 100 ? 'text-emerald-400' : pct >= 50 ? 'text-amber-400' : 'text-rose-400';
+    return <span className={`text-[9px] font-mono font-semibold ${color}`}>{pct}%</span>;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-4 space-y-3">
+        {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-lg bg-muted/30 animate-pulse" />)}
+      </div>
+    );
+  }
+
+  if (!sets || sets.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center px-4">
+        <Package className="w-10 h-10 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">No SET inventory found</p>
+        <p className="text-[11px] text-muted-foreground/60">Items with item type SET will appear here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-0 flex-1">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search sets…"
+            className="w-full h-7 pl-6 pr-2 text-xs bg-muted/30 border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-muted-foreground"
+            data-testid="input-sets-search"
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{filtered.length} set{filtered.length !== 1 ? 's' : ''}</span>
+        <button onClick={expandAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↓</button>
+        <button onClick={collapseAll} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">All ↑</button>
+        <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-sets-refresh">
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Set groups */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground/60 text-sm">
+            No sets match your search
+          </div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {filtered.map(set => {
+              const isOpen = expanded.has(set.itemNo);
+              const totalLots = set.lots.length;
+              const readyLots = set.lots.filter(l =>
+                l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null && !!l.saleLocation
+              ).length;
+
+              return (
+                <div key={set.itemNo} data-testid={`set-group-${set.itemNo}`}>
+                  {/* Set header row */}
+                  <button
+                    onClick={() => toggleExpand(set.itemNo)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover-elevate text-left"
+                    data-testid={`btn-set-expand-${set.itemNo}`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-9 h-9 rounded bg-black/30 flex items-center justify-center shrink-0 overflow-hidden">
+                      {set.thumbnailUrl ? (
+                        <img src={set.thumbnailUrl} alt={set.itemName} className="w-full h-full object-contain" />
+                      ) : (
+                        <Package className="w-4 h-4 text-muted-foreground/40" />
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-foreground truncate">{set.itemName}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-mono text-muted-foreground">{set.itemNo}</span>
+                        {set.yearReleased && <span className="text-[10px] text-muted-foreground/60">{set.yearReleased}</span>}
+                        <span className="text-[10px] text-muted-foreground">{totalLots} lot{totalLots !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+
+                    {/* Readiness summary */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <div className="text-[9px] text-muted-foreground">Ready</div>
+                        <div className={`text-[10px] font-mono font-semibold ${readyLots === totalLots ? 'text-emerald-400' : readyLots > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                          {readyLots}/{totalLots}
+                        </div>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* Expanded lots */}
+                  {isOpen && (
+                    <div className="px-4 pb-3 space-y-2">
+                      {set.lots.map(lot => (
+                        <LotReadinessRow
+                          key={lot.id}
+                          lot={lot}
+                          onSaved={() => {}}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface InventoryHealthPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1040,6 +1381,7 @@ interface InventoryHealthPanelProps {
 }
 
 export default function InventoryHealthPanel({ open, onOpenChange, inline }: InventoryHealthPanelProps) {
+  const [mainTab, setMainTab] = useState<'health' | 'sets'>('health');
   const [selectedCategory, setSelectedCategory] = useState<HealthCategory | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -1182,6 +1524,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
     onOpenChange(false);
     setSelectedCategory(null);
     setShowHistory(false);
+    setMainTab('health');
   }
 
   function handleBack() {
@@ -1189,7 +1532,28 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
     if (showHistory)      { setShowHistory(false);      return; }
   }
 
-  const innerContent = (
+  const tabStrip = (
+    <div className="flex border-b border-border flex-shrink-0 px-4">
+      <button
+        onClick={() => { setMainTab('health'); setSelectedCategory(null); setShowHistory(false); }}
+        className={`py-2 px-3 text-xs font-semibold border-b-2 transition-colors ${mainTab === 'health' ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        data-testid="tab-health"
+      >
+        HEALTH
+      </button>
+      <button
+        onClick={() => setMainTab('sets')}
+        className={`py-2 px-3 text-xs font-semibold border-b-2 transition-colors ${mainTab === 'sets' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        data-testid="tab-sets"
+      >
+        SETS
+      </button>
+    </div>
+  );
+
+  const innerContent = mainTab === 'sets' ? (
+    <SetsReadinessView open={open} />
+  ) : (
     <div className="flex-1 overflow-y-auto min-h-0">
       {showHistory ? (
         <HistoryView />
@@ -1265,29 +1629,36 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
     </div>
   );
 
+  const headerTitle = mainTab === 'sets'
+    ? <span className="flex items-center gap-1.5"><Package className="w-4 h-4 text-emerald-400 shrink-0" />Sets Readiness</span>
+    : selectedCategory && activeCard
+      ? <span className="flex items-center gap-1.5"><activeCard.icon className={`w-4 h-4 ${activeCard.accentColor} shrink-0`} />{activeCard.label}</span>
+      : showHistory
+      ? <span className="flex items-center gap-1.5"><History className="w-4 h-4 text-violet-400 shrink-0" />Change History</span>
+      : 'Inventory Health';
+
+  const showBackBtn = mainTab === 'health' && (selectedCategory !== null || showHistory);
+
   if (inline) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-shrink-0">
-          {(selectedCategory || showHistory) ? (
+          {showBackBtn ? (
             <button onClick={handleBack} className="text-muted-foreground hover:text-foreground transition-colors mr-1 flex-shrink-0" data-testid="button-health-back">
               <ArrowLeft className="w-4 h-4" />
             </button>
           ) : (
             <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
           )}
-          <span className="text-sm font-semibold text-foreground flex-1">
-            {selectedCategory && activeCard
-              ? <span className="flex items-center gap-1.5"><activeCard.icon className={`w-4 h-4 ${activeCard.accentColor} shrink-0`} />{activeCard.label}</span>
-              : showHistory
-              ? <span className="flex items-center gap-1.5"><History className="w-4 h-4 text-violet-400 shrink-0" />Change History</span>
-              : 'Inventory Health'}
-          </span>
+          <span className="text-sm font-semibold text-foreground flex-1">{headerTitle}</span>
           <button onClick={handleClose} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="button-health-close">
             <X className="w-5 h-5" />
           </button>
         </div>
-        {innerContent}
+        {!showBackBtn && tabStrip}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {innerContent}
+        </div>
       </div>
     );
   }
@@ -1300,7 +1671,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
             <div className="w-10 h-1 rounded-full bg-muted" />
           </div>
           <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-border">
-            {(selectedCategory || showHistory) ? (
+            {showBackBtn ? (
               <button
                 onClick={handleBack}
                 className="text-muted-foreground hover:text-foreground transition-colors mr-1 flex-shrink-0"
@@ -1312,17 +1683,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
               <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             )}
             <DrawerTitle className="text-sm font-semibold text-foreground flex-1">
-              {selectedCategory && activeCard
-                ? <span className="flex items-center gap-1.5">
-                    <activeCard.icon className={`w-4 h-4 ${activeCard.accentColor} shrink-0`} />
-                    {activeCard.label}
-                  </span>
-                : showHistory
-                ? <span className="flex items-center gap-1.5">
-                    <History className="w-4 h-4 text-violet-400 shrink-0" />
-                    Change History
-                  </span>
-                : 'Inventory Health'}
+              {headerTitle}
             </DrawerTitle>
             <DrawerClose
               className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -1333,8 +1694,11 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
               <span className="sr-only">Close</span>
             </DrawerClose>
           </div>
+          {!showBackBtn && tabStrip}
         </DrawerHeader>
-        {innerContent}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {innerContent}
+        </div>
       </DrawerContent>
     </Drawer>
   );
