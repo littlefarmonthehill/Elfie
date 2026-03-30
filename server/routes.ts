@@ -5199,6 +5199,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NOTE: all static /api/orders/<name> GET routes must be registered before /:id
+  // GET /api/orders/marketplace-diagnostic
+  app.get("/api/orders/marketplace-diagnostic", isApproved, async (req, res) => {
+    try {
+      const stats = await db.execute(sql`
+        SELECT
+          marketplace,
+          COUNT(*) as count,
+          ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM orders), 1) as percentage
+        FROM orders
+        GROUP BY marketplace
+        ORDER BY count DESC
+      `);
+      const unknownSamples = await db.execute(sql`
+        SELECT
+          order_number, order_key, marketplace, order_date,
+          CASE
+            WHEN order_number ~ '^BL\\.' THEN 'Should be: BrickLink'
+            WHEN order_number ~ '^BO\\.' THEN 'Should be: BrickOwl'
+            WHEN order_number ~ '^LBS' THEN 'Should be: eBay'
+            WHEN order_number ~ '^\\d{7,8}$' THEN 'Should be: BrickLink (numeric)'
+            WHEN order_number ~ '^\\d{3}-\\d{7}-\\d{7}$' THEN 'Should be: Amazon'
+            WHEN order_number ~ '^\\d{2}-\\d{5}-\\d{5}$' THEN 'Should be: eBay'
+            WHEN order_number ~ '^\\d{12}-\\d{13}$' THEN 'Should be: eBay (long format)'
+            ELSE 'Pattern not recognized'
+          END as detected_pattern
+        FROM orders
+        WHERE marketplace IS NULL
+        ORDER BY order_date DESC
+        LIMIT 20
+      `);
+      res.json({
+        success: true,
+        summary: stats.rows,
+        unknownSamples: unknownSamples.rows,
+        insights: {
+          totalOrders: stats.rows.reduce((sum: number, row: any) => sum + Number(row.count), 0),
+          unknownCount: stats.rows.find((row: any) => row.marketplace === null)?.count || 0,
+          detectionMethods: [
+            { priority: 1, method: 'advancedOptions.source', description: 'Most reliable - direct marketplace field' },
+            { priority: 2, method: 'Custom Fields', description: 'Check customField1, customField2, customField3' },
+            { priority: 3, method: 'Order Number Pattern', description: 'BL., BO., LBS, numeric patterns' },
+            { priority: 4, method: 'Order Key Pattern', description: 'EBAY-, AMZN-, etc. prefixes' },
+            { priority: 5, method: 'Customer Email Domain', description: 'Marketplace notification emails' },
+            { priority: 6, method: 'Shipping Service', description: 'Carrier code or service mentions' },
+            { priority: 7, method: 'Store ID', description: 'advancedOptions.storeId references' },
+            { priority: 8, method: 'Order Notes', description: 'Internal/customer notes mentioning marketplace' }
+          ],
+          detectionPatterns: [
+            { pattern: 'BL.XXXXXXX', platform: 'BrickLink' },
+            { pattern: 'BO.XXXXXXX', platform: 'BrickOwl' },
+            { pattern: 'LBS*', platform: 'eBay' },
+            { pattern: '7-8 digits', platform: 'BrickLink (legacy)' },
+            { pattern: 'XXX-XXXXXXX-XXXXXXX', platform: 'Amazon' },
+            { pattern: 'XX-XXXXX-XXXXX', platform: 'eBay' },
+            { pattern: '12-13 digit with hyphen', platform: 'eBay (long)' }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Marketplace diagnostic error:", error);
+      res.status(500).json({ success: false, error: "Failed to generate marketplace diagnostic" });
+    }
+  });
+
+  // GET /api/orders/feedback-pending — orders that shipped but no feedback left yet
+  // NOTE: must be registered before /:id so Express doesn't treat "feedback-pending" as an order ID
+  app.get("/api/orders/feedback-pending", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          marketplace: orders.marketplace,
+          customerUsername: orders.customerUsername,
+          orderStatus: orders.orderStatus,
+          shipDate: orders.shipDate,
+          orderDate: orders.orderDate,
+          orderTotal: orders.orderTotal,
+          feedbackLeftAt: orders.feedbackLeftAt,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.orgId, orgId),
+            eq(orders.isTest, false),
+            isNull(orders.feedbackLeftAt),
+            inArray(orders.orderStatus, ['Shipped', 'Completed']),
+          )
+        )
+        .orderBy(desc(orders.shipDate));
+      res.json(rows);
+    } catch (err: any) {
+      console.error("Error fetching feedback-pending orders:", err);
+      res.status(500).json({ error: "Failed to fetch feedback-pending orders" });
+    }
+  });
+
   // Fetch single order by ID with full details
   app.get("/api/orders/:id", isApproved, async (req: any, res) => {
     try {
@@ -14560,80 +14659,6 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
-  // Marketplace diagnostic endpoint
-  app.get("/api/orders/marketplace-diagnostic", isApproved, async (req, res) => {
-    try {
-      // Get summary statistics
-      const stats = await db.execute(sql`
-        SELECT 
-          marketplace,
-          COUNT(*) as count,
-          ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM orders), 1) as percentage
-        FROM orders
-        GROUP BY marketplace
-        ORDER BY count DESC
-      `);
-
-      // Get sample "Unknown" orders with their data
-      const unknownSamples = await db.execute(sql`
-        SELECT 
-          order_number,
-          order_key,
-          marketplace,
-          order_date,
-          CASE 
-            WHEN order_number ~ '^BL\\.' THEN 'Should be: BrickLink'
-            WHEN order_number ~ '^BO\\.' THEN 'Should be: BrickOwl'
-            WHEN order_number ~ '^LBS' THEN 'Should be: eBay'
-            WHEN order_number ~ '^\\d{7,8}$' THEN 'Should be: BrickLink (numeric)'
-            WHEN order_number ~ '^\\d{3}-\\d{7}-\\d{7}$' THEN 'Should be: Amazon'
-            WHEN order_number ~ '^\\d{2}-\\d{5}-\\d{5}$' THEN 'Should be: eBay'
-            WHEN order_number ~ '^\\d{12}-\\d{13}$' THEN 'Should be: eBay (long format)'
-            ELSE 'Pattern not recognized'
-          END as detected_pattern
-        FROM orders 
-        WHERE marketplace IS NULL
-        ORDER BY order_date DESC
-        LIMIT 20
-      `);
-
-      res.json({
-        success: true,
-        summary: stats.rows,
-        unknownSamples: unknownSamples.rows,
-        insights: {
-          totalOrders: stats.rows.reduce((sum: number, row: any) => sum + Number(row.count), 0),
-          unknownCount: stats.rows.find((row: any) => row.marketplace === null)?.count || 0,
-          detectionMethods: [
-            { priority: 1, method: 'advancedOptions.source', description: 'Most reliable - direct marketplace field' },
-            { priority: 2, method: 'Custom Fields', description: 'Check customField1, customField2, customField3' },
-            { priority: 3, method: 'Order Number Pattern', description: 'BL., BO., LBS, numeric patterns' },
-            { priority: 4, method: 'Order Key Pattern', description: 'EBAY-, AMZN-, etc. prefixes' },
-            { priority: 5, method: 'Customer Email Domain', description: 'Marketplace notification emails' },
-            { priority: 6, method: 'Shipping Service', description: 'Carrier code or service mentions' },
-            { priority: 7, method: 'Store ID', description: 'advancedOptions.storeId references' },
-            { priority: 8, method: 'Order Notes', description: 'Internal/customer notes mentioning marketplace' }
-          ],
-          detectionPatterns: [
-            { pattern: 'BL.XXXXXXX', platform: 'BrickLink' },
-            { pattern: 'BO.XXXXXXX', platform: 'BrickOwl' },
-            { pattern: 'LBS*', platform: 'eBay' },
-            { pattern: '7-8 digits', platform: 'BrickLink (legacy)' },
-            { pattern: 'XXX-XXXXXXX-XXXXXXX', platform: 'Amazon' },
-            { pattern: 'XX-XXXXX-XXXXX', platform: 'eBay' },
-            { pattern: '12-13 digit with hyphen', platform: 'eBay (long)' }
-          ]
-        }
-      });
-    } catch (error) {
-      console.error("Marketplace diagnostic error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to generate marketplace diagnostic",
-      });
-    }
-  });
-
   // Price-o-Matic sync endpoint (manual trigger from POM screen)
   app.post("/api/sync/priceomatic", isApproved, async (req: any, res) => {
     try {
@@ -18092,39 +18117,6 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   });
 
   // ── Customer Feedback Tracking ────────────────────────────────────────────
-  // GET /api/orders/feedback-pending — orders that shipped but no feedback left yet
-  app.get("/api/orders/feedback-pending", isApproved, async (req: any, res) => {
-    try {
-      const orgId = reqOrgId(req);
-      const rows = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          marketplace: orders.marketplace,
-          customerUsername: orders.customerUsername,
-          orderStatus: orders.orderStatus,
-          shipDate: orders.shipDate,
-          orderDate: orders.orderDate,
-          orderTotal: orders.orderTotal,
-          feedbackLeftAt: orders.feedbackLeftAt,
-        })
-        .from(orders)
-        .where(
-          and(
-            eq(orders.orgId, orgId),
-            eq(orders.isTest, false),
-            isNull(orders.feedbackLeftAt),
-            inArray(orders.orderStatus, ['Shipped', 'Completed']),
-          )
-        )
-        .orderBy(desc(orders.shipDate));
-      res.json(rows);
-    } catch (err: any) {
-      console.error("Error fetching feedback-pending orders:", err);
-      res.status(500).json({ error: "Failed to fetch feedback-pending orders" });
-    }
-  });
-
   // POST /api/orders/:orderId/feedback-generate — use E.L.F.I.E. to draft a feedback comment
   app.post("/api/orders/:orderId/feedback-generate", isApproved, async (req: any, res) => {
     try {
