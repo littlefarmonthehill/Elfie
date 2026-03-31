@@ -250,6 +250,14 @@ async function processBrickLinkOrder(
   // Canonical ID → legacy "BL." prefix format (prevents duplicate records on full sync)
   const existingOrder = await resolveExistingOrder(orderId, orgId, `BL.${blOrder.order_id}`);
 
+  // Soft-purged locally (operator deleted the test order) — never re-import.
+  // This fires on both incremental AND full-sync paths, guarding against the case
+  // where the full sync bypasses the pre-loop status filter.
+  if (existingOrder?.orderStatus === 'purged') {
+    console.log(`⏭️ BrickLink order ${orderId} is purged locally — skipping`);
+    return;
+  }
+
   const isReturn = blOrder.payment?.status === 'Returned';
   const normalizedStatus = isReturn ? 'returned' : mapPlatformStatus('bricklink', blOrder.status);
 

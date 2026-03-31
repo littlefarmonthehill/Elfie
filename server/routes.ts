@@ -4081,7 +4081,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          eq(orders.isTest, true)
+          eq(orders.isTest, true),
+          sql`${orders.orderStatus} != 'purged'`
         ));
 
       const returnedCount  = rows.filter(r => r.orderStatus === 'returned').length;
@@ -4107,7 +4108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          eq(orders.isTest, true)
+          eq(orders.isTest, true),
+          sql`${orders.orderStatus} != 'purged'`
         ));
 
       if (targetRows.length === 0) return res.json({ deleted: 0, message: 'No matching orders found.' });
@@ -4125,7 +4127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ orderStatus: 'purged' })
         .where(and(
           eq(orders.orgId, orgId),
-          eq(orders.isTest, true)
+          eq(orders.isTest, true),
+          sql`${orders.orderStatus} != 'purged'`
         ));
 
       console.log(`🗑️ Soft-purged ${ids.length} test orders for org ${orgId}`);
@@ -4152,7 +4155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marketplace: orders.marketplace,
         })
         .from(orders)
-        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)))
+        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true), sql`${orders.orderStatus} != 'purged'`))
         .orderBy(asc(orders.orderDate));
 
       const withActiveInventory = rows.filter(r => r.inventoryDeducted);
@@ -4167,16 +4170,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete: removes all test orders and their associated records — no inventory changes
+  // Delete: soft-purge all test orders for this org.
+  // Sets orderStatus = 'purged' instead of hard-deleting so that the next sync from
+  // BrickLink/BrickOwl recognises the order as already-processed and skips re-importing it.
+  // (A "sync from" / full sync would otherwise re-fetch these orders from the marketplace
+  //  and insert them again because the row no longer exists locally.)
   app.delete("/api/orders/test", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
 
-      // Fetch the IDs scoped to this org
+      // Fetch the IDs scoped to this org (exclude already-purged rows)
       const testRows = await db
         .select({ id: orders.id })
         .from(orders)
-        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)));
+        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true), sql`${orders.orderStatus} != 'purged'`));
 
       if (testRows.length === 0) {
         return res.json({ deleted: 0, message: 'No test orders found.' });
@@ -4184,14 +4191,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ids = testRows.map(r => r.id);
 
-      // Delete children in dependency order, then the parent orders
+      // Remove child records so they don't appear in any fulfilment or stats queries
       await db.delete(orderAdjustments).where(inArray(orderAdjustments.orderId, ids));
       await db.delete(picklistItems).where(inArray(picklistItems.orderId, ids));
       await db.delete(orderDetails).where(inArray(orderDetails.orderId, ids));
       await db.delete(shipments).where(inArray(shipments.orderId, ids));
-      await db.delete(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)));
 
-      console.log(`🗑️ Deleted ${ids.length} test orders for org ${orgId}`);
+      // Soft-purge: keep the order row so sync services can recognise and skip it
+      await db.update(orders)
+        .set({ orderStatus: 'purged' })
+        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true), sql`${orders.orderStatus} != 'purged'`));
+
+      console.log(`🗑️ Soft-purged ${ids.length} test orders for org ${orgId}`);
       res.json({ deleted: ids.length });
     } catch (err: any) {
       console.error('Test order delete error:', err);
