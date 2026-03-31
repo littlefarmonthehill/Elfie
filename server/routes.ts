@@ -14092,6 +14092,21 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // Temporary debug: fetch raw BL order detail to inspect all fields
+  app.get("/api/debug/bl-order-detail/:orderId", isApproved, async (_req: any, res) => {
+    try {
+      const { getBrickLinkOrderDetail } = await import("./services/bricklink-orders");
+      const creds = await getPlatformBrickLinkCredentials();
+      if (!creds) return res.status(400).json({ error: "No BL credentials" });
+      const raw = await getBrickLinkOrderDetail(
+        parseInt(_req.params.orderId), creds.consumerKey, creds.consumerSecret, creds.tokenValue, creds.tokenSecret
+      );
+      res.json(raw);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // BrickLink order sync endpoint
   app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {
