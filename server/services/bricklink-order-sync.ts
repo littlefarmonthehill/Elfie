@@ -315,7 +315,7 @@ async function processBrickLinkOrder(
       : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     insuranceAmount: cost?.insurance ? cost.insurance.toString() : null,
     internalNotes: null,
-    customerNotes: orderDetail?.buyer_remark || blOrder.buyer_remark || existingOrder?.customerNotes || null,
+    customerNotes: orderDetail?.remarks || blOrder.remarks || existingOrder?.customerNotes || null,
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,
