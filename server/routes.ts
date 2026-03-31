@@ -3746,9 +3746,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
-      
-      const users = await storage.getAllUsers();
-      res.json(users);
+
+      const orgId = reqOrgId(req);
+      const allUsers = await storage.getAllUsers();
+      // Filter to only users belonging to this org
+      res.json(allUsers.filter(u => u.orgId === orgId));
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -3763,9 +3765,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
-      
+
       const { id } = req.params;
       const { isApproved } = req.body;
+
+      // Ensure the target user belongs to the same org
+      const orgId = reqOrgId(req);
+      const targetUser = await storage.getUser(id);
+      if (!targetUser || targetUser.orgId !== orgId) {
+        return res.status(404).json({ message: "User not found" });
+      }
       
       // Validate isApproved
       const approvalSchema = z.object({
@@ -3816,9 +3825,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
-      
+
       const { id } = req.params;
       const { role } = req.body;
+
+      // Ensure the target user belongs to the same org
+      const orgId = reqOrgId(req);
+      const targetUserCheck = await storage.getUser(id);
+      if (!targetUserCheck || targetUserCheck.orgId !== orgId) {
+        return res.status(404).json({ message: "User not found" });
+      }
       
       // Validate role using enum
       const roleSchema = z.object({
@@ -3833,9 +3849,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Guardrail: if demoting an admin, ensure at least one other admin remains
       if (role !== 'admin') {
         const allUsers = await storage.getAllUsers();
-        const targetUser = allUsers.find(u => u.id === id);
+        const targetUser = allUsers.find(u => u.id === id && u.orgId === orgId);
         if (targetUser?.role === 'admin') {
-          const otherAdmins = allUsers.filter(u => u.id !== id && u.role === 'admin' && u.isApproved);
+          const otherAdmins = allUsers.filter(u => u.id !== id && u.orgId === orgId && u.role === 'admin' && u.isApproved);
           if (otherAdmins.length === 0) {
             return res.status(400).json({ message: "Cannot remove the last admin. Promote another user to Admin first." });
           }
@@ -6199,9 +6215,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export Routes
-  app.get("/api/export/bricklink-xml", isApproved, async (req, res) => {
+  app.get("/api/export/bricklink-xml", isApproved, async (req: any, res) => {
     try {
-      const xml = await generateBrickLinkXML();
+      const orgId = reqOrgId(req);
+      const xml = await generateBrickLinkXML(orgId);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
       const filename = `elfie-inventory-${timestamp}.xml`;
       
@@ -6214,9 +6231,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/export/inventory-csv", isApproved, async (req, res) => {
+  app.get("/api/export/inventory-csv", isApproved, async (req: any, res) => {
     try {
-      const csv = await generateInventoryCSV();
+      const orgId = reqOrgId(req);
+      const csv = await generateInventoryCSV(orgId);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
       const filename = `elfie-inventory-${timestamp}.csv`;
       

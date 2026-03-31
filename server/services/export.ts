@@ -78,8 +78,10 @@ export async function generateBrickLinkXML(orgId?: string): Promise<string> {
 /**
  * Generate CSV export for inventory
  */
-export async function generateInventoryCSV(): Promise<string> {
-  const inventory = await db.select().from(blInventory);
+export async function generateInventoryCSV(orgId?: string): Promise<string> {
+  const inventory = orgId
+    ? await db.select().from(blInventory).where(eq(blInventory.orgId, orgId))
+    : await db.select().from(blInventory);
 
   const headers = [
     'ID',
