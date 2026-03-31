@@ -135,11 +135,13 @@ export async function syncBrickLinkOrders(
       // Incremental: only process orders that are new, have changed status, or have
       // an incomplete address (e.g. blank state from a prior partial sync).
       const existingOrders = await db
-        .select({ id: orders.id, orderStatus: orders.orderStatus, shipTo: orders.shipTo })
+        .select({ id: orders.id, orderStatus: orders.orderStatus, shipTo: orders.shipTo, customerNotes: orders.customerNotes })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), sql`${orders.id} LIKE 'bl-%'`));
 
-      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, shipTo: o.shipTo }]));
+      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, shipTo: o.shipTo, customerNotes: o.customerNotes }]));
+
+      const CLOSED_STATUSES = new Set(['shipped', 'returned', 'cancelled', 'Cancelled', 'purged', 'completed', 'Completed']);
 
       allOrders = fetchedOrders.filter((order: any) => {
         const orderId = `bl-${order.order_id}`;
@@ -158,15 +160,18 @@ export async function syncBrickLinkOrders(
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
 
-        // Re-process if the stored address is missing state, but ONLY for active
-        // orders — shipped/returned/cancelled orders don't need address enrichment
-        // and re-processing them would make incremental syncs very slow.
-        const CLOSED_STATUSES = new Set(['shipped', 'returned', 'cancelled', 'Cancelled', 'purged', 'completed', 'Completed']);
+        // Re-process active orders that need enrichment — but NOT closed ones
+        // (shipped/completed/etc) to keep incremental syncs fast.
         if (!CLOSED_STATUSES.has(existing.status)) {
           try {
             const addr = existing.shipTo ? JSON.parse(existing.shipTo) : {};
-            if (!addr.state) return true;
+            if (!addr.state) return true; // Missing address state
           } catch { /* ignore bad JSON */ }
+
+          // customerNotes === null means remarks were never fetched (e.g. due to the
+          // old wrong field-name bug). Re-process to fill them in.
+          // Empty string ('') means we confirmed BL has no remark — skip.
+          if (existing.customerNotes === null) return true;
         }
 
         return false;
@@ -315,7 +320,13 @@ async function processBrickLinkOrder(
       : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     insuranceAmount: cost?.insurance ? cost.insurance.toString() : null,
     internalNotes: null,
-    customerNotes: orderDetail?.remarks || blOrder.remarks || existingOrder?.customerNotes || null,
+    // Use orderDetail.remarks when available — this is the buyer's checkout message.
+    // If the detail fetch succeeded but has no remark, store '' (confirmed empty) so
+    // the incremental filter doesn't re-fetch this order again next sync.
+    // null is reserved for "detail never fetched successfully".
+    customerNotes: orderDetail != null
+      ? ((orderDetail.remarks || '').trim() || existingOrder?.customerNotes || '')
+      : (blOrder.remarks || existingOrder?.customerNotes || null),
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,
