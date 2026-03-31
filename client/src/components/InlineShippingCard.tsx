@@ -719,6 +719,7 @@ export default function InlineShippingCard({
           <Input
             type="number" step="0.1" min="0" value={weight}
             onChange={e => { hasUserChangedWeight.current = true; setWeight(e.target.value); }}
+            onFocus={e => e.target.select()}
             placeholder="oz"
             className="h-7 w-14 bg-gray-900 border-gray-600 px-1.5"
             style={{ fontSize: '16px' }}

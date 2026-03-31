@@ -481,6 +481,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                   min="0"
                   value={editForm.weight}
                   onChange={e => setEditForm(f => ({ ...f, weight: e.target.value }))}
+                  onFocus={e => e.target.select()}
                   className="h-8 text-xs bg-gray-900 border-gray-600"
                   placeholder="e.g. 8.5"
                   data-testid="input-weight"
