@@ -305,7 +305,8 @@ async function bricklinkPostRequest(endpoint: string, body: any, orgId: string =
 
 /**
  * Post seller feedback for a BrickLink order.
- * BL API: POST /feedback — { order_id, rating: 'P'|'N'|'C', comment }
+ * BL API: POST /feedback — { order_id, type: 'P'|'N'|'C', comment }
+ * Note: the body field is "type", NOT "rating" — BL rejects "rating" with 400 PARAMETER_MISSING_OR_INVALID.
  * Note: endpoint is /feedback (singular) — /feedbacks returns 404 INVALID_URI.
  */
 export async function postBrickLinkFeedback(
@@ -314,7 +315,7 @@ export async function postBrickLinkFeedback(
   comment: string,
   orgId: string,
 ): Promise<void> {
-  await bricklinkPostRequest('/feedback', { order_id: Number(orderId), rating, comment }, orgId);
+  await bricklinkPostRequest('/feedback', { order_id: Number(orderId), type: rating, comment }, orgId);
 }
 
 async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
