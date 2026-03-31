@@ -3487,7 +3487,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setBoIossNumber(settings.boIossNumber || "");
       setBlUkVatNumber(settings.blUkVatNumber || "");
       setBoUkVatNumber(settings.boUkVatNumber || "");
-      setTimezone(settings.timezone || 'America/Chicago');
+      // timezone lives in platform_settings only; initialized from platformSettings below
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setInventorySyncFrequency(settings.inventorySyncFrequency ?? 24);
@@ -3651,6 +3651,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setPomTrendingBonus(platformSettings.pomTrendingBonus ?? 60);
       setPomHighSupplyThreshold(platformSettings.pomHighSupplyThreshold ?? 10000);
       setPomHighSupplyPenalty(platformSettings.pomHighSupplyPenalty ?? 40);
+      setTimezone((platformSettings as any).timezone || 'America/Chicago');
       setGlobalSyncPaused((platformSettings as any).globalSyncPaused ?? false);
       setDefaultInventoryFreqHours((platformSettings as any).defaultInventoryFreqHours ?? 24);
       setDefaultOrdersFreqMins((platformSettings as any).defaultOrdersFreqMins ?? 30);
@@ -4461,33 +4462,35 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   />
                 </div>
 
-                {/* Timezone */}
-                <div className="space-y-2">
-                  <Label htmlFor="timezone" className="text-xs text-gray-200">Time Zone</Label>
-                  <Select
-                    value={timezone}
-                    onValueChange={(tz) => {
-                      setTimezone(tz);
-                      updateSettingsMutation.mutate({ timezone: tz });
-                    }}
-                  >
-                    <SelectTrigger className="text-xs" data-testid="select-timezone">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
-                      <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
-                      <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
-                      <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
-                      <SelectItem value="Pacific/Honolulu">Hawaii Time (HT)</SelectItem>
-                      <SelectItem value="Europe/London">London (GMT)</SelectItem>
-                      <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
-                </div>
+                {/* Timezone — platform-level setting, super-admin only */}
+                {superAdmin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone" className="text-xs text-gray-200">Time Zone</Label>
+                    <Select
+                      value={timezone}
+                      onValueChange={(tz) => {
+                        setTimezone(tz);
+                        updatePlatformSettingsMutation.mutate({ timezone: tz } as any);
+                      }}
+                    >
+                      <SelectTrigger className="text-xs" data-testid="select-timezone">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                        <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                        <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                        <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
+                        <SelectItem value="Pacific/Honolulu">Hawaii Time (HT)</SelectItem>
+                        <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                        <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
+                  </div>
+                )}
               </div>
 
               {/* Add to Home Screen */}
