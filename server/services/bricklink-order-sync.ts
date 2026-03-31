@@ -168,10 +168,8 @@ export async function syncBrickLinkOrders(
             if (!addr.state) return true; // Missing address state
           } catch { /* ignore bad JSON */ }
 
-          // Always re-process active orders so buyer remarks are picked up even if
-          // the buyer added/updated the remark after the previous sync.
-          // Only skip if we already have a non-empty note stored.
-          if (!existing.customerNotes) return true;
+          // customerNotes === null means remarks were never fetched. Re-process to fill them in.
+          if (existing.customerNotes === null) return true;
         }
 
         return false;
