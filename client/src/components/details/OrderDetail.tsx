@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import PartImage from "@/components/PartImage";
 
 interface OrderDetailProps {
   data: {
@@ -41,6 +43,8 @@ interface OrderDetailProps {
       stockWarning?: boolean;
       competingOrderCount?: number | null;
       totalDemandQty?: number | null;
+      imageUrl?: string | null;
+      itemType?: string | null;
     }>;
     shipping?: number;
     tax?: number;
@@ -92,6 +96,13 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showCustomerNote, setShowCustomerNote] = useState(false);
+  const [lightboxItem, setLightboxItem] = useState<{
+    partNumber: string;
+    name: string;
+    imageUrl?: string | null;
+    itemType?: string | null;
+    colorId?: number | null;
+  } | null>(null);
   const [editForm, setEditForm] = useState({
     street1: data.customer?.address || '',
     street2: data.customer?.address2 || '',
@@ -516,8 +527,9 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
         <ScrollArea className="h-[180px] px-3 pb-2">
           <div className="space-y-1">
             <div className="grid grid-cols-12 gap-2 text-[9px] md:text-xs font-bold text-gray-500 border-b border-gray-700 pb-1 sticky top-0 bg-gray-900/95">
+              <div className="col-span-1"></div>
               <div className="col-span-2">PART #</div>
-              <div className="col-span-5">ITEM NAME</div>
+              <div className="col-span-4">ITEM NAME</div>
               <div className="col-span-1 text-center">QTY</div>
               <div className="col-span-2 text-right">PRICE</div>
               <div className="col-span-2 text-right">TOTAL</div>
@@ -540,6 +552,26 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                 className={`grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 rounded transition-colors cursor-pointer ${item.stockWarning ? 'bg-amber-400/5 hover:bg-amber-400/10' : 'hover:bg-lego-green/5'}`}
                 data-testid={`order-item-row-${index}`}
               >
+                <div
+                  className="col-span-1 flex items-center justify-center"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setLightboxItem({ partNumber: item.partNumber, name: item.name, imageUrl: item.imageUrl, itemType: item.itemType, colorId: item.colorId });
+                  }}
+                  data-testid={`order-item-thumb-${index}`}
+                  title="View full image"
+                >
+                  <div className="w-7 h-7 rounded bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center shrink-0 hover-elevate">
+                    <PartImage
+                      imageUrl={item.imageUrl}
+                      partNumber={item.partNumber}
+                      colorId={item.colorId}
+                      itemType={item.itemType}
+                      className="w-full h-full object-contain"
+                      fallbackClassName="w-3.5 h-3.5 text-gray-600"
+                    />
+                  </div>
+                </div>
                 <div className="col-span-2 font-mono font-bold text-lego-blue truncate flex items-center gap-1" title={item.partNumber}>
                   {item.stockWarning && (
                     <AlertTriangle
@@ -555,7 +587,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                   )}
                   <span className="truncate">{item.partNumber}</span>
                 </div>
-                <div className="col-span-5 text-white truncate" title={item.name}>{item.name}</div>
+                <div className="col-span-4 text-white truncate" title={item.name}>{item.name}</div>
                 <div className={`col-span-1 text-center font-bold ${item.stockWarning ? 'text-amber-400' : 'text-gray-300'}`}>
                   {item.quantity}
                   {item.stockWarning && item.currentInventoryQty !== null && item.currentInventoryQty !== undefined && (
@@ -743,6 +775,32 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
           )}
         </div>
       )}
+
+      {/* Image Lightbox */}
+      <Dialog open={!!lightboxItem} onOpenChange={open => { if (!open) setLightboxItem(null); }}>
+        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-700" data-testid="image-lightbox">
+          <DialogHeader>
+            <DialogTitle className="text-white text-sm font-mono">
+              {lightboxItem?.partNumber}
+              {lightboxItem?.name && (
+                <span className="ml-2 text-gray-400 font-sans font-normal text-xs">{lightboxItem.name}</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center bg-gray-800 rounded-md p-4" style={{ minHeight: 280 }}>
+            {lightboxItem && (
+              <PartImage
+                imageUrl={lightboxItem.imageUrl}
+                partNumber={lightboxItem.partNumber}
+                colorId={lightboxItem.colorId}
+                itemType={lightboxItem.itemType}
+                className="max-w-full max-h-64 object-contain"
+                fallbackClassName="w-16 h-16 text-gray-600"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

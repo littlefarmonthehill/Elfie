@@ -5397,6 +5397,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Look up catalog image URLs + item type for all order items.
+      // Key: "itemNo" → { imageUrl, itemType } (best color match first).
+      const catalogImageMap: Record<string, { imageUrl: string | null; itemType: string | null }> = {};
+      {
+        const itemNos = [...new Set(items.map(i => i.itemNo).filter(Boolean))] as string[];
+        if (itemNos.length > 0) {
+          const catalogRows = await db.execute(sql`
+            SELECT DISTINCT ON (item_no)
+              item_no, image_url, item_type
+            FROM bl_catalog
+            WHERE item_no = ANY(${sql.raw(`ARRAY[${itemNos.map(n => `'${n.replace(/'/g, "''")}'`).join(',')}]`)})
+            ORDER BY item_no, image_url NULLS LAST
+          `);
+          for (const row of catalogRows.rows as any[]) {
+            if (row.item_no) {
+              catalogImageMap[row.item_no] = {
+                imageUrl: row.image_url ?? null,
+                itemType: row.item_type ?? null,
+              };
+            }
+          }
+        }
+      }
+
       // Cross-order demand: total pieces and order count per inventory item across
       // all open (unfulfilled) orders.  A stock warning only fires when 2+ orders
       // compete for the same part and combined demand exceeds stock on hand.
@@ -5509,11 +5533,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             && demand != null
             && demand.orderCount >= 2
             && currentInventoryQty < demand.totalQty;
+          const pn = item.itemNo || (invId ? fallbackItemNoMap[invId] : undefined) || item.sku || '';
+          const catalogEntry = catalogImageMap[pn] ?? null;
           return {
-            partNumber: item.itemNo
-              || (invId ? fallbackItemNoMap[invId] : undefined)
-              || item.sku
-              || '',
+            partNumber: pn,
             name: item.name,
             quantity: item.quantity,
             price: Number(item.unitPrice) || 0,
@@ -5523,6 +5546,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             stockWarning,
             competingOrderCount: demand?.orderCount ?? null,
             totalDemandQty: demand?.totalQty ?? null,
+            imageUrl: catalogEntry?.imageUrl ?? null,
+            itemType: catalogEntry?.itemType ?? null,
           };
         }),
         shipping: Number(order.shippingAmount) || 0,
