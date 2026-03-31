@@ -637,6 +637,8 @@ export const appSettings = pgTable("app_settings", {
   lomListingScore: integer("lom_listing_score").default(100).notNull(),        // Phase 4 — Listing (flagged cats get 2x)
   // E.L.F.I.E. Mode: 'search' = keyword/tool search only, 'ai' = full AI with data enrichment
   elfieMode: text("elfie_mode").default('search').notNull(),
+  // Buyer Feedback generation
+  feedbackPrompt: text("feedback_prompt"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
