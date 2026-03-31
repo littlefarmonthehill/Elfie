@@ -310,32 +310,9 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update order error: ${updateResponse.status} ${errorText}`);
   }
 
-  // Step 2: Ensure the BL order is in PACKED state before drive-through.
-  // BL drive-through requires PACKED; orders in PAYMENT_RECEIVED skip the buyer email otherwise.
-  // This is a no-op if the order is already PACKED or further along.
-  try {
-    const packedUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
-    const packedData = { field: 'status', value: 'PACKED' };
-    const packedRequest = { url: packedUrl, method: 'PUT', body: packedData };
-    const packedAuthHeader = oauth.toHeader(oauth.authorize(packedRequest, token));
-    const packedResponse = await fetch(packedUrl, {
-      method: 'PUT',
-      headers: { 'Authorization': packedAuthHeader.Authorization, 'Content-Type': 'application/json' },
-      body: JSON.stringify(packedData),
-    });
-    if (!packedResponse.ok) {
-      // Non-fatal — BL returns an error if already PACKED or SHIPPED; proceed anyway
-      const txt = await packedResponse.text();
-      console.warn(`[BL] PACKED pre-step non-fatal for order ${orderId}: ${packedResponse.status} ${txt}`);
-    } else {
-      console.log(`[BL] Order ${orderId} transitioned to PACKED before drive-through`);
-    }
-  } catch (err: any) {
-    console.warn(`[BL] PACKED pre-step exception for order ${orderId}: ${err.message}`);
-  }
-
-  // Step 3: Drive-through — marks order SHIPPED *and* sends buyer notification email.
-  // Parameters are query-string only (no body). OAuth must sign the full URL including params.
+  // Step 2: Drive-through — sends "Thank You, Drive Thru!" email to buyer with tracking number.
+  // BL API: GET /orders/{order_id}/drive_thru?tracking_no=...
+  // Eligible from any active fulfillment status (Processing → Completed, incl. PAID, PACKED, SHIPPED).
   const dtDriveThrough = await sendBrickLinkDriveThrough(
     orderId, trackingNumber, consumerKey, consumerSecret, tokenValue, tokenSecret
   );
@@ -345,8 +322,8 @@ export async function updateBrickLinkOrderShipped(
     return;
   }
 
-  // Fallback: drive_through failed even after PACKED transition — set SHIPPED directly.
-  console.warn(`[BL] drive_through failed for ${orderId} (${dtDriveThrough.error}), falling back to status PUT`);
+  // Fallback: drive_thru failed — set SHIPPED directly via status PUT (no buyer email).
+  console.warn(`[BL] drive_thru failed for ${orderId} (${dtDriveThrough.error}), falling back to status PUT`);
   const statusUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
   const statusData = { field: 'status', value: 'SHIPPED' };
   const statusRequest = { url: statusUrl, method: 'PUT', body: statusData };
@@ -371,7 +348,7 @@ export async function updateBrickLinkOrderShipped(
 
 /**
  * Send BrickLink drive-through notification — triggers the buyer email with tracking number.
- * BL API: POST /orders/{order_id}/drive_through?tracking_no=...
+ * BL API: POST /orders/{order_id}/drive_thru?tracking_no=...
  * Parameters are query-string only; OAuth signing must include them in the URL.
  * Returns { ok: true } on success or { ok: false, error: string } on failure (non-throwing).
  */
@@ -405,7 +382,8 @@ export async function sendBrickLinkDriveThrough(
     // Query-string params — must be part of the URL for OAuth signing
     const params = new URLSearchParams({ tracking_no: trackingNumber });
     if (mailMe) params.set('mail_me', 'true');
-    const dtUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/drive_through?${params.toString()}`;
+    // Correct BL endpoint: drive_thru (abbreviated), POST method
+    const dtUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/drive_thru?${params.toString()}`;
 
     // OAuth signs the full URL (including query params) with no body
     const dtRequest = { url: dtUrl, method: 'POST' };
