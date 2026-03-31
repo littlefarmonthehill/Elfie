@@ -18086,6 +18086,49 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
   
+  // Re-push shipped status to BrickLink / BrickOwl for an already-shipped order.
+  // Useful when the initial sync silently failed (e.g. missing credentials bug).
+  // Does NOT change any order fields — only calls the marketplace drive-through.
+  app.post("/api/orders/:orderId/retrigger-platform-sync", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+
+      const [order] = await db
+        .select()
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      if (order.orderStatus !== 'shipped' && order.orderStatus !== 'completed') {
+        return res.status(400).json({ error: "Order is not in a shipped or completed state" });
+      }
+
+      // Get the most recent shipment for this order to retrieve tracking number
+      const { shipments: shipmentsTable } = await import('@shared/schema');
+      const [shipment] = await db
+        .select()
+        .from(shipmentsTable)
+        .where(eq(shipmentsTable.orderId, orderId))
+        .orderBy(desc(shipmentsTable.purchasedAt))
+        .limit(1);
+
+      const trackingNumber = shipment?.trackingNumber || order.trackingNumber || '';
+      const carrier = shipment?.carrier || order.carrierCode || '';
+
+      console.log(`[retrigger-platform-sync] Order ${order.orderNumber} — tracking: ${trackingNumber || '(none)'}, carrier: ${carrier || '(none)'}`);
+
+      const { syncShippedStatus } = await import('./services/order-shipping');
+      await syncShippedStatus(order, trackingNumber, carrier);
+
+      res.json({ success: true, message: `Drive-through synced for order ${order.orderNumber}` });
+    } catch (error: any) {
+      console.error("Error retriggering platform sync:", error);
+      res.status(500).json({ error: error.message || "Failed to retrigger platform sync" });
+    }
+  });
+
   // Ship an order without purchasing a carrier label.
   // Marks the order shipped, fulfills items, adjusts inventory, and pushes
   // shipped status to the selling channel (BL/BO). Does NOT create a SCAN-form

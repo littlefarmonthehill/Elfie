@@ -672,9 +672,15 @@ async function syncOrderStatusToPlatform(order: any): Promise<void> {
  * Sync order to BrickLink
  */
 async function syncToBrickLink(order: any, trackingNumber: string, carrier: string): Promise<void> {
+  // Never fire against real BrickLink (or email real buyers) from a dev server
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV] syncToBrickLink suppressed for order ${order.orderNumber} — would send tracking ${trackingNumber} to BL`);
+    return;
+  }
+
   // Get BrickLink API credentials from org settings
   const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, order.orgId)).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, order.orgId)).limit(1);
 
   const consumerKey = settings?.bricklinkConsumerKey || '';
   const consumerSecret = settings?.bricklinkConsumerSecret || '';
@@ -707,9 +713,15 @@ async function syncToBrickLink(order: any, trackingNumber: string, carrier: stri
  * Sync order to BrickOwl
  */
 async function syncToBrickOwl(order: any, trackingNumber: string): Promise<void> {
+  // Never fire against real BrickOwl (or email real buyers) from a dev server
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV] syncToBrickOwl suppressed for order ${order.orderNumber} — would send tracking ${trackingNumber} to BO`);
+    return;
+  }
+
   // Get BrickOwl API credentials from org settings
   const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, order.orgId)).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, order.orgId)).limit(1);
 
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY || '';
 

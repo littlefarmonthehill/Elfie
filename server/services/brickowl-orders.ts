@@ -136,6 +136,12 @@ export async function updateBrickOwlOrderShipped(
   trackingNumber: string,
   apiKey: string
 ): Promise<void> {
+  // Never email real buyers from dev
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV] updateBrickOwlOrderShipped suppressed for order ${orderId} — tracking ${trackingNumber}`);
+    return;
+  }
+
   // BrickOwl requires application/x-www-form-urlencoded for POST requests
 
   // Step 1: Set order status to Shipped (status_id 5)

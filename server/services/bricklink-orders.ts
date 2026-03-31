@@ -267,6 +267,12 @@ export async function updateBrickLinkOrderShipped(
   tokenValue: string,
   tokenSecret: string
 ): Promise<void> {
+  // Never email real buyers from dev
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV] updateBrickLinkOrderShipped suppressed for order ${orderId} — tracking ${trackingNumber}`);
+    return;
+  }
+
   const oauth = new OAuth({
     consumer: { key: consumerKey, secret: consumerSecret },
     signature_method: 'HMAC-SHA1',
@@ -354,6 +360,12 @@ export async function sendBrickLinkDriveThrough(
   tokenSecret: string,
   mailMe = false,
 ): Promise<{ ok: boolean; error?: string }> {
+  // Never email real buyers from dev
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEV] BL drive-through suppressed for order ${orderId} — tracking ${trackingNumber}`);
+    return { ok: true };
+  }
+
   try {
     const oauth = new OAuth({
       consumer: { key: consumerKey, secret: consumerSecret },
