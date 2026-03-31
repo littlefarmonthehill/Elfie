@@ -278,7 +278,12 @@ async function bricklinkPostRequest(endpoint: string, body: any, orgId: string =
   });
   const token = { key: cleanToken(tokenValue), secret: cleanToken(tokenSecret) };
   const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  const requestData = { url, method: 'POST', body: JSON.stringify(body) };
+  // Per OAuth 1.0a spec §3.4.1.3, body params are only included in the signature
+  // base string when Content-Type is application/x-www-form-urlencoded.
+  // Passing a JSON string to requestData causes the library's deParam() to split
+  // on "&" and "=" characters inside the JSON (e.g. comment text), producing a
+  // corrupted signature base string.  Omit body from requestData entirely.
+  const requestData = { url, method: 'POST' };
   const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
 
   let success = false;
@@ -314,6 +319,7 @@ async function bricklinkPostRequest(endpoint: string, body: any, orgId: string =
  * BL API: POST /feedback — { order_id, type: 'P'|'N'|'C', comment }
  * Note: the body field is "type", NOT "rating" — BL rejects "rating" with 400 PARAMETER_MISSING_OR_INVALID.
  * Note: endpoint is /feedback (singular) — /feedbacks returns 404 INVALID_URI.
+ * Note: some orders store orderNumber as "BL.31218289" — strip the prefix before converting.
  */
 export async function postBrickLinkFeedback(
   orderId: string,
@@ -321,7 +327,14 @@ export async function postBrickLinkFeedback(
   comment: string,
   orgId: string,
 ): Promise<void> {
-  await bricklinkPostRequest('/feedback', { order_id: Number(orderId), type: rating, comment }, orgId);
+  // Strip any "BL." prefix that may be present in older order records
+  const numericId = Number(orderId.replace(/^BL\./i, ''));
+  if (!numericId || isNaN(numericId)) {
+    throw new Error(`postBrickLinkFeedback: invalid order ID "${orderId}" — cannot convert to BL numeric order_id`);
+  }
+  const body = { order_id: numericId, type: rating, comment };
+  console.log('[BL Feedback] POST /feedback body:', JSON.stringify(body));
+  await bricklinkPostRequest('/feedback', body, orgId);
 }
 
 async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
@@ -349,7 +362,10 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
   };
 
   const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  const requestData = { url, method: 'PUT', body: JSON.stringify(body) };
+  // Per OAuth 1.0a spec §3.4.1.3, JSON bodies must NOT be included in the
+  // signature base string — only application/x-www-form-urlencoded bodies are.
+  // Omit body from requestData so the oauth library doesn't call deParam() on it.
+  const requestData = { url, method: 'PUT' };
   const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
   
   let success = false;
