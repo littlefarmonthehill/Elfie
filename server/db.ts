@@ -2380,6 +2380,20 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE bl_inventory ADD COLUMN IF NOT EXISTS sale_location varchar(5)`);
     console.log('[Migration] Phase-101 (sale readiness fields on bl_inventory) complete.');
 
+    // Phase-102: Store XML backups in the database for persistence across deploys.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS xml_backups (
+        id         serial PRIMARY KEY,
+        org_id     varchar NOT NULL,
+        filename   varchar NOT NULL,
+        content    text    NOT NULL,
+        size_bytes integer NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS xml_backups_org_idx ON xml_backups (org_id)`);
+    console.log('[Migration] Phase-102 (xml_backups table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

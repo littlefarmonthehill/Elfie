@@ -2962,6 +2962,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open,
   });
 
+  const runBackupNowMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/backups/run-now'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/backups/list'] });
+    },
+  });
+
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<AppSettings>) => {
       const response = await fetch('/api/settings', {
@@ -7814,14 +7821,28 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <Separator className="bg-gray-700" />
 
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-200">BrickLink XML Backups</Label>
-                      <p className="text-xs text-gray-500">Download XML backups and manually upload to BrickLink</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <Label className="text-xs text-gray-200">BrickLink XML Backups</Label>
+                          <p className="text-xs text-gray-500">Download XML backups and manually upload to BrickLink</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs shrink-0"
+                          onClick={() => runBackupNowMutation.mutate()}
+                          disabled={runBackupNowMutation.isPending}
+                          data-testid="button-run-backup-now"
+                        >
+                          {runBackupNowMutation.isPending ? 'Creating...' : 'Backup Now'}
+                        </Button>
+                      </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {backupsLoading ? (
                           <div className="text-xs text-gray-400 text-center py-4">Loading backups...</div>
                         ) : !backupsData?.backups || backupsData.backups.length === 0 ? (
                           <div className="text-xs text-gray-400 text-center py-4">
-                            No backups available yet. Run an inventory sync to create your first backup.
+                            No backups yet. Click "Backup Now" to create one, or backups are generated automatically each day.
                           </div>
                         ) : (
                           backupsData.backups.map((backup, idx) => {

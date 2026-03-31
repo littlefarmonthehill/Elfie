@@ -2130,3 +2130,17 @@ export const itemTypeImages = pgTable("item_type_images", {
 }, (t) => [index("item_type_images_item_idx").on(t.orgId, t.itemNo, t.itemType)]);
 
 export type ItemTypeImage = typeof itemTypeImages.$inferSelect;
+
+// XML backup storage — persisted in DB so production deploys don't lose files.
+export const xmlBackups = pgTable("xml_backups", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  filename: varchar("filename").notNull(),
+  content: text("content").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("xml_backups_org_idx").on(t.orgId),
+]);
+
+export type XmlBackup = typeof xmlBackups.$inferSelect;

@@ -1,21 +1,6 @@
 import { db } from '../db';
-import { blInventory } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-const BACKUP_DIR = path.join(process.cwd(), 'backups', 'bricklink-xml');
-
-/**
- * Ensure backup directory exists
- */
-async function ensureBackupDir() {
-  try {
-    await fs.mkdir(BACKUP_DIR, { recursive: true });
-  } catch (error) {
-    console.error('Error creating backup directory:', error);
-  }
-}
+import { blInventory, xmlBackups } from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * Generate BrickLink XML format from inventory
@@ -137,57 +122,58 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
+const MAX_BACKUPS_PER_ORG = 10;
+
 /**
- * Save XML backup to disk (called automatically during inventory sync)
+ * Save XML backup to the database (survives production deploys).
  */
 export async function saveXMLBackup(orgId?: string): Promise<string> {
-  await ensureBackupDir();
-  
+  const resolvedOrgId = orgId ?? 'default';
   const xml = await generateBrickLinkXML(orgId);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const orgSuffix = orgId ? `-${orgId}` : '';
   const filename = `bricklink-inventory${orgSuffix}-${timestamp}.xml`;
-  const filepath = path.join(BACKUP_DIR, filename);
-  
-  await fs.writeFile(filepath, xml, 'utf-8');
-  console.log(`✓ XML backup saved: ${filename}`);
-  
+  const sizeBytes = Buffer.byteLength(xml, 'utf-8');
+
+  await db.insert(xmlBackups).values({
+    orgId: resolvedOrgId,
+    filename,
+    content: xml,
+    sizeBytes,
+  });
+
+  // Prune oldest backups beyond the keep limit
+  const all = await db.select({ id: xmlBackups.id })
+    .from(xmlBackups)
+    .where(eq(xmlBackups.orgId, resolvedOrgId))
+    .orderBy(desc(xmlBackups.createdAt));
+
+  if (all.length > MAX_BACKUPS_PER_ORG) {
+    const idsToDelete = all.slice(MAX_BACKUPS_PER_ORG).map(r => r.id);
+    for (const id of idsToDelete) {
+      await db.delete(xmlBackups).where(eq(xmlBackups.id, id));
+    }
+  }
+
+  console.log(`✓ XML backup saved to DB: ${filename} (${(sizeBytes / 1024 / 1024).toFixed(2)} MB)`);
   return filename;
 }
 
 /**
- * List all available XML backups
+ * List available XML backups for an org, most recent first.
  */
-export async function listXMLBackups(): Promise<Array<{ filename: string; timestamp: Date; size: number }>> {
-  await ensureBackupDir();
-  
+export async function listXMLBackups(orgId?: string): Promise<Array<{ filename: string; timestamp: Date; size: number }>> {
   try {
-    const files = await fs.readdir(BACKUP_DIR);
-    const xmlFiles = files.filter(f => f.endsWith('.xml'));
-    
-    const backups = await Promise.all(
-      xmlFiles.map(async (filename) => {
-        const filepath = path.join(BACKUP_DIR, filename);
-        const stats = await fs.stat(filepath);
-        
-        // Extract timestamp from filename: bricklink-inventory-2025-10-19T16-30-00.xml
-        const timestampStr = filename.replace('bricklink-inventory-', '').replace('.xml', '');
-        const timestamp = new Date(timestampStr.replace(/-/g, (match, offset) => {
-          // Replace hyphens with colons for time part
-          if (offset > 10) return ':';
-          return match;
-        }));
-        
-        return {
-          filename,
-          timestamp: stats.mtime, // Use file modification time as more reliable
-          size: stats.size,
-        };
-      })
-    );
-    
-    // Sort by timestamp, most recent first
-    return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const query = orgId
+      ? db.select().from(xmlBackups).where(eq(xmlBackups.orgId, orgId)).orderBy(desc(xmlBackups.createdAt))
+      : db.select().from(xmlBackups).orderBy(desc(xmlBackups.createdAt));
+
+    const rows = await query;
+    return rows.map(r => ({
+      filename: r.filename,
+      timestamp: r.createdAt,
+      size: r.sizeBytes,
+    }));
   } catch (error) {
     console.error('Error listing XML backups:', error);
     return [];
@@ -195,21 +181,17 @@ export async function listXMLBackups(): Promise<Array<{ filename: string; timest
 }
 
 /**
- * Get specific XML backup file content
+ * Retrieve a specific XML backup's content by filename.
  */
 export async function getXMLBackup(filename: string): Promise<string> {
-  const filepath = path.join(BACKUP_DIR, filename);
-  
   // Security check: ensure filename doesn't contain path traversal
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     throw new Error('Invalid filename');
   }
-  
-  try {
-    const content = await fs.readFile(filepath, 'utf-8');
-    return content;
-  } catch (error) {
-    console.error(`Error reading backup file ${filename}:`, error);
+
+  const [row] = await db.select().from(xmlBackups).where(eq(xmlBackups.filename, filename)).limit(1);
+  if (!row) {
     throw new Error('Backup file not found');
   }
+  return row.content;
 }

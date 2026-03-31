@@ -41,7 +41,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
 import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./services/brickowl";
-import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
+import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup, saveXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages } from "@shared/schema";
@@ -6248,13 +6248,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // List available XML backups
-  app.get("/api/backups/list", isApproved, async (req, res) => {
+  app.get("/api/backups/list", isApproved, async (req: any, res) => {
     try {
-      const backups = await listXMLBackups();
+      const orgId = reqOrgId(req);
+      const backups = await listXMLBackups(orgId);
       res.json({ success: true, backups });
     } catch (error) {
       console.error("Error listing XML backups:", error);
       res.status(500).json({ error: "Failed to list backups" });
+    }
+  });
+
+  // Manually trigger an XML backup now
+  app.post("/api/backups/run-now", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const filename = await saveXMLBackup(orgId);
+      res.json({ success: true, filename });
+    } catch (error) {
+      console.error("Error running manual XML backup:", error);
+      res.status(500).json({ error: "Failed to create backup" });
     }
   });
 
