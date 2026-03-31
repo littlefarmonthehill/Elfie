@@ -168,10 +168,8 @@ export async function syncBrickLinkOrders(
             if (!addr.state) return true; // Missing address state
           } catch { /* ignore bad JSON */ }
 
-          // Always re-process active orders for notes: buyers can send in-app
-          // messages or remarks after the initial sync. null = never fetched,
-          // '' = confirmed empty previously — both should be re-checked while active.
-          return true;
+          // customerNotes === null means detail was never fetched. Re-process to fill it in.
+          if (existing.customerNotes === null) return true;
         }
 
         return false;
