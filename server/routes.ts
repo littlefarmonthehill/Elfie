@@ -18227,7 +18227,7 @@ Write a 1–2 sentence feedback comment for this order.`;
     try {
       const orgId = reqOrgId(req);
       const { orderId } = req.params;
-      const { rating, comment } = req.body as { rating?: string; comment?: string };
+      const { rating, comment, skip } = req.body as { rating?: string; comment?: string; skip?: boolean };
 
       // Fetch the order to get marketplace + channel order number + customer info
       const [order] = await db
@@ -18244,7 +18244,7 @@ Write a 1–2 sentence feedback comment for this order.`;
       if (!order) return res.status(404).json({ error: "Order not found" });
 
       // Attempt to post feedback via the channel adapter (best-effort, non-blocking on failure)
-      if (rating && order.marketplace && order.orderNumber) {
+      if (!skip && rating && order.marketplace && order.orderNumber) {
         try {
           const { getChannelAdapter } = await import('./services/channel-factory.js');
           const adapter = getChannelAdapter(order.marketplace);
@@ -18263,8 +18263,8 @@ Write a 1–2 sentence feedback comment for this order.`;
         }
       }
 
-      // BrickLink drive-through: mark COMPLETED on BL + send thank-you email (best-effort)
-      if (order.marketplace === 'BrickLink' && order.orderNumber) {
+      // BrickLink drive-through: mark COMPLETED on BL (best-effort) — skip if user chose to archive without sending
+      if (!skip && order.marketplace === 'BrickLink' && order.orderNumber) {
         // 1. Update BrickLink order status to COMPLETED
         try {
           const settings = await getOrgSettings(orgId);

@@ -647,6 +647,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
     },
   });
+
+  const skipFeedbackMutation = useMutation({
+    mutationFn: (orderId: string) =>
+      apiRequest('POST', `/api/orders/${orderId}/feedback-left`, { skip: true }),
+    onSuccess: (_data, orderId) => {
+      setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
+      setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+    },
+  });
   const undoFeedbackMutation = useMutation({
     mutationFn: (orderId: string) => apiRequest('POST', `/api/orders/${orderId}/feedback-undo`, {}),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] }); },
@@ -1604,6 +1614,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         const shipped = o.shipDate ? new Date(o.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
                         const total = o.orderTotal ? `$${parseFloat(o.orderTotal).toFixed(2)}` : '—';
                         const isSubmitting = markFeedbackMutation.isPending && markFeedbackMutation.variables?.orderId === o.id;
+                        const isSkipping = skipFeedbackMutation.isPending && skipFeedbackMutation.variables === o.id;
                         const fbRating = getFbRating(o.id);
                         const fbComment = getFbComment(o.id);
                         const fbGenerating = getFbGenerating(o.id);
@@ -1693,12 +1704,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               />
                             </div>
 
-                            {/* Done button */}
-                            <div className="flex justify-end">
+                            {/* Action buttons */}
+                            <div className="flex justify-end gap-2">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={isSubmitting || fbGenerating}
+                                disabled={isSubmitting || isSkipping || fbGenerating}
+                                onClick={() => skipFeedbackMutation.mutate(o.id)}
+                                className="text-gray-500 hover:text-gray-300 text-xs gap-1 h-7 px-3"
+                                data-testid={`button-feedback-skip-${o.id}`}
+                              >
+                                {isSkipping ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                Skip
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={isSubmitting || isSkipping || fbGenerating}
                                 onClick={() => markFeedbackMutation.mutate({ orderId: o.id, rating: fbRating, comment: fbComment || undefined })}
                                 className="text-teal-400 text-xs gap-1 h-7 px-3"
                                 data-testid={`button-feedback-done-${o.id}`}
