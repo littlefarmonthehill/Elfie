@@ -1805,7 +1805,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                 onChange={e => setFbComment(o.id, e.target.value)}
                                 disabled={fbGenerating}
                                 data-testid={`input-fb-comment-${o.id}`}
-                                className={`w-full bg-black/20 border rounded-md px-2 py-1.5 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors ${fbGenerating ? 'border-teal-500/30 opacity-60' : 'border-white/10 focus:border-teal-500/50'}`}
+                                className={`w-full bg-black/20 border rounded-md px-2 py-1.5 !text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors ${fbGenerating ? 'border-teal-500/30 opacity-60' : 'border-white/10 focus:border-teal-500/50'}`}
                               />
                             </div>
 
