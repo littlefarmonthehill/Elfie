@@ -214,7 +214,9 @@ async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?:
     throw new Error(`BrickOwl API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  return response.json();
+  const rawText = await response.text().catch(() => '');
+  if (!rawText) return {};
+  try { return JSON.parse(rawText); } catch { return {}; }
 }
 
 /**

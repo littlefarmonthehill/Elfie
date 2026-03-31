@@ -292,12 +292,18 @@ async function bricklinkPostRequest(endpoint: string, body: any, orgId: string =
       const errorText = await response.text();
       throw new Error(`BrickLink API POST error (${response.status}): ${errorText}`);
     }
-    const json = await response.json();
+    const rawText = await response.text();
+    let json: any = {};
+    if (rawText) {
+      try { json = JSON.parse(rawText); } catch {
+        // BrickLink sometimes returns empty body on 201 — treat as success
+      }
+    }
     if (json.meta && json.meta.code !== 200 && json.meta.code !== 201) {
       throw new Error(`BrickLink API error: ${json.meta.description || json.meta.message}`);
     }
     success = true;
-    return { data: json.data, apiCalls: 1 };
+    return { data: json.data ?? null, apiCalls: 1 };
   } finally {
     await trackApiCall(endpoint, success, orgId);
   }
@@ -363,15 +369,21 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
       throw new Error(`BrickLink API error: ${response.statusText}`);
     }
 
-    const json = await response.json();
-    
+    const rawText = await response.text();
+    let json: any = {};
+    if (rawText) {
+      try { json = JSON.parse(rawText); } catch {
+        // BrickLink sometimes returns empty body on 2xx — treat as success
+      }
+    }
+
     if (json.meta && json.meta.code !== 200) {
       console.error(`BrickLink PUT error (meta.code ${json.meta.code}):`, json.meta.description || json.meta.message);
       throw new Error(`BrickLink API error: ${json.meta.description || json.meta.message}`);
     }
-    
+
     success = true;
-    return { data: json.data, apiCalls: 1 };
+    return { data: json.data ?? null, apiCalls: 1 };
   } finally {
     await trackApiCall(endpoint, success, orgId);
   }
