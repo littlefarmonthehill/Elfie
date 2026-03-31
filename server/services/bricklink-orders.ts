@@ -297,7 +297,14 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update status error: ${statusResponse.status} ${errorText}`);
   }
 
-  console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
+  // Log BrickLink's response — may contain drive_through_sent or notification fields
+  try {
+    const statusBody = await statusResponse.json();
+    const dtSent = statusBody?.data?.drive_through_sent ?? statusBody?.data?.is_drive_through ?? '(unknown)';
+    console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber} — drive_through_sent=${dtSent}`);
+  } catch {
+    console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
+  }
 }
 
 // Mark a BrickLink order as COMPLETED via the BL API
