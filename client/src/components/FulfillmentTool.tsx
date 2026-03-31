@@ -553,12 +553,10 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     staleTime: 0,
   });
   type FeedbackRating = 'positive' | 'neutral' | 'negative';
-  type FeedbackDraftEntry = { rating: FeedbackRating; comment: string; generating: boolean; genFailed?: boolean };
+  type FeedbackDraftEntry = { rating: FeedbackRating; comment: string };
   const [feedbackDraft, setFeedbackDraft] = useState<Record<string, FeedbackDraftEntry>>({});
   const getFbRating  = (id: string): FeedbackRating => feedbackDraft[id]?.rating ?? 'positive';
   const getFbComment = (id: string): string => feedbackDraft[id]?.comment ?? '';
-  const getFbGenerating = (id: string): boolean => feedbackDraft[id]?.generating ?? false;
-  const getFbGenFailed = (id: string): boolean => feedbackDraft[id]?.genFailed ?? false;
 
   // Per-row hard errors (mutation fully failed — nothing was stamped)
   const [fbRowErrors, setFbRowErrors] = useState<Record<string, string>>({});
@@ -566,36 +564,26 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   type FbSubmitWarning = { orderId: string; orderNumber: string; customerUsername: string | null; warnings: string[] };
   const [fbSubmitWarnings, setFbSubmitWarnings] = useState<FbSubmitWarning[]>([]);
 
+  const getFixedComment = (totalOrderCount: number) =>
+    totalOrderCount > 1
+      ? 'Thanks for returning to Planet Brick!'
+      : 'Thanks for your order from Planet Brick!';
+
   const setFbComment = (id: string, comment: string) =>
-    setFeedbackDraft(prev => ({ ...prev, [id]: { ...prev[id] ?? { rating: 'positive', generating: false }, comment } }));
+    setFeedbackDraft(prev => ({ ...prev, [id]: { ...prev[id] ?? { rating: 'positive' }, comment } }));
 
-  const generateComment = async (orderId: string, rating: FeedbackRating, keepComment = false) => {
-    setFeedbackDraft(prev => ({
-      ...prev,
-      [orderId]: { rating, comment: keepComment ? (prev[orderId]?.comment ?? '') : '', generating: true, genFailed: false },
-    }));
-    try {
-      const result: { comment: string } = await apiRequest('POST', `/api/orders/${orderId}/feedback-generate`, { rating });
-      setFeedbackDraft(prev => ({
-        ...prev,
-        [orderId]: { rating, comment: result.comment, generating: false, genFailed: false },
-      }));
-    } catch {
-      setFeedbackDraft(prev => ({
-        ...prev,
-        [orderId]: { ...prev[orderId] ?? { rating, comment: '' }, rating, generating: false, genFailed: true },
-      }));
-    }
-  };
+  const setFbRating = (id: string, rating: FeedbackRating) =>
+    setFeedbackDraft(prev => ({ ...prev, [id]: { ...prev[id] ?? { comment: '' }, rating } }));
 
-  const setFbRating = (id: string, rating: FeedbackRating) => generateComment(id, rating);
-
-  // Auto-init: when feedback tab is active and orders load, generate comments for new orders
+  // Auto-init: when feedback tab is active and orders load, pre-populate fixed comments for new orders
   useEffect(() => {
     if (activeTab !== 'feedback') return;
     for (const o of feedbackPending) {
       if (!feedbackDraft[o.id]) {
-        generateComment(o.id, 'positive');
+        setFeedbackDraft(prev => ({
+          ...prev,
+          [o.id]: { rating: 'positive', comment: getFixedComment(o.totalOrderCount) },
+        }));
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -616,7 +604,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     setFeedbackSelected(fbAllSelected ? new Set() : new Set(fbAllIds));
 
   const sendBulkFeedback = async () => {
-    const ids = [...feedbackSelected].filter(id => !getFbGenerating(id));
+    const ids = [...feedbackSelected];
     if (!ids.length) return;
     setIsBulkSending(true);
     try {
@@ -1630,7 +1618,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={isBulkSending || [...feedbackSelected].every(id => getFbGenerating(id))}
+                  disabled={isBulkSending}
                   onClick={sendBulkFeedback}
                   className="text-teal-400 text-xs h-7 px-3 gap-1.5"
                   data-testid="button-fb-send-bulk"
@@ -1737,8 +1725,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         const isSkipping = skipFeedbackMutation.isPending && skipFeedbackMutation.variables === o.id;
                         const fbRating = getFbRating(o.id);
                         const fbComment = getFbComment(o.id);
-                        const fbGenerating = getFbGenerating(o.id);
-                        const fbGenFailed = getFbGenFailed(o.id);
                         const fbRowError = fbRowErrors[o.id];
                         const realName = (() => { try { const n = o.shipTo ? JSON.parse(o.shipTo).name : null; return n && n.trim() ? n.trim() : null; } catch { return null; } })();
                         const displayName = realName || o.customerUsername || 'Unknown Buyer';
@@ -1814,39 +1800,17 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               <span className={`text-[10px] font-medium ml-1 ${currentRating.activeClass.split(' ')[0]}`}>
                                 {currentRating.label}
                               </span>
-                              {/* Regenerate */}
-                              <button
-                                type="button"
-                                title="Regenerate with E.L.F.I.E."
-                                disabled={fbGenerating}
-                                onClick={() => generateComment(o.id, fbRating)}
-                                data-testid={`button-fb-regenerate-${o.id}`}
-                                className="ml-auto text-gray-600 hover:text-teal-400 disabled:opacity-40 transition-colors"
-                              >
-                                {fbGenerating
-                                  ? <Loader2 className="w-3 h-3 animate-spin text-teal-400" />
-                                  : <RotateCcw className="w-3 h-3" />}
-                              </button>
                             </div>
-
-                            {/* AI generation failure notice */}
-                            {fbGenFailed && !fbGenerating && (
-                              <div className="flex items-center gap-1.5 text-[10px] text-amber-400/80" data-testid={`text-fb-gen-failed-${o.id}`}>
-                                <AlertTriangle className="w-3 h-3 shrink-0" />
-                                AI unavailable — type your comment manually or skip
-                              </div>
-                            )}
 
                             {/* Editable comment */}
                             <div className="relative">
                               <textarea
                                 rows={2}
-                                placeholder={fbGenerating ? 'E.L.F.I.E. is drafting…' : 'Feedback comment…'}
+                                placeholder="Feedback comment…"
                                 value={fbComment}
                                 onChange={e => setFbComment(o.id, e.target.value)}
-                                disabled={fbGenerating}
                                 data-testid={`input-fb-comment-${o.id}`}
-                                className={`w-full bg-black/20 border rounded-md px-2 py-1.5 !text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors ${fbGenerating ? 'border-teal-500/30 opacity-60' : 'border-white/10 focus:border-teal-500/50'}`}
+                                className="w-full bg-black/20 border border-white/10 rounded-md px-2 py-1.5 !text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors focus:border-teal-500/50"
                               />
                             </div>
 
@@ -1874,7 +1838,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={isSubmitting || isSkipping || fbGenerating}
+                                disabled={isSubmitting || isSkipping}
                                 onClick={() => markFeedbackMutation.mutate({ orderId: o.id, rating: fbRating, comment: fbComment || undefined })}
                                 className="text-teal-400 text-xs gap-1 h-7 px-3"
                                 data-testid={`button-feedback-done-${o.id}`}
