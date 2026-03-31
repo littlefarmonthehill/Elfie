@@ -17590,27 +17590,44 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
-  // Fulfillment Stats - Count unfulfilled orders
+  // Fulfillment Stats - Count unfulfilled orders + feedback-pending orders
   app.get("/api/fulfillment/stats", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      // Count orders that are awaiting payment, awaiting fulfillment, or awaiting shipment
-      const unfulfilled = await db
-        .select({ count: sql<number>`count(DISTINCT ${orders.id})` })
-        .from(orders)
-        .where(
-          and(
-            eq(orders.orgId, orgId),
-            or(
-              eq(orders.orderStatus, 'awaiting_payment'),
-              eq(orders.orderStatus, 'awaiting_fulfillment'),
-              eq(orders.orderStatus, 'awaiting_shipment')
+
+      const [unfulfilledRows, feedbackRows] = await Promise.all([
+        // Orders still to be picked/packed/shipped
+        db
+          .select({ count: sql<number>`count(DISTINCT ${orders.id})` })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.orgId, orgId),
+              or(
+                eq(orders.orderStatus, 'awaiting_payment'),
+                eq(orders.orderStatus, 'awaiting_fulfillment'),
+                eq(orders.orderStatus, 'awaiting_shipment')
+              )
             )
-          )
-        );
-      
-      res.json({ 
-        unfulfilled: Number(unfulfilled[0]?.count || 0)
+          ),
+        // Shipped/completed orders where seller feedback hasn't been left yet
+        db
+          .select({ count: sql<number>`count(DISTINCT ${orders.id})` })
+          .from(orders)
+          .innerJoin(shipments, eq(shipments.orderId, orders.id))
+          .where(
+            and(
+              eq(orders.orgId, orgId),
+              eq(orders.isTest, false),
+              isNull(orders.feedbackLeftAt),
+              inArray(orders.orderStatus, ['shipped', 'completed'])
+            )
+          ),
+      ]);
+
+      res.json({
+        unfulfilled:     Number(unfulfilledRows[0]?.count  || 0),
+        feedbackPending: Number(feedbackRows[0]?.count     || 0),
       });
     } catch (error) {
       console.error("Error fetching fulfillment stats:", error);

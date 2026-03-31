@@ -658,6 +658,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           return next;
         });
         queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
       }
       // Show per-row hard errors for any that fully failed
       if (failed.length) {
@@ -690,6 +691,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
     onError: (err: any, { orderId }) => {
       setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to submit' }));
@@ -704,6 +706,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
     onError: (err: any, orderId) => {
       setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to skip' }));
@@ -711,7 +714,10 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   });
   const undoFeedbackMutation = useMutation({
     mutationFn: (orderId: string) => apiRequest('POST', `/api/orders/${orderId}/feedback-undo`, {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+    },
   });
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
 

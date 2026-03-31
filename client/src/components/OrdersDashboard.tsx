@@ -308,9 +308,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
+  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number; feedbackPending: number }>({
     queryKey: ['/api/fulfillment/stats'],
-    staleTime: 2 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const { data: adjustments } = useQuery<{
@@ -428,13 +428,19 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="fulfillment-stats">
-                {(stats?.pendingOrders ?? 0) > 0 ? (
+                {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
-                    {formatNumber(stats!.pendingOrders)} pending
+                    {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
                   </span>
-                ) : stats ? (
+                )}
+                {(fulfillmentStats?.feedbackPending ?? 0) > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="feedback-count">
+                    {formatNumber(fulfillmentStats!.feedbackPending)} feedback
+                  </span>
+                )}
+                {fulfillmentStats && fulfillmentStats.unfulfilled === 0 && fulfillmentStats.feedbackPending === 0 && (
                   <span className="text-[9px] text-green-400/70">All caught up</span>
-                ) : null}
+                )}
               </div>
             </button>
 
