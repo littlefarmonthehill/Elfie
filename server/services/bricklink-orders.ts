@@ -310,7 +310,31 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update order error: ${updateResponse.status} ${errorText}`);
   }
 
-  // Step 2: Drive-through — marks order SHIPPED *and* sends buyer notification email.
+  // Step 2: Ensure the BL order is in PACKED state before drive-through.
+  // BL drive-through requires PACKED; orders in PAYMENT_RECEIVED skip the buyer email otherwise.
+  // This is a no-op if the order is already PACKED or further along.
+  try {
+    const packedUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
+    const packedData = { field: 'status', value: 'PACKED' };
+    const packedRequest = { url: packedUrl, method: 'PUT', body: packedData };
+    const packedAuthHeader = oauth.toHeader(oauth.authorize(packedRequest, token));
+    const packedResponse = await fetch(packedUrl, {
+      method: 'PUT',
+      headers: { 'Authorization': packedAuthHeader.Authorization, 'Content-Type': 'application/json' },
+      body: JSON.stringify(packedData),
+    });
+    if (!packedResponse.ok) {
+      // Non-fatal — BL returns an error if already PACKED or SHIPPED; proceed anyway
+      const txt = await packedResponse.text();
+      console.warn(`[BL] PACKED pre-step non-fatal for order ${orderId}: ${packedResponse.status} ${txt}`);
+    } else {
+      console.log(`[BL] Order ${orderId} transitioned to PACKED before drive-through`);
+    }
+  } catch (err: any) {
+    console.warn(`[BL] PACKED pre-step exception for order ${orderId}: ${err.message}`);
+  }
+
+  // Step 3: Drive-through — marks order SHIPPED *and* sends buyer notification email.
   // Parameters are query-string only (no body). OAuth must sign the full URL including params.
   const dtDriveThrough = await sendBrickLinkDriveThrough(
     orderId, trackingNumber, consumerKey, consumerSecret, tokenValue, tokenSecret
@@ -321,7 +345,7 @@ export async function updateBrickLinkOrderShipped(
     return;
   }
 
-  // Fallback: drive_through failed (e.g. order not in eligible state) — set SHIPPED directly.
+  // Fallback: drive_through failed even after PACKED transition — set SHIPPED directly.
   console.warn(`[BL] drive_through failed for ${orderId} (${dtDriveThrough.error}), falling back to status PUT`);
   const statusUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
   const statusData = { field: 'status', value: 'SHIPPED' };
