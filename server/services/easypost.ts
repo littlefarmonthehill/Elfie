@@ -49,6 +49,20 @@ async function waitForRateSlot(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Shipment-creation concurrency gate.
+// EasyPost rate-limits by account; serializing POST /shipments prevents a
+// burst of concurrent calls from triggering 429s and compounding retries.
+// ---------------------------------------------------------------------------
+let _shipmentQueueTail: Promise<void> = Promise.resolve();
+
+function enqueueShipment<T>(fn: () => Promise<T>): Promise<T> {
+  const result = _shipmentQueueTail.then(() => fn());
+  // The gate advances regardless of whether fn succeeds or fails.
+  _shipmentQueueTail = result.then(() => {}, () => {});
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Address validation cache — same address shouldn't hit EasyPost twice in 1h
 // ---------------------------------------------------------------------------
 const ADDRESS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -94,9 +108,19 @@ export class EasyPostShippingVendor implements IShippingVendor {
 
     const response = await fetch(`${EASYPOST_API_URL}${endpoint}`, options);
 
-    // Retry with exponential backoff on rate-limit (429) or server error (5xx)
+    // Retry with exponential backoff on rate-limit (429) or server error (5xx).
+    // On 429, respect the Retry-After header if present; otherwise use a much
+    // longer base backoff (15s/30s/60s) to avoid compounding rate limits.
     if ((response.status === 429 || response.status >= 500) && retries > 0) {
-      const backoffMs = Math.pow(2, 4 - retries) * 1000; // 1s, 2s, 4s
+      let backoffMs: number;
+      if (response.status === 429) {
+        const retryAfterSec = parseFloat(response.headers.get('Retry-After') ?? '0');
+        backoffMs = retryAfterSec > 0
+          ? retryAfterSec * 1000 + 500          // honour server hint + small buffer
+          : Math.pow(2, 4 - retries) * 15000;   // 15s, 30s, 60s
+      } else {
+        backoffMs = Math.pow(2, 4 - retries) * 1000; // 1s, 2s, 4s for 5xx
+      }
       console.warn(`⚠️ EasyPost ${response.status} on ${endpoint} — retrying in ${backoffMs}ms (${retries} left)`);
       await new Promise(r => setTimeout(r, backoffMs));
       return this.request(endpoint, method, body, retries - 1);
@@ -111,6 +135,16 @@ export class EasyPostShippingVendor implements IShippingVendor {
   }
 
   async createShipment(request: CreateShipmentRequest): Promise<{
+    shipmentId: string;
+    rates: ShippingRate[];
+    metadata: any;
+  }> {
+    // Serialise through the concurrency gate — prevents simultaneous POST
+    // /shipments calls from triggering EasyPost account-level rate limits.
+    return enqueueShipment(async () => this._createShipmentImpl(request));
+  }
+
+  private async _createShipmentImpl(request: CreateShipmentRequest): Promise<{
     shipmentId: string;
     rates: ShippingRate[];
     metadata: any;
