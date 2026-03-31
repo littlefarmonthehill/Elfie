@@ -12,10 +12,11 @@
 import type { IChannelSync, ChannelSyncOptions, ChannelSyncResult, ConnectionTestResult, FeedbackPayload, FeedbackResult } from './channel-sync-interface';
 import { postBrickLinkFeedback } from './bricklink';
 
-const RATING_MAP: Record<string, 'P' | 'N' | 'C'> = {
-  positive: 'P',
-  neutral:  'N',
-  negative: 'C',
+// BL API: rating is an integer — 0=Praise, 1=Neutral, 2=Complaint (NOT string letters)
+const RATING_MAP: Record<string, 0 | 1 | 2> = {
+  positive: 0,
+  neutral:  1,
+  negative: 2,
 };
 
 export class BrickLinkChannelAdapter implements IChannelSync {
@@ -30,7 +31,7 @@ export class BrickLinkChannelAdapter implements IChannelSync {
   }
 
   async postFeedback(orgId: string, payload: FeedbackPayload): Promise<FeedbackResult> {
-    const rating = RATING_MAP[payload.rating] ?? 'P';
+    const rating = RATING_MAP[payload.rating] ?? 0;
     try {
       await postBrickLinkFeedback(payload.channelOrderId, rating, payload.comment ?? '', orgId);
       return { ok: true };

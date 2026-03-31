@@ -316,17 +316,15 @@ async function bricklinkPostRequest(endpoint: string, body: any, orgId: string =
 
 /**
  * Post seller feedback for a BrickLink order.
- * BL API: POST /feedback — { order_id, rating: 'P'|'N'|'C', comment }
- * Note: the body field is "rating" (NOT "type" — BL returns "Unparseable value or field: [type.]" for that).
- *   The "rating" field previously appeared to fail, but that was caused by the OAuth signature bug where the
- *   JSON body was being included in the signature base string — corrupting the sig.  Now that the signature
- *   is computed from { url, method } only, "rating" works correctly.
+ * BL API: POST /feedback — { order_id, rating: 0|1|2, comment }
+ *   rating is an INTEGER: 0=Praise, 1=Neutral, 2=Complaint  (NOT string letters like "P"/"N"/"C")
+ *   Sending a string causes: "Unparseable value or field: [rating.]" / PARAMETER_MISSING_OR_INVALID 400
  * Note: endpoint is /feedback (singular) — /feedbacks returns 404 INVALID_URI.
  * Note: some orders store orderNumber as "BL.31218289" — strip the prefix before converting.
  */
 export async function postBrickLinkFeedback(
   orderId: string,
-  rating: 'P' | 'N' | 'C',
+  rating: 0 | 1 | 2,
   comment: string,
   orgId: string,
 ): Promise<void> {
