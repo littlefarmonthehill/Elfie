@@ -5307,6 +5307,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderDate: orders.orderDate,
           orderTotal: orders.orderTotal,
           feedbackLeftAt: orders.feedbackLeftAt,
+          shipTo: orders.shipTo,
+          totalOrderCount: sql<number>`(
+            SELECT COUNT(*) FROM orders o2
+            WHERE o2.org_id = ${orgId}
+            AND o2.customer_username = orders.customer_username
+            AND o2.is_test = false
+            AND o2.order_status NOT IN ('purged','cancelled','Cancelled')
+          )`,
         })
         .from(orders)
         .innerJoin(shipments, eq(shipments.orderId, orders.id))

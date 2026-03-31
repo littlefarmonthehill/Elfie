@@ -545,6 +545,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     customerUsername: string | null; orderStatus: string;
     shipDate: string | null; orderDate: string; orderTotal: string;
     feedbackLeftAt: string | null;
+    shipTo: string | null;
+    totalOrderCount: number;
   };
   const { data: feedbackPending = [], refetch: refetchFeedback } = useQuery<FeedbackOrder[]>({
     queryKey: ['/api/orders/feedback-pending'],
@@ -1732,6 +1734,9 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         const fbGenerating = getFbGenerating(o.id);
                         const fbGenFailed = getFbGenFailed(o.id);
                         const fbRowError = fbRowErrors[o.id];
+                        const realName = (() => { try { const n = o.shipTo ? JSON.parse(o.shipTo).name : null; return n && n.trim() ? n.trim() : null; } catch { return null; } })();
+                        const displayName = realName || o.customerUsername || 'Unknown Buyer';
+                        const showUsername = realName && o.customerUsername && realName.toLowerCase() !== o.customerUsername.toLowerCase();
                         const ratingConfig = {
                           positive: { icon: ThumbsUp,   label: 'Praise',    activeClass: 'text-green-400 bg-green-900/40',  ringClass: 'ring-green-500/30' },
                           neutral:  { icon: Minus,       label: 'Neutral',   activeClass: 'text-yellow-400 bg-yellow-900/40', ringClass: 'ring-yellow-500/30' },
@@ -1754,10 +1759,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                 </div>
                               </button>
                               <div className="flex-1 min-w-0">
-                                <span className="text-xs font-semibold text-white truncate block" data-testid={`text-buyer-${o.id}`}>
-                                  {o.customerUsername ?? 'Unknown Buyer'}
-                                </span>
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-xs font-semibold text-white truncate" data-testid={`text-buyer-${o.id}`}>
+                                    {displayName}
+                                  </span>
+                                  {o.totalOrderCount > 1 && (
+                                    <span className="shrink-0 text-[9px] font-medium px-1.5 py-px rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 tabular-nums whitespace-nowrap" data-testid={`text-order-count-${o.id}`}>
+                                      {o.totalOrderCount} orders
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {showUsername && (
+                                    <>
+                                      <span className="text-[10px] text-gray-500 font-mono">{o.customerUsername}</span>
+                                      <span className="text-[9px] text-gray-600">·</span>
+                                    </>
+                                  )}
                                   <span className="text-[10px] text-gray-500 font-mono">#{shortCode(o.orderNumber)}</span>
                                   <span className="text-[9px] text-gray-600">·</span>
                                   <span className="text-[10px] text-gray-500">Shipped {shipped}</span>
