@@ -1709,7 +1709,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={isSubmitting || isSkipping || fbGenerating}
+                                disabled={isSubmitting || isSkipping}
                                 onClick={() => skipFeedbackMutation.mutate(o.id)}
                                 className="text-gray-500 hover:text-gray-300 text-xs gap-1 h-7 px-3"
                                 data-testid={`button-feedback-skip-${o.id}`}

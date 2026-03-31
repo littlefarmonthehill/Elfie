@@ -18164,7 +18164,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       };
       const marketplace = order.marketplace ?? 'the marketplace';
       const buyer = order.customerUsername ?? 'the buyer';
-      const total = order.orderTotal ? `$${parseFloat(order.orderTotal).toFixed(2)}` : 'unknown total';
+      const total = order.orderTotal ? `$${parseFloat(String(order.orderTotal)).toFixed(2)}` : 'unknown total';
       const shipDate = order.shipDate ? new Date(order.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
       const isRepeat = repeatCount > 1;
 
@@ -18190,7 +18190,7 @@ ${isRepeat ? `Repeat customer: Yes — this buyer has placed ${repeatCount} orde
 Write a 1–2 sentence feedback comment for this order.`;
 
       const completionModel = "gpt-4o-mini";
-      const client = new OpenAI({ apiKey });
+      const client = new OpenAI({ apiKey: String(apiKey) });
       const completion = await client.chat.completions.create({
         model: completionModel,
         messages: [
@@ -18217,7 +18217,7 @@ Write a 1–2 sentence feedback comment for this order.`;
       const comment = completion.choices[0]?.message?.content?.trim() ?? '';
       res.json({ comment });
     } catch (err: any) {
-      console.error("Error generating feedback comment:", err.message);
+      console.error("Error generating feedback comment:", err.message, err.stack?.split('\n').slice(0, 4).join(' | '));
       res.status(500).json({ error: err.message });
     }
   });
