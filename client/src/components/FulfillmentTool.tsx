@@ -713,10 +713,27 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   });
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
 
-  // Orders that have at least one item with insufficient stock (race / oversell scenario)
+  // Cross-order demand map: inventoryId → { totalQty, orderIds, inventoryQty }
+  // Mirrors the backend stockWarning logic in OrderDetail — only flag when 2+ open orders
+  // compete for the same lot AND total demand across those orders exceeds stock on hand.
+  // A single order that sold a lot out is not a race — no warning needed.
+  const _invDemandMap = new Map<number, { totalQty: number; orderIds: Set<string>; inventoryQty: number }>();
+  for (const item of allPicklistItems) {
+    if (item.inventoryId == null || item.inventoryQty == null) continue;
+    if (!_invDemandMap.has(item.inventoryId)) {
+      _invDemandMap.set(item.inventoryId, { totalQty: 0, orderIds: new Set(), inventoryQty: item.inventoryQty });
+    }
+    const entry = _invDemandMap.get(item.inventoryId)!;
+    entry.totalQty += item.quantity;
+    entry.orderIds.add(item.orderId);
+  }
   const ordersWithShortStock = new Set<string>(
     allPicklistItems
-      .filter(i => i.inventoryQty !== null && i.inventoryQty < i.quantity)
+      .filter(i => {
+        if (i.inventoryId == null || i.inventoryQty == null) return false;
+        const demand = _invDemandMap.get(i.inventoryId);
+        return demand != null && demand.orderIds.size >= 2 && i.inventoryQty < demand.totalQty;
+      })
       .map(i => i.orderId)
   );
 
@@ -1300,7 +1317,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       <AlertTriangle
                                         className="w-3 h-3 text-amber-400 shrink-0"
                                         data-testid={`icon-short-stock-${order.id}`}
-                                        title="One or more items may be short on stock"
+                                        title="Competing orders — total demand exceeds stock on hand"
                                       />
                                     )}
                                   </div>
