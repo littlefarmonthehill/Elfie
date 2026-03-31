@@ -127,6 +127,43 @@ export async function getBrickLinkOrderDetail(
   return data.data || null;
 }
 
+// Fetch messages for a specific order (buyer ↔ seller in-app messages)
+export async function getBrickLinkOrderMessages(
+  orderId: number,
+  consumerKey: string,
+  consumerSecret: string,
+  tokenValue: string,
+  tokenSecret: string
+): Promise<any[]> {
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function: getOAuthSignature().hash_function,
+  });
+
+  const requestData = {
+    url: `${BRICKLINK_API_BASE}/orders/${orderId}/messages`,
+    method: 'GET',
+  };
+
+  const token = { key: cleanToken(tokenValue), secret: cleanToken(tokenSecret) };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+
+  const response = await fetch(requestData.url, {
+    method: 'GET',
+    headers: { Authorization: authHeader.Authorization },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.warn(`BrickLink messages API warn for order ${orderId}:`, response.status, errorText);
+    return [];
+  }
+
+  const data = await response.json();
+  return data.data || [];
+}
+
 // Fetch order items for a specific order
 export async function getBrickLinkOrderItems(
   orderId: number,

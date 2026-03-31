@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { orders, orderDetails, orderAdjustments, blInventory, blCatalog } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkCondition } from "./bricklink-orders";
+import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, getBrickLinkOrderMessages, mapBrickLinkCondition } from "./bricklink-orders";
 import { bricklinkRequest } from "./bricklink";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -168,8 +168,10 @@ export async function syncBrickLinkOrders(
             if (!addr.state) return true; // Missing address state
           } catch { /* ignore bad JSON */ }
 
-          // customerNotes === null means remarks were never fetched. Re-process to fill them in.
-          if (existing.customerNotes === null) return true;
+          // Always re-process active orders for notes: buyers can send in-app
+          // messages or remarks after the initial sync. null = never fetched,
+          // '' = confirmed empty previously — both should be re-checked while active.
+          return true;
         }
 
         return false;
@@ -263,6 +265,25 @@ async function processBrickLinkOrder(
     console.warn(`⚠️ Could not fetch order detail for ${blOrder.order_id}: ${err.message}`);
   }
 
+  // Fetch buyer messages — BrickLink buyers can send in-app messages alongside or
+  // instead of using the checkout remarks field. Use the first buyer message as a
+  // fallback note when the order-level remarks field is empty.
+  let buyerMessage: string | null = null;
+  try {
+    const messages = await getBrickLinkOrderMessages(
+      blOrder.order_id, consumerKey, consumerSecret, tokenValue, tokenSecret
+    );
+    const buyerName = (orderDetail?.buyer_name || blOrder.buyer_name || '').toLowerCase();
+    const fromBuyer = messages.filter((m: any) =>
+      m.from && m.from.toLowerCase() === buyerName && m.body?.trim()
+    );
+    if (fromBuyer.length > 0) {
+      buyerMessage = fromBuyer[0].body.trim();
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ Could not fetch messages for ${blOrder.order_id}: ${err.message}`);
+  }
+
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
   const addr = shipping?.address || {};
@@ -318,13 +339,11 @@ async function processBrickLinkOrder(
       : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     insuranceAmount: cost?.insurance ? cost.insurance.toString() : null,
     internalNotes: null,
-    // Use orderDetail.remarks when available — this is the buyer's checkout message.
-    // If the detail fetch succeeded but has no remark, store '' (confirmed empty) so
-    // the incremental filter doesn't re-fetch this order again next sync.
+    // Priority: checkout remarks > buyer in-app message > previous stored value > ''
     // null is reserved for "detail never fetched successfully".
     customerNotes: orderDetail != null
-      ? ((orderDetail.remarks || '').trim() || existingOrder?.customerNotes || '')
-      : (blOrder.remarks || existingOrder?.customerNotes || null),
+      ? ((orderDetail.remarks || '').trim() || buyerMessage || existingOrder?.customerNotes || '')
+      : (blOrder.remarks || buyerMessage || existingOrder?.customerNotes || null),
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,

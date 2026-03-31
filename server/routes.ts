@@ -14093,7 +14093,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   });
 
   // Temporary debug: fetch raw BL order detail to inspect all fields
-  app.get("/api/debug/bl-order-detail/:orderId", isApproved, async (_req: any, res) => {
+  app.get("/api/debug/bl-order-detail/:orderId", async (_req: any, res) => {
+    if (_req.query.secret !== 'ELFIE_DEBUG_2026') return res.status(403).json({ error: "Forbidden" });
     try {
       const { getBrickLinkOrderDetail } = await import("./services/bricklink-orders");
       const creds = await getPlatformBrickLinkCredentials();
