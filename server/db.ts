@@ -2394,6 +2394,10 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS xml_backups_org_idx ON xml_backups (org_id)`);
     console.log('[Migration] Phase-102 (xml_backups table) complete.');
 
+    // Phase-103: Add org_timezone column to app_settings for per-org timezone preference.
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS org_timezone TEXT DEFAULT 'America/Chicago'`);
+    console.log('[Migration] Phase-103 (org_timezone on app_settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

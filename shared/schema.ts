@@ -547,6 +547,7 @@ export const appSettings = pgTable("app_settings", {
   boIossNumber: text("bo_ioss_number"),            // BrickOwl EU IOSS number
   blUkVatNumber: text("bl_uk_vat_number"),         // BrickLink UK VAT number
   boUkVatNumber: text("bo_uk_vat_number"),         // BrickOwl UK VAT number
+  orgTimezone: text("org_timezone").default('America/Chicago'),  // Org's local timezone (for display + order sync windows)
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Legacy: time of day (HH:MM) — kept for backward compat

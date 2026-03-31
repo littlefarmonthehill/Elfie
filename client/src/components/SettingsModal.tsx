@@ -2519,7 +2519,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [priceOMaticEnabled, setPriceOMaticEnabled] = useState(false);
   const [pomScheduleEnabled, setPomScheduleEnabled] = useState(false);
   const [pomSyncTime, setPomSyncTime] = useState("14:00");
-  const [timezone, setTimezone] = useState("America/Chicago");
+  const [timezone, setTimezone] = useState("America/Chicago");       // org-level timezone
+  const [platformTimezone, setPlatformTimezone] = useState("America/Chicago"); // platform scheduler timezone
   const [globalSyncPaused, setGlobalSyncPaused] = useState(false);
   const [defaultInventoryFreqHours, setDefaultInventoryFreqHours] = useState(24);
   const [defaultOrdersFreqMins, setDefaultOrdersFreqMins] = useState(30);
@@ -3487,7 +3488,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setBoIossNumber(settings.boIossNumber || "");
       setBlUkVatNumber(settings.blUkVatNumber || "");
       setBoUkVatNumber(settings.boUkVatNumber || "");
-      // timezone lives in platform_settings only; initialized from platformSettings below
+      setTimezone(settings.orgTimezone || 'America/Chicago');
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setInventorySyncFrequency(settings.inventorySyncFrequency ?? 24);
@@ -3651,7 +3652,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setPomTrendingBonus(platformSettings.pomTrendingBonus ?? 60);
       setPomHighSupplyThreshold(platformSettings.pomHighSupplyThreshold ?? 10000);
       setPomHighSupplyPenalty(platformSettings.pomHighSupplyPenalty ?? 40);
-      setTimezone((platformSettings as any).timezone || 'America/Chicago');
+      setPlatformTimezone((platformSettings as any).timezone || 'America/Chicago');
       setGlobalSyncPaused((platformSettings as any).globalSyncPaused ?? false);
       setDefaultInventoryFreqHours((platformSettings as any).defaultInventoryFreqHours ?? 24);
       setDefaultOrdersFreqMins((platformSettings as any).defaultOrdersFreqMins ?? 30);
@@ -4462,35 +4463,33 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   />
                 </div>
 
-                {/* Timezone — platform-level setting, super-admin only */}
-                {superAdmin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone" className="text-xs text-gray-200">Time Zone</Label>
-                    <Select
-                      value={timezone}
-                      onValueChange={(tz) => {
-                        setTimezone(tz);
-                        updatePlatformSettingsMutation.mutate({ timezone: tz } as any);
-                      }}
-                    >
-                      <SelectTrigger className="text-xs" data-testid="select-timezone">
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
-                        <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
-                        <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
-                        <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
-                        <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
-                        <SelectItem value="Pacific/Honolulu">Hawaii Time (HT)</SelectItem>
-                        <SelectItem value="Europe/London">London (GMT)</SelectItem>
-                        <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
-                        <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
-                  </div>
-                )}
+                {/* Org Timezone */}
+                <div className="space-y-2">
+                  <Label htmlFor="timezone" className="text-xs text-gray-200">Time Zone</Label>
+                  <Select
+                    value={timezone}
+                    onValueChange={(tz) => {
+                      setTimezone(tz);
+                      updateSettingsMutation.mutate({ orgTimezone: tz } as any);
+                    }}
+                  >
+                    <SelectTrigger className="text-xs" data-testid="select-timezone">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                      <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                      <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                      <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                      <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
+                      <SelectItem value="Pacific/Honolulu">Hawaii Time (HT)</SelectItem>
+                      <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                      <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                      <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-gray-500">Your organization's local timezone — used for displaying order times and sync window labels</p>
+                </div>
               </div>
 
               {/* Add to Home Screen */}
@@ -9902,6 +9901,40 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                 {/* ── Config panel list ──────────────────────────────────── */}
                 <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
+
+                  {/* ── Row: Platform Timezone ── */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="w-3.5 h-3.5 text-purple-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-100">Scheduler Timezone</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">Timezone used by all platform schedulers (POM, inventory sync, enrichment)</p>
+                    </div>
+                    <Select
+                      value={platformTimezone}
+                      onValueChange={(tz) => {
+                        setPlatformTimezone(tz);
+                        updatePlatformSettingsMutation.mutate({ timezone: tz } as any);
+                      }}
+                    >
+                      <SelectTrigger className="w-44 h-8 text-xs shrink-0" data-testid="select-platform-timezone">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/New_York">Eastern (ET)</SelectItem>
+                        <SelectItem value="America/Chicago">Central (CT)</SelectItem>
+                        <SelectItem value="America/Denver">Mountain (MT)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">Pacific (PT)</SelectItem>
+                        <SelectItem value="America/Anchorage">Alaska (AKT)</SelectItem>
+                        <SelectItem value="Pacific/Honolulu">Hawaii (HT)</SelectItem>
+                        <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                        <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                        <SelectItem value="UTC">UTC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {/* ── Row: Emergency Pause ── */}
                   <div className="flex items-center gap-3 px-4 py-3">
