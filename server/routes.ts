@@ -18229,6 +18229,9 @@ Write a 1–2 sentence feedback comment for this order.`;
       const { orderId } = req.params;
       const { rating, comment, skip } = req.body as { rating?: string; comment?: string; skip?: boolean };
 
+      // Collect non-fatal BL API failures to surface in the UI
+      const warnings: string[] = [];
+
       // Fetch the order to get marketplace + channel order number + customer info
       const [order] = await db
         .select({
@@ -18255,11 +18258,15 @@ Write a 1–2 sentence feedback comment for this order.`;
               comment: comment ?? '',
             });
             if (!result.ok) {
-              console.warn(`[Feedback] Channel post failed for order ${orderId}: ${result.message}`);
+              const msg = result.message ?? 'Unknown error';
+              console.warn(`[Feedback] Channel post failed for order ${orderId}: ${msg}`);
+              warnings.push(`Feedback comment not posted to ${order.marketplace}: ${msg}`);
             }
           }
         } catch (adapterErr: any) {
-          console.warn(`[Feedback] Adapter error for marketplace "${order.marketplace}":`, adapterErr.message);
+          const msg = adapterErr.message ?? 'Unknown error';
+          console.warn(`[Feedback] Adapter error for marketplace "${order.marketplace}":`, msg);
+          warnings.push(`Feedback comment not posted to ${order.marketplace}: ${msg}`);
         }
       }
 
@@ -18280,7 +18287,9 @@ Write a 1–2 sentence feedback comment for this order.`;
             );
           }
         } catch (blErr: any) {
-          console.warn(`[Feedback] BL COMPLETED update failed for order ${orderId}:`, blErr.message);
+          const msg = blErr.message ?? 'Unknown error';
+          console.warn(`[Feedback] BL COMPLETED update failed for order ${orderId}:`, msg);
+          warnings.push(`Order not marked Completed on BrickLink: ${msg}`);
         }
 
         // 2. Update local DB status to completed
@@ -18301,7 +18310,8 @@ Write a 1–2 sentence feedback comment for this order.`;
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
         .returning({ id: orders.id, feedbackLeftAt: orders.feedbackLeftAt });
       if (!updated) return res.status(404).json({ error: "Order not found" });
-      res.json(updated);
+      // Include any non-fatal warnings so the UI can surface them
+      res.json({ ...updated, warnings });
     } catch (err: any) {
       console.error("Error marking feedback-left:", err);
       res.status(500).json({ error: "Failed to mark feedback as left" });

@@ -551,11 +551,18 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     staleTime: 0,
   });
   type FeedbackRating = 'positive' | 'neutral' | 'negative';
-  type FeedbackDraftEntry = { rating: FeedbackRating; comment: string; generating: boolean };
+  type FeedbackDraftEntry = { rating: FeedbackRating; comment: string; generating: boolean; genFailed?: boolean };
   const [feedbackDraft, setFeedbackDraft] = useState<Record<string, FeedbackDraftEntry>>({});
   const getFbRating  = (id: string): FeedbackRating => feedbackDraft[id]?.rating ?? 'positive';
   const getFbComment = (id: string): string => feedbackDraft[id]?.comment ?? '';
   const getFbGenerating = (id: string): boolean => feedbackDraft[id]?.generating ?? false;
+  const getFbGenFailed = (id: string): boolean => feedbackDraft[id]?.genFailed ?? false;
+
+  // Per-row hard errors (mutation fully failed — nothing was stamped)
+  const [fbRowErrors, setFbRowErrors] = useState<Record<string, string>>({});
+  // Warnings from successful submits where BL API calls partially failed
+  type FbSubmitWarning = { orderId: string; orderNumber: string; customerUsername: string | null; warnings: string[] };
+  const [fbSubmitWarnings, setFbSubmitWarnings] = useState<FbSubmitWarning[]>([]);
 
   const setFbComment = (id: string, comment: string) =>
     setFeedbackDraft(prev => ({ ...prev, [id]: { ...prev[id] ?? { rating: 'positive', generating: false }, comment } }));
@@ -563,18 +570,18 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const generateComment = async (orderId: string, rating: FeedbackRating, keepComment = false) => {
     setFeedbackDraft(prev => ({
       ...prev,
-      [orderId]: { rating, comment: keepComment ? (prev[orderId]?.comment ?? '') : '', generating: true },
+      [orderId]: { rating, comment: keepComment ? (prev[orderId]?.comment ?? '') : '', generating: true, genFailed: false },
     }));
     try {
       const result: { comment: string } = await apiRequest('POST', `/api/orders/${orderId}/feedback-generate`, { rating });
       setFeedbackDraft(prev => ({
         ...prev,
-        [orderId]: { rating, comment: result.comment, generating: false },
+        [orderId]: { rating, comment: result.comment, generating: false, genFailed: false },
       }));
     } catch {
       setFeedbackDraft(prev => ({
         ...prev,
-        [orderId]: { ...prev[orderId] ?? { rating, comment: '' }, rating, generating: false },
+        [orderId]: { ...prev[orderId] ?? { rating, comment: '' }, rating, generating: false, genFailed: true },
       }));
     }
   };
@@ -615,23 +622,48 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         apiRequest('POST', `/api/orders/${id}/feedback-left`, {
           rating: getFbRating(id),
           comment: getFbComment(id) || undefined,
-        }).then(() => id)
+        }).then((data: any) => ({ id, data }))
       ));
       const succeeded = results
-        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+        .filter((r): r is PromiseFulfilledResult<{ id: string; data: any }> => r.status === 'fulfilled')
         .map(r => r.value);
+      const failed = results
+        .filter((r, i): r is PromiseRejectedResult => r.status === 'rejected')
+        .map((r, i) => ({ id: ids[results.findIndex((res, j) => res === r)], reason: (r as PromiseRejectedResult).reason }));
       if (succeeded.length) {
+        // Collect warnings from partially-failed BL API calls
+        succeeded.forEach(({ id, data }) => {
+          const warnings = data?.warnings as string[] | undefined;
+          if (warnings?.length) {
+            const order = feedbackPending.find(o => o.id === id);
+            setFbSubmitWarnings(prev => [...prev, {
+              orderId: id,
+              orderNumber: order?.orderNumber ?? id,
+              customerUsername: order?.customerUsername ?? null,
+              warnings,
+            }]);
+          }
+        });
+        const succeededIds = succeeded.map(s => s.id);
         setFeedbackDraft(prev => {
           const next = { ...prev };
-          succeeded.forEach(id => delete next[id]);
+          succeededIds.forEach(id => delete next[id]);
           return next;
         });
         setFeedbackSelected(prev => {
           const next = new Set(prev);
-          succeeded.forEach(id => next.delete(id));
+          succeededIds.forEach(id => next.delete(id));
           return next;
         });
         queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+      }
+      // Show per-row hard errors for any that fully failed
+      if (failed.length) {
+        setFbRowErrors(prev => {
+          const next = { ...prev };
+          failed.forEach(({ id, reason }) => { if (id) next[id] = reason?.message ?? 'Failed to submit'; });
+          return next;
+        });
       }
     } finally {
       setIsBulkSending(false);
@@ -641,10 +673,24 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const markFeedbackMutation = useMutation({
     mutationFn: ({ orderId, rating, comment }: { orderId: string; rating?: string; comment?: string }) =>
       apiRequest('POST', `/api/orders/${orderId}/feedback-left`, { rating, comment }),
-    onSuccess: (_data, { orderId }) => {
+    onSuccess: (data: any, { orderId }) => {
+      const warnings = data?.warnings as string[] | undefined;
+      if (warnings?.length) {
+        const order = feedbackPending.find(o => o.id === orderId);
+        setFbSubmitWarnings(prev => [...prev, {
+          orderId,
+          orderNumber: order?.orderNumber ?? orderId,
+          customerUsername: order?.customerUsername ?? null,
+          warnings,
+        }]);
+      }
+      setFbRowErrors(prev => { const n = { ...prev }; delete n[orderId]; return n; });
       setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+    },
+    onError: (err: any, { orderId }) => {
+      setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to submit' }));
     },
   });
 
@@ -652,9 +698,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     mutationFn: (orderId: string) =>
       apiRequest('POST', `/api/orders/${orderId}/feedback-left`, { skip: true }),
     onSuccess: (_data, orderId) => {
+      setFbRowErrors(prev => { const n = { ...prev }; delete n[orderId]; return n; });
       setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+    },
+    onError: (err: any, orderId) => {
+      setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to skip' }));
     },
   });
   const undoFeedbackMutation = useMutation({
@@ -1568,6 +1618,51 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
               </div>
             )}
 
+            {/* Submit warnings — BL API calls that partially failed after a successful ELFIE stamp */}
+            {fbSubmitWarnings.length > 0 && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-900/10 overflow-hidden" data-testid="feedback-warnings-panel">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-500/20 bg-amber-900/10">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-[11px] font-semibold text-amber-300 flex-1">Action needed — complete manually then dismiss</span>
+                  <button
+                    type="button"
+                    onClick={() => setFbSubmitWarnings([])}
+                    className="text-amber-500/60 hover:text-amber-300 transition-colors"
+                    title="Dismiss all warnings"
+                    data-testid="button-fb-dismiss-all-warnings"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="divide-y divide-amber-500/10">
+                  {fbSubmitWarnings.map((w, i) => (
+                    <div key={i} className="px-3 py-2 flex items-start gap-2" data-testid={`feedback-warning-${w.orderId}`}>
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold text-amber-200">
+                            {w.customerUsername ?? 'Unknown Buyer'}
+                          </span>
+                          <span className="text-[9px] text-amber-500/60 font-mono">#{shortCode(w.orderNumber)}</span>
+                        </div>
+                        {w.warnings.map((msg, j) => (
+                          <p key={j} className="text-[10px] text-amber-400/80 leading-snug">{msg}</p>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFbSubmitWarnings(prev => prev.filter((_, idx) => idx !== i))}
+                        className="shrink-0 text-amber-500/50 hover:text-amber-300 transition-colors mt-0.5"
+                        title="Dismiss"
+                        data-testid={`button-fb-dismiss-warning-${i}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {feedbackPending.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-12 text-center">
                 <CheckCheck className="w-8 h-8 text-teal-500/60" />
@@ -1618,6 +1713,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         const fbRating = getFbRating(o.id);
                         const fbComment = getFbComment(o.id);
                         const fbGenerating = getFbGenerating(o.id);
+                        const fbGenFailed = getFbGenFailed(o.id);
+                        const fbRowError = fbRowErrors[o.id];
                         const ratingConfig = {
                           positive: { icon: ThumbsUp,   label: 'Praise',    activeClass: 'text-green-400 bg-green-900/40',  ringClass: 'ring-green-500/30' },
                           neutral:  { icon: Minus,       label: 'Neutral',   activeClass: 'text-yellow-400 bg-yellow-900/40', ringClass: 'ring-yellow-500/30' },
@@ -1691,6 +1788,14 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               </button>
                             </div>
 
+                            {/* AI generation failure notice */}
+                            {fbGenFailed && !fbGenerating && (
+                              <div className="flex items-center gap-1.5 text-[10px] text-amber-400/80" data-testid={`text-fb-gen-failed-${o.id}`}>
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                AI unavailable — type your comment manually or skip
+                              </div>
+                            )}
+
                             {/* Editable comment */}
                             <div className="relative">
                               <textarea
@@ -1703,6 +1808,14 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                 className={`w-full bg-black/20 border rounded-md px-2 py-1.5 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors ${fbGenerating ? 'border-teal-500/30 opacity-60' : 'border-white/10 focus:border-teal-500/50'}`}
                               />
                             </div>
+
+                            {/* Hard submit error (full mutation failure — nothing was stamped) */}
+                            {fbRowError && (
+                              <div className="flex items-center gap-1.5 text-[10px] text-red-400" data-testid={`text-fb-error-${o.id}`}>
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                {fbRowError}
+                              </div>
+                            )}
 
                             {/* Action buttons */}
                             <div className="flex justify-end gap-2">
