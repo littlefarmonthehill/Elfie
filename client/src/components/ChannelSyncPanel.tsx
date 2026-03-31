@@ -49,6 +49,56 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 
+const FIELD_LABELS: Record<string, string> = {
+  quantity: 'Qty',
+  unitPrice: 'Price',
+  isStockRoom: 'Stock Room',
+  saleRate: 'Sale %',
+  description: 'Description',
+  remarks: 'Remarks',
+  newOrUsed: 'Condition',
+  colorId: 'Color',
+  stockRoomId: 'Stockroom',
+  myWeight: 'Weight',
+  bulkQuantity: 'Bulk Min',
+  tierQuantity1: 'Tier Qty 1', tierQuantity2: 'Tier Qty 2', tierQuantity3: 'Tier Qty 3',
+  tierPrice1: 'Tier Price 1', tierPrice2: 'Tier Price 2', tierPrice3: 'Tier Price 3',
+};
+
+function fmtChangeVal(field: string, value: string | null | undefined): string {
+  if (value == null || value === '' || value === 'null') return '—';
+  if (field === 'unitPrice' || field.includes('Price') || field.includes('price')) {
+    const n = parseFloat(value);
+    return isNaN(n) ? value : `$${n.toFixed(2)}`;
+  }
+  if (value === 'true') return 'Yes';
+  if (value === 'false') return 'No';
+  if (value.length > 32) return value.slice(0, 30) + '…';
+  return value;
+}
+
+function ChangeDiffRows({ changes }: { changes: { field: string; oldValue: string | null; newValue: string | null }[] }) {
+  return (
+    <div className="mt-1.5 space-y-[3px]">
+      {changes.map((c) => {
+        const label = FIELD_LABELS[c.field] ?? c.field;
+        const oldDisplay = fmtChangeVal(c.field, c.oldValue);
+        const newDisplay = fmtChangeVal(c.field, c.newValue);
+        return (
+          <div key={c.field} className="grid grid-cols-[5.5rem_auto] gap-x-1.5 items-baseline text-[9px] font-mono">
+            <span className="text-gray-600 truncate">{label}</span>
+            <span className="min-w-0">
+              <span className="text-red-400/70">{oldDisplay}</span>
+              <span className="text-gray-600 mx-1">→</span>
+              <span className="text-green-400/80">{newDisplay}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
 
 function relTime(iso: string | null | undefined): string {
@@ -410,7 +460,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
               ) : (
                 <div className="space-y-1">
                   {recentChanges.items.map((item: any, idx: number) => (
-                    <div key={item.blInvId ?? idx} className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-ch-change-${item.blInvId ?? idx}`}>
+                    <div key={item.blInvId ?? idx} className="flex items-start gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-ch-change-${item.blInvId ?? idx}`}>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-mono font-semibold text-green-300">{item.itemNo}</span>
@@ -419,11 +469,19 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
                         </div>
                         {item.itemName && <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>}
                         {item.channelLotId && <p className="text-[9px] text-gray-600 font-mono mt-0.5">BO #{item.channelLotId}</p>}
+                        {changeDetail === 'updated' && item.changes?.length > 0 && (
+                          <ChangeDiffRows changes={item.changes} />
+                        )}
+                        {changeDetail === 'updated' && !item.changes?.length && (
+                          <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>
+                        )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
-                        {item.unitPrice && <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>}
-                      </div>
+                      {changeDetail === 'created' && (
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                          {item.unitPrice && <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -623,8 +681,8 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
                     {recentChanges.items.map((item: any, idx: number) => (
                       <div
                         key={item.blInvId ?? idx}
-                        className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2"
-                        data-testid={`row-ch-change-${item.blInvId ?? idx}`}
+                        className="flex items-start gap-3 rounded-md bg-gray-900/50 px-2.5 py-2"
+                        data-testid={`row-ch-change-drawer-${item.blInvId ?? idx}`}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
@@ -640,13 +698,21 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
                           {item.channelLotId && (
                             <p className="text-[9px] text-gray-600 font-mono mt-0.5">BO #{item.channelLotId}</p>
                           )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
-                          {item.unitPrice && (
-                            <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>
+                          {changeDetail === 'updated' && item.changes?.length > 0 && (
+                            <ChangeDiffRows changes={item.changes} />
+                          )}
+                          {changeDetail === 'updated' && !item.changes?.length && (
+                            <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>
                           )}
                         </div>
+                        {changeDetail === 'created' && (
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                            {item.unitPrice && (
+                              <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

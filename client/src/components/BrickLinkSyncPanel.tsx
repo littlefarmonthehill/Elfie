@@ -40,6 +40,56 @@ interface BrickLinkSyncPanelProps {
 
 type ChangeDetailType = 'added' | 'updated' | null;
 
+const FIELD_LABELS: Record<string, string> = {
+  quantity: 'Qty',
+  unitPrice: 'Price',
+  isStockRoom: 'Stock Room',
+  saleRate: 'Sale %',
+  description: 'Description',
+  remarks: 'Remarks',
+  newOrUsed: 'Condition',
+  colorId: 'Color',
+  stockRoomId: 'Stockroom',
+  myWeight: 'Weight',
+  bulkQuantity: 'Bulk Min',
+  tierQuantity1: 'Tier Qty 1', tierQuantity2: 'Tier Qty 2', tierQuantity3: 'Tier Qty 3',
+  tierPrice1: 'Tier Price 1', tierPrice2: 'Tier Price 2', tierPrice3: 'Tier Price 3',
+};
+
+function fmtChangeVal(field: string, value: string | null | undefined): string {
+  if (value == null || value === '' || value === 'null') return '—';
+  if (field === 'unitPrice' || field.includes('Price') || field.includes('price')) {
+    const n = parseFloat(value);
+    return isNaN(n) ? value : `$${n.toFixed(2)}`;
+  }
+  if (value === 'true') return 'Yes';
+  if (value === 'false') return 'No';
+  if (value.length > 32) return value.slice(0, 30) + '…';
+  return value;
+}
+
+function ChangeDiffRows({ changes }: { changes: { field: string; oldValue: string | null; newValue: string | null }[] }) {
+  return (
+    <div className="mt-1.5 space-y-[3px]">
+      {changes.map((c) => {
+        const label = FIELD_LABELS[c.field] ?? c.field;
+        const oldDisplay = fmtChangeVal(c.field, c.oldValue);
+        const newDisplay = fmtChangeVal(c.field, c.newValue);
+        return (
+          <div key={c.field} className="grid grid-cols-[5.5rem_auto] gap-x-1.5 items-baseline text-[9px] font-mono">
+            <span className="text-gray-600 truncate">{label}</span>
+            <span className="min-w-0">
+              <span className="text-red-400/70">{oldDisplay}</span>
+              <span className="text-gray-600 mx-1">→</span>
+              <span className="text-green-400/80">{newDisplay}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose }: BrickLinkSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -181,23 +231,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                         {item.itemName && <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>}
                         {/* Change diffs for "updated" items */}
                         {changeDetail === 'updated' && item.changes?.length > 0 && (
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                            {item.changes.map((c: any) => {
-                              const isQty = c.field === 'quantity';
-                              const isPrice = c.field === 'unitPrice';
-                              const oldDisplay = isPrice && c.oldValue ? `$${parseFloat(c.oldValue).toFixed(2)}` : c.oldValue ?? '—';
-                              const newDisplay = isPrice && c.newValue ? `$${parseFloat(c.newValue).toFixed(2)}` : c.newValue ?? '—';
-                              const label = isQty ? 'qty' : isPrice ? 'price' : c.field;
-                              return (
-                                <span key={c.field} className="text-[9px] font-mono">
-                                  <span className="text-gray-600">{label}: </span>
-                                  <span className="text-red-400/80">{oldDisplay}</span>
-                                  <span className="text-gray-600"> → </span>
-                                  <span className="text-green-400/80">{newDisplay}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <ChangeDiffRows changes={item.changes} />
                         )}
                         {changeDetail === 'updated' && !item.changes?.length && (
                           <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>
@@ -428,23 +462,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                           )}
                           {/* Change diffs for "updated" items */}
                           {changeDetail === 'updated' && item.changes?.length > 0 && (
-                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                              {item.changes.map((c: any) => {
-                                const isQty = c.field === 'quantity';
-                                const isPrice = c.field === 'unitPrice';
-                                const oldDisplay = isPrice && c.oldValue ? `$${parseFloat(c.oldValue).toFixed(2)}` : c.oldValue ?? '—';
-                                const newDisplay = isPrice && c.newValue ? `$${parseFloat(c.newValue).toFixed(2)}` : c.newValue ?? '—';
-                                const label = isQty ? 'qty' : isPrice ? 'price' : c.field;
-                                return (
-                                  <span key={c.field} className="text-[9px] font-mono">
-                                    <span className="text-gray-600">{label}: </span>
-                                    <span className="text-red-400/80">{oldDisplay}</span>
-                                    <span className="text-gray-600"> → </span>
-                                    <span className="text-green-400/80">{newDisplay}</span>
-                                  </span>
-                                );
-                              })}
-                            </div>
+                            <ChangeDiffRows changes={item.changes} />
                           )}
                           {changeDetail === 'updated' && !item.changes?.length && (
                             <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>

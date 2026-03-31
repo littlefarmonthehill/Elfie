@@ -13904,8 +13904,53 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         .orderBy(type === 'created' ? desc(channelLotLinks.syncedAt) : desc(blInventory.updatedAt))
         .limit(limit);
 
+      // For "updated" items, attach recent field-level change history from inventory_history
+      let itemsOut: any[] = items;
+      if (type === 'updated' && items.length > 0) {
+        const blInvIds = items.map((i) => i.blInvId).filter(Boolean) as number[];
+        if (blInvIds.length > 0) {
+          const histRows = await db
+            .select({
+              inventoryId: inventoryHistory.inventoryId,
+              field: inventoryHistory.field,
+              oldValue: inventoryHistory.oldValue,
+              newValue: inventoryHistory.newValue,
+              changedAt: inventoryHistory.changedAt,
+            })
+            .from(inventoryHistory)
+            .where(and(
+              eq(inventoryHistory.orgId, orgId),
+              inArray(inventoryHistory.inventoryId, blInvIds),
+            ))
+            .orderBy(desc(inventoryHistory.changedAt));
+
+          // Keep only the most-recent change per (inventoryId, field)
+          const latestByItemField = new Map<string, typeof histRows[0]>();
+          for (const row of histRows) {
+            const key = `${row.inventoryId}::${row.field}`;
+            if (!latestByItemField.has(key)) latestByItemField.set(key, row);
+          }
+
+          // Group by inventoryId
+          const changesByItem = new Map<number, { field: string; oldValue: string | null; newValue: string | null }[]>();
+          for (const row of latestByItemField.values()) {
+            if (!changesByItem.has(row.inventoryId)) changesByItem.set(row.inventoryId, []);
+            changesByItem.get(row.inventoryId)!.push({
+              field: row.field,
+              oldValue: row.oldValue,
+              newValue: row.newValue,
+            });
+          }
+
+          itemsOut = items.map((item) => ({
+            ...item,
+            changes: item.blInvId != null ? (changesByItem.get(item.blInvId) ?? []) : [],
+          }));
+        }
+      }
+
       res.json({
-        items,
+        items: itemsOut,
         lastSyncTime: meta?.lastSyncTime ?? null,
         totalCount: type === 'created' ? (meta?.recordsAdded ?? 0) : (meta?.recordsUpdated ?? 0),
       });
