@@ -215,7 +215,11 @@ export function mapBrickLinkCondition(newOrUsed: string): string {
 }
 
 /**
- * Update BrickLink order status to SHIPPED with tracking information
+ * Update BrickLink order status to SHIPPED with tracking information.
+ * Step 1: sets the tracking number on the order.
+ * Step 2: calls the drive_through endpoint — this marks the order SHIPPED AND
+ *         sends the buyer notification email with tracking number (BL's "drive-through").
+ * Falls back to a plain status PUT if drive_through returns an error (e.g. wrong state).
  */
 export async function updateBrickLinkOrderShipped(
   orderId: string,
@@ -237,8 +241,8 @@ export async function updateBrickLinkOrderShipped(
     secret: cleanToken(tokenSecret) 
   };
 
-  // Step 1: Update shipping details with tracking number
-  // Note: date_shipped is NOT accepted by BrickLink's PUT /orders/{id} endpoint
+  // Step 1: Update shipping details with tracking number on the order record.
+  // Note: date_shipped is NOT accepted by BrickLink's PUT /orders/{id} endpoint.
   const updateUrl = `${BRICKLINK_API_BASE}/orders/${orderId}`;
   const updateData = {
     shipping: {
@@ -246,12 +250,7 @@ export async function updateBrickLinkOrderShipped(
     }
   };
 
-  const updateRequest = {
-    url: updateUrl,
-    method: 'PUT',
-    body: updateData,
-  };
-
+  const updateRequest = { url: updateUrl, method: 'PUT', body: updateData };
   const updateAuthHeader = oauth.toHeader(oauth.authorize(updateRequest, token));
 
   const updateResponse = await fetch(updateUrl, {
@@ -268,19 +267,22 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update order error: ${updateResponse.status} ${errorText}`);
   }
 
-  // Step 2: Update order status to SHIPPED
+  // Step 2: Drive-through — marks order SHIPPED *and* sends buyer notification email.
+  // Parameters are query-string only (no body). OAuth must sign the full URL including params.
+  const dtDriveThrough = await sendBrickLinkDriveThrough(
+    orderId, trackingNumber, consumerKey, consumerSecret, tokenValue, tokenSecret
+  );
+
+  if (dtDriveThrough.ok) {
+    console.log(`✅ BrickLink order ${orderId} drive-through sent — tracking ${trackingNumber}, buyer notified`);
+    return;
+  }
+
+  // Fallback: drive_through failed (e.g. order not in eligible state) — set SHIPPED directly.
+  console.warn(`[BL] drive_through failed for ${orderId} (${dtDriveThrough.error}), falling back to status PUT`);
   const statusUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
-  const statusData = {
-    field: 'status',
-    value: 'SHIPPED'
-  };
-
-  const statusRequest = {
-    url: statusUrl,
-    method: 'PUT',
-    body: statusData,
-  };
-
+  const statusData = { field: 'status', value: 'SHIPPED' };
+  const statusRequest = { url: statusUrl, method: 'PUT', body: statusData };
   const statusAuthHeader = oauth.toHeader(oauth.authorize(statusRequest, token));
 
   const statusResponse = await fetch(statusUrl, {
@@ -297,13 +299,60 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update status error: ${statusResponse.status} ${errorText}`);
   }
 
-  // Log BrickLink's response — may contain drive_through_sent or notification fields
+  console.log(`✅ BrickLink order ${orderId} marked SHIPPED with tracking ${trackingNumber} (no drive-through email)`);
+}
+
+/**
+ * Send BrickLink drive-through notification — triggers the buyer email with tracking number.
+ * BL API: POST /orders/{order_id}/drive_through?tracking_no=...
+ * Parameters are query-string only; OAuth signing must include them in the URL.
+ * Returns { ok: true } on success or { ok: false, error: string } on failure (non-throwing).
+ */
+export async function sendBrickLinkDriveThrough(
+  orderId: string,
+  trackingNumber: string,
+  consumerKey: string,
+  consumerSecret: string,
+  tokenValue: string,
+  tokenSecret: string,
+  mailMe = false,
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const statusBody = await statusResponse.json();
-    const dtSent = statusBody?.data?.drive_through_sent ?? statusBody?.data?.is_drive_through ?? '(unknown)';
-    console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber} — drive_through_sent=${dtSent}`);
-  } catch {
-    console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
+    const oauth = new OAuth({
+      consumer: { key: consumerKey, secret: consumerSecret },
+      signature_method: 'HMAC-SHA1',
+      hash_function: getOAuthSignature().hash_function,
+    });
+
+    const token = {
+      key: cleanToken(tokenValue),
+      secret: cleanToken(tokenSecret),
+    };
+
+    // Query-string params — must be part of the URL for OAuth signing
+    const params = new URLSearchParams({ tracking_no: trackingNumber });
+    if (mailMe) params.set('mail_me', 'true');
+    const dtUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/drive_through?${params.toString()}`;
+
+    // OAuth signs the full URL (including query params) with no body
+    const dtRequest = { url: dtUrl, method: 'POST' };
+    const authHeader = oauth.toHeader(oauth.authorize(dtRequest, token));
+
+    const response = await fetch(dtUrl, {
+      method: 'POST',
+      headers: { 'Authorization': authHeader.Authorization },
+    });
+
+    const body = await response.json().catch(() => ({}));
+
+    if (!response.ok || (body?.meta?.code && body.meta.code !== 200 && body.meta.code !== 201)) {
+      const msg = body?.meta?.description || body?.meta?.message || `HTTP ${response.status}`;
+      return { ok: false, error: msg };
+    }
+
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message ?? 'unknown error' };
   }
 }
 
