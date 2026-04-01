@@ -38,7 +38,7 @@ import InventoryBrowsePanel from "@/components/InventoryBrowsePanel";
 import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
 import ChannelSyncPanel from "@/components/ChannelSyncPanel";
 import BulkinatorPanel from "@/components/BulkinatorPanel";
-import OrderSyncPanel from "@/components/OrderSyncPanel";
+import OrderSyncPanel, { PLATFORM_CONFIG as ORDER_PLATFORM_CONFIG, OrderSyncPlatform } from "@/components/OrderSyncPanel";
 
 export default function Home() {
   useAdminScaling();
@@ -148,7 +148,7 @@ export default function Home() {
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | 'bulkinator' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null>(null);
   const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
   const [planCollapsed, setPlanCollapsed] = useState(false);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
@@ -591,12 +591,16 @@ export default function Home() {
         </ToolDrawer>
       );
     }
-    if (activeOrdersDrawer === 'brickowlsync') {
-      return (
-        <ToolDrawer icon={SlidersHorizontal} iconColor="text-orange-400" title="BrickOwl Orders Sync" onClose={closeActiveDrawer}>
-          <OrderSyncPanel platform="brickowl" onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
-        </ToolDrawer>
-      );
+    if (activeOrdersDrawer?.startsWith('ordersync-')) {
+      const platformKey = activeOrdersDrawer.slice('ordersync-'.length) as OrderSyncPlatform;
+      const platformCfg = ORDER_PLATFORM_CONFIG[platformKey];
+      if (platformCfg) {
+        return (
+          <ToolDrawer icon={SlidersHorizontal} iconColor={platformCfg.accentIcon} title={`${platformCfg.label} — Order Sync`} onClose={closeActiveDrawer}>
+            <OrderSyncPanel platform={platformKey} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
+          </ToolDrawer>
+        );
+      }
     }
     if (rightPanelBrowse) {
       return (
@@ -1483,7 +1487,7 @@ export default function Home() {
       {!isDesktop && (
         <Drawer open={!!(
           (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync') ||
-          (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && activeOrdersDrawer !== 'brickowlsync') ||
+          (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && !activeOrdersDrawer.startsWith('ordersync-')) ||
           activeMarketingDrawer || activeSalesDrawer || billingOpen
         )} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">

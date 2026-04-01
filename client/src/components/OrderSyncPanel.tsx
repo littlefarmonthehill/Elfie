@@ -31,10 +31,10 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 
-type Platform = 'bricklink' | 'brickowl';
+export type OrderSyncPlatform = 'bricklink' | 'brickowl';
 
 interface OrderSyncPanelProps {
-  platform: Platform;
+  platform: OrderSyncPlatform;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
 }
 
@@ -66,7 +66,7 @@ function StatusIcon({ status, className }: { status?: string; className?: string
   return <Clock className={cls} />;
 }
 
-const PLATFORM_CONFIG: Record<Platform, {
+export const PLATFORM_CONFIG: Record<OrderSyncPlatform, {
   label: string;
   syncId: string;
   syncRoute: string;
@@ -76,6 +76,15 @@ const PLATFORM_CONFIG: Record<Platform, {
   accentBg: string;
   accentIcon: string;
   testId: string;
+  sidebar: {
+    activeButton: string;
+    idleButton: string;
+    activeIcon: string;
+    idleIcon: string;
+    iconColor: string;
+    labelColor: string;
+    activeArrow: string;
+  };
 }> = {
   bricklink: {
     label: 'BrickLink',
@@ -87,6 +96,15 @@ const PLATFORM_CONFIG: Record<Platform, {
     accentBg: 'from-orange-950/50 to-gray-950/70',
     accentIcon: 'text-orange-400',
     testId: 'order-sync-bricklink-panel',
+    sidebar: {
+      activeButton: 'border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]',
+      idleButton: 'border-blue-500/30 bg-blue-950/30',
+      activeIcon: 'bg-blue-800/70 ring-blue-400/60',
+      idleIcon: 'bg-blue-900/60 ring-blue-500/40',
+      iconColor: 'text-blue-300',
+      labelColor: 'text-blue-100',
+      activeArrow: 'text-blue-400',
+    },
   },
   brickowl: {
     label: 'BrickOwl',
@@ -98,6 +116,15 @@ const PLATFORM_CONFIG: Record<Platform, {
     accentBg: 'from-cyan-950/50 to-gray-950/70',
     accentIcon: 'text-cyan-400',
     testId: 'order-sync-brickowl-panel',
+    sidebar: {
+      activeButton: 'border-cyan-400/70 bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.2)]',
+      idleButton: 'border-cyan-500/30 bg-cyan-950/30',
+      activeIcon: 'bg-cyan-800/70 ring-cyan-400/60',
+      idleIcon: 'bg-cyan-900/60 ring-cyan-500/40',
+      iconColor: 'text-cyan-300',
+      labelColor: 'text-cyan-100',
+      activeArrow: 'text-cyan-400',
+    },
   },
 };
 

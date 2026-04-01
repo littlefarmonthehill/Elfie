@@ -18,7 +18,12 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
-import OrderSyncPanel from "./OrderSyncPanel";
+import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
+
+// Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
+// BrickLink is always present as a fixed button; entries here are channel platforms.
+// To add eBay: push 'ebay' to this array and add a PLATFORM_CONFIG entry.
+const ORDER_SYNC_CHANNEL_KEYS: OrderSyncPlatform[] = ['brickowl'];
 
 interface OrderStats {
   totalOrders: number;
@@ -29,10 +34,12 @@ interface OrderStats {
   avgLotsPerOrder: number;
 }
 
+type OrdersDrawerKey = 'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null;
+
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null;
-  onDrawerChange: (drawer: 'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null) => void;
+  activeDrawer: OrdersDrawerKey;
+  onDrawerChange: (drawer: OrdersDrawerKey) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
@@ -497,37 +504,63 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </div>
           {desktopMode ? (
             <div className="flex flex-col gap-1.5">
-              <button
-                onClick={() => onDrawerChange(activeDrawer === 'bricklinksync' ? null : 'bricklinksync')}
-                data-testid="button-orders-bricklink-sync"
-                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                  activeDrawer === 'bricklinksync'
-                    ? "border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                    : "border-blue-500/30 bg-blue-950/30"
-                )}
-              >
-                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'bricklinksync' ? "bg-blue-800/70 ring-blue-400/60" : "bg-blue-900/60 ring-blue-500/40")}><Link className="w-3 h-3 text-blue-300" /></div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-blue-100">BrickLink</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
-                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'bricklinksync' ? "text-blue-400" : "text-gray-600")} />
-              </button>
-              <button
-                onClick={() => onDrawerChange(activeDrawer === 'brickowlsync' ? null : 'brickowlsync')}
-                data-testid="button-orders-brickowl-sync"
-                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                  activeDrawer === 'brickowlsync'
-                    ? "border-orange-400/70 bg-orange-900/50 shadow-[0_0_10px_rgba(251,146,60,0.2)]"
-                    : "border-orange-500/30 bg-orange-950/30"
-                )}
-              >
-                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'brickowlsync' ? "bg-orange-800/70 ring-orange-400/60" : "bg-orange-900/60 ring-orange-500/40")}><Globe className="w-3 h-3 text-orange-300" /></div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-orange-100">BrickOwl</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
-                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'brickowlsync' ? "text-orange-400" : "text-gray-600")} />
-              </button>
+              {/* BrickLink — always first, fixed */}
+              {(() => {
+                const blSb = PLATFORM_CONFIG['bricklink'].sidebar;
+                const active = activeDrawer === 'bricklinksync';
+                return (
+                  <button
+                    onClick={() => onDrawerChange(active ? null : 'bricklinksync')}
+                    data-testid="button-orders-bricklink-sync"
+                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                      active ? blSb.activeButton : blSb.idleButton
+                    )}
+                  >
+                    <div className={cn("p-1 rounded ring-1 transition-all", active ? blSb.activeIcon : blSb.idleIcon)}>
+                      <Link className={`w-3 h-3 ${blSb.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-semibold ${blSb.labelColor}`}>BrickLink</div>
+                      <div className="text-[9px] text-gray-500">Orders sync</div>
+                    </div>
+                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? blSb.activeArrow : "text-gray-600")} />
+                  </button>
+                );
+              })()}
+              {/* Channel order platforms — driven by ORDER_SYNC_CHANNEL_KEYS */}
+              {ORDER_SYNC_CHANNEL_KEYS.map(key => {
+                const cfg = PLATFORM_CONFIG[key];
+                const sb = cfg.sidebar;
+                const drawerKey = `ordersync-${key}` as const;
+                const active = activeDrawer === drawerKey;
+                const PlatformIcon = cfg.Icon;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onDrawerChange(active ? null : drawerKey)}
+                    data-testid={`button-orders-${key}-sync`}
+                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                      active ? sb.activeButton : sb.idleButton
+                    )}
+                  >
+                    <div className={cn("p-1 rounded ring-1 transition-all", active ? sb.activeIcon : sb.idleIcon)}>
+                      <PlatformIcon className={`w-3 h-3 ${sb.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-semibold ${sb.labelColor}`}>{cfg.label}</div>
+                      <div className="text-[9px] text-gray-500">Orders sync</div>
+                    </div>
+                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? sb.activeArrow : "text-gray-600")} />
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="space-y-2">
               <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
-              <OrderSyncPanel platform="brickowl" onOpenSettings={onOpenSettings} />
+              {ORDER_SYNC_CHANNEL_KEYS.map(key => (
+                <OrderSyncPanel key={key} platform={key} onOpenSettings={onOpenSettings} />
+              ))}
               <QtySyncQueuePanel />
             </div>
           )}

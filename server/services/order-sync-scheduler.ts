@@ -23,12 +23,16 @@ async function getActiveOrderSyncOrg(): Promise<{ orgId: string; frequencyMs: nu
   return null;
 }
 
+// ── Scheduled order-sync platforms ───────────────────────────────────────────
+// To add eBay: push 'ebay' here and implement an EbayOrderAdapter in order-sync-core.
+
+const SCHEDULED_ORDER_PLATFORMS: Array<'bricklink' | 'brickowl'> = ['bricklink', 'brickowl'];
+
 // ── Per-platform retry state ─────────────────────────────────────────────────
 
-const retryState: Record<string, { count: number; nextAt: number }> = {
-  bricklink: { count: 0, nextAt: 0 },
-  brickowl:  { count: 0, nextAt: 0 },
-};
+const retryState: Record<string, { count: number; nextAt: number }> = Object.fromEntries(
+  SCHEDULED_ORDER_PLATFORMS.map(p => [p, { count: 0, nextAt: 0 }])
+);
 
 // ── Shared check-and-run logic ───────────────────────────────────────────────
 
@@ -204,16 +208,23 @@ async function runScheduledPlatformSync(
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export async function startOrderSyncScheduler() {
-  console.log('🕒 Order sync scheduler initialized');
+  console.log(`🕒 Order sync scheduler initialized (platforms: ${SCHEDULED_ORDER_PLATFORMS.join(', ')})`);
 
-  // Stagger BrickOwl by 30 s to avoid both channels hitting the lock simultaneously
-  await checkAndRunPlatformSync('bricklink');
-  setInterval(() => checkAndRunPlatformSync('bricklink'), 60 * 1000);
-
-  setTimeout(() => {
-    checkAndRunPlatformSync('brickowl');
-    setInterval(() => checkAndRunPlatformSync('brickowl'), 60 * 1000);
-  }, 30 * 1000);
+  // Run the first platform immediately, then stagger each subsequent one by 30 s
+  // to avoid all channels hitting the lock simultaneously.
+  for (let i = 0; i < SCHEDULED_ORDER_PLATFORMS.length; i++) {
+    const platform = SCHEDULED_ORDER_PLATFORMS[i];
+    const delayMs = i * 30 * 1000;
+    if (delayMs === 0) {
+      await checkAndRunPlatformSync(platform);
+      setInterval(() => checkAndRunPlatformSync(platform), 60 * 1000);
+    } else {
+      setTimeout(() => {
+        checkAndRunPlatformSync(platform);
+        setInterval(() => checkAndRunPlatformSync(platform), 60 * 1000);
+      }, delayMs);
+    }
+  }
 }
 
 export function stopOrderSyncScheduler() {
