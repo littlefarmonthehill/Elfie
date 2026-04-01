@@ -646,6 +646,9 @@ export async function syncShippedStatus(order: any, trackingNumber: string, carr
       await syncToBrickLink(order, trackingNumber, carrier);
     } else if (marketplace === 'brickowl') {
       await syncToBrickOwl(order, trackingNumber);
+    } else if (marketplace === 'ebay') {
+      const { syncToEbay } = await import('./ebay-fulfillment');
+      await syncToEbay(order, trackingNumber, carrier);
     } else {
       console.log(`[syncShippedStatus] No sync handler for marketplace: ${marketplace}`);
     }
@@ -688,6 +691,9 @@ async function syncOrderStatusToPlatform(order: any): Promise<void> {
       await syncToBrickLink(order, actualTrackingNumber, carrier);
     } else if (marketplace === 'brickowl') {
       await syncToBrickOwl(order, actualTrackingNumber);
+    } else if (marketplace === 'ebay') {
+      const { syncToEbay } = await import('./ebay-fulfillment');
+      await syncToEbay(order, actualTrackingNumber, carrier);
     } else {
       console.log(`📦 Platform sync not implemented for ${marketplace} (order ${order.orderNumber})`);
     }
