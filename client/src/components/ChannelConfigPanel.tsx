@@ -61,6 +61,36 @@ export const CHANNEL_FIELD_META: Record<string, ChannelFieldMeta> = {
     apiKeyLabel:     'BrickOwl API Key',
     apiKeyHelp:      'Found under My Account → Settings → API on BrickOwl.',
   },
+  ebay: {
+    remarkDesc:      'Internal notes are not synced to eBay (eBay has no seller-only note field)',
+    descriptionDesc: 'Public listing description — synced from BrickLink description to eBay listing body',
+    tierPriceDesc:   'Tier pricing is not supported on eBay fixed-price listings',
+    salePercentDesc: 'Sale discounts are managed on eBay directly via promotions — not synced from BrickLink',
+    bulkQtyDesc:     'Minimum order quantity (BrickLink Bulk → eBay listing minimum). Leave off for individual part sales.',
+    lotWeightDesc:   'Custom lot weight is not directly mapped to eBay — use BrickLink weight for shipping estimates only',
+    hasStockrooms:   false,
+    apiKeyLabel:     'eBay Connection',
+    apiKeyHelp:      'Configure in Settings → Platform Connections → eBay.',
+  },
+};
+
+/** eBay-specific channel configuration (stored in channelConfig JSONB). */
+export interface EbayChannelConfig {
+  ebayBlIdField:       'custom_label' | 'item_specifics';
+  ebayCatalogMatch:    boolean;
+  ebayListingDuration: string;
+  syncImages:          boolean;
+  ebayMarketplaceId:   string;
+  ebayConditionUsed:   string;
+}
+
+export const defaultEbayChannelConfig: EbayChannelConfig = {
+  ebayBlIdField:       'custom_label',
+  ebayCatalogMatch:    true,
+  ebayListingDuration: 'GTC',
+  syncImages:          true,
+  ebayMarketplaceId:   'EBAY_US',
+  ebayConditionUsed:   'USED_VERY_GOOD',
 };
 
 interface AnalysisResult {

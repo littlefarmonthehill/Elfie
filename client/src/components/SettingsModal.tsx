@@ -2533,6 +2533,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
 
+  // eBay Settings (credentials stored in org_integrations; channelConfig in channelSyncConfig)
+  const [ebayAppId, setEbayAppId] = useState('');
+  const [ebayCertId, setEbayCertId] = useState('');
+  const [ebayDevId, setEbayDevId] = useState('');
+  const [ebayRefreshToken, setEbayRefreshToken] = useState('');
+  const [ebayEnvironment, setEbayEnvironment] = useState<'production' | 'sandbox'>('production');
+  const [ebayCredentialsSaving, setEbayCredentialsSaving] = useState(false);
+
   // Stripe Settings (platform billing)
   const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [stripeEnvironment, setStripeEnvironment] = useState<'test' | 'live'>('live');
@@ -5057,7 +5065,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-amber-400 border-amber-500/20 bg-amber-500/10">Read + Write</span>
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
                     </button>
-                    {orgIntegrationsList.filter(i => i.type === 'sales_channel').map(integration => (
+                    {/* eBay hardcoded entry (credentials stored in org_integrations) */}
+                    {(() => {
+                      const ebayInt = orgIntegrationsList.find(i => i.channel === 'ebay');
+                      return (
+                        <button onClick={() => { setActivePlatform('ebay'); if (ebayInt?.credentials) { const c = ebayInt.credentials as Record<string, string>; if (c.appId) setEbayAppId(''); if (c.certId) setEbayCertId(''); if (c.devId) setEbayDevId(''); if (c.refreshToken) setEbayRefreshToken(''); setEbayEnvironment((c.environment as 'production' | 'sandbox') ?? 'production'); } }}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
+                          data-testid="nav-platform-ebay"
+                        >
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${ebayInt ? 'bg-green-400' : 'bg-gray-600'}`} />
+                          <span className="flex-1 text-left">eBay</span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-blue-400 border-blue-500/20 bg-blue-500/10">Beta</span>
+                          <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        </button>
+                      );
+                    })()}
+                    {orgIntegrationsList.filter(i => i.type === 'sales_channel' && i.channel !== 'ebay').map(integration => (
                       <button key={integration.id} onClick={() => { setActivePlatform(String(integration.id)); setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
                         data-testid={`nav-platform-${integration.id}`}
@@ -5319,6 +5342,96 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </div>
                 )}
 
+                {/* ── DETAIL: eBay ─────────────────────────────────────────── */}
+                {activePlatform === 'ebay' && (() => {
+                  const ebayInt = orgIntegrationsList.find(i => i.channel === 'ebay');
+                  const existingCreds = ebayInt?.credentials as Record<string, string> | undefined;
+                  const saveEbayCreds = async () => {
+                    setEbayCredentialsSaving(true);
+                    try {
+                      const creds: Record<string, string> = { environment: ebayEnvironment };
+                      if (ebayAppId)      creds.appId        = ebayAppId;
+                      if (ebayCertId)     creds.certId       = ebayCertId;
+                      if (ebayDevId)      creds.devId        = ebayDevId;
+                      if (ebayRefreshToken) creds.refreshToken = ebayRefreshToken;
+                      if (ebayInt) {
+                        await apiRequest('PATCH', `/api/org/integrations/${ebayInt.id}`, { credentials: creds });
+                      } else {
+                        await apiRequest('POST', '/api/org/integrations', { channel: 'ebay', type: 'sales_channel', displayName: 'eBay', credentials: creds });
+                      }
+                      queryClient.invalidateQueries({ queryKey: ['/api/org/integrations'] });
+                      setEbayAppId('');
+                      setEbayCertId('');
+                      setEbayDevId('');
+                      setEbayRefreshToken('');
+                    } finally {
+                      setEbayCredentialsSaving(false);
+                    }
+                  };
+                  return (
+                    <div className="p-4 space-y-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-blue-400 border-blue-500/20 bg-blue-500/10">Beta</span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Write only</span>
+                        <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Inventory from BrickLink is pushed to eBay fixed-price listings. Images come from your Image Center — never from BrickLink CDN. Orders are not yet imported from eBay.</TooltipContent></Tooltip>
+                      </div>
+                      {ebayInt && (
+                        <div className="flex items-center gap-1.5 text-xs text-green-400">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                          Connected — credentials saved
+                        </div>
+                      )}
+                      <p className="text-[11px] text-gray-500">Obtain your App ID, Cert ID, and Dev ID from the <a href="https://developer.ebay.com/my/keys" target="_blank" rel="noopener noreferrer" className="underline text-gray-400 hover:text-gray-200">eBay Developer Program → Application Keys</a>. The refresh token is generated when you authorize your eBay seller account via OAuth.</p>
+
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">App ID (Client ID) <span className="text-gray-600 font-normal">{existingCreds?.appId ? '— saved, leave blank to keep' : ''}</span></Label>
+                          <Input className="text-xs font-mono" placeholder={existingCreds?.appId ? '••••••••' : 'MyApp-abc123…'} value={ebayAppId} onChange={(e) => setEbayAppId(e.target.value)} data-testid="input-ebay-app-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">Cert ID (Client Secret) <span className="text-gray-600 font-normal">{existingCreds?.certId ? '— saved, leave blank to keep' : ''}</span></Label>
+                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.certId ? '••••••••' : 'SBX-xxxxxxxx…'} value={ebayCertId} onChange={(e) => setEbayCertId(e.target.value)} data-testid="input-ebay-cert-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">Dev ID <span className="text-gray-600 font-normal text-[10px]">optional</span></Label>
+                          <Input className="text-xs font-mono" placeholder={existingCreds?.devId ? '••••••••' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'} value={ebayDevId} onChange={(e) => setEbayDevId(e.target.value)} data-testid="input-ebay-dev-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">OAuth Refresh Token <span className="text-gray-600 font-normal">{existingCreds?.refreshToken ? '— saved, leave blank to keep' : ''}</span></Label>
+                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.refreshToken ? '••••••••' : 'v^1.1#i^1#r^1#p^…'} value={ebayRefreshToken} onChange={(e) => setEbayRefreshToken(e.target.value)} data-testid="input-ebay-refresh-token" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">Environment</Label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input type="radio" name="ebay-env" value="production" checked={ebayEnvironment === 'production'} onChange={() => setEbayEnvironment('production')} className="focus:ring-purple-500" data-testid="radio-ebay-production" />
+                              <span className="text-xs text-gray-300">Production</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input type="radio" name="ebay-env" value="sandbox" checked={ebayEnvironment === 'sandbox'} onChange={() => setEbayEnvironment('sandbox')} className="focus:ring-purple-500" data-testid="radio-ebay-sandbox" />
+                              <span className="text-xs text-gray-300">Sandbox (testing)</span>
+                            </label>
+                          </div>
+                          {ebayEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — listings will be pushed to eBay sandbox only</p>}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-700 flex items-center justify-between gap-2">
+                        {ebayInt ? (
+                          <Button size="sm" variant="ghost" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-ebay" onClick={() => setDeleteIntId(ebayInt.id)}>
+                            <Trash2 className="w-3 h-3" /> Remove
+                          </Button>
+                        ) : <span />}
+                        <Button size="sm" className="text-xs" disabled={ebayCredentialsSaving || (!ebayAppId && !ebayCertId && !ebayRefreshToken && !!ebayInt)} onClick={saveEbayCreds} data-testid="button-save-ebay-creds">
+                          {ebayCredentialsSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : ebayInt ? 'Update Credentials' : 'Save & Connect'}
+                        </Button>
+                      </div>
+
+                      <p className="text-[11px] text-gray-600">Listing-level options (BrickLink ID field placement, catalog matching, listing duration) are configurable in the Channels panel when running a sync.</p>
+                    </div>
+                  );
+                })()}
+
                 {/* ── DETAIL: EasyPost ─────────────────────────────────────── */}
                 {activePlatform === 'easypost' && (
                   <div className="p-4 space-y-3">
@@ -5355,7 +5468,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 )}
 
                 {/* ── DETAIL: Dynamic org integration ─────────────────────── */}
-                {activePlatform !== null && !['bricklink','brickowl','easypost'].includes(activePlatform) && (() => {
+                {activePlatform !== null && !['bricklink','brickowl','easypost','ebay'].includes(activePlatform) && (() => {
                   const integration = orgIntegrationsList.find(i => String(i.id) === activePlatform);
                   if (!integration) return null;
                   return (

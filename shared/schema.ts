@@ -785,6 +785,8 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   syncPriceFloor:       decimal("sync_price_floor").$type<number>(),
   // Bulk Lots sync toggle — include all active bulk lots in this channel sync
   syncBulkLots:         boolean("sync_bulk_lots").default(false).notNull(),
+  // Channel-specific extra config (eBay: blIdField, catalogMatch, listingDuration, imageSync, etc.)
+  channelConfig:        jsonb("channel_config").$type<Record<string, unknown>>().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("channel_sync_config_org_channel_unique").on(t.orgId, t.channelKey),

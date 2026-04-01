@@ -6113,6 +6113,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isConnected: isConnected ?? false,
         })
         .returning();
+
+      // Auto-create a default channelSyncConfig row for eBay so it's picked up by the scheduler
+      if (channel === 'ebay' && type === 'sales_channel') {
+        try {
+          await db
+            .insert(channelSyncConfig)
+            .values({ orgId, channelKey: 'ebay' })
+            .onConflictDoNothing();
+          console.log(`[eBay] Auto-created default channelSyncConfig for org ${orgId}`);
+        } catch (e: any) {
+          console.warn('[eBay] Could not auto-create channelSyncConfig (non-fatal):', e.message);
+        }
+      }
+
       res.json({ success: true, integration: row });
     } catch (error: any) {
       console.error("Error creating org integration:", error);
@@ -10928,6 +10942,15 @@ Format search_web URLs as markdown links.`;
         ? 'analysis'
         : 'full_control';
 
+      // Check if eBay is configured via org_integrations
+      const ebayIntegration = await db
+        .select()
+        .from(orgIntegrations)
+        .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'ebay')))
+        .limit(1)
+        .then(rows => rows[0] ?? null);
+      const ebayEnabled = !!(ebayIntegration?.credentials && (ebayIntegration.credentials as any).refreshToken);
+
       const platformSyncStatus = {
         source: {
           name: 'BrickLink',
@@ -10954,6 +10977,13 @@ Format search_web URLs as markdown links.`;
               forSaleDifferences:      forSaleDifferencesCount,
               salePercentDifferences:  salePercentDifferencesCount,
             },
+          },
+          {
+            name: 'eBay',
+            enabled: ebayEnabled,
+            syncMode: 'full_control' as const,
+            stats: { totalLots: 0, totalParts: 0, lastSyncedAt: null },
+            discrepancies: null,
           },
         ],
         lastSyncStatus: 'idle' as const,

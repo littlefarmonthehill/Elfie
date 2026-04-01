@@ -11,6 +11,7 @@
 import type { IChannelSync } from './channel-sync-interface';
 import { BrickOwlChannelAdapter } from './brickowl-channel-adapter';
 import { BrickLinkChannelAdapter } from './bricklink-channel-adapter';
+import { EbayChannelAdapter } from './ebay-channel-adapter';
 
 const adapterCache: Record<string, IChannelSync> = {};
 
@@ -28,12 +29,13 @@ export function getChannelAdapter(channelKey: string): IChannelSync {
       adapter = new BrickLinkChannelAdapter();
       break;
 
+    case 'ebay':
+      adapter = new EbayChannelAdapter();
+      break;
+
     // Future channels — add cases here:
     // case 'amazon':
     //   adapter = new AmazonChannelAdapter();
-    //   break;
-    // case 'ebay':
-    //   adapter = new EbayChannelAdapter();
     //   break;
 
     default:
@@ -45,5 +47,5 @@ export function getChannelAdapter(channelKey: string): IChannelSync {
 }
 
 export function getSupportedChannelKeys(): string[] {
-  return ['brickowl', 'bricklink']; // extend as adapters are added
+  return ['brickowl', 'bricklink', 'ebay']; // extend as adapters are added
 }

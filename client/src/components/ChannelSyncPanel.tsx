@@ -1432,6 +1432,22 @@ function OverviewContent({
         </div>
       )}
 
+      {/* eBay-specific info banner */}
+      {selectedChannel === 'ebay' && (
+        <div className="rounded-lg border border-blue-500/20 bg-blue-950/20 p-3 space-y-2 text-xs">
+          <p className="text-blue-300 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+            eBay — Push-only channel
+          </p>
+          <p className="text-gray-400 leading-relaxed">
+            Your BrickLink inventory is pushed to eBay as fixed-price listings. Images come from your Image Center (never BrickLink CDN). Discrepancy analysis is not available for eBay — sync runs are always push operations.
+          </p>
+          <p className="text-gray-500">
+            Configure eBay credentials in <span className="text-gray-300">Settings → Platform Connections → eBay</span>. Listing options (BrickLink ID field placement, catalog matching, listing duration) are set per org in the channel sync config.
+          </p>
+        </div>
+      )}
+
       <Separator className="bg-gray-700/60" />
 
       {/* Live progress box — mirrors BL drawer style */}
@@ -1459,8 +1475,8 @@ function OverviewContent({
         </div>
       )}
 
-      {/* Last sync summary */}
-      {lastSync && !isRunning && (
+      {/* Last sync summary — BrickOwl only */}
+      {selectedChannel !== 'ebay' && lastSync && !isRunning && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Last Sync</p>
           <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2">
@@ -1540,7 +1556,7 @@ function OverviewContent({
         </div>
       )}
 
-      {brickOwl?.syncMode && (
+      {selectedChannel !== 'ebay' && brickOwl?.syncMode && (
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-gray-500">Mode:</span>
           <SyncModeBadge mode={brickOwl.syncMode} size="md" />
@@ -1552,10 +1568,10 @@ function OverviewContent({
         </div>
       )}
 
-      <SyncScopePanel brickOwl={brickOwl} />
+      {selectedChannel !== 'ebay' && <SyncScopePanel brickOwl={brickOwl} />}
 
-      {/* Lot Issues — always visible; discrepancy buttons only when there are issues */}
-      {(() => {
+      {/* Lot Issues — BrickOwl only */}
+      {selectedChannel !== 'ebay' && (() => {
         const LOT_TYPES: DiscrepancyType[] = ['missing', 'type_mismatch', 'unlinked', 'orphaned'];
         const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
         return (
@@ -1574,8 +1590,8 @@ function OverviewContent({
         );
       })()}
 
-      {/* Field Issues — discrepancy buttons when present, color repair always */}
-      {(() => {
+      {/* Field Issues — BrickOwl only */}
+      {selectedChannel !== 'ebay' && (() => {
         const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
         const fieldAreas = totalDiscrepancies > 0 ? discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type)) : [];
         return (
@@ -1591,7 +1607,7 @@ function OverviewContent({
         );
       })()}
 
-      {!isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && (
+      {selectedChannel !== 'ebay' && !isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
           <span>No discrepancies — {selectedChannelLabel} is in sync with BrickLink.</span>
