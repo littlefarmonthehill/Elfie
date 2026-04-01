@@ -78,35 +78,20 @@ function RetroTogglePin({ active, onClick, label, testId }: {
 }) {
   return (
     <button onClick={onClick} data-testid={testId} className="flex flex-col items-center gap-1.5 select-none">
-      {/* Housing */}
-      <div className={`relative w-8 h-12 rounded-sm overflow-hidden flex flex-col border transition-all duration-200 ${
+      {/* Bezel ring */}
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
         active
-          ? 'bg-gradient-to-b from-gray-600 to-gray-700 border-gray-500 shadow-[0_1px_6px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.12)]'
-          : 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700 shadow-[0_1px_4px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]'
+          ? 'border-green-500/70 bg-gray-900 shadow-[0_0_10px_rgba(34,197,94,0.45),0_0_22px_rgba(34,197,94,0.18)]'
+          : 'border-gray-600 bg-gray-900 shadow-[0_2px_5px_rgba(0,0,0,0.5)]'
       }`}>
-        {/* LED strip */}
-        <div className={`h-2 w-full flex-shrink-0 transition-all duration-300 ${
-          active ? 'bg-green-400 shadow-[0_0_8px_2px_rgba(34,197,94,0.8)]' : 'bg-gray-800 border-b border-gray-700/60'
+        {/* Button cap */}
+        <div className={`w-6 h-6 rounded-full transition-all duration-200 ${
+          active
+            ? 'bg-green-500 translate-y-px shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),0_0_6px_rgba(34,197,94,0.7)]'
+            : 'bg-gray-600 -translate-y-px shadow-[0_2px_4px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)]'
         }`} />
-        {/* Lever zone */}
-        <div className="flex-1 flex items-center justify-center relative">
-          <div className="w-5 h-5 rounded-full bg-gradient-to-b from-gray-400 to-gray-600 border border-gray-400/60 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)] relative flex items-center justify-center">
-            <div
-              className="absolute w-2 rounded-t-full bg-gradient-to-b from-gray-100 to-gray-300 shadow-[1px_0_3px_rgba(0,0,0,0.4)] origin-bottom transition-transform duration-300"
-              style={{ height: '22px', bottom: '50%', transform: `rotate(${active ? -18 : 18}deg)` }}
-            />
-          </div>
-        </div>
-        {/* Status strip */}
-        <div className={`h-3 w-full flex-shrink-0 flex items-center justify-center transition-all duration-300 ${
-          active ? 'bg-green-950' : 'bg-red-950'
-        }`}>
-          <span className={`text-[6px] font-bold tracking-widest uppercase ${
-            active ? 'text-green-300' : 'text-red-500'
-          }`}>{active ? 'ON' : 'OFF'}</span>
-        </div>
       </div>
-      {/* Channel label */}
+      {/* Label */}
       <span className={`text-[10px] font-medium transition-colors duration-200 ${
         active ? 'text-green-300' : 'text-gray-500'
       }`}>{label}</span>
