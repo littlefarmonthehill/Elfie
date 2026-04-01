@@ -563,7 +563,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Globe className="w-3.5 h-3.5 text-green-400 shrink-0" />
-            <span className="text-xs font-semibold text-green-100">Channel Sync</span>
+            <span className="text-xs font-semibold text-green-100">{channelLabel(selectedChannel)} — Inventory</span>
             {isRunning && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
