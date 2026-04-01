@@ -532,7 +532,7 @@ export default function Home() {
             <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
           </Button>
         }>
-          <FulfillmentTool onOrderDetail={handleOrderSelect} />
+          <FulfillmentTool onOrderDetail={handleOrderSelect} onItemClick={handleDashboardItemClick} />
         </ToolDrawer>
       );
     }
@@ -1520,7 +1520,7 @@ export default function Home() {
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
               {activeInventoryDrawer === 'bulkinator' && <BulkinatorPanel />}
-              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool onOrderDetail={handleOrderSelect} />}
+              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool onOrderDetail={handleOrderSelect} onItemClick={handleDashboardItemClick} />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
               {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}

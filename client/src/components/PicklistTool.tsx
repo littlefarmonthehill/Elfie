@@ -48,6 +48,7 @@ type Filter = 'all' | 'to_pull';
 
 interface PicklistToolProps {
   filterOrderIds?: Set<string>;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
 // ── Shared mutation options factory for picklist optimistic updates ──────────
@@ -81,7 +82,7 @@ function picklistMutationOptions<TVariables>(
 
 const SORT_DIR_KEY = 'picklist-sort-dir';
 
-export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
+export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistToolProps = {}) {
   const [filter, setFilter] = useState<Filter>('all');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => {
     try { return (localStorage.getItem(SORT_DIR_KEY) as 'asc' | 'desc') ?? 'asc'; } catch { return 'asc'; }
@@ -566,7 +567,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                   }`}
                   data-testid={`part-group-${key}`}
                 >
-                  {/* Part group header — click to expand/collapse */}
+                  {/* Part group header — tap to open detail; chevron toggles expand */}
                   <div
                     className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none ${
                       allPulled
@@ -575,7 +576,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         ? 'bg-yellow-950/20'
                         : 'bg-gray-800/70'
                     }`}
-                    onClick={() => toggleGroup(key)}
+                    onClick={() => {
+                      if (rep.inventoryId != null && onItemClick) {
+                        onItemClick('inventory', rep.inventoryId);
+                      } else {
+                        toggleGroup(key);
+                      }
+                    }}
                   >
                     {/* Group-level pull checkbox */}
                     <Checkbox
@@ -628,8 +635,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       </div>
                     </div>
 
-                    {/* Summary: lot count + chevron */}
-                    <div className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums">
+                    {/* Summary: lot count + chevron (chevron toggles expand) */}
+                    <div
+                      className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums"
+                      onClick={e => { e.stopPropagation(); toggleGroup(key); }}
+                    >
                       {variants.length > 1 && (
                         <span className="font-bold">{variants.length} Lots</span>
                       )}
@@ -646,10 +656,15 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       {variants.map((item) => (
                         <div
                           key={item.picklistItemId}
-                          className={`flex items-start gap-3 pl-7 pr-3 py-1.5 ${
+                          className={`flex items-start gap-3 pl-7 pr-3 py-1.5 cursor-pointer ${
                             item.pulled ? 'bg-blue-950/20' : 'bg-gray-900/60'
                           }`}
                           data-testid={`part-item-${item.picklistItemId}`}
+                          onClick={() => {
+                            if (item.inventoryId != null && onItemClick) {
+                              onItemClick('inventory', item.inventoryId);
+                            }
+                          }}
                         >
                           {/* Per-item checkbox — indented under parent */}
                           <Checkbox
@@ -658,6 +673,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                             onCheckedChange={(checked) =>
                               pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
                             }
+                            onClick={e => e.stopPropagation()}
                             disabled={pullItemMutation.isPending}
                             className="shrink-0 touch-auto mt-0.5"
                           />
@@ -751,8 +767,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                   }).map((item) => (
                     <div
                       key={item.picklistItemId}
-                      className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
+                      className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5 cursor-pointer"
                       data-testid={`picklist-item-${item.picklistItemId}`}
+                      onClick={() => {
+                        if (item.inventoryId != null && onItemClick) {
+                          onItemClick('inventory', item.inventoryId);
+                        }
+                      }}
                     >
                       <Checkbox
                         data-testid={`checkbox-pull-bin-item-${item.picklistItemId}`}
@@ -760,6 +781,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         onCheckedChange={(checked) =>
                           pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
                         }
+                        onClick={e => e.stopPropagation()}
                         disabled={pullItemMutation.isPending}
                         className="shrink-0 touch-auto mt-0.5"
                       />
@@ -768,7 +790,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         type="button"
                         data-testid={`img-thumb-bin-item-${item.picklistItemId}`}
                         className="shrink-0 w-8 h-8 rounded overflow-hidden bg-gray-700/40 flex items-center justify-center"
-                        onClick={() => setLightboxItem(item)}
+                        onClick={e => { e.stopPropagation(); setLightboxItem(item); }}
                       >
                         <PartImage
                           imageUrl={item.imageUrl}

@@ -242,7 +242,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
   );
 }
 
-export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (orderId: string) => void } = {}) {
+export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrderDetail?: (orderId: string) => void; onItemClick?: (type: 'order' | 'inventory', id: number | string) => void } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1583,7 +1583,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         {/* ── Tab content ── */}
         <div className="mt-3">
         {activeTab === 'picklist' ? (
-          <PicklistTool filterOrderIds={selectedOrders} />
+          <PicklistTool filterOrderIds={selectedOrders} onItemClick={onItemClick} />
         ) : activeTab === 'feedback' ? (
           <div className="space-y-3">
             {/* Header */}
