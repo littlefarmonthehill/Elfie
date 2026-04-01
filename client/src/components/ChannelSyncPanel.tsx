@@ -145,6 +145,19 @@ interface ChannelSyncPanelProps {
   onClose?: () => void;
 }
 
+/** Map channelKey → the target name used in platform-sync API paths. */
+const CHANNEL_DISPLAY: Record<string, { label: string; targetName: string }> = {
+  brickowl: { label: 'BrickOwl', targetName: 'BrickOwl' },
+  ebay:     { label: 'eBay',     targetName: 'eBay' },
+};
+
+function channelLabel(key: string) {
+  return CHANNEL_DISPLAY[key]?.label ?? key;
+}
+function channelTargetName(key: string) {
+  return CHANNEL_DISPLAY[key]?.targetName ?? key;
+}
+
 export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }: ChannelSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -152,6 +165,15 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
   const [showAuditReport, setShowAuditReport] = useState(false);
   const [showColorRepair, setShowColorRepair] = useState(false);
   const [changeDetail, setChangeDetail] = useState<'created' | 'updated' | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState('brickowl');
+
+  function selectChannel(key: string) {
+    setSelectedChannel(key);
+    setSelectedArea(null);
+    setShowAuditReport(false);
+    setShowColorRepair(false);
+    setChangeDetail(null);
+  }
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/status'],
@@ -164,11 +186,11 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
   });
 
   const discrepancyUrl = selectedArea
-    ? `/api/platform-sync/discrepancies/BrickOwl/${selectedArea}`
+    ? `/api/platform-sync/discrepancies/${channelTargetName(selectedChannel)}/${selectedArea}`
     : null;
 
   const { data: detailData, isLoading: detailLoading } = useQuery<any>({
-    queryKey: ['/api/platform-sync/discrepancies/BrickOwl', selectedArea],
+    queryKey: ['/api/platform-sync/discrepancies', selectedChannel, selectedArea],
     queryFn: () => fetch(discrepancyUrl!).then(r => r.json()),
     enabled: !!selectedArea && (drawerOpen || !!inlineMode) && !!discrepancyUrl,
     refetchOnWindowFocus: false,
@@ -189,10 +211,10 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
       setDrawerOpen(false);
-      toast({ title: 'Channel sync complete', description: 'BrickOwl inventory has been updated.' });
+      toast({ title: 'Channel sync complete', description: 'All connected channels have been updated.' });
     },
     onError: (err: any) => {
-      toast({ title: 'Sync failed', description: err?.message || 'Could not sync BrickOwl channel.', variant: 'destructive' });
+      toast({ title: 'Sync failed', description: err?.message || 'Could not complete channel sync.', variant: 'destructive' });
     },
   });
 
@@ -211,6 +233,19 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
     },
   });
 
+  const configuredChannels: { key: string; label: string; target: any }[] = (platformData?.targets ?? [])
+    .filter((t: any) => t.enabled || t.name === 'BrickOwl')
+    .map((t: any) => {
+      const key = Object.entries(CHANNEL_DISPLAY).find(([, v]) => v.targetName === t.name)?.[0] ?? t.name.toLowerCase();
+      return { key, label: channelLabel(key), target: t };
+    });
+
+  // Fallback: if platformData not loaded yet, show brickowl as the only channel
+  const displayChannels = configuredChannels.length > 0
+    ? configuredChannels
+    : [{ key: 'brickowl', label: 'BrickOwl', target: null }];
+
+  const selectedChannelData = displayChannels.find(c => c.key === selectedChannel) ?? displayChannels[0];
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
   const lastSync = syncStatuses?.channel;
   const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
@@ -223,7 +258,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
     prevIsRunningRef.current = isRunning;
     if (wasRunning && !isRunning) {
       queryClient.refetchQueries({ queryKey: ['/api/platform-sync/status'] }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/discrepancies'] });
       });
     }
   }, [isRunning]);
@@ -281,7 +316,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
       borderColor: 'border-orange-500/40',
       bgColor: 'bg-orange-950/30',
       count: missingLots,
-      description: 'On BrickLink but not listed on BrickOwl',
+      description: `On BrickLink but not listed on ${selectedChannelData?.label ?? 'the channel'}`,
     },
     {
       type: 'type_mismatch',
@@ -301,7 +336,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
       borderColor: 'border-yellow-500/40',
       bgColor: 'bg-yellow-950/30',
       count: priceDiffs,
-      description: 'BrickOwl price differs from BrickLink',
+      description: `${selectedChannelData?.label ?? 'Channel'} price differs from BrickLink`,
     },
     {
       type: 'quantity',
@@ -311,7 +346,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
       borderColor: 'border-blue-500/40',
       bgColor: 'bg-blue-950/30',
       count: qtyDiffs,
-      description: 'BrickOwl quantity differs from BrickLink',
+      description: `${selectedChannelData?.label ?? 'Channel'} quantity differs from BrickLink`,
     },
     {
       type: 'remarks',
@@ -335,17 +370,17 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
     },
     {
       type: 'unlinked',
-      label: 'Unlinked BrickOwl Lots',
+      label: `Unlinked ${selectedChannelData?.label ?? 'Channel'} Lots`,
       icon: Unlink,
       accentColor: 'text-gray-400',
       borderColor: 'border-gray-500/40',
       bgColor: 'bg-gray-800/40',
       count: unlinkedDiffs,
-      description: 'Exist on BrickOwl but not linked to any BrickLink item',
+      description: `Exist on ${selectedChannelData?.label ?? 'the channel'} but not linked to any BrickLink item`,
     },
     {
       type: 'orphaned',
-      label: 'Orphaned BrickOwl Lots',
+      label: `Orphaned ${selectedChannelData?.label ?? 'Channel'} Lots`,
       icon: GitMerge,
       accentColor: 'text-rose-400',
       borderColor: 'border-rose-500/40',
@@ -405,7 +440,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
       >
         <div className="flex items-center gap-2 mb-1">
           <Globe className="w-3.5 h-3.5 text-green-400/60 shrink-0" />
-          <span className="text-xs font-semibold text-green-200/60">Channel Sync — BrickOwl</span>
+          <span className="text-xs font-semibold text-green-200/60">Channel Sync</span>
         </div>
         <p className="text-[10px] text-gray-500">
           BrickOwl not configured — add your API key in Settings → Platform Connections to enable channel sync.
@@ -431,12 +466,12 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
             <Globe className="w-4 h-4 text-green-400 flex-shrink-0" />
           )}
           <span className="text-sm font-semibold text-gray-100 flex-1">
-            {changeDetail === 'created' ? 'Recently Created BO Lots'
-              : changeDetail === 'updated' ? 'Recently Updated BO Lots'
+            {changeDetail === 'created' ? 'Recently Created Lots'
+              : changeDetail === 'updated' ? 'Recently Updated Lots'
               : showAuditReport ? 'Audit Report'
               : showColorRepair ? 'Wrong Color Lots'
               : selectedArea && activeArea ? activeArea.label
-              : 'BrickOwl — Channel Sync'}
+              : 'Channel Sync'}
           </span>
           {onClose && !isBack && (
             <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors flex-shrink-0" data-testid="button-close-channel-inline">
@@ -449,7 +484,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
             <div className="px-4 pt-3 pb-6 space-y-2">
               <div className="flex items-center gap-2 px-0.5">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 flex-1">
-                  {changeDetail === 'created' ? 'Most recently created on BrickOwl' : 'Most recently updated on BrickOwl'}
+                  {changeDetail === 'created' ? 'Most recently created' : 'Most recently updated'}
                 </p>
                 <span className="text-[10px] text-gray-600">showing up to 50</span>
               </div>
@@ -505,6 +540,9 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
               fullScan={fullScan} setFullScan={setFullScan}
               progressData={progressData} progressPct={progressPct}
               onChangeDetail={(type: 'created' | 'updated') => setChangeDetail(type)}
+              displayChannels={displayChannels}
+              selectedChannel={selectedChannel}
+              onChannelSelect={selectChannel}
             />
           )}
         </div>
@@ -522,7 +560,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Globe className="w-3.5 h-3.5 text-green-400 shrink-0" />
-            <span className="text-xs font-semibold text-green-100">Channel Sync — BrickOwl</span>
+            <span className="text-xs font-semibold text-green-100">Channel Sync</span>
             {isRunning && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -608,7 +646,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
         {!isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && lastSync?.lastSyncStatus === 'success' && (
           <div className="flex items-center gap-1.5 text-[10px] text-green-400/70">
             <CheckCircle2 className="w-2.5 h-2.5" />
-            <span>BrickOwl is in sync</span>
+            <span>{selectedChannelData?.label ?? 'Channel'} is in sync</span>
           </div>
         )}
       </button>
@@ -633,9 +671,9 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
               )}
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
                 {changeDetail === 'created'
-                  ? 'Recently Created BO Lots'
+                  ? 'Recently Created Lots'
                   : changeDetail === 'updated'
-                  ? 'Recently Updated BO Lots'
+                  ? 'Recently Updated Lots'
                   : showAuditReport
                   ? <span className="flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-gray-400 flex-shrink-0" />Audit Report</span>
                   : showColorRepair
@@ -645,7 +683,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
                       <activeArea.icon className={`w-4 h-4 ${activeArea.accentColor} flex-shrink-0`} />
                       {activeArea.label}
                     </span>
-                  : 'BrickOwl — Channel Sync'}
+                  : 'Channel Sync'}
               </DrawerTitle>
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
@@ -663,7 +701,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
               <div className="px-4 pt-3 pb-6 space-y-2">
                 <div className="flex items-center gap-2 px-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 flex-1">
-                    {changeDetail === 'created' ? 'Most recently created on BrickOwl' : 'Most recently updated on BrickOwl'}
+                    {changeDetail === 'created' ? 'Most recently created' : 'Most recently updated'}
                   </p>
                   <span className="text-[10px] text-gray-600">showing up to 50</span>
                 </div>
@@ -753,6 +791,9 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }
                 progressData={progressData}
                 progressPct={progressPct}
                 onChangeDetail={(type: 'created' | 'updated') => setChangeDetail(type)}
+                displayChannels={displayChannels}
+                selectedChannel={selectedChannel}
+                onChannelSelect={selectChannel}
               />
             )}
           </div>
@@ -1263,7 +1304,11 @@ function OverviewContent({
   progressData,
   progressPct,
   onChangeDetail,
+  displayChannels,
+  selectedChannel,
+  onChannelSelect,
 }: any) {
+  const selectedChannelLabel: string = displayChannels?.find((c: any) => c.key === selectedChannel)?.label ?? 'Channel';
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
     lastSync?.lastSyncStatus === 'partial' ? 'text-yellow-400' :
@@ -1340,6 +1385,26 @@ function OverviewContent({
           </Button>
         )}
       </div>
+
+      {/* Channel selector — only shown when multiple channels configured */}
+      {displayChannels && displayChannels.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {displayChannels.map((ch: any) => (
+            <button
+              key={ch.key}
+              onClick={() => onChannelSelect(ch.key)}
+              data-testid={`button-channel-select-${ch.key}`}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-medium transition-colors ${
+                selectedChannel === ch.key
+                  ? 'border-green-500/60 bg-green-950/50 text-green-300'
+                  : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+              }`}
+            >
+              {ch.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <Separator className="bg-gray-700/60" />
 
@@ -1503,7 +1568,7 @@ function OverviewContent({
       {!isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
-          <span>No discrepancies — BrickOwl is in sync with BrickLink.</span>
+          <span>No discrepancies — {selectedChannelLabel} is in sync with BrickLink.</span>
         </div>
       )}
 

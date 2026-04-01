@@ -379,7 +379,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 )}
               >
                 <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'channelsync' ? "bg-green-800/70 ring-green-400/60" : "bg-green-900/60 ring-green-500/40")}><Globe className="w-3 h-3 text-green-300" /></div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-green-100">BrickOwl</div><div className="text-[9px] text-gray-500">Channel sync</div></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-green-100">Channels</div><div className="text-[9px] text-gray-500">All channels</div></div>
                 <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'channelsync' ? "text-green-400" : "text-gray-600")} />
               </button>
             </div>
