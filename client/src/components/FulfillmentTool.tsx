@@ -245,8 +245,8 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (orderId: string) => void } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerVisible, setDrawerVisible] = useState(true);
   const drawerPanelRef = useRef<HTMLDivElement>(null);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
