@@ -34,6 +34,14 @@ import {
   inventoryHistory,
   pomPriceDecisions,
   crossPlatformSyncQueue,
+  aiUsageLog,
+  featureVotes,
+  ieStrategies,
+  pomAiSettings,
+  userImages,
+  lotImages,
+  itemTypeImages,
+  xmlBackups,
   type User,
   type UpsertUser,
   type Organization,
@@ -273,6 +281,16 @@ export class DatabaseStorage implements IStorage {
     await db.delete(pushSubscriptions).where(eq(pushSubscriptions.orgId, id));
     await db.delete(channelSyncConfig).where(eq(channelSyncConfig.orgId, id));
     await db.delete(appSettings).where(eq(appSettings.orgId, id));
+    await db.delete(aiUsageLog).where(eq(aiUsageLog.orgId, id));
+    await db.delete(featureVotes).where(eq(featureVotes.orgId, id));
+    await db.delete(ieStrategies).where(eq(ieStrategies.orgId, id));
+    await db.delete(pomAiSettings).where(eq(pomAiSettings.orgId, id));
+    await db.delete(userImages).where(eq(userImages.orgId, id));
+    await db.delete(lotImages).where(eq(lotImages.orgId, id));
+    await db.delete(itemTypeImages).where(eq(itemTypeImages.orgId, id));
+    await db.delete(xmlBackups).where(eq(xmlBackups.orgId, id));
+    // boid_overrides has no Drizzle schema — delete via raw SQL
+    await db.execute(sql`DELETE FROM boid_overrides WHERE org_id = ${id}`);
 
     // 6. Warehouse hierarchy (bins → shelves → aisles after inventoryLocations)
     await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
