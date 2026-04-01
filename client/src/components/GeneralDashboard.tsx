@@ -709,7 +709,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
-  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; brickowlApiKey?: string | null; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
+  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; brickowlApiKey?: string | null; easypostApiKey?: string | null; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
     queryKey: ['/api/settings'],
   });
 
@@ -789,6 +789,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (!orgData?.address && !dismissedItems.has('address')) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
   if (!appSettings?.bricklinkConsumerKey && !dismissedItems.has('bricklink')) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
   if (!appSettings?.brickowlApiKey && !dismissedItems.has('channels')) setupItems.push({ id: 'channels', label: 'Connect a selling channel', section: 'platforms' });
+  if (!appSettings?.easypostApiKey && !dismissedItems.has('shipping')) setupItems.push({ id: 'shipping', label: 'Connect a shipping service', section: 'platforms' });
   if (!isActivePaidPlan && !dismissedItems.has('subscription')) setupItems.push({ id: 'subscription', label: 'Choose a subscription plan', section: 'billing' });
 
   const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;

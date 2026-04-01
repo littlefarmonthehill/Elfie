@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users, ChevronDown, BarChart2, Zap, BookOpen, DollarSign, Search, Brain, Check } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users, ChevronDown, BarChart2, Zap, BookOpen, DollarSign, Search, Brain, Check, Truck } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
@@ -26,7 +26,8 @@ const STEPS = [
   { id: 3, label: "BrickLink", icon: Link },
   { id: 4, label: "Warehouse", icon: Archive },
   { id: 5, label: "Channels", icon: Globe },
-  { id: 6, label: "Subscribe", icon: CreditCard },
+  { id: 6, label: "Shipping", icon: Truck },
+  { id: 7, label: "Subscribe", icon: CreditCard },
 ];
 
 const DEPTH_OPTIONS = [
@@ -41,14 +42,20 @@ const SALES_CHANNELS: Array<{ key: string; name: string; description: string; st
   { key: 'ebay', name: 'eBay', description: 'Sync inventory to eBay listings and import orders automatically.', status: 'coming_soon' },
 ];
 
+const SHIPPING_PROVIDERS: Array<{ key: string; name: string; description: string; status: 'live' | 'coming_soon' }> = [
+  { key: 'easypost', name: 'EasyPost', description: 'Buy discounted USPS, UPS, and FedEx labels directly from E.L.F.I.E. and print them one-click per order.', status: 'live' },
+  { key: 'pirateship', name: 'PirateShip', description: 'Import PirateShip labels and tracking into E.L.F.I.E. automatically after purchase.', status: 'coming_soon' },
+];
+
 const STEP_MESSAGES: Record<number, string> = {
   1: "Hi! I'm E.L.F.I.E. — your warehouse operations assistant. Let's start with your company info. This shows up on your packing slips and account profile.",
   2: "This is optional, but the more you tell me about your vision, the smarter my suggestions become. Feel free to skip — you can fill this in anytime from the IE Strategies settings.",
   3: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
   4: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
   5: "Which other channels do you sell on? I'll keep them in sync with your BrickLink inventory automatically. You can skip this for now and connect channels any time from Settings.",
-  6: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
-  8: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+  6: "How do you ship orders? Connect a shipping service and I'll let you buy and print labels directly from the order workflow. You can always skip this and just mark orders shipped manually.",
+  7: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
+  9: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
 function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
@@ -151,13 +158,19 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [ieStratMarket, setIeStratMarket] = useState("");
   const [ieStratFeedback, setIeStratFeedback] = useState("");
 
-  // Dashboard stats — fetched for Step 8 celebration
+  // Step 6 — Shipping
+  const [selectedShipping, setSelectedShipping] = useState<Set<string>>(new Set());
+  const [epApiKey, setEpApiKey] = useState("");
+  const [epTestApiKey, setEpTestApiKey] = useState("");
+  const [epKeyMode, setEpKeyMode] = useState<'test' | 'production'>('test');
+
+  // Dashboard stats — fetched for Step 9 celebration
   const { data: dashStats } = useQuery<{
     totalOrders: number; totalInventoryItems: number;
     totalInventoryQuantity: number; totalSales: number; totalInventoryValue: number;
-  }>({ queryKey: ['/api/dashboard/stats'], enabled: step >= 7 });
+  }>({ queryKey: ['/api/dashboard/stats'], enabled: step >= 8 });
 
-  // Step 6 — Subscribe
+  // Step 7 — Subscribe
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
@@ -328,7 +341,17 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     setStep(6);
   };
 
-  const handleStep6Skip = () => setStep(7);
+  const handleStep6 = async (skip = false) => {
+    if (!skip && selectedShipping.has('easypost') && (epApiKey.trim() || epTestApiKey.trim())) {
+      const payload: Record<string, string> = { easypostKeyMode: epKeyMode };
+      if (epApiKey.trim()) payload.easypostApiKey = epApiKey.trim();
+      if (epTestApiKey.trim()) payload.easypostTestApiKey = epTestApiKey.trim();
+      await saveSettingsMutation.mutateAsync(payload);
+    }
+    setStep(7);
+  };
+
+  const handleStep7Skip = () => setStep(8);
 
   // Sync strip — background inventory sync progress for Steps 4-6
   const [blSyncStarted, setBlSyncStarted] = useState(false);
@@ -340,7 +363,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const stableCountRef = useRef<number>(0);
 
   useEffect(() => {
-    if (blSyncStarted && step >= 4 && step <= 6) {
+    if (blSyncStarted && step >= 4 && step <= 7) {
       if (syncPollRef.current) return;
       const poll = async () => {
         try {
@@ -363,7 +386,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       poll();
       syncPollRef.current = setInterval(poll, 6000);
     }
-    if ((!blSyncStarted || step < 4 || step > 6) && syncPollRef.current) {
+    if ((!blSyncStarted || step < 4 || step > 7) && syncPollRef.current) {
       clearInterval(syncPollRef.current);
       syncPollRef.current = null;
     }
@@ -372,14 +395,14 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     };
   }, [blSyncStarted, step]);
 
-  // Step 7 — IE Agents
+  // Step 8 — IE Agents
   const [agentsTriggered, setAgentsTriggered] = useState(false);
   const [agentSignals, setAgentSignals] = useState<any[]>([]);
   const [minWaitDone, setMinWaitDone] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (step === 7 && !agentsTriggered) {
+    if (step === 8 && !agentsTriggered) {
       setAgentsTriggered(true);
       apiRequest('POST', '/api/agents/trigger').catch(() => {});
       setTimeout(() => setMinWaitDone(true), 25000);
@@ -419,7 +442,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       <div className="w-full max-w-lg py-8">
 
         {/* Dismiss button */}
-        {onDismiss && step < 8 && (
+        {onDismiss && step < 9 && (
           <div className="flex justify-end mb-2">
             <button
               onClick={onDismiss}
@@ -433,11 +456,11 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           </div>
         )}
 
-        {/* ELFIE speech bubble — steps 1–6 */}
-        {step < 7 && <ElfieSpeechBubble step={step} />}
+        {/* ELFIE speech bubble — steps 1–7 */}
+        {step < 8 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
-        {step < 7 && (
+        {step < 8 && (
           <div className="flex items-center justify-center gap-0 mb-6 overflow-x-auto pb-1">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center flex-shrink-0">
@@ -470,8 +493,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         {/* Step content card */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
 
-          {/* ── Sync strip: visible during Steps 4–6 when BL keys were entered ── */}
-          {blSyncStarted && step >= 4 && step <= 6 && (
+          {/* ── Sync strip: visible during Steps 4–7 when BL keys were entered ── */}
+          {blSyncStarted && step >= 4 && step <= 7 && (
             <div className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 -mb-1 ${
               syncStable
                 ? 'border-green-500/25 bg-green-500/5'
@@ -1384,8 +1407,163 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 6: Subscribe ── */}
+          {/* ── Step 6: Shipping ── */}
           {step === 6 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-1">Shipping service</h2>
+                <p className="text-sm text-gray-400">
+                  Connect a shipping carrier to buy and print labels directly from E.L.F.I.E. You can skip this — orders can always be marked shipped manually.
+                </p>
+              </div>
+
+              {/* Provider selection cards */}
+              <div className="grid gap-3">
+                {SHIPPING_PROVIDERS.map((provider) => {
+                  const isLive = provider.status === 'live';
+                  const isSelected = selectedShipping.has(provider.key);
+                  return (
+                    <button
+                      key={provider.key}
+                      type="button"
+                      disabled={!isLive}
+                      onClick={() => {
+                        if (!isLive) return;
+                        setSelectedShipping(prev => {
+                          const next = new Set(prev);
+                          if (next.has(provider.key)) next.delete(provider.key);
+                          else next.add(provider.key);
+                          return next;
+                        });
+                      }}
+                      className={`w-full text-left rounded-lg border px-4 py-3.5 transition-colors ${
+                        !isLive
+                          ? 'border-gray-700/50 bg-gray-800/30 opacity-60 cursor-not-allowed'
+                          : isSelected
+                          ? 'border-blue-500/60 bg-blue-500/10'
+                          : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                      }`}
+                      data-testid={`card-shipping-${provider.key}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                            isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-600'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-sm font-medium ${isLive ? 'text-white' : 'text-gray-500'}`}>{provider.name}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 leading-snug">{provider.description}</p>
+                          </div>
+                        </div>
+                        {!isLive && (
+                          <span className="text-[10px] font-medium text-gray-500 bg-gray-700/60 rounded px-2 py-0.5 shrink-0 whitespace-nowrap">
+                            Coming soon
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* EasyPost inline config */}
+              {selectedShipping.has('easypost') && (
+                <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 space-y-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">EasyPost configuration</p>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs text-gray-400 mb-1.5 block">Production API Key</Label>
+                      <Input
+                        type="password"
+                        placeholder="EZTKxxx…"
+                        value={epApiKey}
+                        onChange={e => setEpApiKey(e.target.value)}
+                        className="bg-gray-900 border-gray-700 text-white text-sm"
+                        data-testid="input-easypost-api-key"
+                      />
+                      <p className="text-[11px] text-gray-600 mt-1">For live shipments. Leave blank if you only want to test.</p>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-gray-400 mb-1.5 block">Test API Key</Label>
+                      <Input
+                        type="password"
+                        placeholder="EZTKtest_xxx…"
+                        value={epTestApiKey}
+                        onChange={e => setEpTestApiKey(e.target.value)}
+                        className="bg-gray-900 border-gray-700 text-white text-sm"
+                        data-testid="input-easypost-test-api-key"
+                      />
+                      <p className="text-[11px] text-gray-600 mt-1">Optional — use to test the flow without creating real labels.</p>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs text-gray-400 mb-1.5 block">Active Mode</Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="ep-mode"
+                            value="test"
+                            checked={epKeyMode === 'test'}
+                            onChange={() => setEpKeyMode('test')}
+                            className="text-blue-500 focus:ring-blue-500"
+                            data-testid="radio-ep-mode-test"
+                          />
+                          <span className="text-xs text-gray-300">Test</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="ep-mode"
+                            value="production"
+                            checked={epKeyMode === 'production'}
+                            onChange={() => setEpKeyMode('production')}
+                            className="text-blue-500 focus:ring-blue-500"
+                            data-testid="radio-ep-mode-production"
+                          />
+                          <span className="text-xs text-gray-300">Production</span>
+                        </label>
+                      </div>
+                      {epKeyMode === 'test' && <p className="text-[11px] text-yellow-500/80 mt-1">Test mode — labels will use test tracking numbers.</p>}
+                      {epKeyMode === 'production' && <p className="text-[11px] text-green-500/80 mt-1">Production mode — real labels will be created and charged.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="pt-1 flex justify-between items-center gap-3 flex-wrap">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleStep6(true)}
+                  className="text-gray-500"
+                  data-testid="button-onboard-skip-6"
+                >
+                  Skip for now
+                </Button>
+                <Button
+                  onClick={() => handleStep6(false)}
+                  disabled={saveSettingsMutation.isPending}
+                  data-testid="button-onboard-continue-6"
+                >
+                  {saveSettingsMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Saving…</>
+                  ) : selectedShipping.has('easypost') && (epApiKey.trim() || epTestApiKey.trim()) ? (
+                    <>Save & continue<ArrowRight className="w-4 h-4 ml-1" /></>
+                  ) : (
+                    <>Continue<ArrowRight className="w-4 h-4 ml-1" /></>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── Step 7: Subscribe ── */}
+          {step === 7 && (
             <>
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Choose your plan</h2>
@@ -1453,7 +1631,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
               {/* Action buttons */}
               <div className="pt-1 flex justify-between items-center gap-3 flex-wrap">
-                <Button variant="ghost" onClick={handleStep6Skip} className="text-gray-500" data-testid="button-onboard-skip-6">
+                <Button variant="ghost" onClick={handleStep7Skip} className="text-gray-500" data-testid="button-onboard-skip-7">
                   I'll subscribe later
                 </Button>
                 <Button
@@ -1482,8 +1660,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 7: IE Agents ── */}
-          {step === 7 && (
+          {/* ── Step 8: IE Agents ── */}
+          {step === 8 && (
             <>
               {/* ELFIE + intro */}
               <div className="flex items-end gap-3 pb-2">
@@ -1560,9 +1738,9 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                 )}
                 {canContinue && <span />}
                 <Button
-                  onClick={() => setStep(8)}
+                  onClick={() => setStep(9)}
                   disabled={!canContinue}
-                  data-testid="button-onboard-next-7"
+                  data-testid="button-onboard-next-8"
                 >
                   {canContinue ? 'See your full debrief' : 'Please wait…'}
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -1571,8 +1749,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 8: Celebration / Debrief ── */}
-          {step === 8 && (() => {
+          {/* ── Step 9: Celebration / Debrief ── */}
+          {step === 9 && (() => {
             const lots = dashStats?.totalInventoryItems ?? 0;
             const parts = dashStats?.totalInventoryQuantity ?? 0;
             const value = dashStats?.totalInventoryValue ?? 0;
@@ -1717,7 +1895,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           })()}
         </div>
 
-        {step < 7 && step !== 6 && (
+        {step < 8 && step !== 7 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
             All settings can be updated any time in the Warehouse or Settings tabs.
           </p>
