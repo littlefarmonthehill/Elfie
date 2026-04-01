@@ -29,6 +29,7 @@ interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
   shippedOrders: number;
+  returnedOrders: number;
   pendingRevenue: number;
   monthRevenue: number;
   avgLotsPerOrder: number;
@@ -377,7 +378,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
     `${value.toFixed(1)}%`;
 
   const aov = stats && stats.totalOrders > 0 ? stats.monthRevenue / stats.totalOrders : 0;
-  const fulfillmentRate = stats && stats.totalOrders > 0 ? (stats.shippedOrders / stats.totalOrders) * 100 : 0;
+  const fulfilledOrders = stats ? stats.shippedOrders + (stats.returnedOrders ?? 0) : 0;
+  const fulfillmentRate = stats && stats.totalOrders > 0 ? (fulfilledOrders / stats.totalOrders) * 100 : 0;
   const returnRate = stats && stats.totalOrders > 0 && adjustments
     ? (adjustments.refundedOrderCount / stats.totalOrders) * 100
     : 0;

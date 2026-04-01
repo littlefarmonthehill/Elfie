@@ -4501,11 +4501,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tz = await getOrgTimezone(orgId);
       const { start, end } = tzDateBounds(range ?? '', tz);
 
-      // Total, pending, and shipped counts always reflect current order state — no date filter.
-      // The date range only applies to financial metrics (revenue, avg lots) so the counts
-      // remain consistent regardless of which range the user has selected.
-      const totalWhere = and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
-      const shippedWhere = and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('shipped', 'completed')`);
+      // Date clauses — Total and revenue filter by order_date; Shipped filters by ship_date.
+      const orderDateClause = start
+        ? end
+          ? sql`AND ${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`
+          : sql`AND ${orders.orderDate} >= ${start}`
+        : sql``;
+
+      const shipDateClause = start
+        ? end
+          ? sql`AND COALESCE(${orders.shipDate}, ${orders.orderDate}) >= ${start} AND COALESCE(${orders.shipDate}, ${orders.orderDate}) < ${end}`
+          : sql`AND COALESCE(${orders.shipDate}, ${orders.orderDate}) >= ${start}`
+        : sql``;
 
       const dateRangeClause = start
         ? end
@@ -4523,19 +4530,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : sql`AND o.order_date >= ${start}`
         : sql``;
 
-      const [totalResult, pendingResult, shippedResult, pendingRevenueResult, rangeRevenueResult, avgLotsResult] = await Promise.all([
-        db.select({ count: sql<number>`COUNT(*)` })
-          .from(orders)
-          .where(totalWhere)
-          .then(r => r[0]),
+      const [totalResult, pendingResult, shippedResult, returnedResult, pendingRevenueResult, rangeRevenueResult, avgLotsResult] = await Promise.all([
+        // Total: date-filtered by order_date, excludes cancelled
+        db.execute(sql`
+          SELECT COUNT(*) AS count FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status NOT IN ('cancelled', 'Cancelled')
+            ${orderDateClause}
+        `).then(r => r.rows[0]),
+        // Pending: no date filter — reflects current backlog
         db.select({ count: sql<number>`COUNT(*)` })
           .from(orders)
           .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')`))
           .then(r => r[0]),
-        db.select({ count: sql<number>`COUNT(*)` })
-          .from(orders)
-          .where(shippedWhere)
-          .then(r => r[0]),
+        // Shipped: date-filtered by ship_date
+        db.execute(sql`
+          SELECT COUNT(*) AS count FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status IN ('shipped', 'completed')
+            ${shipDateClause}
+        `).then(r => r.rows[0]),
+        // Returned: date-filtered by order_date (returned orders were fulfilled — ship then return)
+        db.execute(sql`
+          SELECT COUNT(*) AS count FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status = 'returned'
+            ${orderDateClause}
+        `).then(r => r.rows[0]),
         db.select({ total: sql<string>`COALESCE(SUM(order_total::numeric), 0)` })
           .from(orders)
           .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')`))
@@ -4560,9 +4581,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       res.json({
-        totalOrders: Number(totalResult?.count ?? 0),
+        totalOrders: Number((totalResult as any)?.count ?? 0),
         pendingOrders: Number(pendingResult?.count ?? 0),
-        shippedOrders: Number(shippedResult?.count ?? 0),
+        shippedOrders: Number((shippedResult as any)?.count ?? 0),
+        returnedOrders: Number((returnedResult as any)?.count ?? 0),
         pendingRevenue: Number(pendingRevenueResult?.total ?? 0),
         monthRevenue: Number(rangeRevenueResult?.total ?? 0),
         avgLotsPerOrder: Number((avgLotsResult as any)?.avg_lots ?? 0),
