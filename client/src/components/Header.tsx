@@ -134,11 +134,11 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
               <Button
                 variant="ghost"
                 size="sm"
-                className="hidden md:flex items-center gap-2 text-lego-purple hover:text-lego-purple/80 border border-lego-purple/25"
+                className="flex items-center gap-1.5 text-lego-purple border border-lego-purple/25"
                 data-testid="link-platform-admin"
               >
-                <ShieldCheck className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">Platform</span>
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Platform</span>
               </Button>
             </Link>
           )}
