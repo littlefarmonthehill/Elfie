@@ -4719,9 +4719,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : sql``;
 
       const dateWhere = start && end
-        ? sql`AND o.order_date >= ${start} AND o.order_date < ${end}`
+        ? sql`AND COALESCE(o.ship_date, o.order_date) >= ${start} AND COALESCE(o.ship_date, o.order_date) < ${end}`
         : start
-          ? sql`AND o.order_date >= ${start}`
+          ? sql`AND COALESCE(o.ship_date, o.order_date) >= ${start}`
           : sql``;
 
       const rawRows = await db.execute(sql`
