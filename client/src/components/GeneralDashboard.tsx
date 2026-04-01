@@ -5,7 +5,7 @@ import {
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, X,
   Sparkles, Globe, Megaphone,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
@@ -93,22 +93,33 @@ function JobBar({ label, pct, sublabel, color = 'blue' }: { label: string; pct: 
   );
 }
 
-function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn' }: {
-  icon: React.ElementType; iconColor: string; label: string; sub?: string; onClick?: () => void; severity?: 'warn' | 'error' | 'info';
+function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn', onDismiss }: {
+  icon: React.ElementType; iconColor: string; label: string; sub?: string; onClick?: () => void; severity?: 'warn' | 'error' | 'info'; onDismiss?: () => void;
 }) {
   const bg = severity === 'error' ? 'bg-red-950/30 border-red-500/20' : severity === 'info' ? 'bg-blue-950/30 border-blue-500/20' : 'bg-yellow-950/30 border-yellow-500/20';
   return (
     <div
-      onClick={onClick}
-      className={cn("flex items-center gap-2.5 rounded-lg border px-3 py-2", bg, onClick && "cursor-pointer hover-elevate")}
+      className={cn("flex items-center gap-2.5 rounded-lg border px-3 py-2", bg)}
       data-testid={`alert-${label.toLowerCase().replace(/\s+/g, '-').slice(0, 30)}`}
     >
       <Icon className={cn("w-4 h-4 shrink-0", iconColor)} />
-      <div className="flex-1 min-w-0">
+      <div
+        onClick={onClick}
+        className={cn("flex-1 min-w-0", onClick && "cursor-pointer")}
+      >
         <p className="text-xs md:text-sm font-medium leading-tight truncate">{label}</p>
         {sub && <p className="text-[10px] md:text-xs text-muted-foreground truncate">{sub}</p>}
       </div>
-      {onClick && <ArrowRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+      {onClick && !onDismiss && <ArrowRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+      {onDismiss && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+          className="w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-gray-400 transition-colors shrink-0"
+          data-testid={`dismiss-alert-${label.toLowerCase().replace(/\s+/g, '-').slice(0, 20)}`}
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
     </div>
   );
 }
@@ -467,13 +478,14 @@ function FuelGauge({ remaining }: { remaining: number }) {
   );
 }
 
-export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
-  setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
+export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, onDismissSetupItem, children }: {
+  setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
   onOpenBilling?: () => void;
+  onDismissSetupItem?: (id: string) => void;
   children?: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(() => {
@@ -503,10 +515,19 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
   const trialSeverity = trialDaysLeft !== null && trialDaysLeft <= 3 ? 'error' : trialDaysLeft !== null && trialDaysLeft <= 7 ? 'warn' : null;
 
-  const alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }> = [];
+  const alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void; onDismiss?: () => void }> = [];
 
   for (const s of setupItems) {
-    alerts.push({ id: s.id, icon: Settings, iconColor: 'text-blue-400', label: s.label, sub: 'Tap to fix', severity: 'info', onClick: () => onOpenSettings?.(s.section) });
+    alerts.push({
+      id: s.id,
+      icon: Settings,
+      iconColor: 'text-blue-400',
+      label: s.label,
+      sub: 'Tap to configure',
+      severity: 'info',
+      onClick: s.section === 'billing' ? () => onOpenBilling?.() : () => onOpenSettings?.(s.section),
+      onDismiss: onDismissSetupItem ? () => onDismissSetupItem(s.id) : undefined,
+    });
   }
   if (bsLimited && (bsNearLimit || bsAtLimit)) {
     alerts.push({ id: 'bs-limit', icon: ScanSearch, iconColor: bsAtLimit ? 'text-red-400' : 'text-yellow-400', label: `BrickSpotter ${bsAtLimit ? 'limit reached' : 'near limit'}`, sub: `${bs.scansUsed} / ${bs.scansLimit} scans used`, severity: bsAtLimit ? 'error' : 'warn', onClick: () => onOpenSettings?.('billing') });
@@ -593,7 +614,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
               <div className="px-3 pt-3 space-y-2">
                 <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
                 {alerts.map((a) => (
-                  <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
+                  <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} onDismiss={a.onDismiss} />
                 ))}
               </div>
             )}
@@ -688,7 +709,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
-  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
+  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; brickowlApiKey?: string | null; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
     queryKey: ['/api/settings'],
   });
 
@@ -746,9 +767,29 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
-  const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
-  if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
-  if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
+  const [dismissedItems, setDismissedItems] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('elfie_dismissed_setup_items');
+      return new Set(stored ? JSON.parse(stored) : []);
+    } catch { return new Set(); }
+  });
+
+  const dismissSetupItem = (id: string) => {
+    setDismissedItems(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem('elfie_dismissed_setup_items', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const isActivePaidPlan = billingStatus?.status === 'active';
+
+  const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' }> = [];
+  if (!orgData?.address && !dismissedItems.has('address')) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
+  if (!appSettings?.bricklinkConsumerKey && !dismissedItems.has('bricklink')) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
+  if (!appSettings?.brickowlApiKey && !dismissedItems.has('channels')) setupItems.push({ id: 'channels', label: 'Connect a selling channel', section: 'platforms' });
+  if (!isActivePaidPlan && !dismissedItems.has('subscription')) setupItems.push({ id: 'subscription', label: 'Choose a subscription plan', section: 'billing' });
 
   const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
   const totalLots = stats?.totalInventoryItems ?? 0;
@@ -854,7 +895,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       {/* System Pulse (plan info, setup items) */}
       {showPlan && (
-        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling}>
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} onDismissSetupItem={dismissSetupItem}>
           <DashboardNotifications />
         </SystemPulse>
       )}
