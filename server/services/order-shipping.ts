@@ -329,15 +329,36 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   // Resolve raw address lines (BrickLink uses street1/street2, BrickOwl uses address1/address2)
   const rawAddr1 = shipToData.street1 || shipToData.address1 || '';
   const rawAddr2 = shipToData.street2 || shipToData.address2 || undefined;
-  // When address1 is a secondary line (attention, c/o, etc.) — it doesn't start with a digit
-  // but address2 is the actual delivery address — it does start with a digit.
-  // Move it to `company` so EasyPost's address normalization doesn't swap the lines on the label.
-  const isSecondaryFirst = !shipToData.company && rawAddr2 && /^\d/.test(rawAddr2) && !/^\d/.test(rawAddr1);
+  // Detect when address1 is a secondary/attention line that comes before the actual street.
+  // Heuristic: address1 looks like an attention line (explicit keyword OR doesn't start with a
+  // digit) while address2 does start with a digit (a real street number).
+  // EasyPost's address normalization would otherwise swap the lines on the printed label.
+  const isAttentionLine = (s: string) =>
+    /^(attention|attn\.?|att\.?|c\/o)\b/i.test(s.trim()) || (!/^\d/.test(s.trim()) && s.trim().length > 0);
+  const isSecondaryFirst = !!rawAddr2 && /^\d/.test(rawAddr2.trim()) && isAttentionLine(rawAddr1);
+  // Build the company / street fields so the label line order is preserved:
+  //   • No existing company → move attention line to `company` (EasyPost never normalises it)
+  //   • Company already set → keep it; put the real street in street1 so EasyPost doesn't swap
+  let resolvedCompany = shipToData.company || undefined;
+  let resolvedStreet1 = rawAddr1;
+  let resolvedStreet2 = rawAddr2;
+  if (isSecondaryFirst) {
+    if (!resolvedCompany) {
+      resolvedCompany = rawAddr1;   // attention → company field
+      resolvedStreet1 = rawAddr2!;  // street → street1
+      resolvedStreet2 = undefined;
+    } else {
+      // Company slot taken — put real street in street1 so EasyPost won't reorder it,
+      // attention goes to street2
+      resolvedStreet1 = rawAddr2!;
+      resolvedStreet2 = rawAddr1;
+    }
+  }
   const baseShipTo: Address = {
     name:    shipToData.name    || '',
-    company: shipToData.company || (isSecondaryFirst ? rawAddr1 : undefined),
-    street1: isSecondaryFirst ? rawAddr2 : rawAddr1,
-    street2: isSecondaryFirst ? undefined : rawAddr2,
+    company: resolvedCompany,
+    street1: resolvedStreet1,
+    street2: resolvedStreet2,
     city:    shipToData.city    || '',
     state:   shipToData.state   || '',
     zip:     shipToData.postalCode || shipToData.zip || '',
