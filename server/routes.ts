@@ -10524,7 +10524,8 @@ Format search_web URLs as markdown links.`;
           const salePercentDiscrepancies: any[] = [];
 
           // Read the sync config so the discrepancy view matches the sync engine's filters.
-          const [syncCfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+          const [syncCfgRow] = await db.select().from(channelSyncConfig)
+            .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl'))).limit(1);
           const syncStockroomModes: Record<string, string> = (syncCfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
           const syncItemTypesCmp = (syncCfgRow?.syncItemTypes as Record<string, boolean> | null) ?? {};
           const discrepPriceFloor = typeof syncCfgRow?.syncPriceFloor === 'number' ? syncCfgRow.syncPriceFloor : null;
@@ -11040,7 +11041,8 @@ Format search_web URLs as markdown links.`;
           stockroomModes: bodySyncFields.stockroomModes ?? defaultSyncFields.stockroomModes,
         };
       } else {
-        const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+        const [cfgRow] = await db.select().from(channelSyncConfig)
+          .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl'))).limit(1);
         syncFields = cfgRow ? {
           price:            cfgRow.syncPrice,
           remarks:          cfgRow.syncRemarks,
@@ -11070,7 +11072,8 @@ Format search_web URLs as markdown links.`;
     try {
       const orgId = reqOrgId(req);
 
-      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const [cfgRow] = await db.select().from(channelSyncConfig)
+        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl'))).limit(1);
       const stockroomModes: Record<string, 'skip' | 'hidden' | 'active'> =
         (cfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
 
@@ -11224,7 +11227,8 @@ Format search_web URLs as markdown links.`;
       const rawMode = settingsRow?.channelSyncMode;
       const syncMode = (rawMode === 'matched_sync' || rawMode === 'quantity_only' ? 'matched_sync' : rawMode === 'analysis' ? 'analysis' : 'full_control') as 'analysis' | 'full_control' | 'matched_sync';
 
-      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const [cfgRow] = await db.select().from(channelSyncConfig)
+        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl'))).limit(1);
       const syncFields: SyncFieldConfig = cfgRow ? {
         price:            cfgRow.syncPrice,
         remarks:          cfgRow.syncRemarks,
@@ -11265,7 +11269,9 @@ Format search_web URLs as markdown links.`;
   app.get('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const [row] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const channelKey = (req.query.channel as string) || 'brickowl';
+      const [row] = await db.select().from(channelSyncConfig)
+        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, channelKey))).limit(1);
       if (row) return res.json(row);
       // Return defaults — no row yet
       return res.json({
@@ -11290,6 +11296,7 @@ Format search_web URLs as markdown links.`;
   app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
+      const channelKey = (req.query.channel as string) || (req.body.channelKey as string) || 'brickowl';
       const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight', 'syncBulkLots'] as const;
       const patch: Record<string, boolean | number | null | Record<string, string>> = {};
       for (const key of boolAllowed) {
@@ -11333,15 +11340,17 @@ Format search_web URLs as markdown links.`;
       }
       console.log(`[ChannelSyncConfig] PATCH for ${orgId} — applying:`, JSON.stringify(patch));
 
-      // Upsert
-      const [existing] = await db.select({ id: channelSyncConfig.id }).from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      // Upsert — scoped to (orgId, channelKey)
+      const whereClause = and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, channelKey));
+      const [existing] = await db.select({ id: channelSyncConfig.id }).from(channelSyncConfig).where(whereClause).limit(1);
       if (existing) {
-        const [updated] = await db.update(channelSyncConfig).set({ ...patch, updatedAt: new Date() }).where(eq(channelSyncConfig.orgId, orgId)).returning();
-        console.log(`[ChannelSyncConfig] PATCH updated — syncStockroomModes now:`, JSON.stringify(updated?.syncStockroomModes));
+        const [updated] = await db.update(channelSyncConfig).set({ ...patch, updatedAt: new Date() }).where(whereClause).returning();
+        console.log(`[ChannelSyncConfig] PATCH updated [${channelKey}] — syncStockroomModes now:`, JSON.stringify(updated?.syncStockroomModes));
         return res.json(updated);
       } else {
         const [inserted] = await db.insert(channelSyncConfig).values({
           orgId,
+          channelKey,
           syncPrice:        (patch.syncPrice        as boolean)  ?? true,
           syncRemarks:      (patch.syncRemarks       as boolean)  ?? true,
           syncDescription:  (patch.syncDescription   as boolean)  ?? true,

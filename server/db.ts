@@ -2398,6 +2398,27 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS org_timezone TEXT DEFAULT 'America/Chicago'`);
     console.log('[Migration] Phase-103 (org_timezone on app_settings) complete.');
 
+    // Phase-104: Add channel_key to channel_sync_config to support multiple channels per org.
+    // Existing rows default to 'brickowl'. Old single-column unique on org_id is replaced
+    // by a composite unique index on (org_id, channel_key).
+    await client.query(`ALTER TABLE channel_sync_config ADD COLUMN IF NOT EXISTS channel_key varchar NOT NULL DEFAULT 'brickowl'`);
+    await client.query(`
+      DO $$
+      DECLARE cname text;
+      BEGIN
+        SELECT conname INTO cname FROM pg_constraint
+          WHERE conrelid = 'channel_sync_config'::regclass AND contype = 'u'
+            AND cardinality(conkey) = 1
+            AND conkey[1] = (SELECT attnum FROM pg_attribute
+                             WHERE attrelid = 'channel_sync_config'::regclass AND attname = 'org_id');
+        IF cname IS NOT NULL THEN
+          EXECUTE 'ALTER TABLE channel_sync_config DROP CONSTRAINT ' || quote_ident(cname);
+        END IF;
+      END $$
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS channel_sync_config_org_channel_unique ON channel_sync_config(org_id, channel_key)`);
+    console.log('[Migration] Phase-104 (channel_key on channel_sync_config) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

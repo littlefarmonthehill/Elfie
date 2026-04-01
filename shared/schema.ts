@@ -766,7 +766,8 @@ export type PlatformSettings = typeof platformSettings.$inferSelect;
 // Qty is always synced; only these optional fields are user-configurable.
 export const channelSyncConfig = pgTable("channel_sync_config", {
   id: serial("id").primaryKey(),
-  orgId: varchar("org_id").notNull().unique(),
+  orgId:      varchar("org_id").notNull(),
+  channelKey: varchar("channel_key").notNull().default('brickowl'), // e.g. 'brickowl', 'ebay'
   syncPrice:       boolean("sync_price").default(true).notNull(),
   syncRemarks:     boolean("sync_remarks").default(true).notNull(),       // personal_note (BL remarks)
   syncDescription: boolean("sync_description").default(true).notNull(),   // public_note (BL description)
@@ -779,13 +780,15 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   // Per-item-type sync inclusion: { 'P': false } excludes Parts; missing key or true = include.
   // Empty object (default) means all types are synced.
   syncItemTypes:        jsonb("sync_item_types").$type<Record<string, boolean>>().notNull().default({}),
-  // Price floor: lots with unit_price below this value are skipped (and any existing BO listing is deactivated).
+  // Price floor: lots with unit_price below this value are skipped (and any existing listing is deactivated).
   // null / 0 = no floor (sync everything regardless of price).
   syncPriceFloor:       decimal("sync_price_floor").$type<number>(),
   // Bulk Lots sync toggle — include all active bulk lots in this channel sync
   syncBulkLots:         boolean("sync_bulk_lots").default(false).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("channel_sync_config_org_channel_unique").on(t.orgId, t.channelKey),
+]);
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;
 export const insertChannelSyncConfigSchema = createInsertSchema(channelSyncConfig).omit({ id: true, updatedAt: true });
 

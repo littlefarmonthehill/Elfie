@@ -10,7 +10,7 @@ import type { IChannelSync, ChannelSyncOptions, ChannelSyncResult, ConnectionTes
 import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, postBrickOwlFeedback } from './brickowl';
 import { db } from '../db';
 import { channelSyncConfig, appSettings } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 export class BrickOwlChannelAdapter implements IChannelSync {
   readonly channelKey = 'brickowl';
@@ -22,7 +22,7 @@ export class BrickOwlChannelAdapter implements IChannelSync {
       const [cfgRow] = await db
         .select()
         .from(channelSyncConfig)
-        .where(eq(channelSyncConfig.orgId, orgId))
+        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl')))
         .limit(1);
       if (cfgRow) {
         syncFields = {
