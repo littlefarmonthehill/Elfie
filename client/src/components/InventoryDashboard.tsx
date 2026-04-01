@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Link, ArrowRight, Layers } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import InventoryHealthPanel from "./InventoryHealthPanel";
@@ -67,40 +67,11 @@ const CHANNEL_SYNC_CONFIG: Record<InvSyncChannel, {
   },
 };
 
-function RetroTogglePin({ active, onClick, label, testId }: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  testId: string;
-}) {
-  return (
-    <button onClick={onClick} data-testid={testId} className="flex flex-col items-center gap-1.5 select-none">
-      {/* Bezel ring */}
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
-        active
-          ? 'border-green-500/70 bg-gray-900 shadow-[0_0_10px_rgba(34,197,94,0.45),0_0_22px_rgba(34,197,94,0.18)]'
-          : 'border-gray-600 bg-gray-900 shadow-[0_2px_5px_rgba(0,0,0,0.5)]'
-      }`}>
-        {/* Button cap */}
-        <div className={`w-6 h-6 rounded-full transition-all duration-200 ${
-          active
-            ? 'bg-green-500 translate-y-px shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),0_0_6px_rgba(34,197,94,0.7)]'
-            : 'bg-gray-600 -translate-y-px shadow-[0_2px_4px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)]'
-        }`} />
-      </div>
-      {/* Label */}
-      <span className={`text-[10px] font-medium transition-colors duration-200 ${
-        active ? 'text-green-300' : 'text-gray-500'
-      }`}>{label}</span>
-    </button>
-  );
-}
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen }: InventoryDashboardProps) {
 
   const { toast } = useToast();
 
-  const [mobileInvChannel, setMobileInvChannel] = useState<string>('bricklink');
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
   const [browsePage, setBrowsePage] = useState(0);
@@ -416,83 +387,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
           </div>
-          {desktopMode ? (
-            <div className="flex flex-col divide-y divide-gray-700/40">
-              {/* BrickLink — always first */}
-              <div className="flex items-center gap-2 py-1.5 first:pt-0 last:pb-0" data-testid="channel-row-bricklink">
-                <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40 shrink-0">
-                  <Link className="w-3 h-3 text-blue-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-blue-100">BrickLink</div>
-                  <div className="text-[9px] text-gray-500">Inventory sync</div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
-                  <button
-                    onClick={() => onDrawerChange(activeDrawer === 'bricklinksync' ? null : 'bricklinksync')}
-                    data-testid="button-bricklink-sync"
-                    className={cn("p-1 rounded transition-colors hover-elevate", activeDrawer === 'bricklinksync' ? "text-blue-400" : "text-gray-500")}
-                  >
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              {/* Per-channel rows */}
-              {CHANNEL_SYNC_KEYS.map(key => {
-                const cfg = CHANNEL_SYNC_CONFIG[key];
-                const sb = cfg.sidebar;
-                const drawerKey = `channelsync-${key}` as const;
-                const active = activeDrawer === drawerKey;
-                const ChannelIcon = cfg.Icon;
-                return (
-                  <div key={key} className="flex items-center gap-2 py-1.5 last:pb-0" data-testid={`channel-row-${key}`}>
-                    <div className="p-1 rounded ring-1 shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
-                      <ChannelIcon className={`w-3 h-3 ${sb.iconColor}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-xs font-semibold ${sb.labelColor}`}>{cfg.label}</div>
-                      <div className="text-[9px] text-gray-500">Inventory sync</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
-                      <button
-                        onClick={() => onDrawerChange(active ? null : drawerKey)}
-                        data-testid={`button-inv-${key}-sync`}
-                        className={cn("p-1 rounded transition-colors hover-elevate", active ? sb.activeArrow : "text-gray-500")}
-                      >
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Channel pill selector — same pattern as OrdersDashboard mobile */}
-              {CHANNEL_SYNC_KEYS.length > 0 && (
-                <div className="flex items-center gap-5 flex-wrap pl-8 pt-0.5">
-                  {(['bricklink', ...CHANNEL_SYNC_KEYS]).map(key => {
-                    const label = key === 'bricklink' ? 'BrickLink' : (CHANNEL_SYNC_CONFIG[key as InvSyncChannel]?.label ?? key);
-                    return (
-                      <RetroTogglePin
-                        key={key}
-                        active={mobileInvChannel === key}
-                        onClick={() => setMobileInvChannel(key)}
-                        label={label}
-                        testId={`button-mobile-inv-pin-${key}`}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-              {mobileInvChannel === 'bricklink'
-                ? <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-                : <ChannelSyncPanel onOpenSettings={onOpenSettings} initialChannel={mobileInvChannel} />
-              }
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
+            <ChannelSyncPanel onOpenSettings={onOpenSettings} />
+          </div>
         </div>
 
 

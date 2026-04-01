@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
-  Loader2, RefreshCw, X, ArrowRight, Link,
+  Loader2, RefreshCw, X, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,37 +67,6 @@ interface SyncQueueResponse {
   success: boolean;
   items: SyncQueueItem[];
   stats: { pending: number; abandoned: number; done: number; total: number };
-}
-
-// ── Retro Toggle Pin ──────────────────────────────────────────────────────────
-
-function RetroTogglePin({ active, onClick, label, testId }: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  testId: string;
-}) {
-  return (
-    <button onClick={onClick} data-testid={testId} className="flex flex-col items-center gap-1.5 select-none">
-      {/* Bezel ring */}
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
-        active
-          ? 'border-green-500/70 bg-gray-900 shadow-[0_0_10px_rgba(34,197,94,0.45),0_0_22px_rgba(34,197,94,0.18)]'
-          : 'border-gray-600 bg-gray-900 shadow-[0_2px_5px_rgba(0,0,0,0.5)]'
-      }`}>
-        {/* Button cap */}
-        <div className={`w-6 h-6 rounded-full transition-all duration-200 ${
-          active
-            ? 'bg-green-500 translate-y-px shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),0_0_6px_rgba(34,197,94,0.7)]'
-            : 'bg-gray-600 -translate-y-px shadow-[0_2px_4px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.12)]'
-        }`} />
-      </div>
-      {/* Label */}
-      <span className={`text-[10px] font-medium transition-colors duration-200 ${
-        active ? 'text-green-300' : 'text-gray-500'
-      }`}>{label}</span>
-    </button>
-  );
 }
 
 // ── Qty Sync Queue Panel ──────────────────────────────────────────────────────
@@ -335,7 +304,6 @@ function QtySyncQueuePanel() {
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode }: OrdersDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
-  const [mobileOrderPlatform, setMobileOrderPlatform] = useState<OrderSyncPlatform>('bricklink');
 
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
@@ -536,87 +504,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
           </div>
-          {desktopMode ? (
-            <div className="flex flex-col divide-y divide-gray-700/40">
-              {/* BrickLink — always first */}
-              {(() => {
-                const blSb = PLATFORM_CONFIG['bricklink'].sidebar;
-                const active = activeDrawer === 'bricklinksync';
-                return (
-                  <div className="flex items-center gap-2 py-1.5 first:pt-0 last:pb-0" data-testid="channel-row-orders-bricklink">
-                    <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40 shrink-0">
-                      <Link className={`w-3 h-3 ${blSb.iconColor}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-xs font-semibold ${blSb.labelColor}`}>BrickLink</div>
-                      <div className="text-[9px] text-gray-500">Orders sync</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
-                      <button
-                        onClick={() => onDrawerChange(active ? null : 'bricklinksync')}
-                        data-testid="button-orders-bricklink-sync"
-                        className={cn("p-1 rounded transition-colors hover-elevate", active ? blSb.activeArrow : "text-gray-500")}
-                      >
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-              {/* Channel order platforms */}
-              {ORDER_SYNC_CHANNEL_KEYS.map(key => {
-                const cfg = PLATFORM_CONFIG[key];
-                const sb = cfg.sidebar;
-                const drawerKey = `ordersync-${key}` as const;
-                const active = activeDrawer === drawerKey;
-                const PlatformIcon = cfg.Icon;
-                return (
-                  <div key={key} className="flex items-center gap-2 py-1.5 last:pb-0" data-testid={`channel-row-orders-${key}`}>
-                    <div className="p-1 rounded ring-1 shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
-                      <PlatformIcon className={`w-3 h-3 ${sb.iconColor}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-xs font-semibold ${sb.labelColor}`}>{cfg.label}</div>
-                      <div className="text-[9px] text-gray-500">Orders sync</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
-                      <button
-                        onClick={() => onDrawerChange(active ? null : drawerKey)}
-                        data-testid={`button-orders-${key}-sync`}
-                        className={cn("p-1 rounded transition-colors hover-elevate", active ? sb.activeArrow : "text-gray-500")}
-                      >
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Channel toggle pins — only visible when more than one channel is configured */}
-              {ORDER_SYNC_CHANNEL_KEYS.length > 0 && (
-                <div className="flex items-center gap-5 flex-wrap pl-8 pt-0.5">
-                  {(['bricklink', ...ORDER_SYNC_CHANNEL_KEYS] as OrderSyncPlatform[]).map(key => {
-                    const cfg = PLATFORM_CONFIG[key];
-                    return (
-                      <RetroTogglePin
-                        key={key}
-                        active={mobileOrderPlatform === key}
-                        onClick={() => setMobileOrderPlatform(key)}
-                        label={cfg.label}
-                        testId={`button-mobile-orders-pin-${key}`}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-              <OrderSyncPanel platform={mobileOrderPlatform} onOpenSettings={onOpenSettings} />
-              <QtySyncQueuePanel />
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
+            {ORDER_SYNC_CHANNEL_KEYS.map(key => (
+              <OrderSyncPanel key={key} platform={key} onOpenSettings={onOpenSettings} />
+            ))}
+            <QtySyncQueuePanel />
+          </div>
         </div>
 
       </div>
