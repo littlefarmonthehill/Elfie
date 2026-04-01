@@ -38,6 +38,7 @@ import {
   Database,
   Search,
   Warehouse,
+  ChevronDown,
 } from "lucide-react";
 import {
   Drawer,
@@ -208,10 +209,8 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
     staleTime: 30000,
   });
 
-  const [fullScan, setFullScan] = useState(false);
-
   const syncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/channel', { fullScan }),
+    mutationFn: (opts?: { fullScan?: boolean }) => apiRequest('POST', '/api/sync/channel', { fullScan: opts?.fullScan ?? false }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
@@ -542,7 +541,6 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
               onSelectArea={(type) => setSelectedArea(type)}
               onShowAuditReport={() => setShowAuditReport(true)}
               onShowColorRepair={() => setShowColorRepair(true)}
-              fullScan={fullScan} setFullScan={setFullScan}
               progressData={progressData} progressPct={progressPct}
               onChangeDetail={(type: 'created' | 'updated') => setChangeDetail(type)}
               displayChannels={displayChannels}
@@ -791,8 +789,6 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
                 onShowColorRepair={() => setShowColorRepair(true)}
-                fullScan={fullScan}
-                setFullScan={setFullScan}
                 progressData={progressData}
                 progressPct={progressPct}
                 onChangeDetail={(type: 'created' | 'updated') => setChangeDetail(type)}
@@ -1304,8 +1300,6 @@ function OverviewContent({
   onSelectArea,
   onShowAuditReport,
   onShowColorRepair,
-  fullScan,
-  setFullScan,
   progressData,
   progressPct,
   onChangeDetail,
@@ -1313,6 +1307,7 @@ function OverviewContent({
   selectedChannel,
   onChannelSelect,
 }: any) {
+  const [showFullSync, setShowFullSync] = useState(false);
   const selectedChannelLabel: string = displayChannels?.find((c: any) => c.key === selectedChannel)?.label ?? 'Channel';
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -1333,7 +1328,7 @@ function OverviewContent({
           size="sm"
           variant="secondary"
           disabled={isRunning || syncMutation.isPending}
-          onClick={() => syncMutation.mutate()}
+          onClick={() => { setShowFullSync(false); syncMutation.mutate(); }}
           data-testid="button-channel-sync-now"
         >
           {syncMutation.isPending || isRunning ? (
@@ -1342,6 +1337,18 @@ function OverviewContent({
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           )}
           {isRunning ? 'Syncing…' : 'Sync Now'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={isRunning}
+          onClick={() => setShowFullSync(v => !v)}
+          data-testid="button-channel-full-scan-toggle"
+          className={showFullSync ? 'toggle-elevate toggle-elevated' : 'toggle-elevate'}
+        >
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          Full Sync
+          <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${showFullSync ? 'rotate-180' : ''}`} />
         </Button>
         <Button
           size="sm"
@@ -1382,22 +1389,28 @@ function OverviewContent({
         )}
       </div>
 
-      {/* Scan mode toggle — below action row, grouped with mode context */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-gray-500">Next sync:</span>
-        <button
-          disabled={isRunning}
-          onClick={() => setFullScan((v: boolean) => !v)}
-          data-testid="button-channel-sync-fullscan-toggle"
-          className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium transition-colors ${
-            fullScan
-              ? 'border-amber-500/50 bg-amber-950/40 text-amber-300'
-              : 'border-gray-600/50 bg-gray-900/40 text-gray-400'
-          }`}
-        >
-          {fullScan ? 'Full scan' : 'Incremental'}
-        </button>
-      </div>
+      {/* Collapsible full sync panel */}
+      {showFullSync && (
+        <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-3 space-y-2.5">
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Pushes all inventory lots to {selectedChannelLabel}, regardless of what has changed. Use this if channel data is significantly out of sync — e.g. after downtime or a bulk price update.
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isRunning || syncMutation.isPending}
+            onClick={() => { syncMutation.mutate({ fullScan: true }); setShowFullSync(false); }}
+            data-testid="button-channel-run-full-scan"
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Run full scan
+          </Button>
+        </div>
+      )}
 
       {/* Channel selector — only shown when multiple channels configured */}
       {displayChannels && displayChannels.length > 1 && (

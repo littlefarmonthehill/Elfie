@@ -67,6 +67,32 @@ const CHANNEL_SYNC_CONFIG: Record<InvSyncChannel, {
   },
 };
 
+function RetroTogglePin({ active, onClick, label, testId }: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  testId: string;
+}) {
+  return (
+    <button onClick={onClick} data-testid={testId} className="flex items-center gap-2 group">
+      <div className={`relative w-3.5 h-7 rounded-full border flex-shrink-0 transition-all duration-300 ${
+        active
+          ? 'border-green-400/60 bg-green-950/60 shadow-[0_0_8px_rgba(34,197,94,0.3)]'
+          : 'border-gray-700/40 bg-gray-900/50'
+      }`}>
+        <div className={`absolute left-0.5 right-0.5 h-[10px] rounded-full transition-all duration-300 ${
+          active
+            ? 'top-0.5 bg-green-400 shadow-[0_0_5px_rgba(34,197,94,0.7)]'
+            : 'bottom-0.5 bg-gray-600'
+        }`} />
+      </div>
+      <span className={`text-[11px] font-medium transition-colors duration-200 ${
+        active ? 'text-green-300' : 'text-gray-600'
+      }`}>{label}</span>
+    </button>
+  );
+}
+
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen }: InventoryDashboardProps) {
 
   const { toast } = useToast();
@@ -443,22 +469,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="space-y-2">
               {/* Channel pill selector — same pattern as OrdersDashboard mobile */}
               {CHANNEL_SYNC_KEYS.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap">
                   {(['bricklink', ...CHANNEL_SYNC_KEYS]).map(key => {
                     const label = key === 'bricklink' ? 'BrickLink' : (CHANNEL_SYNC_CONFIG[key as InvSyncChannel]?.label ?? key);
                     return (
-                      <button
+                      <RetroTogglePin
                         key={key}
+                        active={mobileInvChannel === key}
                         onClick={() => setMobileInvChannel(key)}
-                        data-testid={`button-mobile-inv-pill-${key}`}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-medium transition-colors ${
-                          mobileInvChannel === key
-                            ? 'border-green-500/60 bg-green-950/50 text-green-300'
-                            : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:text-gray-200 hover:border-gray-600'
-                        }`}
-                      >
-                        {label}
-                      </button>
+                        label={label}
+                        testId={`button-mobile-inv-pin-${key}`}
+                      />
                     );
                   })}
                 </div>
