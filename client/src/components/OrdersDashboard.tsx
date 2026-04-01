@@ -303,6 +303,7 @@ function QtySyncQueuePanel() {
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode }: OrdersDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
+  const [mobileOrderPlatform, setMobileOrderPlatform] = useState<OrderSyncPlatform>('bricklink');
 
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
@@ -557,10 +558,29 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
           ) : (
             <div className="space-y-2">
-              <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
-              {ORDER_SYNC_CHANNEL_KEYS.map(key => (
-                <OrderSyncPanel key={key} platform={key} onOpenSettings={onOpenSettings} />
-              ))}
+              {/* Channel pill selector — only visible when more than one channel is configured */}
+              {ORDER_SYNC_CHANNEL_KEYS.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(['bricklink', ...ORDER_SYNC_CHANNEL_KEYS] as OrderSyncPlatform[]).map(key => {
+                    const cfg = PLATFORM_CONFIG[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setMobileOrderPlatform(key)}
+                        data-testid={`button-mobile-orders-pill-${key}`}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-medium transition-colors ${
+                          mobileOrderPlatform === key
+                            ? 'border-green-500/60 bg-green-950/50 text-green-300'
+                            : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+                        }`}
+                      >
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <OrderSyncPanel platform={mobileOrderPlatform} onOpenSettings={onOpenSettings} />
               <QtySyncQueuePanel />
             </div>
           )}
