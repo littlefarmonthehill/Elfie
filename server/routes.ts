@@ -842,7 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DELETE /api/platform-admin/orgs/:id — permanently delete an org and all its data (superAdmin only)
-  app.delete('/api/platform-admin/orgs/:id', isSuperAdmin, async (req, res) => {
+  app.delete('/api/platform-admin/orgs/:id', isSuperAdmin, async (req: any, res) => {
     try {
       const { id } = req.params;
       if (id === PLATFORM_ORG_ID || id === 'org_planetbrick' || id === '__platform__') {
@@ -851,6 +851,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [org] = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
       if (!org) return res.status(404).json({ message: "Organization not found." });
       await storage.deleteOrganization(id);
+      // If the deleted org is the currently impersonated one, clear the session so
+      // the admin is not left scoped to a non-existent org.
+      if (req.session?.impersonatingOrgId === id) {
+        delete req.session.impersonatingOrgId;
+        delete req.session.impersonatingOrgName;
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting organization:", error);
