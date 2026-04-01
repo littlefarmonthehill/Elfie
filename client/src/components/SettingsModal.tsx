@@ -4080,8 +4080,21 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   });
 
+  const [resetOrgDialogOpen, setResetOrgDialogOpen] = useState(false);
   const [deleteOrgDialogOpen, setDeleteOrgDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
+
+  const resetOrgMutation = useMutation({
+    mutationFn: () => apiRequest('POST', `/api/platform-admin/orgs/${org?.id}/reset`, {}),
+    onSuccess: () => {
+      setResetOrgDialogOpen(false);
+      toast({ title: 'Onboarding reset', description: 'The store will see the setup wizard on next login.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Reset failed', description: err.message || 'Could not reset onboarding', variant: 'destructive' });
+    },
+  });
 
   const deleteOrgMutation = useMutation({
     mutationFn: () => apiRequest('DELETE', '/api/org'),
@@ -4604,11 +4617,36 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               </div>
 
               {/* Danger Zone */}
-              <div className="space-y-2 border border-red-900/40 rounded-lg p-3 bg-red-950/10">
+              <div className="space-y-3 border border-red-900/40 rounded-lg p-3 bg-red-950/10">
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                   <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
                 </div>
+
+                {/* Reset onboarding — super admin only */}
+                {superAdmin && (
+                  <>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs text-gray-300 font-medium">Reset onboarding</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Clears setup progress and IE strategies — the store sees the setup wizard again on next login. Inventory and orders are untouched.</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-orange-700/50 text-orange-400 hover:border-orange-600"
+                        onClick={() => setResetOrgDialogOpen(true)}
+                        data-testid="button-reset-onboarding"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                        Reset
+                      </Button>
+                    </div>
+                    <Separator className="bg-red-900/30" />
+                  </>
+                )}
+
+                {/* Delete store */}
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs text-gray-300 font-medium">Delete this company</p>
@@ -4617,6 +4655,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="shrink-0"
                     onClick={() => { setDeleteConfirmName(''); setDeleteOrgDialogOpen(true); }}
                     data-testid="button-delete-company"
                   >
@@ -4625,6 +4664,48 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </Button>
                 </div>
               </div>
+
+              {/* Reset Onboarding confirmation dialog */}
+              <ResponsiveModal
+                open={resetOrgDialogOpen}
+                onOpenChange={setResetOrgDialogOpen}
+                title="Reset onboarding"
+                icon={RotateCcw}
+                iconColor="text-orange-400"
+                description="Send this store back through the setup wizard"
+                testId="modal-reset-onboarding"
+              >
+                <div className="space-y-4 py-1">
+                  <p className="text-sm text-gray-300">
+                    This will reset <span className="font-semibold text-white">{org?.name}</span> back to the beginning of the setup wizard.
+                  </p>
+                  <div className="space-y-1.5 text-xs text-gray-400">
+                    <p className="font-medium text-gray-300 mb-1">What gets cleared:</p>
+                    <ul className="space-y-1 pl-3">
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> Onboarding completion flag</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> IE agent strategy configuration</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-3 text-xs text-gray-400">
+                    Inventory, orders, BrickLink credentials, settings, and users are <span className="text-white font-medium">not affected</span>.
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button variant="ghost" size="sm" onClick={() => setResetOrgDialogOpen(false)}>Cancel</Button>
+                    <Button
+                      size="sm"
+                      className="bg-orange-600 hover:bg-orange-700 text-white border-0"
+                      onClick={() => resetOrgMutation.mutate()}
+                      disabled={resetOrgMutation.isPending}
+                      data-testid="button-reset-confirm"
+                    >
+                      {resetOrgMutation.isPending
+                        ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Resetting…</>
+                        : <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Reset onboarding</>
+                      }
+                    </Button>
+                  </div>
+                </div>
+              </ResponsiveModal>
 
               {/* Delete Company confirmation dialog */}
               <ResponsiveModal

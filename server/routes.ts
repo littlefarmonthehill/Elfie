@@ -770,6 +770,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/orgs/:id/reset — reset onboarding for an org
+  // Clears onboarding_completed flag and IE strategies so the org re-runs setup from step 1.
+  app.post('/api/platform-admin/orgs/:id/reset', isSuperAdmin, async (req, res) => {
+    try {
+      const { id: orgId } = req.params;
+      const [org] = await db.select({ id: organizations.id, name: organizations.name })
+        .from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      if (!org) return res.status(404).json({ message: 'Organization not found' });
+
+      // Reset onboarding flag
+      await db.update(organizations)
+        .set({ onboardingCompleted: false })
+        .where(eq(organizations.id, orgId));
+
+      // Wipe IE strategies
+      const { ieStrategies } = await import('@shared/schema');
+      await db.delete(ieStrategies).where(eq(ieStrategies.orgId, orgId));
+
+      console.log(`[Platform Admin] Onboarding reset for org ${orgId} (${org.name})`);
+      res.json({ success: true, orgId, orgName: org.name });
+    } catch (error) {
+      console.error('Error resetting org onboarding:', error);
+      res.status(500).json({ message: 'Failed to reset onboarding' });
+    }
+  });
+
   // POST /api/platform-admin/cleanup-duplicate-orders
   // Dry-run by default. Pass ?confirm=true to actually delete.
   // Removes bare-numeric BL.X orders where a proper bl-{X} order already exists.
