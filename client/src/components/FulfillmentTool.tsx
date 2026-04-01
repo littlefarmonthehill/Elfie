@@ -245,8 +245,9 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (orderId: string) => void } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
-  const [drawerOpen, setDrawerOpen] = useState(true);
-  const [drawerVisible, setDrawerVisible] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const initialDrawerChecked = useRef(false);
   const drawerPanelRef = useRef<HTMLDivElement>(null);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
@@ -443,6 +444,15 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       const next = new Set([...prev].filter(id => validIds.has(id)));
       return next.size === prev.size ? prev : next;
     });
+  }, [data]);
+
+  // Open orders flyout on mount only if there are orders waiting
+  useEffect(() => {
+    if (initialDrawerChecked.current || !data) return;
+    initialDrawerChecked.current = true;
+    if (data.orders && data.orders.length > 0) {
+      setDrawerOpen(true);
+    }
   }, [data]);
 
   // When new orders appear mid-session (e.g. a BO order synced on another device),
