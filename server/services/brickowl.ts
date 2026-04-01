@@ -221,7 +221,8 @@ async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?:
 
 /**
  * Post seller feedback for a BrickOwl order.
- * BO API: POST /v1/feedback/create — { order_id, feedback_type: positive|neutral|negative, feedback }
+ * BO API: POST /v1/order/feedback — { order_id, rating: 1|0|-1, comment (max 120 chars) }
+ * rating: 1 = Positive, 0 = Neutral, -1 = Negative
  */
 export async function postBrickOwlFeedback(
   orderId: string,
@@ -229,10 +230,11 @@ export async function postBrickOwlFeedback(
   message: string,
   orgId: string,
 ): Promise<void> {
-  await brickowlPost('/feedback/create', {
+  const ratingMap: Record<string, string> = { positive: '1', neutral: '0', negative: '-1' };
+  await brickowlPost('/order/feedback', {
     order_id: orderId,
-    feedback_type: feedbackType,
-    feedback: message,
+    rating: ratingMap[feedbackType] ?? '1',
+    comment: message.slice(0, 120),
   }, orgId);
 }
 
