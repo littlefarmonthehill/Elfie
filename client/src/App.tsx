@@ -12,6 +12,7 @@ import Signup from "@/pages/signup";
 import Landing from "@/pages/landing";
 import PendingApproval from "@/pages/pending-approval";
 import PlatformAdmin from "@/pages/platform-admin";
+import PlatformPage from "@/pages/platform";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import Login from "@/pages/login";
@@ -26,7 +27,16 @@ function AuthenticatedHome() {
 }
 
 function Router() {
-  const { isAuthenticated, isApproved, isLoading, superAdmin } = useAuth();
+  const { isAuthenticated, isApproved, isLoading, superAdmin, user } = useAuth();
+  const isPureSuperAdmin = superAdmin && !(user as any)?.orgId;
+
+  const loadingScreen = (color = '#7C3AED') => (
+    <div className="min-h-screen flex items-center justify-center bg-[#04080F]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: color, borderTopColor: 'transparent' }} />
+      </div>
+    </div>
+  );
 
   return (
     <Switch>
@@ -36,14 +46,16 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
 
+      <Route path="/platform">
+        {isLoading ? loadingScreen('#9B5DE5') : !isAuthenticated || !superAdmin ? (
+          <Redirect to="/" />
+        ) : (
+          <PlatformPage />
+        )}
+      </Route>
+
       <Route path="/platform-admin">
-        {isLoading ? (
-          <div className="min-h-screen flex items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          </div>
-        ) : !isAuthenticated || !superAdmin ? (
+        {isLoading ? loadingScreen() : !isAuthenticated || !superAdmin ? (
           <Redirect to="/" />
         ) : (
           <PlatformAdmin />
@@ -55,16 +67,12 @@ function Router() {
       </Route>
 
       <Route path="/">
-        {isLoading ? (
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-950 via-indigo-950 to-gray-950">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
-            </div>
-          </div>
-        ) : !isAuthenticated ? (
+        {isLoading ? loadingScreen() : !isAuthenticated ? (
           <Landing />
         ) : !isApproved ? (
           <PendingApproval />
+        ) : isPureSuperAdmin ? (
+          <Redirect to="/platform" />
         ) : (
           <AuthenticatedHome />
         )}

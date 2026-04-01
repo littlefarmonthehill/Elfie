@@ -25,7 +25,7 @@ import OpenAI from "openai";
 
 export type AgentId = 'inventory' | 'pricing' | 'market' | 'orders' | 'customer' | 'catalog';
 
-const SIGNAL_TTL_HOURS = 12;
+const SIGNAL_TTL_HOURS = 168;
 
 async function getOpenAI(): Promise<OpenAI | null> {
   try {

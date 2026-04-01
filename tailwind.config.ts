@@ -27,6 +27,7 @@ export default {
         'lego-yellow': "hsl(48 95% 55% / <alpha-value>)",
         'lego-green': "hsl(140 70% 50% / <alpha-value>)",
         'lego-orange': "hsl(25 95% 55% / <alpha-value>)",
+        'lego-purple': "hsl(270 80% 65% / <alpha-value>)",
         
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",

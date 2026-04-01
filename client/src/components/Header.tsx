@@ -130,15 +130,15 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
           </button>
 
           {superAdmin && (
-            <Link href="/platform-admin">
+            <Link href="/platform">
               <Button
                 variant="ghost"
                 size="sm"
-                className="hidden md:flex items-center gap-2 text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 border border-yellow-500/20"
+                className="hidden md:flex items-center gap-2 text-lego-purple hover:text-lego-purple/80 border border-lego-purple/25"
                 data-testid="link-platform-admin"
               >
                 <ShieldCheck className="h-4 w-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">Platform Admin</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Platform</span>
               </Button>
             </Link>
           )}

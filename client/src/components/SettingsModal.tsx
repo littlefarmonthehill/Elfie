@@ -38,12 +38,13 @@ import { getTierConfig } from "@shared/tierConfig";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'priceomatic';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'priceomatic' | 'supportQueue' | 'plansAndPricing' | 'platformScheduler' | 'productRoadmap' | 'productBacklog' | 'orgs';
   initialPlatformTab?: 'platforms' | 'scheduler';
   focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
   isBrickspotterOnly?: boolean;
+  forcePlatformAdmin?: boolean;
 }
 
 type ActiveSection = 'general' | 'team' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
@@ -2384,7 +2385,7 @@ function PlansAndPricingPanel() {
 }
 
 
-export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, focusTarget, pricingExample, scoringExample, isBrickspotterOnly = false }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, focusTarget, pricingExample, scoringExample, isBrickspotterOnly = false, forcePlatformAdmin = false }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -2665,7 +2666,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
 
-  const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection === 'automation' ? 'platforms' : initialSection ?? null);
+  const [activeSection, setActiveSection] = useState<ActiveSection>(
+    initialSection === 'automation' ? 'platforms' :
+    initialSection ? (initialSection as ActiveSection) :
+    forcePlatformAdmin ? 'orgs' :
+    null
+  );
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
@@ -2716,14 +2722,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
           setTimeout(() => document.getElementById('autosync-channel-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
         }
       } else {
-        setActiveSection(initialSection);
+        setActiveSection(initialSection as ActiveSection);
         if (initialPlatformTab) setActivePlatformInnerTab(initialPlatformTab);
       }
       if (initialSection === 'priceomatic') {
         setPomScoringOpen(true);
       }
+    } else if (forcePlatformAdmin) {
+      setActiveSection('orgs');
     }
-  }, [open, initialSection, initialPlatformTab, focusTarget]);
+  }, [open, initialSection, initialPlatformTab, focusTarget, forcePlatformAdmin]);
 
   useEffect(() => {
     if (open && pricingExample) {
