@@ -4501,19 +4501,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tz = await getOrgTimezone(orgId);
       const { start, end } = tzDateBounds(range ?? '', tz);
 
+      // Total, pending, and shipped counts always reflect current order state — no date filter.
+      // The date range only applies to financial metrics (revenue, avg lots) so the counts
+      // remain consistent regardless of which range the user has selected.
+      const totalWhere = and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
+      const shippedWhere = and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('shipped', 'completed')`);
+
       const dateRangeClause = start
         ? end
           ? sql`${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`
           : sql`${orders.orderDate} >= ${start}`
         : sql`1=1`;
-
-      const totalWhere = start
-        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
-        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
-
-      const shippedWhere = start
-        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), dateRangeClause)
-        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'));
 
       const revenueWhere = start
         ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled', 'returned')`, dateRangeClause)
