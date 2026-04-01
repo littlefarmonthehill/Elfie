@@ -39,7 +39,6 @@ const DEPTH_OPTIONS = [
 
 const SALES_CHANNELS: Array<{ key: string; name: string; description: string; status: 'live' | 'coming_soon' }> = [
   { key: 'brickowl', name: 'BrickOwl', description: 'Push your BrickLink inventory to BrickOwl and sync orders in both directions.', status: 'live' },
-  { key: 'amazon', name: 'Amazon', description: 'List LEGO parts and sets on Amazon Marketplace via the Selling Partner API.', status: 'coming_soon' },
   { key: 'ebay', name: 'eBay', description: 'Sync inventory to eBay listings and import orders automatically.', status: 'coming_soon' },
 ];
 
