@@ -72,12 +72,24 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   shipped: {
     normalizedStatus: 'shipped',
     displayName: 'Shipped',
-    brickLink: ['SHIPPED', 'COMPLETED'],
-    brickOwl: [5, 6],
+    brickLink: ['SHIPPED'],
+    brickOwl: [5],
     ebay: ['Shipped'],
     amazon: ['Shipped'],
     inventoryImpact: 'reduce',
     description: 'Order dispatched — inventory deducted',
+  },
+
+  completed: {
+    normalizedStatus: 'completed',
+    displayName: 'Completed',
+    // BrickLink COMPLETED = buyer confirmed receipt.
+    // BrickOwl 6 = Received (same semantic). Note: BrickOwl runtime sync uses
+    // mapBrickOwlStatus() directly so this array is for display/lookup only.
+    brickLink: ['COMPLETED'],
+    brickOwl: [6],
+    inventoryImpact: 'none',
+    description: 'Buyer confirmed receipt — no further inventory change',
   },
 
   delivered: {

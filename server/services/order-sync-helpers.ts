@@ -134,7 +134,20 @@ export function resolveOrderStatus(
   if (isReturn) {
     return { status: incomingStatus, wasDemotionBlocked: false, isShippedCancellation: false };
   }
-  const wouldDemote = existingStatus === 'shipped' && incomingStatus !== 'shipped';
+  // Guard against status regressions from terminal/advanced states.
+  //
+  // 'shipped' may only move to 'cancelled' (e.g. BO post-ship cancel restores inventory)
+  // or stay 'shipped'.  All other backward moves (e.g. shipped → awaiting_shipment from
+  // stale BL data) are blocked.
+  //
+  // 'completed' (buyer confirmed receipt) follows the same rule — it must never regress
+  // to 'shipped' when the next BL/BO sync cycle runs and still sees the old platform
+  // status.  It may only move to 'returned' or 'cancelled'.
+  const wouldDemoteFromShipped   = existingStatus === 'shipped'   && incomingStatus !== 'shipped';
+  const wouldDemoteFromCompleted = existingStatus === 'completed' &&
+    !['completed', 'returned', 'cancelled'].includes(incomingStatus);
+  const wouldDemote = wouldDemoteFromShipped || wouldDemoteFromCompleted;
+
   if (wouldDemote) {
     // BrickOwl sellers use "cancel" the same way BrickLink uses "return" — the seller
     // cancels a shipped order when items come back.  Allow cancelled to override shipped
@@ -143,7 +156,9 @@ export function resolveOrderStatus(
     if (incomingStatus === 'cancelled') {
       return { status: 'cancelled', wasDemotionBlocked: false, isShippedCancellation: true };
     }
-    return { status: 'shipped', wasDemotionBlocked: true, isShippedCancellation: false };
+    // Return the *existing* status (not a hardcoded 'shipped') so completed orders
+    // stay completed rather than reverting to shipped.
+    return { status: existingStatus, wasDemotionBlocked: true, isShippedCancellation: false };
   }
   return { status: incomingStatus, wasDemotionBlocked: false, isShippedCancellation: false };
 }

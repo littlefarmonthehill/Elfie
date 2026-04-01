@@ -155,7 +155,10 @@ export async function syncBrickLinkOrders(
         const isPaymentReturned = order.payment?.status === 'Returned';
         // Already returned locally — skip to prevent perpetual reprocessing.
         if (existing.status === 'returned') return false;
-        if (existing.status === 'shipped') return isPaymentReturned;
+        // Shipped/completed orders: only reprocess on a payment return.
+        // This prevents stale BrickLink status (e.g. SHIPPED) from overwriting
+        // a locally-completed order back to shipped on the next sync cycle.
+        if (existing.status === 'shipped' || existing.status === 'completed') return isPaymentReturned;
 
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
