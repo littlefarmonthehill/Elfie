@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ } from "lucide-react";
 import { printPicklist } from "./PackingSlip";
+import PartImage from "./PartImage";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -101,6 +102,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const [scanFeedback, setScanFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [lightboxItem, setLightboxItem] = useState<BinPicklistItem | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -343,6 +345,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const noOrdersSelected = filterOrderIds !== undefined && filterOrderIds.size === 0;
 
   return (
+    <>
     <div className="space-y-4">
 
       {/* ── Controls row — hidden when no orders selected ── */}
@@ -589,6 +592,22 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       className="shrink-0 touch-auto"
                     />
 
+                    {/* Part thumbnail — click for fullscreen */}
+                    <button
+                      type="button"
+                      data-testid={`img-thumb-part-${key}`}
+                      className="shrink-0 w-9 h-9 rounded overflow-hidden bg-gray-700/40 flex items-center justify-center"
+                      onClick={e => { e.stopPropagation(); setLightboxItem(rep); }}
+                    >
+                      <PartImage
+                        imageUrl={rep.imageUrl}
+                        partNumber={rep.partNumber}
+                        colorId={rep.colorId}
+                        className="w-full h-full object-contain"
+                        fallbackClassName="w-5 h-5 text-gray-500"
+                      />
+                    </button>
+
                     <div className="flex-1 min-w-0">
                       {/* Line 1: part# + part name */}
                       <div className="flex items-center gap-2 flex-wrap">
@@ -744,6 +763,21 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         disabled={pullItemMutation.isPending}
                         className="shrink-0 touch-auto mt-0.5"
                       />
+                      {/* Part thumbnail — click for fullscreen */}
+                      <button
+                        type="button"
+                        data-testid={`img-thumb-bin-item-${item.picklistItemId}`}
+                        className="shrink-0 w-8 h-8 rounded overflow-hidden bg-gray-700/40 flex items-center justify-center"
+                        onClick={() => setLightboxItem(item)}
+                      >
+                        <PartImage
+                          imageUrl={item.imageUrl}
+                          partNumber={item.partNumber}
+                          colorId={item.colorId}
+                          className="w-full h-full object-contain"
+                          fallbackClassName="w-4 h-4 text-gray-500"
+                        />
+                      </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           {item.inventoryQty !== null && item.inventoryQty < item.quantity && (
@@ -850,5 +884,55 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       })()}
 
     </div>
+
+    {/* ── Fullscreen image lightbox ────────────────────────────────────── */}
+    {lightboxItem && (
+      <div
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 print:hidden"
+        data-testid="lightbox-overlay"
+        onClick={() => setLightboxItem(null)}
+      >
+        {/* Header: part name + close */}
+        <div
+          className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-black/60"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="min-w-0">
+            {(lightboxItem.partNumber || lightboxItem.sku) && (
+              <span className="font-mono text-xs text-purple-300 mr-2">
+                {lightboxItem.partNumber || lightboxItem.sku}
+              </span>
+            )}
+            <span className="text-sm text-white font-medium">{lightboxItem.itemName}</span>
+            {lightboxItem.colorName && (
+              <span className="ml-2 text-xs text-yellow-400">{lightboxItem.colorName}</span>
+            )}
+          </div>
+          <button
+            type="button"
+            data-testid="button-lightbox-close"
+            className="shrink-0 ml-4 text-gray-400 hover-elevate rounded p-1"
+            onClick={() => setLightboxItem(null)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Image */}
+        <div
+          className="flex items-center justify-center w-full h-full px-6 py-16"
+          onClick={() => setLightboxItem(null)}
+        >
+          <PartImage
+            imageUrl={lightboxItem.imageUrl}
+            partNumber={lightboxItem.partNumber}
+            colorId={lightboxItem.colorId}
+            className="max-w-full max-h-full object-contain"
+            fallbackClassName="w-24 h-24 text-gray-500"
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
