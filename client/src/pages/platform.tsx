@@ -55,25 +55,58 @@ const TAB_COLOR_MAP: Record<string, { border: string; bg: string; glow: string; 
 
 // ─── Shared UI helpers ───────────────────────────────────────────────────────
 
-function StatCard({ label, value, sub, Icon, color }: {
-  label: string; value: string | number; sub?: string; Icon: React.ElementType; color: string;
+/** Card section with org-dashboard-style header: icon + uppercase label */
+function DashSection({ label, Icon, color, children, action }: {
+  label: string; Icon: React.ElementType; color: string; children: React.ReactNode; action?: React.ReactNode;
 }) {
   const c = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
   return (
-    <div className={cn("flex items-center gap-3 rounded-lg border p-3 bg-gradient-to-br from-gray-900/80 to-gray-950/80", c.border)}>
-      <div className={cn("p-2 rounded-md shrink-0", c.iconBg)}>
-        <Icon className={cn("w-5 h-5", c.text)} />
+    <div className="rounded-xl border border-white/8 bg-gray-900/60 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-white/5 bg-gray-950/30">
+        <div className={cn("p-1.5 rounded-md shrink-0", c.iconBg)}>
+          <Icon className={cn("w-3.5 h-3.5", c.text)} />
+        </div>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/80 flex-1">{label}</span>
+        {action}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
-        <p className={cn("text-xl font-black font-mono", c.text)}>{value}</p>
-        {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+      <div className="p-3">
+        {children}
       </div>
     </div>
   );
 }
 
-function QuickAction({ label, sub, Icon, color, onClick }: {
+/** Large metric displayed inside a DashSection metric row */
+function MetricItem({ label, value, color, sub, onClick }: {
+  label: string; value: string | number; color: string; sub?: string; onClick?: () => void;
+}) {
+  const c = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex flex-col gap-0.5 px-2 py-1.5 rounded-md hover-elevate active-elevate-2 text-left w-full cursor-pointer"
+      >
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
+          <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+        </div>
+        <p className={cn("text-2xl font-black font-mono leading-none", c.text)}>{value}</p>
+        {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-0.5 px-2 py-1.5">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
+      <p className={cn("text-2xl font-black font-mono leading-none", c.text)}>{value}</p>
+      {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+/** Colored tool tile — 2-column grid item */
+function ToolTile({ label, sub, Icon, color, onClick }: {
   label: string; sub: string; Icon: React.ElementType; color: string; onClick?: () => void;
 }) {
   const c = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
@@ -81,30 +114,39 @@ function QuickAction({ label, sub, Icon, color, onClick }: {
     <button
       onClick={onClick}
       className={cn(
-        "group flex items-center gap-3 rounded-lg border p-3 text-left w-full",
-        "bg-gradient-to-r from-gray-900/80 to-gray-950/80 hover-elevate active-elevate-2 cursor-pointer",
-        c.border
+        "rounded-lg p-3 text-left space-y-2 hover-elevate active-elevate-2 w-full border",
+        c.iconBg, c.border
       )}
     >
-      <div className={cn("p-2 rounded-md shrink-0", c.iconBg)}>
+      <div className={cn("p-1.5 rounded-md w-fit", c.iconBg)}>
         <Icon className={cn("w-4 h-4", c.text)} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">{label}</p>
-        <p className="text-[10px] text-muted-foreground truncate">{sub}</p>
+      <div>
+        <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{sub}</p>
       </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
     </button>
   );
 }
 
-function SectionHeader({ label, color }: { label: string; color: string }) {
-  const c = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
+/** Full-width list row */
+function ListRow({ children, onClick, testId }: {
+  children: React.ReactNode; onClick?: () => void; testId?: string;
+}) {
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        data-testid={testId}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/5 bg-gray-900/30 hover-elevate active-elevate-2 text-left"
+      >
+        {children}
+      </button>
+    );
+  }
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className={cn("h-[2px] w-5 rounded-full", c.glow)} />
-      <span className={cn("text-[10px] font-bold uppercase tracking-[0.15em]", c.text)}>{label}</span>
-      <div className={cn("h-[1px] flex-1 rounded-full opacity-20", c.glow)} />
+    <div data-testid={testId} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/5 bg-gray-900/30">
+      {children}
     </div>
   );
 }
@@ -127,33 +169,33 @@ function CentralTab({ onNavigate }: { onNavigate: (tab: PlatformTab) => void }) 
   ).slice(0, 4) ?? [];
 
   return (
-    <div className="p-3 md:p-4 space-y-5 max-w-4xl mx-auto">
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatCard label="Organizations" value={stats?.totalOrganizations ?? '—'} Icon={Building2} color="lego-blue" />
-        <StatCard label="Active Plans" value={stats?.activeSubscriptions ?? '—'} sub="paid subscriptions" Icon={CheckCircle2} color="lego-green" />
-        <StatCard label="Total Users" value={stats?.totalUsers ?? '—'} Icon={Users} color="lego-yellow" />
-        <StatCard label="Open Tickets" value={ticketCount?.count ?? 0} sub={ticketCount?.count ? 'needs attention' : 'all clear'} Icon={Headphones} color={ticketCount?.count ? 'lego-orange' : 'lego-green'} />
-      </div>
+    <div className="p-3 space-y-3 max-w-4xl mx-auto">
+      {/* Metrics */}
+      <DashSection label="Platform Metrics" Icon={BarChart3} color="lego-red">
+        <div className="grid grid-cols-2 gap-x-1 gap-y-0 divide-x divide-white/5">
+          <MetricItem label="Organizations" value={stats?.totalOrganizations ?? '—'} color="lego-blue" />
+          <MetricItem label="Active Plans" value={stats?.activeSubscriptions ?? '—'} color="lego-green" sub="paying" />
+          <MetricItem label="Total Users" value={stats?.totalUsers ?? '—'} color="lego-yellow" />
+          <MetricItem label="Open Tickets" value={ticketCount?.count ?? 0} color={ticketCount?.count ? 'lego-orange' : 'lego-green'} sub={ticketCount?.count ? 'needs attention' : 'all clear'} />
+        </div>
+      </DashSection>
 
       {/* Quick actions */}
-      <div>
-        <SectionHeader label="Quick Actions" color="lego-red" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <QuickAction label="Support Queue" sub={`${ticketCount?.count ?? 0} tickets waiting`} Icon={Headphones} color="lego-orange" onClick={() => onNavigate('support')} />
-          <QuickAction label="Customer Orgs" sub={`${stats?.totalOrganizations ?? 0} organizations registered`} Icon={Building2} color="lego-blue" onClick={() => onNavigate('customers')} />
-          <QuickAction label="Revenue & Plans" sub="Manage plans and pricing" Icon={TrendingUp} color="lego-green" onClick={() => onNavigate('revenue')} />
-          <QuickAction label="System Health" sub="Sync jobs and scheduler status" Icon={Activity} color="lego-yellow" onClick={() => onNavigate('systems')} />
+      <DashSection label="Command Center" Icon={Rocket} color="lego-red">
+        <div className="grid grid-cols-2 gap-2">
+          <ToolTile label="Support Queue" sub={`${ticketCount?.count ?? 0} tickets waiting`} Icon={Headphones} color="lego-orange" onClick={() => onNavigate('support')} />
+          <ToolTile label="Customer Orgs" sub={`${stats?.totalOrganizations ?? 0} organizations`} Icon={Building2} color="lego-blue" onClick={() => onNavigate('customers')} />
+          <ToolTile label="Revenue & Plans" sub="Manage plans and pricing" Icon={TrendingUp} color="lego-green" onClick={() => onNavigate('revenue')} />
+          <ToolTile label="System Health" sub="Sync jobs and scheduler" Icon={Activity} color="lego-yellow" onClick={() => onNavigate('systems')} />
         </div>
-      </div>
+      </DashSection>
 
       {/* Recent signups */}
       {recentOrgs.length > 0 && (
-        <div>
-          <SectionHeader label="Recent Signups" color="lego-red" />
+        <DashSection label="Recent Signups" Icon={Users} color="lego-blue">
           <div className="space-y-1.5">
             {recentOrgs.map((org) => (
-              <div key={org.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/5 bg-gray-900/50">
+              <ListRow key={org.id}>
                 <div className="w-7 h-7 rounded-md bg-lego-blue/15 border border-lego-blue/25 flex items-center justify-center shrink-0">
                   <Building2 className="w-3.5 h-3.5 text-lego-blue" />
                 </div>
@@ -164,10 +206,10 @@ function CentralTab({ onNavigate }: { onNavigate: (tab: PlatformTab) => void }) 
                 <Badge variant="outline" className="text-[9px] shrink-0 capitalize border-white/15 text-muted-foreground">
                   {org.subscriptionStatus ?? 'inactive'}
                 </Badge>
-              </div>
+              </ListRow>
             ))}
           </div>
-        </div>
+        </DashSection>
       )}
     </div>
   );
@@ -212,91 +254,82 @@ function CustomersTab() {
   };
 
   return (
-    <div className="p-3 md:p-4 space-y-4 max-w-5xl mx-auto">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search organizations or plans…"
-          className="pl-9 bg-gray-900/80 border-white/10 text-sm"
-          data-testid="input-customer-search"
-        />
-      </div>
-
-      {/* Org list */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-lego-blue" />
+    <div className="p-3 space-y-3 max-w-5xl mx-auto">
+      <DashSection label="Organizations" Icon={Building2} color="lego-blue">
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search organizations or plans…"
+            className="pl-9 bg-gray-900/80 border-white/10 text-sm"
+            data-testid="input-customer-search"
+          />
         </div>
-      ) : (
-        <div className="space-y-1.5">
-          {filtered.map((org) => (
-            <div
-              key={org.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/5 bg-gray-900/50 hover-elevate"
-              data-testid={`card-org-${org.id}`}
-            >
-              {/* Avatar */}
-              <div className="w-8 h-8 rounded-md bg-lego-blue/15 border border-lego-blue/25 flex items-center justify-center shrink-0">
-                <Building2 className="w-4 h-4 text-lego-blue" />
-              </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-foreground truncate">{org.name}</p>
-                  <Badge className={cn("text-[9px] border px-1.5 py-0 font-mono uppercase", planColor(org.plan ?? ''))}>
-                    {org.plan ?? 'none'}
-                  </Badge>
-                  {!org.isActive && (
-                    <Badge className="text-[9px] border px-1.5 py-0 text-red-400 border-red-500/30 bg-red-950/30">
-                      Suspended
-                    </Badge>
-                  )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-lego-blue" />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {filtered.map((org) => (
+              <ListRow key={org.id} testId={`card-org-${org.id}`}>
+                <div className="w-8 h-8 rounded-md bg-lego-blue/15 border border-lego-blue/25 flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4 text-lego-blue" />
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {org.userCount ?? 0} users · {org.subscriptionStatus ?? 'inactive'}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{org.name}</p>
+                    <Badge className={cn("text-[9px] border px-1.5 py-0 font-mono uppercase", planColor(org.plan ?? ''))}>
+                      {org.plan ?? 'none'}
+                    </Badge>
+                    {!org.isActive && (
+                      <Badge className="text-[9px] border px-1.5 py-0 text-red-400 border-red-500/30 bg-red-950/30">
+                        Suspended
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {org.userCount ?? 0} users · {org.subscriptionStatus ?? 'inactive'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-7 px-2 text-lego-blue"
+                    onClick={() => impersonateMutation.mutate(org.id)}
+                    disabled={impersonateMutation.isPending}
+                    data-testid={`button-impersonate-${org.id}`}
+                    title="View as this company"
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={cn("text-xs h-7 px-2", org.isActive ? "text-yellow-400" : "text-lego-green")}
+                    onClick={() => suspendMutation.mutate({ orgId: org.id, suspend: org.isActive })}
+                    disabled={suspendMutation.isPending}
+                    data-testid={`button-suspend-${org.id}`}
+                    title={org.isActive ? 'Suspend org' : 'Activate org'}
+                  >
+                    {org.isActive ? <Ban className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </ListRow>
+            ))}
+            {filtered.length === 0 && (
+              <div className="text-center py-10 text-muted-foreground text-sm">
+                No organizations match your search.
               </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs h-7 px-2 text-lego-blue"
-                  onClick={() => impersonateMutation.mutate(org.id)}
-                  disabled={impersonateMutation.isPending}
-                  data-testid={`button-impersonate-${org.id}`}
-                  title="View as this company"
-                >
-                  <Eye className="w-3.5 h-3.5 mr-1" />
-                  View
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={cn("text-xs h-7 px-2", org.isActive ? "text-yellow-400" : "text-lego-green")}
-                  onClick={() => suspendMutation.mutate({ orgId: org.id, suspend: org.isActive })}
-                  disabled={suspendMutation.isPending}
-                  data-testid={`button-suspend-${org.id}`}
-                  title={org.isActive ? 'Suspend org' : 'Activate org'}
-                >
-                  {org.isActive ? <Ban className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          {filtered.length === 0 && !isLoading && (
-            <div className="text-center py-10 text-muted-foreground text-sm">
-              No organizations match your search.
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </DashSection>
     </div>
   );
 }
@@ -335,43 +368,41 @@ function SupportTab({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
 
   return (
-    <div className="p-3 md:p-4 space-y-4 max-w-4xl mx-auto">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-2">
-        <StatCard label="Open" value={active.filter(t => t.status === 'active').length} Icon={Clock} color="lego-yellow" />
-        <StatCard label="Escalated" value={active.filter(t => t.status === 'escalated').length} Icon={AlertCircle} color="lego-orange" />
-        <StatCard label="Resolved" value={resolved.length} sub="all time" Icon={CheckCircle2} color="lego-green" />
-      </div>
+    <div className="p-3 space-y-3 max-w-4xl mx-auto">
+      <DashSection label="Support Metrics" Icon={Headphones} color="lego-orange">
+        <div className="grid grid-cols-3 gap-x-1 divide-x divide-white/5">
+          <MetricItem label="Open" value={active.filter(t => t.status === 'active').length} color="lego-yellow" />
+          <MetricItem label="Escalated" value={active.filter(t => t.status === 'escalated').length} color="lego-orange" />
+          <MetricItem label="Resolved" value={resolved.length} color="lego-green" sub="all time" />
+        </div>
+      </DashSection>
 
-      <QuickAction
-        label="Open Support Queue"
-        sub="Reply to tickets, view full conversation history"
-        Icon={MessageSquare}
-        color="lego-orange"
-        onClick={onOpenSettings}
-      />
+      <DashSection label="Support Tools" Icon={MessageSquare} color="lego-orange">
+        <div className="grid grid-cols-1 gap-2">
+          <ToolTile
+            label="Support Queue"
+            sub="Reply to tickets, view full conversation history"
+            Icon={MessageSquare}
+            color="lego-orange"
+            onClick={onOpenSettings}
+          />
+        </div>
+      </DashSection>
 
-      {/* Active tickets */}
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="w-5 h-5 animate-spin text-lego-orange" />
         </div>
       ) : active.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-10">
+        <div className="flex flex-col items-center gap-2 py-8">
           <CheckCircle2 className="w-8 h-8 text-lego-green" />
           <p className="text-sm text-muted-foreground">No open tickets — all clear</p>
         </div>
       ) : (
-        <div>
-          <SectionHeader label="Active Tickets" color="lego-orange" />
+        <DashSection label="Active Tickets" Icon={AlertCircle} color="lego-orange">
           <div className="space-y-1.5">
             {active.map((ticket) => (
-              <button
-                key={ticket.id}
-                onClick={onOpenSettings}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/5 bg-gray-900/50 hover-elevate active-elevate-2 text-left"
-                data-testid={`card-ticket-${ticket.id}`}
-              >
+              <ListRow key={ticket.id} onClick={onOpenSettings} testId={`card-ticket-${ticket.id}`}>
                 <div className="w-8 h-8 rounded-md bg-lego-orange/10 border border-lego-orange/25 flex items-center justify-center shrink-0">
                   <Headphones className="w-4 h-4 text-lego-orange" />
                 </div>
@@ -389,10 +420,10 @@ function SupportTab({ onOpenSettings }: { onOpenSettings: () => void }) {
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
+              </ListRow>
             ))}
           </div>
-        </div>
+        </DashSection>
       )}
     </div>
   );
@@ -430,38 +461,35 @@ function RevenueTab({ onOpenSettings }: { onOpenSettings: () => void }) {
     orgs?.filter(o => o.plan?.toLowerCase() === planName?.toLowerCase()).length ?? 0;
 
   return (
-    <div className="p-3 md:p-4 space-y-4 max-w-4xl mx-auto">
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatCard label="Est. MRR" value={`$${estimatedMRR.toFixed(0)}`} sub="base plan fees" Icon={DollarSign} color="lego-green" />
-        <StatCard label="Active" value={activeOrgs.length} sub="paying orgs" Icon={CheckCircle2} color="lego-blue" />
-        <StatCard label="Trials" value={trialOrgs.length} Icon={Clock} color="lego-yellow" />
-        <StatCard label="Plans" value={plans?.filter((p: any) => p.status === 'live').length ?? 0} sub="live" Icon={Layers} color="lego-purple" />
-      </div>
+    <div className="p-3 space-y-3 max-w-4xl mx-auto">
+      <DashSection label="Revenue Metrics" Icon={TrendingUp} color="lego-green">
+        <div className="grid grid-cols-2 gap-x-1 divide-x divide-white/5">
+          <MetricItem label="Est. MRR" value={`$${estimatedMRR.toFixed(0)}`} color="lego-green" sub="base plan fees" />
+          <MetricItem label="Active" value={activeOrgs.length} color="lego-blue" sub="paying orgs" />
+          <MetricItem label="Trials" value={trialOrgs.length} color="lego-yellow" />
+          <MetricItem label="Live Plans" value={plans?.filter((p: any) => p.status === 'live').length ?? 0} color="lego-purple" />
+        </div>
+      </DashSection>
 
-      <QuickAction
-        label="Plans & Pricing Editor"
-        sub="Create plans, set pricing, manage trial periods"
-        Icon={TrendingUp}
-        color="lego-green"
-        onClick={onOpenSettings}
-      />
+      <DashSection label="Tools" Icon={DollarSign} color="lego-green">
+        <ToolTile
+          label="Plans & Pricing Editor"
+          sub="Create plans, set pricing, manage trial periods"
+          Icon={TrendingUp}
+          color="lego-green"
+          onClick={onOpenSettings}
+        />
+      </DashSection>
 
-      {/* Plans list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="w-5 h-5 animate-spin text-lego-green" />
         </div>
       ) : (
-        <div>
-          <SectionHeader label="Plans" color="lego-green" />
+        <DashSection label="Plans" Icon={Layers} color="lego-green">
           <div className="space-y-1.5">
             {plans?.map((plan: any) => (
-              <div
-                key={plan.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/5 bg-gray-900/50"
-                data-testid={`card-plan-${plan.id}`}
-              >
+              <ListRow key={plan.id} testId={`card-plan-${plan.id}`}>
                 <div className="w-8 h-8 rounded-md bg-lego-green/10 border border-lego-green/25 flex items-center justify-center shrink-0">
                   <Layers className="w-4 h-4 text-lego-green" />
                 </div>
@@ -480,10 +508,10 @@ function RevenueTab({ onOpenSettings }: { onOpenSettings: () => void }) {
                 <Button size="sm" variant="ghost" className="text-xs h-7 px-2 text-lego-green" onClick={onOpenSettings}>
                   Edit
                 </Button>
-              </div>
+              </ListRow>
             ))}
           </div>
-        </div>
+        </DashSection>
       )}
     </div>
   );
@@ -528,38 +556,40 @@ function SystemsTab({ onOpenSettings }: { onOpenSettings: () => void }) {
   const syncSummary = syncStatuses?.summary ?? [];
 
   return (
-    <div className="p-3 md:p-4 space-y-4 max-w-4xl mx-auto">
-      <div className="grid grid-cols-2 gap-2">
-        <StatCard label="Platform" value={platformInfo?.platformName ?? 'E.L.F.I.E.'} sub="system online" Icon={Server} color="lego-yellow" />
-        <StatCard label="Orgs Synced" value={syncStatuses?.orgCount ?? '—'} sub="active sync" Icon={RefreshCw} color="lego-blue" />
-      </div>
+    <div className="p-3 space-y-3 max-w-4xl mx-auto">
+      <DashSection label="System Metrics" Icon={Cpu} color="lego-yellow">
+        <div className="grid grid-cols-2 gap-x-1 divide-x divide-white/5">
+          <MetricItem label="Platform" value={platformInfo?.platformName ?? 'E.L.F.I.E.'} color="lego-yellow" sub="online" />
+          <MetricItem label="Orgs Synced" value={syncStatuses?.orgCount ?? '—'} color="lego-blue" sub="active sync" />
+        </div>
+      </DashSection>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <QuickAction
-          label="Scheduler & Jobs"
-          sub="API quota, sync schedules, trigger jobs"
-          Icon={Activity}
-          color="lego-yellow"
-          onClick={onOpenSettings}
-        />
-        <QuickAction
-          label="Data Enrichment"
-          sub="Catalog images, embeddings, maintenance"
-          Icon={Package}
-          color="lego-blue"
-          onClick={onOpenSettings}
-        />
-      </div>
+      <DashSection label="System Tools" Icon={Activity} color="lego-yellow">
+        <div className="grid grid-cols-2 gap-2">
+          <ToolTile
+            label="Scheduler & Jobs"
+            sub="API quota, sync schedules, trigger jobs"
+            Icon={Activity}
+            color="lego-yellow"
+            onClick={onOpenSettings}
+          />
+          <ToolTile
+            label="Data Enrichment"
+            sub="Catalog images, embeddings, maintenance"
+            Icon={Package}
+            color="lego-blue"
+            onClick={onOpenSettings}
+          />
+        </div>
+      </DashSection>
 
-      {/* Org sync health */}
-      {syncSummary.length > 0 && (
-        <div>
-          <SectionHeader label="Org Sync Status" color="lego-yellow" />
+      {syncSummary.length > 0 ? (
+        <DashSection label="Org Sync Status" Icon={RefreshCw} color="lego-yellow">
           <div className="space-y-1.5">
             {syncSummary.slice(0, 8).map((item: any) => {
               const StatusIcon = jobStatusIcon(item.inventoryStatus ?? '');
               return (
-                <div key={item.orgId} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/5 bg-gray-900/50">
+                <ListRow key={item.orgId}>
                   <div className="w-7 h-7 rounded-md bg-lego-yellow/10 border border-lego-yellow/25 flex items-center justify-center shrink-0">
                     <Building2 className="w-3.5 h-3.5 text-lego-yellow" />
                   </div>
@@ -572,14 +602,12 @@ function SystemsTab({ onOpenSettings }: { onOpenSettings: () => void }) {
                   <StatusIcon className={cn("w-4 h-4 shrink-0", jobStatusColor(item.inventoryStatus ?? ''),
                     item.inventoryStatus === 'in_progress' && 'animate-spin'
                   )} />
-                </div>
+                </ListRow>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {!syncSummary.length && (
+        </DashSection>
+      ) : (
         <div className="flex flex-col items-center gap-2 py-8">
           <Server className="w-8 h-8 text-lego-yellow/50" />
           <p className="text-sm text-muted-foreground">Open Scheduler to view detailed system status</p>
@@ -619,66 +647,65 @@ function RoadmapTab({ onOpenSettings }: { onOpenSettings: () => void }) {
   ];
 
   return (
-    <div className="p-3 md:p-4 space-y-4 max-w-4xl mx-auto">
-      {/* Capability breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {statusDef.map(({ key, label, count, color, Icon }) => (
-          <StatCard key={key} label={label} value={count} sub={`${Math.round((count / total) * 100)}% of capabilities`} Icon={Icon} color={color} />
-        ))}
-      </div>
-
-      {/* Progress bar */}
-      <div className="rounded-lg border border-white/5 bg-gray-900/50 p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Capability Progress</span>
-          <span className="text-xs font-mono text-lego-green">{Math.round((built / total) * 100)}% built</span>
+    <div className="p-3 space-y-3 max-w-4xl mx-auto">
+      <DashSection label="Capabilities" Icon={Star} color="lego-purple">
+        <div className="grid grid-cols-2 gap-x-1 divide-x divide-white/5 mb-3">
+          {statusDef.map(({ key, label, count, color }) => (
+            <MetricItem key={key} label={label} value={count} color={color} sub={`${Math.round((count / total) * 100)}%`} />
+          ))}
         </div>
-        <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-800">
-          <div className="bg-lego-green transition-all duration-500" style={{ width: `${(built / total) * 100}%` }} />
-          <div className="bg-lego-orange transition-all duration-500" style={{ width: `${(now / total) * 100}%` }} />
-          <div className="bg-lego-blue transition-all duration-500" style={{ width: `${(next / total) * 100}%` }} />
-          <div className="bg-lego-purple transition-all duration-500" style={{ width: `${(later / total) * 100}%` }} />
+        {/* Progress bar */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Overall Progress</span>
+            <span className="text-xs font-mono text-lego-green">{Math.round((built / total) * 100)}% built</span>
+          </div>
+          <div className="flex h-2 rounded-full overflow-hidden bg-gray-800">
+            <div className="bg-lego-green transition-all duration-500" style={{ width: `${(built / total) * 100}%` }} />
+            <div className="bg-lego-orange transition-all duration-500" style={{ width: `${(now / total) * 100}%` }} />
+            <div className="bg-lego-blue transition-all duration-500" style={{ width: `${(next / total) * 100}%` }} />
+            <div className="bg-lego-purple transition-all duration-500" style={{ width: `${(later / total) * 100}%` }} />
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            {statusDef.map(({ label, color }) => {
+              const cc = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
+              return (
+                <div key={label} className="flex items-center gap-1">
+                  <div className={cn("w-2 h-2 rounded-full", cc.glow)} />
+                  <span className="text-[9px] text-muted-foreground">{label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          {statusDef.map(({ label, color }) => {
-            const cc = TAB_COLOR_MAP[color] ?? TAB_COLOR_MAP['lego-blue'];
-            return (
-              <div key={label} className="flex items-center gap-1">
-                <div className={cn("w-2 h-2 rounded-full", cc.glow)} />
-                <span className="text-[9px] text-muted-foreground">{label}</span>
-              </div>
-            );
-          })}
+      </DashSection>
+
+      <DashSection label="Product Tools" Icon={Map} color="lego-purple">
+        <div className="grid grid-cols-2 gap-2">
+          <ToolTile
+            label="Product Roadmap"
+            sub={`${now} in flight · ${next} up next`}
+            Icon={Map}
+            color="lego-purple"
+            onClick={onOpenSettings}
+          />
+          <ToolTile
+            label="Feature Backlog"
+            sub={`${backlog?.length ?? 0} items · ${okrs?.length ?? 0} OKRs`}
+            Icon={ListChecks}
+            color="lego-blue"
+            onClick={onOpenSettings}
+          />
         </div>
-      </div>
+      </DashSection>
 
-      {/* Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <QuickAction
-          label="Product Roadmap"
-          sub={`${now} features in flight · ${next} up next`}
-          Icon={Map}
-          color="lego-purple"
-          onClick={onOpenSettings}
-        />
-        <QuickAction
-          label="Feature Backlog"
-          sub={`${backlog?.length ?? 0} items · ${okrs?.length ?? 0} OKRs`}
-          Icon={ListChecks}
-          color="lego-blue"
-          onClick={onOpenSettings}
-        />
-      </div>
-
-      {/* Active OKRs */}
       {okrs && okrs.length > 0 && (
-        <div>
-          <SectionHeader label="Active OKRs" color="lego-purple" />
+        <DashSection label="Active OKRs" Icon={GitBranch} color="lego-purple">
           <div className="space-y-2">
             {okrs.slice(0, 3).map((okr: any) => {
               const progress = okr.progress ?? 0;
               return (
-                <div key={okr.id} className="rounded-lg border border-lego-purple/15 bg-gray-900/50 p-3">
+                <div key={okr.id} className="rounded-lg border border-white/5 bg-gray-900/30 p-3">
                   <p className="text-sm font-medium text-foreground mb-2">{okr.objective}</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -693,7 +720,7 @@ function RoadmapTab({ onOpenSettings }: { onOpenSettings: () => void }) {
               );
             })}
           </div>
-        </div>
+        </DashSection>
       )}
     </div>
   );
@@ -1020,7 +1047,10 @@ export default function PlatformPage() {
   const activeDial = TV_DIALS.find(d => d.id === activeTab) ?? TV_DIALS[0];
 
   return (
-    <div className="flex flex-col h-screen bg-[#04080F] text-foreground">
+    <div
+      className="flex flex-col bg-[#04080F] text-foreground"
+      style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
       {/* Header */}
       <div className="sticky top-0 z-50">
         <PlatformHeader
