@@ -47,9 +47,90 @@ const SHIPPING_PROVIDERS: Array<{ key: string; name: string; description: string
   { key: 'pirateship', name: 'PirateShip', description: 'Import PirateShip labels and tracking into E.L.F.I.E. automatically after purchase.', status: 'coming_soon' },
 ];
 
+const SELLER_PROFILES = [
+  {
+    id: 'speed', label: 'SPEED FIRST', icon: Zap, color: 'text-yellow-400',
+    glowClass: 'shadow-[0_0_16px_rgba(234,179,8,0.35)]', activeBorder: 'border-yellow-500/50', activeBg: 'bg-yellow-500/10',
+    desc: 'Same-day ship. Tight turnaround. Volume through accuracy.',
+    strategies: {
+      vision: 'Speed-first LEGO reseller. Orders out same-day or next-day. Accuracy and fast turnaround are the top priority.',
+      pricing: 'Competitive pricing to move inventory quickly. Prioritize sell-through over maximum margins.',
+      inventory: 'Flag low stock early. Keep popular lots replenished. Alert on dead stock over 90 days.',
+      orders: 'Speed is priority #1. Process and pack orders as fast as possible. Flag any delays immediately.',
+      customer: 'Fast responses. Proactive communication. Handle complaints quickly to protect feedback score.',
+      market: 'Watch fast-moving parts. Act quickly on demand signals.',
+    },
+  },
+  {
+    id: 'margins', label: 'MARGINS FIRST', icon: DollarSign, color: 'text-green-400',
+    glowClass: 'shadow-[0_0_16px_rgba(74,222,128,0.35)]', activeBorder: 'border-green-500/50', activeBg: 'bg-green-500/10',
+    desc: 'Premium pricing. Hold rare stock. Maximize profit per lot.',
+    strategies: {
+      vision: 'Margin-focused LEGO reseller. We hold for the right price — never race to the bottom.',
+      pricing: 'Price above market when justified. Hold rare parts. Maximize margin per lot over sell-through speed.',
+      inventory: 'Focus on high-value lots. Flag underpriced items. Surface dead stock for repricing, not discounting.',
+      orders: 'Accuracy over speed. Every order must be packed perfectly.',
+      customer: 'Premium experience. Emphasize quality and rare-finds reputation.',
+      market: 'Track rare and retired sets. Surface premium pricing opportunities.',
+    },
+  },
+  {
+    id: 'volume', label: 'VOLUME SELLER', icon: Package, color: 'text-blue-400',
+    glowClass: 'shadow-[0_0_16px_rgba(96,165,250,0.35)]', activeBorder: 'border-blue-500/50', activeBg: 'bg-blue-500/10',
+    desc: 'High throughput. Competitive prices. Sell everything fast.',
+    strategies: {
+      vision: 'High-volume LEGO parts reseller. We compete on price, selection, and reliability.',
+      pricing: 'Stay competitive. Adjust prices to match or beat market. Volume matters more than per-lot margin.',
+      inventory: 'Keep all lots active. Flag anything dead more than 60 days. Restock fast-moving items aggressively.',
+      orders: 'High-throughput fulfillment. Batch pick-pack. Process multiple orders efficiently.',
+      customer: 'Efficient, friendly service. Good feedback score drives volume.',
+      market: 'Watch BrickLink trends. Reprice to stay in the buy-box.',
+    },
+  },
+  {
+    id: 'collector', label: 'RARE & COLLECTOR', icon: Search, color: 'text-purple-400',
+    glowClass: 'shadow-[0_0_16px_rgba(192,132,252,0.35)]', activeBorder: 'border-purple-500/50', activeBg: 'bg-purple-500/10',
+    desc: 'Rare sets, minifigs, vintage. Premium niche market.',
+    strategies: {
+      vision: 'Collector-focused LEGO seller. We specialize in rare, vintage, and hard-to-find sets and minifigs.',
+      pricing: 'Price rare items at or above market. Never discount rare stock. Watch sold history carefully.',
+      inventory: 'Highlight rare and retired lots. Alert on condition issues. No bulk filler.',
+      orders: 'Pack rare items with extra care. Collector-friendly packaging is expected.',
+      customer: 'Treat every buyer as a collector. Build long-term relationships. Respond personally.',
+      market: 'Scan for rare lot opportunities. Alert on retirement announcements and forum buzz.',
+    },
+  },
+  {
+    id: 'reputation', label: 'FEEDBACK KING', icon: ThumbsUp, color: 'text-pink-400',
+    glowClass: 'shadow-[0_0_16px_rgba(244,114,182,0.35)]', activeBorder: 'border-pink-500/50', activeBg: 'bg-pink-500/10',
+    desc: 'Perfect score is everything. Customer first, always.',
+    strategies: {
+      vision: 'Reputation-first LEGO seller. 100% positive feedback is the goal — everything flows from that.',
+      pricing: 'Fair, consistent pricing. Avoid disputes. Never nickel-and-dime customers.',
+      inventory: 'Only list what you can fulfill. Accurate condition grading is essential.',
+      orders: 'Zero errors. Double-check every order. Include a personal thank-you note.',
+      customer: 'Every buyer gets VIP treatment. Follow up proactively. Resolve any issue before it becomes feedback.',
+      market: 'Prioritize items with clear demand to minimize cancellations.',
+    },
+  },
+  {
+    id: 'balanced', label: 'BALANCED', icon: Target, color: 'text-gray-400',
+    glowClass: 'shadow-[0_0_10px_rgba(156,163,175,0.2)]', activeBorder: 'border-gray-500/50', activeBg: 'bg-gray-700/30',
+    desc: 'No strong bias. Solid all-around LEGO operation.',
+    strategies: {
+      vision: 'Balanced LEGO reseller. We aim for good margins, fast fulfillment, and a strong feedback score.',
+      pricing: 'Market-rate pricing with occasional competitive adjustments. Balance margin and sell-through.',
+      inventory: 'Keep inventory healthy. Flag dead stock and low-stock items regularly.',
+      orders: 'Accurate and reasonably fast fulfillment.',
+      customer: 'Friendly, professional service. Resolve issues quickly.',
+      market: 'Stay aware of BrickLink trends. Act when there is a clear opportunity.',
+    },
+  },
+];
+
 const STEP_MESSAGES: Record<number, string> = {
   1: "Hi! I'm E.L.F.I.E. — your warehouse operations assistant. Let's start with your company info. This shows up on your packing slips and account profile.",
-  2: "This is optional, but the more you tell me about your vision, the smarter my suggestions become. Feel free to skip — you can fill this in anytime from the IE Strategies settings.",
+  2: "Pick the profile that best describes your operation — one click configures all my agents. You can always tune the details later from IE Strategies in settings.",
   3: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
   4: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
   5: "Which other channels do you sell on? I'll keep them in sync with your BrickLink inventory automatically. You can skip this for now and connect channels any time from Settings.",
@@ -149,6 +230,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   }>(null);
 
   // Step 2 — IE Strategies
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [stratNotes, setStratNotes] = useState("");
   const [ieStratVision, setIeStratVision] = useState("");
   const [ieStratSuccess, setIeStratSuccess] = useState("");
   const [ieStratPricing, setIeStratPricing] = useState("");
@@ -249,13 +332,17 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   };
 
   const handleStep2 = async (skip = false) => {
-    const hasIeStrat = !!(ieStratVision || ieStratSuccess || ieStratPricing || ieStratInventory || ieStratOrders || ieStratCustomer || ieStratMarket);
+    // Build final vision: profile vision + any override notes appended
+    const finalVision = selectedProfile
+      ? [ieStratVision, stratNotes.trim()].filter(Boolean).join('\n\nAdditional notes: ')
+      : (stratNotes.trim() || ieStratVision || null);
+    const hasIeStrat = !!(finalVision || ieStratPricing || ieStratInventory || ieStratOrders || ieStratCustomer || ieStratMarket);
     const hasContent = hasIeStrat || !!ieStratFeedback.trim();
     if (!skip && hasContent) {
       const saves: Promise<any>[] = [];
       if (hasIeStrat) {
         saves.push(saveIeStratMutation.mutateAsync({
-          visionMission: ieStratVision || null,
+          visionMission: finalVision || null,
           successFactors: ieStratSuccess || null,
           pricingStrategy: ieStratPricing || null,
           inventoryStrategy: ieStratInventory || null,
@@ -636,72 +723,87 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           {step === 2 && (
             <>
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Business strategy <span className="text-xs font-normal text-gray-500 ml-1">optional</span></h2>
-                <p className="text-sm text-gray-400">Help me understand your goals so I can frame signals and suggestions around what actually matters to you. Everything here is optional — skip anything you're not ready for.</p>
+                <h2 className="text-lg font-semibold text-white mb-1">
+                  Seller profile
+                  <span className="text-xs font-normal text-gray-600 ml-2 font-mono tracking-widest">// OPTIONAL</span>
+                </h2>
+                <p className="text-sm text-gray-400">Pick the profile that best fits your operation. I'll configure all my agents to match. You can fine-tune anytime from IE Strategies in settings.</p>
               </div>
 
-              <div className="space-y-4">
-                {/* Vision & Mission */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Crosshair className="w-3.5 h-3.5 text-blue-400" />
-                    <Label className="text-xs font-medium text-gray-300">Vision &amp; Mission <span className="text-gray-600 font-normal">— All agents</span></Label>
-                  </div>
-                  <Textarea
-                    value={ieStratVision}
-                    onChange={(e) => setIeStratVision(e.target.value)}
-                    placeholder="Who are you, and why does this store exist? E.g. 'Trusted seller of rare space sets — fast, accurate, no hassle.'"
-                    className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
-                    rows={3}
-                    data-testid="textarea-onboard-vision"
-                  />
-                </div>
-
-                {/* Defining Success */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <ThumbsUp className="w-3.5 h-3.5 text-green-400" />
-                    <Label className="text-xs font-medium text-gray-300">Defining Success <span className="text-gray-600 font-normal">— All agents</span></Label>
-                  </div>
-                  <p className="text-[10px] text-gray-600 leading-relaxed">Picture 12 months from now — what's different? Describe it in vivid, sensory terms: how you feel, what customers say, what the numbers look like.</p>
-                  <Textarea
-                    value={ieStratSuccess}
-                    onChange={(e) => setIeStratSuccess(e.target.value)}
-                    placeholder="E.g. 'Orders ship same day. Inbox is quiet. Customers leave 5-star reviews mentioning speed without prompting…'"
-                    className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
-                    rows={3}
-                    data-testid="textarea-onboard-success"
-                  />
-                </div>
-
-                {/* Per-agent strategy accordion */}
-                <div className="border-t border-gray-800 pt-3 space-y-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Agent-specific directives <span className="normal-case">(optional)</span></p>
-
-                  {[
-                    { icon: TrendingUp, color: "text-purple-400", label: "Pricing Agent", placeholder: "How aggressive or conservative should pricing be? Any rules on repricing?", value: ieStratPricing, setter: setIeStratPricing, testId: "textarea-onboard-strat-pricing" },
-                    { icon: Package, color: "text-yellow-400", label: "Inventory Agent", placeholder: "What matters most — dead stock alerts, low-stock warnings, lot hygiene?", value: ieStratInventory, setter: setIeStratInventory, testId: "textarea-onboard-strat-inventory" },
-                    { icon: ShoppingCart, color: "text-blue-400", label: "Orders Agent", placeholder: "Fulfilment priorities — speed, accuracy, bundling? Any order-level rules?", value: ieStratOrders, setter: setIeStratOrders, testId: "textarea-onboard-strat-orders" },
-                    { icon: Users, color: "text-pink-400", label: "Customer Agent", placeholder: "How to handle repeat buyers, problem orders, or VIP customers?", value: ieStratCustomer, setter: setIeStratCustomer, testId: "textarea-onboard-strat-customer" },
-                    { icon: Globe, color: "text-teal-400", label: "Market Agent", placeholder: "What market signals matter most — BrickLink trends, rare finds, forum buzz?", value: ieStratMarket, setter: setIeStratMarket, testId: "textarea-onboard-strat-market" },
-                    { icon: ThumbsUp, color: "text-teal-400", label: "Feedback Agent", placeholder: "How should E.L.F.I.E. write buyer feedback comments? E.g. 'Be warm but brief. Always mention the buyer by username. For repeat buyers, acknowledge their loyalty.'", value: ieStratFeedback, setter: setIeStratFeedback, testId: "textarea-onboard-strat-feedback" },
-                  ].map(({ icon: Icon, color, label, placeholder, value, setter, testId }) => (
-                    <div key={label} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <Icon className={`w-3.5 h-3.5 ${color}`} />
-                        <Label className="text-xs text-gray-400">{label}</Label>
+              {/* Profile grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {SELLER_PROFILES.map((profile) => {
+                  const isActive = selectedProfile === profile.id;
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProfile(profile.id);
+                        setIeStratVision(profile.strategies.vision);
+                        setIeStratPricing(profile.strategies.pricing);
+                        setIeStratInventory(profile.strategies.inventory);
+                        setIeStratOrders(profile.strategies.orders);
+                        setIeStratCustomer(profile.strategies.customer);
+                        setIeStratMarket(profile.strategies.market);
+                      }}
+                      data-testid={`button-profile-${profile.id}`}
+                      className={`relative overflow-hidden text-left p-3 rounded-lg border transition-all duration-200 ${
+                        isActive
+                          ? `${profile.activeBg} ${profile.activeBorder} ${profile.glowClass}`
+                          : "bg-gray-800/40 border-gray-700/60 hover:border-gray-600"
+                      }`}
+                    >
+                      {/* Scanline overlay on active */}
+                      {isActive && (
+                        <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, white 2px, white 3px)' }}
+                        />
+                      )}
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <profile.icon className={`w-3.5 h-3.5 ${profile.color} flex-shrink-0`} />
+                          <span className={`text-[10px] font-mono font-bold tracking-wider ${isActive ? "text-white" : "text-gray-300"}`}>
+                            {profile.label}
+                          </span>
+                        </div>
+                        {isActive && <Check className="w-3 h-3 text-white flex-shrink-0" />}
                       </div>
-                      <Textarea
-                        value={value}
-                        onChange={(e) => setter(e.target.value)}
-                        placeholder={placeholder}
-                        className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
-                        rows={2}
-                        data-testid={testId}
-                      />
-                    </div>
-                  ))}
+                      <p className={`text-[10px] leading-relaxed ${isActive ? "text-gray-300" : "text-gray-500"}`}>
+                        {profile.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Notes override */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Brain className="w-3 h-3 text-gray-500" />
+                  <Label className="text-[10px] uppercase tracking-widest font-mono text-gray-600">
+                    {selectedProfile ? "Add override notes" : "Custom notes"}
+                    <span className="normal-case font-sans text-gray-700 ml-1">(optional)</span>
+                  </Label>
                 </div>
+                <Textarea
+                  value={stratNotes}
+                  onChange={(e) => setStratNotes(e.target.value)}
+                  placeholder={selectedProfile
+                    ? "Profile loaded — add any exceptions or special rules here…"
+                    : "Describe your operation in your own words, or leave blank to skip."}
+                  className="bg-gray-800/60 border-gray-700 text-white text-xs resize-none placeholder:text-gray-600"
+                  rows={2}
+                  data-testid="textarea-onboard-vision"
+                />
+                {selectedProfile && (
+                  <p className="text-[10px] text-gray-600 font-mono">
+                    <span className={SELLER_PROFILES.find(p => p.id === selectedProfile)?.color}>
+                      {SELLER_PROFILES.find(p => p.id === selectedProfile)?.label}
+                    </span>
+                    {" "}profile active — all agents configured.
+                  </p>
+                )}
               </div>
 
               <div className="pt-2 flex justify-between items-center gap-3 flex-wrap">
