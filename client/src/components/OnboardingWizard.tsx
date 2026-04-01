@@ -223,7 +223,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   // Item Groups — {} means all types included (backward-compat). false = excluded.
   const [boSyncItemTypes, setBoSyncItemTypes] = useState<Record<string, boolean>>({});
   // Stockroom modes — 'active' = sync as live, 'hidden' = deactivate on BO
-  const [boSyncStockroomModes, setBoSyncStockroomModes] = useState<Record<string, 'active' | 'hidden'>>({ A: 'hidden', B: 'hidden', C: 'hidden' });
+  const [boSyncStockroomModes, setBoSyncStockroomModes] = useState<Record<string, 'active' | 'hidden' | 'skip'>>({ A: 'skip', B: 'skip', C: 'skip' });
+  const [boSyncPriceFloor, setBoSyncPriceFloor] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<null | {
     matchedLots: number; unmatchedLots: number; wouldUpdate: number; wouldCreate: number;
     byField: Record<string, number>;
@@ -423,6 +424,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         syncBulkQty: boSyncBulkQty, syncLotWeight: boSyncLotWeight,
         syncItemTypes: boSyncItemTypes,
         syncStockroomModes: boSyncStockroomModes,
+        syncPriceFloor: boSyncPriceFloor.trim() ? parseFloat(boSyncPriceFloor) : null,
       });
     }
     setStep(6);
@@ -1387,24 +1389,65 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                             <div className="px-3 pt-3 pb-1 border-t border-gray-700/40">
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
                               <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">
-                                <strong className="text-gray-500">ON</strong> — sync as a live BrickOwl listing.{' '}
-                                <strong className="text-gray-500">OFF</strong> — deactivate on BrickOwl (not for sale).
+                                Choose how each stockroom is handled on BrickOwl.
                               </p>
                             </div>
 
                             {(['A', 'B', 'C'] as const).map((id) => {
-                              const isActive = (boSyncStockroomModes[id] ?? 'hidden') === 'active';
+                              const mode = boSyncStockroomModes[id] ?? 'skip';
                               return (
-                                <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                <div key={id} className="px-3 py-2 space-y-1.5">
                                   <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
-                                  <Switch
-                                    checked={isActive}
-                                    onCheckedChange={(c) => setBoSyncStockroomModes(prev => ({ ...prev, [id]: c ? 'active' : 'hidden' }))}
-                                    data-testid={`switch-onboard-bo-stockroom-${id}`}
-                                  />
+                                  <div className="flex gap-1">
+                                    {([
+                                      { value: 'skip'   as const, label: 'Skip',   desc: 'Ignore entirely' },
+                                      { value: 'hidden' as const, label: 'Hidden', desc: 'Sync, not for sale' },
+                                      { value: 'active' as const, label: 'Active', desc: 'Sync as live listing' },
+                                    ]).map((opt) => (
+                                      <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setBoSyncStockroomModes(prev => ({ ...prev, [id]: opt.value }))}
+                                        title={opt.desc}
+                                        data-testid={`button-onboard-bo-stockroom-${id}-${opt.value}`}
+                                        className={`flex-1 rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+                                          mode === opt.value
+                                            ? 'bg-blue-500/20 border border-blue-500/50 text-blue-300'
+                                            : 'bg-gray-800 border border-gray-700 text-gray-500 hover:border-gray-600 hover:text-gray-400'
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <p className="text-[10px] text-gray-600 leading-tight">
+                                    {mode === 'skip'   && 'Lots in this stockroom are ignored — no changes made on BrickOwl.'}
+                                    {mode === 'hidden' && 'Lots are synced but marked not-for-sale on BrickOwl.'}
+                                    {mode === 'active' && 'Lots are synced as live, purchasable listings on BrickOwl.'}
+                                  </p>
                                 </div>
                               );
                             })}
+
+                            <div className="px-3 pt-3 pb-3 border-t border-gray-700/40 space-y-1.5">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Price Floor</p>
+                              <p className="text-[10px] text-gray-600 leading-tight">
+                                Lots priced below this amount are skipped and any existing BrickOwl listing is deactivated. Leave blank to sync everything.
+                              </p>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={boSyncPriceFloor}
+                                  onChange={(e) => setBoSyncPriceFloor(e.target.value)}
+                                  placeholder="0.00"
+                                  data-testid="input-onboard-bo-price-floor"
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-md pl-6 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500/60"
+                                />
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
