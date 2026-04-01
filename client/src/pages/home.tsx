@@ -147,7 +147,7 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | 'bulkinator' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bulkinator' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null>(null);
   const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
   const [planCollapsed, setPlanCollapsed] = useState(false);
@@ -568,10 +568,12 @@ export default function Home() {
         />
       );
     }
-    if (activeInventoryDrawer === 'channelsync') {
+    if (activeInventoryDrawer?.startsWith('channelsync-')) {
+      const channelKey = activeInventoryDrawer.slice('channelsync-'.length);
       return (
         <ChannelSyncPanel
           inlineMode
+          initialChannel={channelKey}
           onClose={closeActiveDrawer}
           onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }}
         />
@@ -1486,7 +1488,7 @@ export default function Home() {
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
         <Drawer open={!!(
-          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync') ||
+          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && !activeInventoryDrawer.startsWith('channelsync-')) ||
           (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && !activeOrdersDrawer.startsWith('ordersync-')) ||
           activeMarketingDrawer || activeSalesDrawer || billingOpen
         )} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>

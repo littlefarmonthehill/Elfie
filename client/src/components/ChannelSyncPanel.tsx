@@ -143,6 +143,7 @@ interface ChannelSyncPanelProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
   inlineMode?: boolean;
   onClose?: () => void;
+  initialChannel?: string;
 }
 
 /** Map channelKey → the target name used in platform-sync API paths. */
@@ -158,14 +159,18 @@ function channelTargetName(key: string) {
   return CHANNEL_DISPLAY[key]?.targetName ?? key;
 }
 
-export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }: ChannelSyncPanelProps) {
+export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, initialChannel }: ChannelSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
   const [showAuditReport, setShowAuditReport] = useState(false);
   const [showColorRepair, setShowColorRepair] = useState(false);
   const [changeDetail, setChangeDetail] = useState<'created' | 'updated' | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState('brickowl');
+  const [selectedChannel, setSelectedChannel] = useState(initialChannel ?? 'brickowl');
+
+  useEffect(() => {
+    if (initialChannel) selectChannel(initialChannel);
+  }, [initialChannel]);
 
   function selectChannel(key: string) {
     setSelectedChannel(key);

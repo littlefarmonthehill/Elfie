@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -26,8 +26,8 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | 'bulkinator' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | 'bulkinator' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bulkinator' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bulkinator' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
   onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
@@ -35,10 +35,43 @@ interface InventoryDashboardProps {
 
 type BrowseType = 'lots' | 'parts' | 'categories';
 
+type InvSyncChannel = 'brickowl';
+
+const CHANNEL_SYNC_KEYS: InvSyncChannel[] = ['brickowl'];
+
+const CHANNEL_SYNC_CONFIG: Record<InvSyncChannel, {
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+  sidebar: {
+    activeButton: string;
+    idleButton: string;
+    activeIcon: string;
+    idleIcon: string;
+    iconColor: string;
+    labelColor: string;
+    activeArrow: string;
+  };
+}> = {
+  brickowl: {
+    label: 'BrickOwl',
+    Icon: Globe,
+    sidebar: {
+      activeButton: 'border-green-400/70 bg-green-900/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]',
+      idleButton: 'border-green-500/30 bg-green-950/30',
+      activeIcon: 'bg-green-800/70 ring-green-400/60',
+      idleIcon: 'bg-green-900/60 ring-green-500/40',
+      iconColor: 'text-green-300',
+      labelColor: 'text-green-100',
+      activeArrow: 'text-green-400',
+    },
+  },
+};
+
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen }: InventoryDashboardProps) {
 
   const { toast } = useToast();
 
+  const [mobileInvChannel, setMobileInvChannel] = useState<string>('bricklink');
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
   const [browsePage, setBrowsePage] = useState(0);
@@ -356,40 +389,85 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
           {desktopMode ? (
             <div className="flex flex-col gap-1.5">
-              <button
-                onClick={() => onDrawerChange(activeDrawer === 'bricklinksync' ? null : 'bricklinksync')}
-                data-testid="button-bricklink-sync"
-                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                  activeDrawer === 'bricklinksync'
-                    ? "border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
-                    : "border-blue-500/30 bg-blue-950/30"
-                )}
-              >
-                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'bricklinksync' ? "bg-blue-800/70 ring-blue-400/60" : "bg-blue-900/60 ring-blue-500/40")}><Link className="w-3 h-3 text-blue-300" /></div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-blue-100">BrickLink</div><div className="text-[9px] text-gray-500">Inventory sync</div></div>
-                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'bricklinksync' ? "text-blue-400" : "text-gray-600")} />
-              </button>
-              <button
-                onClick={() => onDrawerChange(activeDrawer === 'channelsync' ? null : 'channelsync')}
-                data-testid="button-channel-sync"
-                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                  activeDrawer === 'channelsync'
-                    ? "border-green-400/70 bg-green-900/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
-                    : "border-green-500/30 bg-green-950/30"
-                )}
-              >
-                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'channelsync' ? "bg-green-800/70 ring-green-400/60" : "bg-green-900/60 ring-green-500/40")}><Globe className="w-3 h-3 text-green-300" /></div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-green-100">Channels</div><div className="text-[9px] text-gray-500">All channels</div></div>
-                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'channelsync' ? "text-green-400" : "text-gray-600")} />
-              </button>
+              {/* BrickLink — always first, fixed */}
+              {(() => {
+                const active = activeDrawer === 'bricklinksync';
+                return (
+                  <button
+                    onClick={() => onDrawerChange(active ? null : 'bricklinksync')}
+                    data-testid="button-bricklink-sync"
+                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                      active ? "border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]" : "border-blue-500/30 bg-blue-950/30"
+                    )}
+                  >
+                    <div className={cn("p-1 rounded ring-1 transition-all", active ? "bg-blue-800/70 ring-blue-400/60" : "bg-blue-900/60 ring-blue-500/40")}>
+                      <Link className="w-3 h-3 text-blue-300" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-blue-100">BrickLink</div>
+                      <div className="text-[9px] text-gray-500">Inventory sync</div>
+                    </div>
+                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? "text-blue-400" : "text-gray-600")} />
+                  </button>
+                );
+              })()}
+              {/* Per-channel buttons — driven by CHANNEL_SYNC_KEYS */}
+              {CHANNEL_SYNC_KEYS.map(key => {
+                const cfg = CHANNEL_SYNC_CONFIG[key];
+                const sb = cfg.sidebar;
+                const drawerKey = `channelsync-${key}` as const;
+                const active = activeDrawer === drawerKey;
+                const ChannelIcon = cfg.Icon;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onDrawerChange(active ? null : drawerKey)}
+                    data-testid={`button-inv-${key}-sync`}
+                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                      active ? sb.activeButton : sb.idleButton
+                    )}
+                  >
+                    <div className={cn("p-1 rounded ring-1 transition-all", active ? sb.activeIcon : sb.idleIcon)}>
+                      <ChannelIcon className={`w-3 h-3 ${sb.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-semibold ${sb.labelColor}`}>{cfg.label}</div>
+                      <div className="text-[9px] text-gray-500">Inventory sync</div>
+                    </div>
+                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? sb.activeArrow : "text-gray-600")} />
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            <>
-              <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-              <div className="mt-2">
-                <ChannelSyncPanel onOpenSettings={onOpenSettings} />
-              </div>
-            </>
+            <div className="space-y-2">
+              {/* Channel pill selector — same pattern as OrdersDashboard mobile */}
+              {CHANNEL_SYNC_KEYS.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(['bricklink', ...CHANNEL_SYNC_KEYS]).map(key => {
+                    const label = key === 'bricklink' ? 'BrickLink' : (CHANNEL_SYNC_CONFIG[key as InvSyncChannel]?.label ?? key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setMobileInvChannel(key)}
+                        data-testid={`button-mobile-inv-pill-${key}`}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-medium transition-colors ${
+                          mobileInvChannel === key
+                            ? 'border-green-500/60 bg-green-950/50 text-green-300'
+                            : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {mobileInvChannel === 'bricklink'
+                ? <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
+                : <ChannelSyncPanel onOpenSettings={onOpenSettings} initialChannel={mobileInvChannel} />
+              }
+            </div>
           )}
         </div>
 
