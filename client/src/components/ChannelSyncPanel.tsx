@@ -1327,6 +1327,7 @@ function OverviewContent({
 
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
+      {/* Primary action row — mirrors BrickLink and OrderSync structure */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button
           size="sm"
@@ -1341,16 +1342,6 @@ function OverviewContent({
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           )}
           {isRunning ? 'Syncing…' : 'Sync Now'}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={isRunning}
-          onClick={() => setFullScan((v: boolean) => !v)}
-          data-testid="button-channel-sync-fullscan-toggle"
-          className={fullScan ? 'text-amber-400' : 'text-muted-foreground'}
-        >
-          {fullScan ? 'Full scan' : 'Incremental'}
         </Button>
         <Button
           size="sm"
@@ -1389,6 +1380,23 @@ function OverviewContent({
             Audit Report
           </Button>
         )}
+      </div>
+
+      {/* Scan mode toggle — below action row, grouped with mode context */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-gray-500">Next sync:</span>
+        <button
+          disabled={isRunning}
+          onClick={() => setFullScan((v: boolean) => !v)}
+          data-testid="button-channel-sync-fullscan-toggle"
+          className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium transition-colors ${
+            fullScan
+              ? 'border-amber-500/50 bg-amber-950/40 text-amber-300'
+              : 'border-gray-600/50 bg-gray-900/40 text-gray-400'
+          }`}
+        >
+          {fullScan ? 'Full scan' : 'Incremental'}
+        </button>
       </div>
 
       {/* Channel selector — only shown when multiple channels configured */}
