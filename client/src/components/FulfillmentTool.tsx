@@ -561,6 +561,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const { data: feedbackPending = [], refetch: refetchFeedback } = useQuery<FeedbackOrder[]>({
     queryKey: ['/api/orders/feedback-pending'],
     staleTime: 0,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: true,
   });
   type FeedbackRating = 'positive' | 'neutral' | 'negative';
   type FeedbackDraftEntry = { rating: FeedbackRating; comment: string };
@@ -998,6 +1000,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
 
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment"] });
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/orders/feedback-pending"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/shipped"] });
     queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });

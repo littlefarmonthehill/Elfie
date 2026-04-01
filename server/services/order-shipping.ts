@@ -326,11 +326,18 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   try {
     shipToData = typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : (order.shipTo || {});
   } catch {}
+  // Resolve raw address lines (BrickLink uses street1/street2, BrickOwl uses address1/address2)
+  const rawAddr1 = shipToData.street1 || shipToData.address1 || '';
+  const rawAddr2 = shipToData.street2 || shipToData.address2 || undefined;
+  // When address1 is a secondary line (attention, c/o, etc.) — it doesn't start with a digit
+  // but address2 is the actual delivery address — it does start with a digit.
+  // Move it to `company` so EasyPost's address normalization doesn't swap the lines on the label.
+  const isSecondaryFirst = !shipToData.company && rawAddr2 && /^\d/.test(rawAddr2) && !/^\d/.test(rawAddr1);
   const baseShipTo: Address = {
     name:    shipToData.name    || '',
-    company: shipToData.company || undefined,
-    street1: shipToData.street1 || shipToData.address1 || '',
-    street2: shipToData.street2 || shipToData.address2 || undefined,
+    company: shipToData.company || (isSecondaryFirst ? rawAddr1 : undefined),
+    street1: isSecondaryFirst ? rawAddr2 : rawAddr1,
+    street2: isSecondaryFirst ? undefined : rawAddr2,
     city:    shipToData.city    || '',
     state:   shipToData.state   || '',
     zip:     shipToData.postalCode || shipToData.zip || '',
