@@ -330,11 +330,12 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   const rawAddr1 = shipToData.street1 || shipToData.address1 || '';
   const rawAddr2 = shipToData.street2 || shipToData.address2 || undefined;
   // Detect when address1 is a secondary/attention line that comes before the actual street.
-  // Heuristic: address1 looks like an attention line (explicit keyword OR doesn't start with a
-  // digit) while address2 does start with a digit (a real street number).
   // EasyPost's address normalization would otherwise swap the lines on the printed label.
+  // Only match explicit attention/care-of keywords — do NOT use "doesn't start with digit"
+  // as a fallback because directional streets like "N 5th Ave" or "SW Pine St" are valid
+  // delivery addresses that don't start with a digit.
   const isAttentionLine = (s: string) =>
-    /^(attention|attn\.?|att\.?|c\/o)\b/i.test(s.trim()) || (!/^\d/.test(s.trim()) && s.trim().length > 0);
+    /^(attention|attn\.?|att\.?|c\/o)\b/i.test(s.trim());
   const isSecondaryFirst = !!rawAddr2 && /^\d/.test(rawAddr2.trim()) && isAttentionLine(rawAddr1);
   // Build the company / street fields so the label line order is preserved:
   //   • No existing company → move attention line to `company` (EasyPost never normalises it)
