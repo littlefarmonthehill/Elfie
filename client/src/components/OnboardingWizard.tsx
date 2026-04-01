@@ -344,7 +344,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           const value = Number(data?.totalInventoryValue ?? 0);
           setSyncLotCount(lots);
           setSyncLotValue(value);
-          if (lots > 0 && lots === prevLotCountRef.current) {
+          if (lots === prevLotCountRef.current) {
             stableCountRef.current += 1;
             if (stableCountRef.current >= 2) setSyncStable(true);
           } else {
@@ -474,7 +474,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
               {syncStable ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
               ) : (
-                <Package className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
+                <Package className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-spin" />
               )}
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                 <span className={`text-[11px] font-medium ${syncStable ? 'text-green-400' : 'text-blue-400'}`}>
