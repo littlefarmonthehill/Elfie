@@ -119,6 +119,40 @@ async function getOrgSettings(orgId: string) {
   return created;
 }
 
+/** Fetch the org's IANA timezone string (default: 'America/Chicago'). */
+async function getOrgTimezone(orgId: string): Promise<string> {
+  const [row] = await db.select({ tz: appSettings.orgTimezone })
+    .from(appSettings)
+    .where(eq(appSettings.id, orgId))
+    .limit(1);
+  return row?.tz ?? 'America/Chicago';
+}
+
+/**
+ * Returns timezone-aware SQL raw fragments for a date range, anchored to the org's local timezone.
+ * Period-aligned ranges (mtd, lastmonth, prevyear) use PostgreSQL AT TIME ZONE so boundaries are
+ * computed against the org's local clock, not UTC.
+ * Rolling ranges (3months, 1year) use simple NOW() - INTERVAL which is timezone-independent.
+ */
+function tzDateBounds(range: string, tz: string): { start: ReturnType<typeof sql.raw> | null; end: ReturnType<typeof sql.raw> | null } {
+  const safeTz = /^[A-Za-z0-9/_+\-]+$/.test(tz) ? tz : 'America/Chicago';
+  const tzMon = (n: number) => n === 0
+    ? `(DATE_TRUNC('month', NOW() AT TIME ZONE '${safeTz}') AT TIME ZONE '${safeTz}')`
+    : `(DATE_TRUNC('month', (NOW() AT TIME ZONE '${safeTz}') + INTERVAL '${n} months') AT TIME ZONE '${safeTz}')`;
+  const tzYear = (n: number) => n === 0
+    ? `(DATE_TRUNC('year', NOW() AT TIME ZONE '${safeTz}') AT TIME ZONE '${safeTz}')`
+    : `(DATE_TRUNC('year', (NOW() AT TIME ZONE '${safeTz}') + INTERVAL '${n} years') AT TIME ZONE '${safeTz}')`;
+  switch (range) {
+    case 'mtd':       return { start: sql.raw(tzMon(0)),  end: null };
+    case 'lastmonth': return { start: sql.raw(tzMon(-1)), end: sql.raw(tzMon(0)) };
+    case '3months':   return { start: sql.raw(`(NOW() - INTERVAL '3 months')`), end: null };
+    case '1year':
+    case '1y':        return { start: sql.raw(`(NOW() - INTERVAL '1 year')`),   end: null };
+    case 'prevyear':  return { start: sql.raw(tzYear(-1)), end: sql.raw(tzYear(0)) };
+    default:          return { start: null, end: null };
+  }
+}
+
 /**
  * Fetch platform-level settings (single row, id='platform').
  * Creates the row on first access if it doesn't exist.
@@ -4224,33 +4258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const range = req.query.range as string;
       const productLine = req.query.productLine as string;
       const platform = req.query.platform as string;
-      let dateFilter: Date | null = null;
-      let endDateFilter: Date | null = null;
-      
-      if (range && range !== 'all') {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            // Month-to-Date: start of current month
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            // Last Month: entire previous calendar month
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '1year':
-            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            endDateFilter = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
 
       // If filtering by product line, we need to find orders that contain items from that product line
       if (productLine) {
@@ -4296,10 +4305,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           whereConditions = sql`${whereConditions} AND (o.marketplace = ${platform} OR (o.marketplace IS NULL AND ${platform} = 'Unknown'))`;
         }
         
-        if (dateFilter && !endDateFilter) {
-          whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
-        } else if (dateFilter && endDateFilter) {
-          whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+        if (start && !end) {
+          whereConditions = sql`${whereConditions} AND o.order_date >= ${start}`;
+        } else if (start && end) {
+          whereConditions = sql`${whereConditions} AND o.order_date >= ${start} AND o.order_date < ${end}`;
         }
 
         const query = sql`
@@ -4353,13 +4362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const isTestExclude = sql`${orders.isTest} = false`;
       const orgFilter = eq(orders.orgId, orgId);
-      const allOrders = dateFilter
-        ? endDateFilter
+      const allOrders = start
+        ? end
           ? await db.select(selectFields).from(orders)
-              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
+              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`))
               .orderBy(desc(orders.orderDate))
           : await db.select(selectFields).from(orders)
-              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
+              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${start}`))
               .orderBy(desc(orders.orderDate))
         : await db.select(selectFields).from(orders)
             .where(and(orgFilter, isTestExclude))
@@ -4380,33 +4389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const range = req.query.range as string;
       // lean=true skips fetching line items — used by Marketing dashboard for performance
       const lean = req.query.lean === 'true';
-      let dateFilter: Date | null = null;
-      let endDateFilter: Date | null = null;
-      
-      if (range && range !== 'all') {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            // Month-to-Date: start of current month
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            // Last Month: entire previous calendar month
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '1year':
-            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            endDateFilter = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range, tz);
 
       // Build where clause — always exclude test orders from analytics and scope to org
       const isTestFilter = sql`${orders.isTest} = false`;
@@ -4414,13 +4398,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const buildWhere = (dateClause: any) =>
         dateClause ? and(orgOrderFilter, isTestFilter, dateClause) : and(orgOrderFilter, isTestFilter);
 
-      const allOrders = dateFilter
-        ? endDateFilter
+      const allOrders = start
+        ? end
           ? await db.select().from(orders)
-              .where(buildWhere(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
+              .where(buildWhere(sql`${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`))
               .orderBy(desc(orders.orderDate))
           : await db.select().from(orders)
-              .where(buildWhere(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
+              .where(buildWhere(sql`${orders.orderDate} >= ${start}`))
               .orderBy(desc(orders.orderDate))
         : await db.select().from(orders)
             .where(buildWhere(null))
@@ -4469,56 +4453,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/stats", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const now = new Date();
       const range = req.query.range as string | undefined;
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
 
-      // Build date range window applied to totalOrders, shippedOrders, and rangeRevenue
-      let dateStart: Date | null = null;
-      let dateEnd: Date | null = null;
-      if (range && range !== 'all') {
-        switch (range) {
-          case 'mtd':
-            dateStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            dateStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            dateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '1year':
-            dateStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            break;
-          case 'prevyear':
-            dateStart = new Date(now.getFullYear() - 1, 0, 1);
-            dateEnd = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
-
-      const dateRangeClause = dateStart
-        ? dateEnd
-          ? sql`${orders.orderDate} >= ${dateStart.toISOString()} AND ${orders.orderDate} < ${dateEnd.toISOString()}`
-          : sql`${orders.orderDate} >= ${dateStart.toISOString()}`
+      const dateRangeClause = start
+        ? end
+          ? sql`${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`
+          : sql`${orders.orderDate} >= ${start}`
         : sql`1=1`;
 
-      const totalWhere = dateStart
+      const totalWhere = start
         ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
 
-      const shippedWhere = dateStart
+      const shippedWhere = start
         ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), dateRangeClause)
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'));
 
-      const revenueWhere = dateStart
+      const revenueWhere = start
         ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled', 'returned')`, dateRangeClause)
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled', 'returned')`);
 
-      const avgLotsClause = dateStart
-        ? dateEnd
-          ? sql`AND o.order_date >= ${dateStart.toISOString()} AND o.order_date < ${dateEnd.toISOString()}`
-          : sql`AND o.order_date >= ${dateStart.toISOString()}`
+      const avgLotsClause = start
+        ? end
+          ? sql`AND o.order_date >= ${start} AND o.order_date < ${end}`
+          : sql`AND o.order_date >= ${start}`
         : sql``;
 
       const [totalResult, pendingResult, shippedResult, pendingRevenueResult, rangeRevenueResult, avgLotsResult] = await Promise.all([
@@ -4578,37 +4538,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const range = req.query.range as string;
 
-      let dateFilter: string | null = null;
-      let endDateFilter: string | null = null;
-
-      if (range && range !== 'all') {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            break;
-          case 'lastmonth':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            break;
-          case '3months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
-            break;
-          case '1year':
-            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString();
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1).toISOString();
-            endDateFilter = new Date(now.getFullYear(), 0, 1).toISOString();
-            break;
-        }
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
 
       // Single-pass query: DISTINCT ON gets most-recent order row per customer,
       // window functions compute aggregates across all matching orders for that customer.
       // Date conditions are built conditionally to avoid null-parameter ambiguity in Drizzle sql tags.
-      const startCond = dateFilter    ? sql`AND order_date >= ${dateFilter}::timestamp`    : sql``;
-      const endCond   = endDateFilter ? sql`AND order_date <  ${endDateFilter}::timestamp` : sql``;
+      const startCond = start ? sql`AND order_date >= ${start}` : sql``;
+      const endCond   = end   ? sql`AND order_date <  ${end}`   : sql``;
 
       const result = await db.execute(sql`
         SELECT DISTINCT ON (customer_username)
@@ -4723,31 +4660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchQuery = req.query.search as string;
       const range = req.query.range as string | undefined;
 
-      // Build date filter from range
-      let dateFilter: Date | null = null;
-      let dateEnd: Date | null = null;
-      if (range && range !== 'all') {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            dateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '1year':
-            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            dateEnd = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
       
       // Execute query for shipped orders — limit to 200 most recent to prevent browser crash.
       // Use DISTINCT ON to avoid duplicates when an order has multiple shipment records.
@@ -4762,10 +4676,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )`
         : sql``;
 
-      const dateWhere = dateFilter && dateEnd
-        ? sql`AND o.order_date >= ${dateFilter.toISOString()} AND o.order_date < ${dateEnd.toISOString()}`
-        : dateFilter
-          ? sql`AND o.order_date >= ${dateFilter.toISOString()}`
+      const dateWhere = start && end
+        ? sql`AND o.order_date >= ${start} AND o.order_date < ${end}`
+        : start
+          ? sql`AND o.order_date >= ${start}`
           : sql``;
 
       const rawRows = await db.execute(sql`
@@ -4981,38 +4895,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const categoryId = parseInt(req.params.categoryId);
       const range = req.query.range as string;
-      let dateFilter: Date | null = null;
-      let endDateFilter: Date | null = null;
-      
-      if (range && range !== 'all') {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            break;
-          case '1year':
-            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            endDateFilter = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
+      const orgIdCat = reqOrgId(req as any);
+      const tz = await getOrgTimezone(orgIdCat);
+      const { start, end } = tzDateBounds(range ?? '', tz);
       
       // Build WHERE conditions
       let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled', 'returned') AND o.is_test = false`;
-      if (dateFilter && !endDateFilter) {
-        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
-      } else if (dateFilter && endDateFilter) {
-        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+      if (start && !end) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${start}`;
+      } else if (start && end) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${start} AND o.order_date < ${end}`;
       }
       
       // Get items sold in this category with quantities (grouped by part number only)
@@ -5769,24 +5661,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
-      const now = new Date();
-      let sinceDate: Date;
-      let endDate: Date | null = null;
-      switch (dateRange) {
-        case 'lastmonth':
-          sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-          break;
-        case '3months':  sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
-        case '1year':
-        case '1y':       sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
-        case 'prevyear':
-          sinceDate = new Date(now.getFullYear() - 1, 0, 1);
-          endDate   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-          break;
-        case 'all':      sinceDate = new Date(2000, 0, 1); break;
-        default:         sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(dateRange === 'all' ? '' : dateRange, tz);
       const result = await db.execute(sql`
         SELECT oa.order_id, SUM(ABS(oa.amount::numeric)) AS total_refunds
         FROM order_adjustments oa
@@ -5794,8 +5670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE oa.type = 'refund'
           AND oa.org_id = ${orgId}
           AND o.is_test = false
-          AND o.order_date >= ${sinceDate}
-          ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
+          ${start ? sql`AND o.order_date >= ${start}` : sql``}
+          ${end   ? sql`AND o.order_date <  ${end}`   : sql``}
         GROUP BY oa.order_id
       `);
       const refundsByOrder: Record<string, number> = {};
@@ -5814,24 +5690,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
 
-      let sinceDate: Date;
-      let endDate: Date | null = null;
-      const now = new Date();
-      switch (dateRange) {
-        case 'lastmonth':
-          sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-          break;
-        case '3months':  sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
-        case '1year':
-        case '1y':       sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
-        case 'prevyear':
-          sinceDate = new Date(now.getFullYear() - 1, 0, 1);
-          endDate   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-          break;
-        case 'all':      sinceDate = new Date(2000, 0, 1); break;
-        default:         sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(dateRange === 'all' ? '' : dateRange, tz);
 
       const result = await db.execute(sql`
         SELECT
@@ -5846,8 +5706,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         JOIN orders o ON o.id = oa.order_id
         WHERE oa.org_id = ${orgId}
           AND o.is_test = false
-          AND o.order_date >= ${sinceDate}
-          ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
+          ${start ? sql`AND o.order_date >= ${start}` : sql``}
+          ${end   ? sql`AND o.order_date <  ${end}`   : sql``}
       `);
 
       const row = result.rows[0] as any;
@@ -5923,40 +5783,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       // Parse date range parameter
       const range = req.query.range as string;
-      let dateFilter: Date | null = null;
-      let endDateFilter: Date | null = null;
-      
-      if (range) {
-        const now = new Date();
-        switch (range) {
-          case 'mtd':
-            // Month-to-Date: start of current month
-            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case 'lastmonth':
-            // Last Month: entire previous calendar month
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
-            break;
-          case '3months':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
-            break;
-          case '1year':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-          case 'prevyear':
-            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            endDateFilter = new Date(now.getFullYear(), 0, 1);
-            break;
-        }
-      }
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
 
       // Build orders WHERE clause once (reused for both count and sum)
       const orgOrdersWhere = eq(orders.orgId, orgId);
-      const ordersWhere = dateFilter
-        ? endDateFilter
-          ? and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
-          : and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+      const ordersWhere = start
+        ? end
+          ? and(orgOrdersWhere, sql`${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`)
+          : and(orgOrdersWhere, sql`${orders.orderDate} >= ${start}`)
         : orgOrdersWhere;
 
       // Two parallel queries instead of five sequential ones
