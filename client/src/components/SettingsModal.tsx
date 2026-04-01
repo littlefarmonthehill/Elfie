@@ -3401,12 +3401,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const superAdminDeleteOrgMutation = useMutation({
     mutationFn: async (orgId: string) =>
       apiRequest('DELETE', `/api/platform-admin/orgs/${orgId}`),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
       setSuperAdminDeleteOrgDialogOpen(false);
       setSuperAdminDeleteConfirmName('');
       setActiveOrg(null);
       toast({ title: 'Organization permanently deleted' });
+      // If the admin was impersonating this org, reload to return to their own context.
+      if (data?.wasImpersonating) {
+        window.location.reload();
+      }
     },
     onError: (err: any) => toast({ title: 'Failed to delete organization', description: err.message, variant: 'destructive' }),
   });
@@ -4026,8 +4030,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const deleteOrgMutation = useMutation({
     mutationFn: () => apiRequest('DELETE', '/api/org'),
-    onSuccess: () => {
-      window.location.href = '/';
+    onSuccess: (data: any) => {
+      if (data?.wasImpersonating) {
+        // Super-admin deleted the org they were impersonating — reload to return to own context.
+        window.location.reload();
+      } else {
+        // Regular org owner deleted their own company — go to home (session is gone).
+        window.location.href = '/';
+      }
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message || 'Failed to delete company', variant: 'destructive' });

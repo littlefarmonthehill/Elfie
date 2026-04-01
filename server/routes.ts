@@ -887,11 +887,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteOrganization(id);
       // If the deleted org is the currently impersonated one, clear the session so
       // the admin is not left scoped to a non-existent org.
-      if (req.session?.impersonatingOrgId === id) {
+      const wasImpersonating = req.session?.impersonatingOrgId === id;
+      if (wasImpersonating) {
         delete req.session.impersonatingOrgId;
         delete req.session.impersonatingOrgName;
       }
-      res.json({ success: true });
+      res.json({ success: true, wasImpersonating });
     } catch (error) {
       console.error("Error deleting organization:", error);
       res.status(500).json({ message: "Failed to delete organization" });
@@ -3725,10 +3726,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(404).json({ message: "No organization" });
       await storage.deleteOrganization(orgId);
-      // Destroy the session so the user is logged out
+      // If a super-admin was impersonating this org, just clear the impersonation — don't
+      // log them out so they're returned to their own (PlanetBrick) admin context.
+      if (req.session?.impersonatingOrgId === orgId) {
+        delete req.session.impersonatingOrgId;
+        delete req.session.impersonatingOrgName;
+        return res.json({ success: true, wasImpersonating: true });
+      }
+      // Normal case: org owner deletes their own org — destroy session so they're logged out.
       req.logout?.(() => {});
       req.session?.destroy?.(() => {});
-      res.json({ success: true });
+      res.json({ success: true, wasImpersonating: false });
     } catch (error) {
       console.error("Error deleting organization:", error);
       res.status(500).json({ message: "Failed to delete organization" });
