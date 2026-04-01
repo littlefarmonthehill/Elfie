@@ -253,13 +253,17 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   };
 
   const handleStep3 = async (skip = false) => {
-    if (!skip && (blKey || blSecret || blToken || blTokenSecret)) {
+    const hasKeys = !skip && (blKey || blSecret || blToken || blTokenSecret);
+    if (hasKeys) {
       await saveSettingsMutation.mutateAsync({
         bricklinkConsumerKey: blKey || null,
         bricklinkConsumerSecret: blSecret || null,
         bricklinkTokenValue: blToken || null,
         bricklinkTokenSecret: blTokenSecret || null,
       });
+      // Fire-and-forget background inventory sync — don't await, don't block
+      setBlSyncStarted(true);
+      apiRequest('POST', '/api/sync/bricklink/inventory').catch(() => {});
     }
     setStep(4);
   };
@@ -319,6 +323,48 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   };
 
   const handleStep6Skip = () => setStep(7);
+
+  // Sync strip — background inventory sync progress for Steps 4-6
+  const [blSyncStarted, setBlSyncStarted] = useState(false);
+  const [syncLotCount, setSyncLotCount] = useState(0);
+  const [syncLotValue, setSyncLotValue] = useState(0);
+  const [syncStable, setSyncStable] = useState(false);
+  const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevLotCountRef = useRef<number>(0);
+  const stableCountRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (blSyncStarted && step >= 4 && step <= 6) {
+      if (syncPollRef.current) return;
+      const poll = async () => {
+        try {
+          const res = await apiRequest('GET', '/api/dashboard/stats');
+          const data = await res.json();
+          const lots = Number(data?.totalInventoryItems ?? 0);
+          const value = Number(data?.totalInventoryValue ?? 0);
+          setSyncLotCount(lots);
+          setSyncLotValue(value);
+          if (lots > 0 && lots === prevLotCountRef.current) {
+            stableCountRef.current += 1;
+            if (stableCountRef.current >= 2) setSyncStable(true);
+          } else {
+            stableCountRef.current = 0;
+            setSyncStable(false);
+          }
+          prevLotCountRef.current = lots;
+        } catch {}
+      };
+      poll();
+      syncPollRef.current = setInterval(poll, 6000);
+    }
+    if ((!blSyncStarted || step < 4 || step > 6) && syncPollRef.current) {
+      clearInterval(syncPollRef.current);
+      syncPollRef.current = null;
+    }
+    return () => {
+      if (syncPollRef.current) { clearInterval(syncPollRef.current); syncPollRef.current = null; }
+    };
+  }, [blSyncStarted, step]);
 
   // Step 7 — IE Agents
   const [agentsTriggered, setAgentsTriggered] = useState(false);
@@ -417,6 +463,46 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
         {/* Step content card */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
+
+          {/* ── Sync strip: visible during Steps 4–6 when BL keys were entered ── */}
+          {blSyncStarted && step >= 4 && step <= 6 && (
+            <div className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 -mb-1 ${
+              syncStable
+                ? 'border-green-500/25 bg-green-500/5'
+                : 'border-blue-500/20 bg-blue-500/5'
+            }`} data-testid="sync-strip">
+              {syncStable ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
+              ) : (
+                <Package className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
+              )}
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span className={`text-[11px] font-medium ${syncStable ? 'text-green-400' : 'text-blue-400'}`}>
+                  {syncStable ? 'Inventory ready' : 'Syncing inventory'}
+                </span>
+                {syncLotCount > 0 && (
+                  <>
+                    <span className="text-gray-600 text-[10px]">·</span>
+                    <span className="text-[11px] text-gray-300 font-mono">{syncLotCount.toLocaleString()} lots</span>
+                    {syncLotValue > 0 && (
+                      <>
+                        <span className="text-gray-600 text-[10px]">·</span>
+                        <span className="text-[11px] text-gray-300 font-mono">${Math.round(syncLotValue).toLocaleString()} est. value</span>
+                      </>
+                    )}
+                  </>
+                )}
+                {!syncStable && (
+                  <>
+                    <span className="text-gray-600 text-[10px]">·</span>
+                    <span className="text-[10px] text-gray-500">
+                      {syncLotCount === 0 ? 'connecting…' : 'still importing…'}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Step 1: Company Info ── */}
           {step === 1 && (
