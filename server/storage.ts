@@ -71,6 +71,7 @@ export interface IStorage {
   getAllOrganizations(): Promise<Organization[]>;
   updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
   deleteOrganization(id: string): Promise<void>;
+  factoryResetOrganization(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -305,6 +306,69 @@ export class DatabaseStorage implements IStorage {
     // 8. Users in this org, then the org itself
     await db.delete(users).where(eq(users.orgId, id));
     await db.delete(organizations).where(eq(organizations.id, id));
+  }
+
+  async factoryResetOrganization(id: string): Promise<void> {
+    // Wipe all operational data but preserve the org record and its users.
+    // Same deletion order as deleteOrganization, minus steps 8 (users + org row).
+
+    const orgOrderIds = db.select({ id: orders.id }).from(orders).where(eq(orders.orgId, id));
+    const orgInventoryIds = db.select({ id: blInventory.id }).from(blInventory).where(eq(blInventory.orgId, id));
+
+    await db.delete(orderEmbeddings).where(inArray(orderEmbeddings.orderId, orgOrderIds));
+    await db.delete(inventoryEmbeddings).where(inArray(inventoryEmbeddings.inventoryId, orgInventoryIds));
+
+    const orgOrderDetailIds = db.select({ id: orderDetails.id }).from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .where(eq(orders.orgId, id));
+    await db.delete(orderDetails).where(inArray(orderDetails.id, orgOrderDetailIds));
+
+    await db.delete(channelLotLinks).where(eq(channelLotLinks.orgId, id));
+    await db.delete(crossPlatformSyncQueue).where(eq(crossPlatformSyncQueue.orgId, id));
+    await db.delete(bulkLots).where(eq(bulkLots.orgId, id));
+    await db.delete(orderAdjustments).where(eq(orderAdjustments.orgId, id));
+    await db.delete(shipments).where(eq(shipments.orgId, id));
+    await db.delete(eodForms).where(eq(eodForms.orgId, id));
+    await db.delete(blForumPosts).where(eq(blForumPosts.orgId, id));
+    await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.orgId, id));
+    await db.delete(appFeedback).where(eq(appFeedback.orgId, id));
+    await db.delete(embeddingJobs).where(eq(embeddingJobs.orgId, id));
+    await db.delete(syncIssues).where(eq(syncIssues.orgId, id));
+    await db.delete(syncMetadata).where(eq(syncMetadata.orgId, id));
+    await db.delete(blApiCalls).where(eq(blApiCalls.orgId, id));
+    await db.delete(conversations).where(eq(conversations.orgId, id));
+    await db.delete(conversationThreads).where(eq(conversationThreads.orgId, id));
+    await db.delete(orgIntegrations).where(eq(orgIntegrations.orgId, id));
+    await db.delete(supportTickets).where(eq(supportTickets.orgId, id));
+    await db.delete(businessInsights).where(eq(businessInsights.orgId, id));
+    await db.delete(inventoryHistory).where(eq(inventoryHistory.orgId, id));
+    await db.delete(pomPriceDecisions).where(eq(pomPriceDecisions.orgId, id));
+    await db.delete(shippingServiceMappings).where(eq(shippingServiceMappings.orgId, id));
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.orgId, id));
+    await db.delete(channelSyncConfig).where(eq(channelSyncConfig.orgId, id));
+    await db.delete(appSettings).where(eq(appSettings.orgId, id));
+    await db.delete(aiUsageLog).where(eq(aiUsageLog.orgId, id));
+    await db.delete(featureVotes).where(eq(featureVotes.orgId, id));
+    await db.delete(ieStrategies).where(eq(ieStrategies.orgId, id));
+    await db.delete(pomAiSettings).where(eq(pomAiSettings.orgId, id));
+    await db.delete(userImages).where(eq(userImages.orgId, id));
+    await db.delete(lotImages).where(eq(lotImages.orgId, id));
+    await db.delete(itemTypeImages).where(eq(itemTypeImages.orgId, id));
+    await db.delete(xmlBackups).where(eq(xmlBackups.orgId, id));
+    await db.execute(sql`DELETE FROM boid_overrides WHERE org_id = ${id}`);
+
+    await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
+    await db.delete(whBins).where(eq(whBins.orgId, id));
+    await db.delete(whShelves).where(eq(whShelves.orgId, id));
+    await db.delete(whAisles).where(eq(whAisles.orgId, id));
+
+    await db.delete(blInventory).where(eq(blInventory.orgId, id));
+    await db.delete(orders).where(eq(orders.orgId, id));
+
+    // Reset the org's own flags — back to fresh onboarding state
+    await db.update(organizations)
+      .set({ onboardingCompleted: false, warehouseDepth: null })
+      .where(eq(organizations.id, id));
   }
 }
 

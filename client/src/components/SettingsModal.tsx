@@ -4080,19 +4080,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   });
 
-  const [resetOrgDialogOpen, setResetOrgDialogOpen] = useState(false);
+  const [factoryResetDialogOpen, setFactoryResetDialogOpen] = useState(false);
+  const [factoryConfirmName, setFactoryConfirmName] = useState('');
   const [deleteOrgDialogOpen, setDeleteOrgDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
-  const resetOrgMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/org/reset-onboarding', {}),
+  const factoryResetMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/org/factory-reset', {}),
     onSuccess: () => {
-      setResetOrgDialogOpen(false);
-      toast({ title: 'Onboarding reset', description: 'The store will see the setup wizard on next login.' });
+      setFactoryResetDialogOpen(false);
+      toast({ title: 'Factory reset complete', description: 'All store data has been cleared. Setup wizard will start on next login.' });
       queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ie-strategies'] });
     },
     onError: (err: any) => {
-      toast({ title: 'Reset failed', description: err.message || 'Could not reset onboarding', variant: 'destructive' });
+      toast({ title: 'Reset failed', description: err.message || 'Could not factory reset', variant: 'destructive' });
     },
   });
 
@@ -4623,23 +4626,23 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
                 </div>
 
-                {/* Reset onboarding — org owner */}
+                {/* Factory reset — org owner */}
                 {((user as any)?.orgRole === 'owner' || superAdmin) && (
                   <>
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-xs text-gray-300 font-medium">Reset onboarding</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Clears setup progress and IE strategies — the store sees the setup wizard again on next login. Inventory and orders are untouched.</p>
+                        <p className="text-xs text-gray-300 font-medium">Factory reset</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Wipes all store data — inventory, orders, settings, credentials, warehouse, embeddings — and restarts onboarding. Your account and billing are preserved.</p>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="shrink-0 border-orange-700/50 text-orange-400 hover:border-orange-600"
-                        onClick={() => setResetOrgDialogOpen(true)}
-                        data-testid="button-reset-onboarding"
+                        className="shrink-0 border-orange-700/50 text-orange-400"
+                        onClick={() => { setFactoryConfirmName(''); setFactoryResetDialogOpen(true); }}
+                        data-testid="button-factory-reset"
                       >
                         <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                        Reset
+                        Factory reset
                       </Button>
                     </div>
                     <Separator className="bg-red-900/30" />
@@ -4665,42 +4668,57 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 </div>
               </div>
 
-              {/* Reset Onboarding confirmation dialog */}
+              {/* Factory Reset confirmation dialog */}
               <ResponsiveModal
-                open={resetOrgDialogOpen}
-                onOpenChange={setResetOrgDialogOpen}
-                title="Reset onboarding"
+                open={factoryResetDialogOpen}
+                onOpenChange={setFactoryResetDialogOpen}
+                title="Factory reset"
                 icon={RotateCcw}
                 iconColor="text-orange-400"
-                description="Send this store back through the setup wizard"
-                testId="modal-reset-onboarding"
+                description="Wipe all store data and restart onboarding"
+                testId="modal-factory-reset"
               >
                 <div className="space-y-4 py-1">
                   <p className="text-sm text-gray-300">
-                    This will reset <span className="font-semibold text-white">{org?.name}</span> back to the beginning of the setup wizard.
+                    This will permanently wipe all operational data for <span className="font-semibold text-white">{org?.name}</span>. The store will restart onboarding from scratch on next login.
                   </p>
                   <div className="space-y-1.5 text-xs text-gray-400">
-                    <p className="font-medium text-gray-300 mb-1">What gets cleared:</p>
+                    <p className="font-medium text-gray-300 mb-1">What gets deleted:</p>
                     <ul className="space-y-1 pl-3">
-                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> Onboarding completion flag</li>
-                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> IE agent strategy configuration</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> All inventory and orders</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> Platform credentials (BrickLink, BrickOwl, EasyPost)</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> IE strategies and settings</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> Warehouse layout</li>
+                      <li className="flex items-center gap-1.5"><span className="text-orange-400">·</span> Shipments, price guides, embeddings, insights</li>
                     </ul>
                   </div>
                   <div className="bg-gray-800/60 border border-gray-700 rounded-md p-3 text-xs text-gray-400">
-                    Inventory, orders, BrickLink credentials, settings, and users are <span className="text-white font-medium">not affected</span>.
+                    User accounts and billing are <span className="text-white font-medium">preserved</span>.
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-200">
+                      Type <span className="font-mono font-semibold text-white">{org?.name}</span> to confirm
+                    </Label>
+                    <Input
+                      value={factoryConfirmName}
+                      onChange={(e) => setFactoryConfirmName(e.target.value)}
+                      placeholder={org?.name ?? 'Company name'}
+                      className="bg-gray-900 border-gray-700 text-sm"
+                      data-testid="input-factory-reset-confirm"
+                    />
                   </div>
                   <div className="flex justify-end gap-2 pt-1">
-                    <Button variant="ghost" size="sm" onClick={() => setResetOrgDialogOpen(false)}>Cancel</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setFactoryResetDialogOpen(false)}>Cancel</Button>
                     <Button
                       size="sm"
-                      className="bg-orange-600 hover:bg-orange-700 text-white border-0"
-                      onClick={() => resetOrgMutation.mutate()}
-                      disabled={resetOrgMutation.isPending}
-                      data-testid="button-reset-confirm"
+                      className="bg-orange-600 text-white border-0"
+                      onClick={() => factoryResetMutation.mutate()}
+                      disabled={factoryConfirmName !== org?.name || factoryResetMutation.isPending}
+                      data-testid="button-factory-reset-confirm"
                     >
-                      {resetOrgMutation.isPending
+                      {factoryResetMutation.isPending
                         ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Resetting…</>
-                        : <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Reset onboarding</>
+                        : <><RotateCcw className="w-3.5 h-3.5 mr-1.5" />Factory reset</>
                       }
                     </Button>
                   </div>

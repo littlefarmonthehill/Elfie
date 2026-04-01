@@ -770,29 +770,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/platform-admin/orgs/:id/reset — reset onboarding for an org
-  // Clears onboarding_completed flag and IE strategies so the org re-runs setup from step 1.
-  app.post('/api/platform-admin/orgs/:id/reset', isSuperAdmin, async (req, res) => {
+  // POST /api/platform-admin/orgs/:id/factory-reset — wipe all operational data for an org (superAdmin only)
+  // Keeps the org record and users; nukes inventory, orders, settings, warehouse, embeddings, etc.
+  app.post('/api/platform-admin/orgs/:id/factory-reset', isSuperAdmin, async (req: any, res) => {
     try {
       const { id: orgId } = req.params;
       const [org] = await db.select({ id: organizations.id, name: organizations.name })
         .from(organizations).where(eq(organizations.id, orgId)).limit(1);
       if (!org) return res.status(404).json({ message: 'Organization not found' });
 
-      // Reset onboarding flag
-      await db.update(organizations)
-        .set({ onboardingCompleted: false })
-        .where(eq(organizations.id, orgId));
+      await storage.factoryResetOrganization(orgId);
 
-      // Wipe IE strategies
-      const { ieStrategies } = await import('@shared/schema');
-      await db.delete(ieStrategies).where(eq(ieStrategies.orgId, orgId));
-
-      console.log(`[Platform Admin] Onboarding reset for org ${orgId} (${org.name})`);
+      console.log(`[Platform Admin] Factory reset for org ${orgId} (${org.name})`);
       res.json({ success: true, orgId, orgName: org.name });
     } catch (error) {
-      console.error('Error resetting org onboarding:', error);
-      res.status(500).json({ message: 'Failed to reset onboarding' });
+      console.error('Error during factory reset:', error);
+      res.status(500).json({ message: 'Failed to factory reset organization' });
     }
   });
 
@@ -3690,25 +3683,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/org/reset-onboarding — org owner can reset their own onboarding
-  // Clears onboarding_completed flag and IE strategies so the setup wizard re-runs on next login.
-  app.post('/api/org/reset-onboarding', isAuthenticated, isOrgOwner, async (req: any, res) => {
+  // POST /api/org/factory-reset — org owner wipes all operational data and restarts onboarding
+  // Keeps the org record, users, and billing. Deletes everything else.
+  app.post('/api/org/factory-reset', isAuthenticated, isOrgOwner, async (req: any, res) => {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(404).json({ message: "No organization" });
 
-      await db.update(organizations)
-        .set({ onboardingCompleted: false })
-        .where(eq(organizations.id, orgId));
+      await storage.factoryResetOrganization(orgId);
 
-      const { ieStrategies } = await import('@shared/schema');
-      await db.delete(ieStrategies).where(eq(ieStrategies.orgId, orgId));
-
-      console.log(`[Org] Onboarding reset by owner for org ${orgId}`);
+      console.log(`[Org] Factory reset by owner for org ${orgId}`);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error resetting org onboarding:", error);
-      res.status(500).json({ message: "Failed to reset onboarding" });
+      console.error("Error during factory reset:", error);
+      res.status(500).json({ message: "Failed to factory reset" });
     }
   });
 
