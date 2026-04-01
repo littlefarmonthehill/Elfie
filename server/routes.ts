@@ -501,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/org-sync-status — org-level sync data for audit log
   app.get('/api/platform-admin/org-sync-status', isSuperAdmin, async (_req, res) => {
     try {
-      const orgSyncIds = ['bricklink_inventory', 'bricklink_orders', 'brickowl_orders', 'channel_sync'];
+      const orgSyncIds = ['bricklink_inventory', 'bricklink_orders', 'brickowl_orders', 'ebay_orders', 'channel_sync'];
       const syncRows = await db
         .select({
           id: syncMetadata.id,
@@ -14218,16 +14218,40 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
-  // Multi-platform order sync endpoint (BrickLink + BrickOwl + Stripe + PayPal)
+  // eBay order sync endpoint
+  app.post("/api/sync/ebay/orders", isApproved, async (req: any, res) => {
+    try {
+      const { limit, fullSync, sinceDate } = req.body;
+      const { runPlatformOrderSync } = await import("./services/order-sync-core");
+      const result = await runPlatformOrderSync("ebay", { limit, fullSync, sinceDate });
+      const orgId = reqOrgId(req);
+      res.json({ success: true, data: result });
+      const added = result.ebay?.ordersAdded ?? 0;
+      if (added > 0) {
+        broadcast(orgId, 'order.synced', { platform: 'ebay', added });
+        const { sendOrderSyncNotifications } = await import("./services/push-notifications");
+        const newRows = await db.select({ orderNumber: orders.orderNumber })
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(added);
+        sendOrderSyncNotifications(orgId, newRows).catch(() => {});
+      }
+    } catch (error: any) {
+      console.error("eBay order sync error:", error);
+      const isConflict = error?.message?.toLowerCase().includes('blocked');
+      res.status(isConflict ? 409 : 500).json({ success: false, error: error.message || "Failed to sync eBay orders" });
+    }
+  });
+
+  // Multi-platform order sync endpoint (all registered channels)
   app.post("/api/sync/all-platforms/orders", isApproved, async (req: any, res) => {
     try {
       const { limit = 50, fullSync = false } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("all", { limit, fullSync });
       const orgId = reqOrgId(req);
-      const anySuccess = result.bricklink.success || result.brickowl.success;
-      const allSkipped = result.bricklink.skipped && result.brickowl.skipped;
-      const totalAdded = (result.bricklink.ordersAdded ?? 0) + (result.brickowl.ordersAdded ?? 0);
+      const outcomes = Object.values(result);
+      const anySuccess = outcomes.some(o => o.success);
+      const allSkipped = outcomes.every(o => o.skipped);
+      const totalAdded = outcomes.reduce((sum, o) => sum + (o.ordersAdded ?? 0), 0);
       res.json({ success: anySuccess, allSkipped, results: result });
       if (totalAdded > 0) {
         broadcast(orgId, 'order.synced', { platform: 'all', added: totalAdded });

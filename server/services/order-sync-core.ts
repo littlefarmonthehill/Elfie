@@ -1,20 +1,25 @@
 import { db } from "../db";
 import { appSettings } from "@shared/schema";
 import { syncLock } from "./sync-lock";
-import { sql, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import { CHANNEL_ORDER_SYNCS } from "./channel-order-registry";
 
-export type SyncPlatform = "bricklink" | "brickowl" | "all";
+// ── Platform type ─────────────────────────────────────────────────────────────
+// 'all' runs every registered channel; named keys target a specific one.
+// Add new channels to channel-order-registry.ts — no changes needed here.
+
+export type SyncPlatform = 'bricklink' | 'brickowl' | 'ebay' | 'all' | (string & {});
 
 export interface PlatformSyncOptions {
   limit?: number;
   fullSync?: boolean;
-  sinceDate?: string; // ISO date string — when set, treat as a from-date full sync
+  sinceDate?: string;
   withEmbeddings?: boolean;
   withStuckCheck?: boolean;
 }
 
 /**
- * Per-platform result reported back to the caller.
+ * Per-channel outcome included in OrderSyncResult.
  * Named OrderSyncResult to avoid collision with cross-platform-sync's PlatformSyncResult.
  */
 export interface ChannelSyncOutcome {
@@ -24,63 +29,76 @@ export interface ChannelSyncOutcome {
   error: string | null;
 }
 
+/**
+ * Keyed by channelKey (e.g. 'bricklink', 'brickowl', 'ebay').
+ * Named keys also support dot-notation for backward-compat callers
+ * (e.g. result.bricklink.ordersAdded, result.brickowl.success).
+ */
 export interface OrderSyncResult {
   bricklink: ChannelSyncOutcome;
   brickowl:  ChannelSyncOutcome;
+  ebay:      ChannelSyncOutcome;
+  [key: string]: ChannelSyncOutcome;
 }
 
-// ── In-memory progress tracking ─────────────────────────────────────────────
-// Mirrors the pattern used in channel-sync-scheduler.ts / inventory-sync-scheduler.ts.
-// Polled by the client every 2 s while a sync is running.
+// ── Progress tracking ─────────────────────────────────────────────────────────
 
 export interface OrderSyncProgress {
   status: 'idle' | 'in_progress';
   currentStep: string;
-  progress: number; // 0-100
+  progress: number;
   processed: number;
   total: number;
 }
 
 const idle: OrderSyncProgress = { status: 'idle', currentStep: '', progress: 0, processed: 0, total: 0 };
 
-const orderSyncProgress: Record<'bricklink' | 'brickowl', OrderSyncProgress> = {
-  bricklink: { ...idle },
-  brickowl:  { ...idle },
-};
+// Keyed by channelKey — dynamically initialised from registry
+const orderSyncProgress: Record<string, OrderSyncProgress> = Object.fromEntries(
+  CHANNEL_ORDER_SYNCS.map(c => [c.channelKey, { ...idle }])
+);
 
-export function getOrderSyncProgress(platform: 'bricklink' | 'brickowl'): OrderSyncProgress {
-  return orderSyncProgress[platform] ?? { ...idle };
+export function getOrderSyncProgress(channel: string): OrderSyncProgress {
+  return orderSyncProgress[channel] ?? { ...idle };
 }
 
-function setProgress(platform: 'bricklink' | 'brickowl', update: Partial<OrderSyncProgress>) {
-  orderSyncProgress[platform] = { ...orderSyncProgress[platform], ...update };
+function setProgress(channel: string, update: Partial<OrderSyncProgress>) {
+  orderSyncProgress[channel] = { ...(orderSyncProgress[channel] ?? idle), ...update };
 }
 
-function resetProgress(platform: 'bricklink' | 'brickowl') {
-  orderSyncProgress[platform] = { ...idle };
+function resetProgress(channel: string) {
+  orderSyncProgress[channel] = { ...idle };
 }
 
-/** True while an order sync is in progress (delegates to global lock). */
+/** True while an order sync is in progress. */
 export function getOrderSyncIsRunning() {
   return syncLock.getActive().includes('Order Sync');
 }
 
+// ── Default outcome ───────────────────────────────────────────────────────────
+
+function defaultOutcome(): ChannelSyncOutcome {
+  return { success: false, skipped: false, ordersAdded: 0, error: null };
+}
+
 /**
- * Single shared function that runs order sync for one or all platforms.
+ * Single shared function that runs order sync for one or all channels.
  * All entry points (manual routes + scheduler) call this.
+ *
+ * Adding a new channel: register it in channel-order-registry.ts.
+ * No changes needed in this file.
  */
 export async function runPlatformOrderSync(
   platform: SyncPlatform,
   options: PlatformSyncOptions = {}
 ): Promise<OrderSyncResult> {
   const { limit, fullSync = false, sinceDate, withEmbeddings = false, withStuckCheck = false } = options;
-  // sinceDate implies a targeted full sync — bypass incremental timestamp filter
   const effectiveFullSync = fullSync || !!sinceDate;
 
-  const result: OrderSyncResult = {
-    bricklink: { success: false, skipped: false, ordersAdded: 0, error: null },
-    brickowl:  { success: false, skipped: false, ordersAdded: 0, error: null },
-  };
+  // Initialise result map with a default outcome for every registered channel
+  const result: OrderSyncResult = Object.fromEntries(
+    CHANNEL_ORDER_SYNCS.map(c => [c.channelKey, defaultOutcome()])
+  ) as OrderSyncResult;
 
   if (!syncLock.acquire('Order Sync')) {
     const blocker = syncLock.getActive().join(', ');
@@ -91,132 +109,96 @@ export async function runPlatformOrderSync(
     const allOrgSettings = await db.select().from(appSettings);
     const newOrderIds: string[] = [];
 
+    if (allOrgSettings.length === 0) {
+      for (const ch of CHANNEL_ORDER_SYNCS) result[ch.channelKey].skipped = true;
+      console.log('⏭️ No orgs configured — skipping all order syncs');
+      return result;
+    }
+
     for (const settings of allOrgSettings) {
       const orgId = settings.id;
 
-      // ── BrickLink ──────────────────────────────────────────────────────────
-      if (platform === "bricklink" || platform === "all") {
-        if (
-          settings.bricklinkConsumerKey &&
-          settings.bricklinkConsumerSecret &&
-          settings.bricklinkTokenValue &&
-          settings.bricklinkTokenSecret
-        ) {
-          setProgress('bricklink', { status: 'in_progress', currentStep: 'Fetching orders from BrickLink…', progress: 0, processed: 0, total: 0 });
-          try {
-            console.log(`🧱 Syncing BrickLink orders for org ${orgId}...`);
-            const { syncBrickLinkOrders } = await import("./bricklink-order-sync");
-            const blResult = await syncBrickLinkOrders(
-              settings.bricklinkConsumerKey,
-              settings.bricklinkConsumerSecret,
-              settings.bricklinkTokenValue,
-              settings.bricklinkTokenSecret,
-              orgId,
-              { limit, fullSync: effectiveFullSync, sinceDate },
-              (processed, total) => {
-                const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
-                setProgress('bricklink', {
-                  currentStep: `Processing order ${processed} of ${total}`,
-                  progress: pct,
-                  processed,
-                  total,
-                });
-              }
-            );
-            result.bricklink.success = true;
-            result.bricklink.ordersAdded += blResult.ordersAdded ?? 0;
-            console.log(`✅ BrickLink (${orgId}): ${blResult.ordersAdded ?? 0} orders added`);
+      // Determine which channels to run
+      const channelsToRun = platform === 'all'
+        ? CHANNEL_ORDER_SYNCS
+        : CHANNEL_ORDER_SYNCS.filter(c => c.channelKey === platform);
 
-            if (withEmbeddings && (blResult.ordersAdded ?? 0) > 0) {
-              const rows = await db.execute(sql`
-                SELECT id FROM orders WHERE marketplace = 'BrickLink' AND org_id = ${orgId}
-                ORDER BY synced_at DESC LIMIT ${blResult.ordersAdded}
-              `);
-              newOrderIds.push(...rows.rows.map((r: any) => r.id));
-            }
-          } catch (err: any) {
-            result.bricklink.error = err.message;
-            console.error(`❌ BrickLink sync failed for org ${orgId}:`, err.message);
-          } finally {
-            resetProgress('bricklink');
+      for (const channel of channelsToRun) {
+        if (!channel.isConfigured(settings)) {
+          if (platform === channel.channelKey) {
+            result[channel.channelKey].skipped = true;
+            console.log(`⏭️ ${channel.label} skipped for org ${orgId} — credentials not configured`);
           }
-        } else if (platform === "bricklink") {
-          result.bricklink.skipped = true;
-          console.log(`⏭️ BrickLink skipped for org ${orgId} — credentials not configured`);
+          continue;
         }
-      }
 
-      // ── BrickOwl ───────────────────────────────────────────────────────────
-      if (platform === "brickowl" || platform === "all") {
-        if (settings.brickowlApiKey) {
-          setProgress('brickowl', { status: 'in_progress', currentStep: 'Fetching orders from BrickOwl…', progress: 0, processed: 0, total: 0 });
-          try {
-            console.log(`🦉 Syncing BrickOwl orders for org ${orgId}...`);
-            const { syncBrickOwlOrders } = await import("./brickowl-order-sync");
-            const boResult = await syncBrickOwlOrders(
-              settings.brickowlApiKey,
-              orgId,
-              { limit, fullSync: effectiveFullSync, sinceDate },
-              (processed, total) => {
-                const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
-                setProgress('brickowl', {
-                  currentStep: `Processing order ${processed} of ${total}`,
-                  progress: pct,
-                  processed,
-                  total,
-                });
-              }
-            );
-            result.brickowl.success = true;
-            result.brickowl.ordersAdded += boResult.ordersAdded ?? 0;
-            console.log(`✅ BrickOwl (${orgId}): ${boResult.ordersAdded ?? 0} orders added`);
+        setProgress(channel.channelKey, {
+          status: 'in_progress',
+          currentStep: `Fetching orders from ${channel.label}…`,
+          progress: 0,
+          processed: 0,
+          total: 0,
+        });
 
-            if (withEmbeddings && (boResult.ordersAdded ?? 0) > 0) {
-              const rows = await db.execute(sql`
-                SELECT id FROM orders WHERE marketplace = 'BrickOwl' AND org_id = ${orgId}
-                ORDER BY synced_at DESC LIMIT ${boResult.ordersAdded}
-              `);
-              newOrderIds.push(...rows.rows.map((r: any) => r.id));
-            }
-          } catch (err: any) {
-            result.brickowl.error = err.message;
-            console.error(`❌ BrickOwl sync failed for org ${orgId}:`, err.message);
-          } finally {
-            resetProgress('brickowl');
+        try {
+          console.log(`🔄 Syncing ${channel.label} orders for org ${orgId}...`);
+
+          const chResult = await channel.syncOrders(
+            settings,
+            orgId,
+            { limit, fullSync: effectiveFullSync, sinceDate },
+            (processed, total) => {
+              const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+              setProgress(channel.channelKey, {
+                currentStep: `Processing order ${processed} of ${total}`,
+                progress: pct,
+                processed,
+                total,
+              });
+            },
+          );
+
+          result[channel.channelKey].success = true;
+          result[channel.channelKey].ordersAdded += chResult.ordersAdded ?? 0;
+          console.log(`✅ ${channel.label} (${orgId}): ${chResult.ordersAdded ?? 0} orders added`);
+
+          if (withEmbeddings && (chResult.ordersAdded ?? 0) > 0) {
+            const rows = await db.execute(sql`
+              SELECT id FROM orders
+              WHERE marketplace = ${channel.marketplaceName} AND org_id = ${orgId}
+              ORDER BY synced_at DESC LIMIT ${chResult.ordersAdded}
+            `);
+            newOrderIds.push(...rows.rows.map((r: any) => r.id));
           }
-        } else if (platform === "brickowl") {
-          result.brickowl.skipped = true;
-          console.log(`⏭️ BrickOwl skipped for org ${orgId} — credentials not configured`);
+        } catch (err: any) {
+          result[channel.channelKey].error = err.message;
+          console.error(`❌ ${channel.label} sync failed for org ${orgId}:`, err.message);
+        } finally {
+          resetProgress(channel.channelKey);
         }
       }
     }
 
-    if (allOrgSettings.length === 0) {
-      result.bricklink.skipped = true;
-      result.brickowl.skipped = true;
-      console.log("⏭️ No orgs configured — skipping all syncs");
-    }
-
-    // ── Embeddings (scheduler-only) ──────────────────────────────────────────
+    // ── Embeddings (scheduler-only) ─────────────────────────────────────────
     if (withEmbeddings && newOrderIds.length > 0) {
       try {
         console.log(`🧠 Generating embeddings for ${newOrderIds.length} new orders...`);
-        const { batchEmbedOrders, batchEmbedOrderDetails } = await import("./embeddings");
+        const { batchEmbedOrders, batchEmbedOrderDetails } = await import('./embeddings');
         await batchEmbedOrders(newOrderIds);
         await batchEmbedOrderDetails(newOrderIds);
-        console.log(`✓ Embeddings complete`);
+        console.log('✓ Embeddings complete');
       } catch (err) {
-        console.error("✗ Embedding failed (non-fatal):", err);
+        console.error('✗ Embedding failed (non-fatal):', err);
       }
     }
 
-    // ── Stuck inventory check (scheduler-only) ───────────────────────────────
+    // ── Stuck inventory check (scheduler-only) ──────────────────────────────
     if (withStuckCheck) {
       try {
-        const { checkStuckInventoryDeductions } = await import("./sync-issue-service");
+        const { checkStuckInventoryDeductions } = await import('./sync-issue-service');
         await checkStuckInventoryDeductions();
       } catch (err) {
-        console.error("✗ Stuck check failed (non-fatal):", err);
+        console.error('✗ Stuck check failed (non-fatal):', err);
       }
     }
 
