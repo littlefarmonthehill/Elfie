@@ -74,20 +74,38 @@ function RetroTogglePin({ active, onClick, label, testId }: {
   testId: string;
 }) {
   return (
-    <button onClick={onClick} data-testid={testId} className="flex items-center gap-2 group">
-      <div className={`relative w-3.5 h-7 rounded-full border flex-shrink-0 transition-all duration-300 ${
+    <button onClick={onClick} data-testid={testId} className="flex flex-col items-center gap-1.5 select-none">
+      {/* Housing */}
+      <div className={`relative w-8 h-12 rounded-sm overflow-hidden flex flex-col border transition-all duration-200 ${
         active
-          ? 'border-green-400/60 bg-green-950/60 shadow-[0_0_8px_rgba(34,197,94,0.3)]'
-          : 'border-gray-700/40 bg-gray-900/50'
+          ? 'bg-gradient-to-b from-gray-600 to-gray-700 border-gray-500 shadow-[0_1px_6px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.12)]'
+          : 'bg-gradient-to-b from-gray-800 to-gray-900 border-gray-700 shadow-[0_1px_4px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]'
       }`}>
-        <div className={`absolute left-0.5 right-0.5 h-[10px] rounded-full transition-all duration-300 ${
-          active
-            ? 'top-0.5 bg-green-400 shadow-[0_0_5px_rgba(34,197,94,0.7)]'
-            : 'bottom-0.5 bg-gray-600'
+        {/* LED strip */}
+        <div className={`h-2 w-full flex-shrink-0 transition-all duration-300 ${
+          active ? 'bg-green-400 shadow-[0_0_8px_2px_rgba(34,197,94,0.8)]' : 'bg-gray-800 border-b border-gray-700/60'
         }`} />
+        {/* Lever zone */}
+        <div className="flex-1 flex items-center justify-center relative">
+          <div className="w-5 h-5 rounded-full bg-gradient-to-b from-gray-400 to-gray-600 border border-gray-400/60 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)] relative flex items-center justify-center">
+            <div
+              className="absolute w-2 rounded-t-full bg-gradient-to-b from-gray-100 to-gray-300 shadow-[1px_0_3px_rgba(0,0,0,0.4)] origin-bottom transition-transform duration-300"
+              style={{ height: '22px', bottom: '50%', transform: `rotate(${active ? -18 : 18}deg)` }}
+            />
+          </div>
+        </div>
+        {/* Status strip */}
+        <div className={`h-3 w-full flex-shrink-0 flex items-center justify-center transition-all duration-300 ${
+          active ? 'bg-green-950' : 'bg-red-950'
+        }`}>
+          <span className={`text-[6px] font-bold tracking-widest uppercase ${
+            active ? 'text-green-300' : 'text-red-500'
+          }`}>{active ? 'ON' : 'OFF'}</span>
+        </div>
       </div>
-      <span className={`text-[11px] font-medium transition-colors duration-200 ${
-        active ? 'text-green-300' : 'text-gray-600'
+      {/* Channel label */}
+      <span className={`text-[10px] font-medium transition-colors duration-200 ${
+        active ? 'text-green-300' : 'text-gray-500'
       }`}>{label}</span>
     </button>
   );
@@ -469,7 +487,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="space-y-2">
               {/* Channel pill selector — same pattern as OrdersDashboard mobile */}
               {CHANNEL_SYNC_KEYS.length > 0 && (
-                <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-5 flex-wrap pl-1 pt-0.5">
                   {(['bricklink', ...CHANNEL_SYNC_KEYS]).map(key => {
                     const label = key === 'bricklink' ? 'BrickLink' : (CHANNEL_SYNC_CONFIG[key as InvSyncChannel]?.label ?? key);
                     return (
