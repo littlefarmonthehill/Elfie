@@ -591,7 +591,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className="space-y-2">
               {/* Channel toggle pins — only visible when more than one channel is configured */}
               {ORDER_SYNC_CHANNEL_KEYS.length > 0 && (
-                <div className="flex items-center gap-5 flex-wrap pl-1 pt-0.5">
+                <div className="flex items-center gap-5 flex-wrap pl-8 pt-0.5">
                   {(['bricklink', ...ORDER_SYNC_CHANNEL_KEYS] as OrderSyncPlatform[]).map(key => {
                     const cfg = PLATFORM_CONFIG[key];
                     return (

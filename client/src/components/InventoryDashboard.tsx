@@ -472,7 +472,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="space-y-2">
               {/* Channel pill selector — same pattern as OrdersDashboard mobile */}
               {CHANNEL_SYNC_KEYS.length > 0 && (
-                <div className="flex items-center gap-5 flex-wrap pl-1 pt-0.5">
+                <div className="flex items-center gap-5 flex-wrap pl-8 pt-0.5">
                   {(['bricklink', ...CHANNEL_SYNC_KEYS]).map(key => {
                     const label = key === 'bricklink' ? 'BrickLink' : (CHANNEL_SYNC_CONFIG[key as InvSyncChannel]?.label ?? key);
                     return (
