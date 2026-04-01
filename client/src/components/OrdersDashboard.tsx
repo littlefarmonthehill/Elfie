@@ -432,96 +432,53 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         {/* ── Tools ── */}
         <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-order-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
-          <div className={cn("flex items-center gap-2", "mb-2")}>
+          <div className="flex items-center gap-2 mb-1.5">
             <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
-          <div className={cn("grid grid-cols-2", "gap-2")}>
+          <div className="grid grid-cols-3 gap-1.5">
 
             {/* Fulfillment & Shipping */}
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-orange-800/75 p-1.5 ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Fulfillment</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-orange-600/60 hover:text-orange-400 transition-colors"
-                      data-testid="info-fulfillment"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Pick, pack, and ship pending orders. Includes label generation and tracking.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-md bg-orange-800/75 p-1 ring-1 ring-orange-400/65 shrink-0">
+                <Truck className="w-3 h-3 text-orange-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="fulfillment-stats">
-                {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
-                    {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
-                  </span>
-                )}
-                {(fulfillmentStats?.feedbackPending ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="feedback-count">
-                    {formatNumber(fulfillmentStats!.feedbackPending)} feedback
-                  </span>
-                )}
-                {fulfillmentStats && fulfillmentStats.unfulfilled === 0 && fulfillmentStats.feedbackPending === 0 && (
-                  <span className="text-[9px] text-green-400/70">All caught up</span>
-                )}
-              </div>
+              <span className="text-[11px] font-bold text-orange-100 leading-tight truncate min-w-0 flex-1">Fulfillment</span>
+              {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
+                <span className="text-[8px] font-semibold px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30 shrink-0" data-testid="fulfillment-count">
+                  {formatNumber(fulfillmentStats!.unfulfilled)}
+                </span>
+              )}
+              {(fulfillmentStats?.feedbackPending ?? 0) > 0 && (
+                <span className="text-[8px] font-semibold px-1 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30 shrink-0" data-testid="feedback-count">
+                  {formatNumber(fulfillmentStats!.feedbackPending)}
+                </span>
+              )}
             </button>
 
             {/* Shipped Orders */}
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-800/75 p-1.5 ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>Shipped Orders</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-green-600/60 hover:text-green-400 transition-colors"
-                      data-testid="info-shipped"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Review completed shipments, tracking history, and delivery confirmations.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-md bg-green-800/75 p-1 ring-1 ring-green-400/65 shrink-0">
+                <PackageCheck className="w-3 h-3 text-green-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="shipped-stats">
-                {(stats?.shippedOrders ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
-                    {formatNumber(stats!.shippedOrders)} shipped
-                  </span>
-                ) : stats ? (
-                  <span className="text-[9px] text-gray-500/70">No shipments yet</span>
-                ) : null}
-              </div>
+              <span className="text-[11px] font-bold text-green-100 leading-tight truncate min-w-0 flex-1" data-testid="shipped-stats">Shipped Orders</span>
+              {(stats?.shippedOrders ?? 0) > 0 && (
+                <span className="text-[8px] font-semibold px-1 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30 shrink-0" data-testid="shipped-count">
+                  {formatNumber(stats!.shippedOrders)}
+                </span>
+              )}
             </button>
 
           </div>

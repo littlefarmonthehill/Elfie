@@ -293,114 +293,87 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         {/* Tools — Primary Workflows */}
         <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-tools">
           <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-100/65 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
+          <div className="flex items-center gap-2 mb-1.5">
             <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
-          <div className={cn("grid grid-cols-2", "gap-2")}>
+          <div className="grid grid-cols-3 gap-1.5">
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-purple-800/75 p-1.5 ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", "md:text-sm")}>Price-O-Matic</span>
+              <div className="rounded-md bg-purple-800/75 p-1 ring-1 ring-purple-400/65 shrink-0">
+                <Sparkles className="w-3 h-3 text-purple-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="pom-action-stats">
-                {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
-                    {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)} to review
-                  </span>
-                ) : pomInsights ? (
-                  <span className="text-[9px] text-green-400/70">All well-priced</span>
-                ) : null}
-              </div>
+              <span className="text-[11px] font-bold text-purple-100 leading-tight truncate min-w-0 flex-1">Price-O-Matic</span>
+              {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 && (
+                <span className="text-[8px] font-semibold px-1 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30 shrink-0" data-testid="pom-action-stats">
+                  {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)}
+                </span>
+              )}
             </button>
 
             {/* List-O-Matic */}
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-800/75 p-1.5 ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>List-O-Matic</span>
+              <div className="rounded-md bg-green-800/75 p-1 ring-1 ring-green-400/65 shrink-0">
+                <Globe className="w-3 h-3 text-green-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="listomatic-action-stats">
-                <span className="text-[9px] text-green-400/70">Sync across channels</span>
-              </div>
+              <span className="text-[11px] font-bold text-green-100 leading-tight truncate min-w-0 flex-1" data-testid="listomatic-action-stats">List-O-Matic</span>
             </button>
 
-            {/* Brick Spotter 3000 */}
+            {/* Brick Spotter */}
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-amber-800/75 p-1.5 ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", "md:text-sm")}>Brick Spotter</span>
+              <div className="rounded-md bg-amber-800/75 p-1 ring-1 ring-amber-400/65 shrink-0">
+                <ScanSearch className="w-3 h-3 text-amber-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="brickspotter-action-stats">
-                {(toolStats?.pendingScans ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
-                    {toolStats!.pendingScans} pending scans
-                  </span>
-                ) : toolStats ? (
-                  <span className="text-[9px] text-green-400/70">Ready to scan</span>
-                ) : null}
-              </div>
+              <span className="text-[11px] font-bold text-amber-100 leading-tight truncate min-w-0 flex-1">Brick Spotter</span>
+              {(toolStats?.pendingScans ?? 0) > 0 && (
+                <span className="text-[8px] font-semibold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30 shrink-0" data-testid="brickspotter-action-stats">
+                  {toolStats!.pendingScans}
+                </span>
+              )}
             </button>
 
             {/* Inventory Health */}
             <button
               onClick={() => onDrawerChange('inventoryhealth')}
               data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-cyan-800/75 p-1.5 ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inventory Health</span>
+              <div className="rounded-md bg-cyan-800/75 p-1 ring-1 ring-cyan-400/65 shrink-0">
+                <Activity className="w-3 h-3 text-cyan-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="inventoryhealth-action-stats">
-                <span className="text-[9px] text-cyan-400/70">Audit your stock</span>
-              </div>
+              <span className="text-[11px] font-bold text-cyan-100 leading-tight truncate min-w-0 flex-1" data-testid="inventoryhealth-action-stats">Inv. Health</span>
             </button>
 
             {/* Bulkinator */}
             <button
               onClick={() => onDrawerChange('bulkinator')}
               data-testid="tool-bulkinator"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className="group flex items-center gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn p-2"
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-orange-800/75 p-1.5 ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Layers className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Bulkinator</span>
+              <div className="rounded-md bg-orange-800/75 p-1 ring-1 ring-orange-400/65 shrink-0">
+                <Layers className="w-3 h-3 text-orange-200" />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="bulkinator-action-stats">
-                <span className="text-[9px] text-orange-400/70">Bundle lots for BO</span>
-              </div>
+              <span className="text-[11px] font-bold text-orange-100 leading-tight truncate min-w-0 flex-1" data-testid="bulkinator-action-stats">Bulkinator</span>
             </button>
 
           </div>
