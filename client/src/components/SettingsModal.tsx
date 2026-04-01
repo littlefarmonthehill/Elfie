@@ -4085,7 +4085,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   const resetOrgMutation = useMutation({
-    mutationFn: () => apiRequest('POST', `/api/platform-admin/orgs/${org?.id}/reset`, {}),
+    mutationFn: () => apiRequest('POST', '/api/org/reset-onboarding', {}),
     onSuccess: () => {
       setResetOrgDialogOpen(false);
       toast({ title: 'Onboarding reset', description: 'The store will see the setup wizard on next login.' });
@@ -4623,8 +4623,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
                 </div>
 
-                {/* Reset onboarding — super admin only */}
-                {superAdmin && (
+                {/* Reset onboarding — org owner */}
+                {((user as any)?.orgRole === 'owner' || superAdmin) && (
                   <>
                     <div className="flex items-center justify-between gap-4">
                       <div>

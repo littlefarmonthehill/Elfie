@@ -3690,6 +3690,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/org/reset-onboarding — org owner can reset their own onboarding
+  // Clears onboarding_completed flag and IE strategies so the setup wizard re-runs on next login.
+  app.post('/api/org/reset-onboarding', isAuthenticated, isOrgOwner, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+
+      await db.update(organizations)
+        .set({ onboardingCompleted: false })
+        .where(eq(organizations.id, orgId));
+
+      const { ieStrategies } = await import('@shared/schema');
+      await db.delete(ieStrategies).where(eq(ieStrategies.orgId, orgId));
+
+      console.log(`[Org] Onboarding reset by owner for org ${orgId}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error resetting org onboarding:", error);
+      res.status(500).json({ message: "Failed to reset onboarding" });
+    }
+  });
+
   // PATCH /api/org — org owner can update org profile
   app.patch('/api/org', isAuthenticated, isOrgOwner, async (req: any, res) => {
     try {
