@@ -144,6 +144,12 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [ieStratMarket, setIeStratMarket] = useState("");
   const [ieStratFeedback, setIeStratFeedback] = useState("");
 
+  // Dashboard stats — fetched for Step 8 celebration
+  const { data: dashStats } = useQuery<{
+    totalOrders: number; totalInventoryItems: number;
+    totalInventoryQuantity: number; totalSales: number; totalInventoryValue: number;
+  }>({ queryKey: ['/api/dashboard/stats'], enabled: step >= 7 });
+
   // Step 6 — Subscribe
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -1336,12 +1342,22 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           {step === 7 && (
             <>
               {/* ELFIE + intro */}
-              <div className="flex flex-col items-center gap-3 pb-2">
-                <img src={elfieRobot} alt="E.L.F.I.E." className="w-20 h-20 object-contain drop-shadow-lg" />
-                <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center max-w-sm">
-                  <p className="text-sm text-gray-200 leading-snug">
-                    While you were getting set up, I put your 6 IE agents to work analyzing your data. Here's what they found.
-                  </p>
+              <div className="flex items-end gap-3 pb-2">
+                <img src={elfieRobot} alt="E.L.F.I.E." className="w-16 h-16 object-contain drop-shadow-lg flex-shrink-0" />
+                <div className="relative flex-1">
+                  <span className="absolute left-0 bottom-4 -translate-x-full w-0 h-0"
+                    style={{ borderTop: '6px solid transparent', borderBottom: '6px solid transparent', borderRight: '8px solid rgb(55 65 81)' }} />
+                  <span className="absolute left-0 bottom-4 -translate-x-[calc(100%-1px)] w-0 h-0"
+                    style={{ borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '7px solid rgb(17 24 39)' }} />
+                  <div className="bg-gray-900 border border-gray-700 rounded-xl rounded-bl-none px-4 py-3">
+                    <p className="text-sm text-gray-200 leading-snug">
+                      {agentsWithSignals.length === 0
+                        ? "I've dispatched my six IE agents into your data. They each own a domain — I'll coordinate everything they find."
+                        : agentsWithSignals.length < 3
+                        ? `${agentsWithSignals.length} agent${agentsWithSignals.length > 1 ? 's have' : ' has'} reported in. More intel incoming…`
+                        : "All agents have reported in. Here's their initial read on your store."}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1357,25 +1373,33 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                     { id: 'orders',    icon: ShoppingCart,name: 'Orders',    desc: 'Revenue & velocity trends' },
                     { id: 'customer',  icon: Users,       name: 'Customer',  desc: 'Buyer patterns & retention' },
                   ] as const).map(({ id, icon: Icon, name, desc }) => {
-                    const count = agentSignals.filter((s: any) => s.agentId === id).length;
+                    const signals = agentSignals.filter((s: any) => s.agentId === id);
+                    const count = signals.length;
                     const done = agentsWithSignals.includes(id);
+                    const topSignal = done
+                      ? (signals.find((s: any) => s.urgency === 'high') || signals.find((s: any) => s.urgency === 'medium') || signals[0])
+                      : null;
                     return (
                       <div key={id} className={`rounded-lg border p-3 flex items-start gap-2.5 transition-colors ${done ? 'border-blue-500/30 bg-blue-500/5' : 'border-gray-700 bg-gray-800/40'}`}>
-                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${done ? 'bg-blue-500/15 text-blue-400' : 'bg-gray-700/60 text-gray-500'}`}>
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${done ? 'bg-blue-500/15 text-blue-400' : 'bg-gray-700/60 text-gray-500'}`}>
                           <Icon className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-semibold text-gray-200">{name}</span>
                             {done ? (
                               <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded px-1 py-0.5">{count} signal{count !== 1 ? 's' : ''}</span>
                             ) : (
                               <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
-                                <Loader2 className="w-2 h-2 animate-spin" />analyzing
+                                <Loader2 className="w-2 h-2 animate-spin" />scanning
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                          {done && topSignal ? (
+                            <p className="text-[10px] text-blue-300/80 mt-1 leading-tight line-clamp-2">"{topSignal.title}"</p>
+                          ) : (
+                            <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                          )}
                         </div>
                       </div>
                     );
@@ -1383,38 +1407,12 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                 </div>
               </div>
 
-              {/* Top signals preview */}
-              {agentSignals.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">First look</p>
-                  <div className="space-y-2">
-                    {agentSignals.slice(0, 4).map((signal: any, i: number) => (
-                      <div key={i} className="rounded-lg border border-gray-700/60 bg-gray-800/30 px-3 py-2.5">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded border ${
-                            signal.urgency === 'high' ? 'bg-red-500/15 text-red-400 border-red-500/25' :
-                            signal.urgency === 'medium' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' :
-                            'bg-gray-700/60 text-gray-400 border-gray-600/40'
-                          }`}>{signal.urgency}</span>
-                          <span className="text-[10px] text-gray-500 capitalize">{signal.agentId}</span>
-                        </div>
-                        <p className="text-xs font-medium text-gray-200 leading-snug">{signal.title}</p>
-                        <p className="text-[11px] text-gray-400 mt-1 leading-relaxed line-clamp-2">{signal.summary}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="pt-1 flex justify-between items-center gap-3">
-                {!canContinue && agentSignals.length === 0 && (
+                {!canContinue && (
                   <p className="text-[11px] text-gray-600 flex items-center gap-1">
                     <Loader2 className="w-3 h-3 animate-spin" />
-                    Agents analyzing your data...
+                    {agentSignals.length === 0 ? 'Agents analyzing your data…' : 'More agents reporting in…'}
                   </p>
-                )}
-                {!canContinue && agentSignals.length > 0 && (
-                  <p className="text-[11px] text-gray-600">More agents working...</p>
                 )}
                 {canContinue && <span />}
                 <Button
@@ -1422,69 +1420,157 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                   disabled={!canContinue}
                   data-testid="button-onboard-next-7"
                 >
-                  {canContinue ? 'Enter dashboard' : 'Please wait…'}
+                  {canContinue ? 'See your full debrief' : 'Please wait…'}
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </>
           )}
 
-          {/* ── Step 8: Done ── */}
-          {step === 8 && (
-            <>
-              {/* ELFIE centered + speech bubble */}
-              <div className="flex flex-col items-center gap-4 py-2">
-                <img
-                  src={elfieRobot}
-                  alt="E.L.F.I.E."
-                  className="w-32 h-32 object-contain drop-shadow-2xl"
-                />
-                <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
-                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[8]}</p>
-                </div>
-                <div className="flex items-center gap-2 text-green-400">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span className="text-base font-semibold">You're all set up!</span>
-                </div>
-              </div>
-
-              {/* Add to Home Screen prompt */}
-              {installStatus !== 'installed' && installStatus !== 'unsupported' && (
-                <div className="app-card p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <p className="text-xs font-medium text-gray-300">Add E.L.F.I.E. to your home screen</p>
+          {/* ── Step 8: Celebration / Debrief ── */}
+          {step === 8 && (() => {
+            const lots = dashStats?.totalInventoryItems ?? 0;
+            const parts = dashStats?.totalInventoryQuantity ?? 0;
+            const value = dashStats?.totalInventoryValue ?? 0;
+            const orderCount = dashStats?.totalOrders ?? 0;
+            const revenue = dashStats?.totalSales ?? 0;
+            const totalSignals = agentSignals.length;
+            const customerSignals = agentSignals.filter((s: any) => s.agentId === 'customer');
+            const topCustomerSignal = customerSignals.find((s: any) => s.urgency === 'high') || customerSignals[0];
+            const agentDefs = [
+              { id: 'catalog',   icon: Search,       name: 'Catalog'   },
+              { id: 'inventory', icon: Package,       name: 'Inventory' },
+              { id: 'pricing',   icon: DollarSign,   name: 'Pricing'   },
+              { id: 'market',    icon: Globe,        name: 'Market'    },
+              { id: 'orders',    icon: ShoppingCart, name: 'Orders'    },
+              { id: 'customer',  icon: Users,        name: 'Customer'  },
+            ] as const;
+            return (
+              <>
+                {/* ELFIE + data-aware message */}
+                <div className="flex flex-col items-center gap-3 pb-1">
+                  <img src={elfieRobot} alt="E.L.F.I.E." className="w-24 h-24 object-contain drop-shadow-2xl" />
+                  <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-3.5 text-center max-w-sm">
+                    <p className="text-sm text-gray-200 leading-snug">
+                      {lots > 0
+                        ? `Your store is live — ${lots.toLocaleString()} lots, ${parts.toLocaleString()} parts, and ${totalSignals} intel signals already in the queue. I'll be watching everything from here.`
+                        : "Your store is live. My agents are standing by — I'll be watching everything from here."}
+                    </p>
                   </div>
-                  {installStatus === 'promptable' ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] text-gray-500">Get one-tap access from any device.</p>
-                      <Button size="sm" variant="outline" onClick={async () => { await promptInstall(); }} data-testid="button-onboard-install">
-                        Add now
-                      </Button>
-                    </div>
-                  ) : installStatus === 'ios' ? (
-                    <ol className="space-y-1 pl-1">
-                      <li className="flex items-start gap-2 text-[11px] text-gray-400">
-                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">1</span>
-                        <span>Tap <Share2 className="inline w-3 h-3 mb-0.5" /> Share at the bottom of Safari</span>
-                      </li>
-                      <li className="flex items-start gap-2 text-[11px] text-gray-400">
-                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">2</span>
-                        <span>Tap <PlusSquare className="inline w-3 h-3 mb-0.5" /> <strong className="text-gray-300">Add to Home Screen</strong>, then <strong className="text-gray-300">Add</strong></span>
-                      </li>
-                    </ol>
-                  ) : null}
+                  <div className="flex items-center gap-2 text-green-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Setup complete</span>
+                  </div>
                 </div>
-              )}
 
-              <div className="flex justify-center pt-2">
-                <Button onClick={handleFinish} disabled={isSaving} size="lg" data-testid="button-onboard-finish">
-                  {isSaving ? "Finishing…" : "Go to dashboard"}
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </>
-          )}
+                {/* Stats grid */}
+                {(lots > 0 || orderCount > 0) && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Your store at a glance</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Lots imported', value: lots.toLocaleString(), icon: Package, color: 'text-blue-400' },
+                        { label: 'Total parts', value: parts.toLocaleString(), icon: Archive, color: 'text-purple-400' },
+                        { label: 'Est. value', value: value > 0 ? `$${Math.round(value).toLocaleString()}` : '—', icon: DollarSign, color: 'text-green-400' },
+                        { label: 'Orders synced', value: orderCount.toLocaleString(), icon: ShoppingCart, color: 'text-amber-400' },
+                        { label: 'Total revenue', value: revenue > 0 ? `$${Math.round(revenue).toLocaleString()}` : '—', icon: TrendingUp, color: 'text-green-400' },
+                        { label: 'Intel signals', value: totalSignals.toString(), icon: Brain, color: 'text-blue-400' },
+                      ].map(({ label, value: val, icon: Icon, color }) => (
+                        <div key={label} className="rounded-lg border border-gray-700/60 bg-gray-800/30 px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Icon className={`w-3 h-3 ${color}`} />
+                          </div>
+                          <p className={`text-lg font-bold font-mono ${color}`}>{val}</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Agent debrief — one top finding per agent */}
+                {agentsWithSignals.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Agent debrief</p>
+                    <div className="space-y-1.5">
+                      {agentDefs.map(({ id, icon: Icon, name }) => {
+                        const signals = agentSignals.filter((s: any) => s.agentId === id);
+                        const top = signals.find((s: any) => s.urgency === 'high') || signals.find((s: any) => s.urgency === 'medium') || signals[0];
+                        if (!top) return null;
+                        return (
+                          <div key={id} className="flex items-start gap-2.5 rounded-lg border border-gray-700/50 bg-gray-800/20 px-3 py-2.5">
+                            <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <Icon className="w-3 h-3 text-blue-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{name}</span>
+                                <span className={`text-[9px] px-1 py-0.5 rounded border font-medium ${
+                                  top.urgency === 'high' ? 'bg-red-500/15 text-red-400 border-red-500/25' :
+                                  top.urgency === 'medium' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' :
+                                  'bg-gray-700/50 text-gray-500 border-gray-600/30'
+                                }`}>{top.urgency}</span>
+                              </div>
+                              <p className="text-xs text-gray-200 leading-snug">{top.title}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight line-clamp-1">{top.summary}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer spotlight */}
+                {topCustomerSignal && (
+                  <div className="rounded-lg border border-purple-500/25 bg-purple-500/5 px-3 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Users className="w-3.5 h-3.5 text-purple-400" />
+                      <p className="text-[10px] font-semibold text-purple-300 uppercase tracking-wide">Customer spotlight</p>
+                    </div>
+                    <p className="text-xs text-gray-200 leading-snug">{topCustomerSignal.title}</p>
+                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">{topCustomerSignal.summary}</p>
+                  </div>
+                )}
+
+                {/* Add to Home Screen prompt */}
+                {installStatus !== 'installed' && installStatus !== 'unsupported' && (
+                  <div className="rounded-lg border border-gray-700/60 bg-gray-800/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <p className="text-xs font-medium text-gray-300">Add E.L.F.I.E. to your home screen</p>
+                    </div>
+                    {installStatus === 'promptable' ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-gray-500">Get one-tap access from any device.</p>
+                        <Button size="sm" variant="outline" onClick={async () => { await promptInstall(); }} data-testid="button-onboard-install">
+                          Add now
+                        </Button>
+                      </div>
+                    ) : installStatus === 'ios' ? (
+                      <ol className="space-y-1 pl-1">
+                        <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">1</span>
+                          <span>Tap <Share2 className="inline w-3 h-3 mb-0.5" /> Share at the bottom of Safari</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">2</span>
+                          <span>Tap <PlusSquare className="inline w-3 h-3 mb-0.5" /> <strong className="text-gray-300">Add to Home Screen</strong>, then <strong className="text-gray-300">Add</strong></span>
+                        </li>
+                      </ol>
+                    ) : null}
+                  </div>
+                )}
+
+                <div className="flex justify-center pt-1">
+                  <Button onClick={handleFinish} disabled={isSaving} size="lg" data-testid="button-onboard-finish">
+                    {isSaving ? "Finishing…" : "Enter your dashboard"}
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {step < 7 && step !== 6 && (
