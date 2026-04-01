@@ -417,30 +417,28 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
           </div>
           {desktopMode ? (
-            <div className="flex flex-col gap-1.5">
-              {/* BrickLink — always first, fixed */}
-              {(() => {
-                const active = activeDrawer === 'bricklinksync';
-                return (
+            <div className="flex flex-col divide-y divide-gray-700/40">
+              {/* BrickLink — always first */}
+              <div className="flex items-center gap-2 py-1.5 first:pt-0 last:pb-0" data-testid="channel-row-bricklink">
+                <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40 shrink-0">
+                  <Link className="w-3 h-3 text-blue-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-blue-100">BrickLink</div>
+                  <div className="text-[9px] text-gray-500">Inventory sync</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
                   <button
-                    onClick={() => onDrawerChange(active ? null : 'bricklinksync')}
+                    onClick={() => onDrawerChange(activeDrawer === 'bricklinksync' ? null : 'bricklinksync')}
                     data-testid="button-bricklink-sync"
-                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                      active ? "border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]" : "border-blue-500/30 bg-blue-950/30"
-                    )}
+                    className={cn("p-1 rounded transition-colors hover-elevate", activeDrawer === 'bricklinksync' ? "text-blue-400" : "text-gray-500")}
                   >
-                    <div className={cn("p-1 rounded ring-1 transition-all", active ? "bg-blue-800/70 ring-blue-400/60" : "bg-blue-900/60 ring-blue-500/40")}>
-                      <Link className="w-3 h-3 text-blue-300" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-blue-100">BrickLink</div>
-                      <div className="text-[9px] text-gray-500">Inventory sync</div>
-                    </div>
-                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? "text-blue-400" : "text-gray-600")} />
+                    <ArrowRight className="w-3 h-3" />
                   </button>
-                );
-              })()}
-              {/* Per-channel buttons — driven by CHANNEL_SYNC_KEYS */}
+                </div>
+              </div>
+              {/* Per-channel rows */}
               {CHANNEL_SYNC_KEYS.map(key => {
                 const cfg = CHANNEL_SYNC_CONFIG[key];
                 const sb = cfg.sidebar;
@@ -448,23 +446,25 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 const active = activeDrawer === drawerKey;
                 const ChannelIcon = cfg.Icon;
                 return (
-                  <button
-                    key={key}
-                    onClick={() => onDrawerChange(active ? null : drawerKey)}
-                    data-testid={`button-inv-${key}-sync`}
-                    className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
-                      active ? sb.activeButton : sb.idleButton
-                    )}
-                  >
-                    <div className={cn("p-1 rounded ring-1 transition-all", active ? sb.activeIcon : sb.idleIcon)}>
+                  <div key={key} className="flex items-center gap-2 py-1.5 last:pb-0" data-testid={`channel-row-${key}`}>
+                    <div className="p-1 rounded ring-1 shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
                       <ChannelIcon className={`w-3 h-3 ${sb.iconColor}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={`text-xs font-semibold ${sb.labelColor}`}>{cfg.label}</div>
                       <div className="text-[9px] text-gray-500">Inventory sync</div>
                     </div>
-                    <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", active ? sb.activeArrow : "text-gray-600")} />
-                  </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
+                      <button
+                        onClick={() => onDrawerChange(active ? null : drawerKey)}
+                        data-testid={`button-inv-${key}-sync`}
+                        className={cn("p-1 rounded transition-colors hover-elevate", active ? sb.activeArrow : "text-gray-500")}
+                      >
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
