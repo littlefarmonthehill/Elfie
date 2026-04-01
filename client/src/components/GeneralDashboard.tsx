@@ -17,7 +17,7 @@ interface GeneralDashboardProps {
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
   onOpenBilling?: () => void;
-  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
+  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications') => void;
   onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
   section?: 'all' | 'plan' | 'ops';
   activeSection?: 'inventory' | 'orders' | 'marketing' | 'sales';
@@ -479,7 +479,7 @@ function FuelGauge({ remaining }: { remaining: number }) {
 }
 
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, onDismissSetupItem, children }: {
-  setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' }>;
+  setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
@@ -713,8 +713,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/settings'],
   });
 
-  const { data: orgData } = useQuery<{ address: string | null; phone: string | null; onboardingCompleted: boolean }>({
+  const { data: orgData } = useQuery<{ address: string | null; phone: string | null; onboardingCompleted: boolean; warehouseDepth: number | null }>({
     queryKey: ['/api/org'],
+  });
+
+  const { data: ieData } = useQuery<{ visionMission: string | null; pricingStrategy: string | null } | null>({
+    queryKey: ['/api/ie-strategies'],
   });
 
   const { data: billingStatus } = useQuery<{ plan: string; status: string; interval: string | null; trialEndsAt: string | null; subscriptionEndsAt: string | null; planStatus: string | null; planSunsetAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
@@ -785,12 +789,15 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   const isActivePaidPlan = billingStatus?.status === 'active';
 
-  const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' }> = [];
+  const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications' }> = [];
   if (!orgData?.address && !dismissedItems.has('address')) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
   if (!appSettings?.bricklinkConsumerKey && !dismissedItems.has('bricklink')) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
   if (!appSettings?.brickowlApiKey && !dismissedItems.has('channels')) setupItems.push({ id: 'channels', label: 'Connect a selling channel', section: 'platforms' });
   if (!appSettings?.easypostApiKey && !dismissedItems.has('shipping')) setupItems.push({ id: 'shipping', label: 'Connect a shipping service', section: 'platforms' });
   if (!isActivePaidPlan && !dismissedItems.has('subscription')) setupItems.push({ id: 'subscription', label: 'Choose a subscription plan', section: 'billing' });
+  if (ieData !== undefined && !ieData?.visionMission && !dismissedItems.has('ieStrategies')) setupItems.push({ id: 'ieStrategies', label: 'Configure seller strategy', section: 'ieStrategies' });
+  if (orgData !== undefined && !orgData?.warehouseDepth && !dismissedItems.has('warehouse')) setupItems.push({ id: 'warehouse', label: 'Set up warehouse layout', section: 'warehouse' });
+  if (!dismissedItems.has('notifications')) setupItems.push({ id: 'notifications', label: 'Set up notifications', section: 'notifications' });
 
   const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
   const totalLots = stats?.totalInventoryItems ?? 0;
