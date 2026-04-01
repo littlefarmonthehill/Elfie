@@ -3535,9 +3535,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Look up plan sunset info (if org is on a sunset plan with an end date)
       let planSunsetAt: string | null = null;
       let planStatus: string | null = null;
+      let planName: string | null = null;
       if (org.planId) {
-        const [planRow] = await db.select({ status: plans.status, sunsetAt: plans.sunsetAt }).from(plans).where(eq(plans.id, org.planId)).limit(1);
+        const [planRow] = await db.select({ name: plans.name, status: plans.status, sunsetAt: plans.sunsetAt }).from(plans).where(eq(plans.id, org.planId)).limit(1);
         if (planRow) {
+          planName = planRow.name;
           planStatus = planRow.status;
           planSunsetAt = planRow.sunsetAt ? planRow.sunsetAt.toISOString() : null;
         }
@@ -3545,6 +3547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         plan: org.plan,
+        planName: planName ?? org.plan,
         status: org.subscriptionStatus,
         interval: org.subscriptionInterval,
         hasStripeCustomer: !!org.stripeCustomerId,

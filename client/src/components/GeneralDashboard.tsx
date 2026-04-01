@@ -480,7 +480,7 @@ function FuelGauge({ remaining }: { remaining: number }) {
 
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, onDismissSetupItem, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications' }>;
-  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
+  billingStatus?: { plan: string; planName?: string | null; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
@@ -498,7 +498,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   };
 
   const isActivePaid = billingStatus?.status === 'active';
-  const planLabel = isActivePaid ? (billingStatus?.plan ?? '') : '';
+  const planLabel = isActivePaid ? (billingStatus?.planName ?? billingStatus?.plan ?? '') : '';
 
   const trialDaysLeft = (() => {
     if (!billingStatus?.trialEndsAt) return null;

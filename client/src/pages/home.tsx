@@ -58,7 +58,7 @@ export default function Home() {
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const { data: billingStatus } = useQuery<{
-    plan: string; status: string; trialEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null;
+    plan: string; planName?: string | null; status: string; trialEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null;
     brickspotter?: { brickspotterOnly?: boolean; scansUsed?: number; scansLimit?: number; apiCallLimit?: number };
   }>({
     queryKey: ['/api/billing/status'],
@@ -1058,7 +1058,7 @@ export default function Home() {
     return (
       <PlanExpiredScreen
         sunsetAt={expiredAt}
-        planName={billingStatus.plan}
+        planName={billingStatus.planName ?? billingStatus.plan}
         reason={expiredReason}
         isBrickspotterOnly={isBrickspotterOnly}
       />
