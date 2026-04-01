@@ -32,9 +32,10 @@ const CARRIER_MAP: Record<string, string> = {
   AUSPOST:        'AustraliaPost',
 };
 
-function mapCarrierCode(easypostCarrier: string): string {
+function mapCarrierCode(easypostCarrier: string): string | null {
   const key = (easypostCarrier ?? '').toUpperCase().trim();
-  return CARRIER_MAP[key] ?? easypostCarrier ?? 'USPS';
+  if (!key) return null;
+  return CARRIER_MAP[key] ?? easypostCarrier;
 }
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────
@@ -174,10 +175,15 @@ export async function syncToEbay(
   }
 
   // ── POST /shippingFulfillment ──────────────────────────────────────────────
+  const carrierCode = mapCarrierCode(carrier);
+
   const payload: Record<string, any> = {
-    shippedDate:         new Date().toISOString(),
-    shippingCarrierCode: mapCarrierCode(carrier),
+    shippedDate: new Date().toISOString(),
   };
+
+  if (carrierCode) {
+    payload.shippingCarrierCode = carrierCode;
+  }
 
   if (trackingNumber) {
     payload.trackingNumber = trackingNumber;
@@ -210,6 +216,6 @@ export async function syncToEbay(
 
   console.log(
     `✅ [eBay Fulfillment] Tracking pushed for eBay order ${ebayOrderId}` +
-    ` — ${mapCarrierCode(carrier)} ${trackingNumber || '(no tracking)'}`
+    ` — ${carrierCode ?? '(carrier unknown)'} ${trackingNumber || '(no tracking)'}`
   );
 }
