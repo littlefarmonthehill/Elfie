@@ -12,6 +12,7 @@ import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bri
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2385,6 +2386,52 @@ function PlansAndPricingPanel() {
 }
 
 
+function ModalShell({ open, onClose, forcePlatformAdmin, isMobile, activeSection, children }: {
+  open: boolean; onClose: (v: boolean) => void; forcePlatformAdmin: boolean;
+  isMobile: boolean; activeSection: ActiveSection; children: React.ReactNode;
+}) {
+  const cleanup = () => {
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.marginTop = '';
+    document.body.style.touchAction = '';
+    document.body.style.userSelect = '';
+    document.body.removeAttribute('data-scroll-locked');
+  };
+  if (forcePlatformAdmin) {
+    return (
+      <Sheet open={open} onOpenChange={onClose}>
+        <SheetContent
+          side="right"
+          className="w-full sm:w-[720px] sm:max-w-none p-0 flex flex-col border-l border-white/10 bg-gray-900 overflow-hidden [&>button]:hidden"
+          style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          onCloseAutoFocus={cleanup}
+        >
+          {children}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent
+        className={isMobile
+          ? "!inset-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !border-0 bg-gray-900 p-0 !gap-0 overflow-hidden data-[state=open]:!slide-in-from-bottom-full data-[state=closed]:!slide-out-to-bottom-full data-[state=open]:!zoom-in-100 data-[state=closed]:!zoom-out-100 data-[state=open]:!slide-in-from-left-0 data-[state=closed]:!slide-out-to-left-0 [&>button]:!hidden"
+          : `${activeSection === 'warehouse' ? 'sm:max-w-[920px]' : 'sm:max-w-[640px]'} bg-gray-900 border-gray-700 p-0 !gap-0 overflow-hidden`
+        }
+        style={isMobile
+          ? { height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }
+          : { height: `min(${activeSection === 'warehouse' ? '700px' : '640px'}, calc(96dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))` }
+        }
+        onCloseAutoFocus={cleanup}
+      >
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, focusTarget, pricingExample, scoringExample, isBrickspotterOnly = false, forcePlatformAdmin = false }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
@@ -4202,29 +4249,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent
-          className={isMobile
-            ? "!inset-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !border-0 bg-gray-900 p-0 !gap-0 overflow-hidden data-[state=open]:!slide-in-from-bottom-full data-[state=closed]:!slide-out-to-bottom-full data-[state=open]:!zoom-in-100 data-[state=closed]:!zoom-out-100 data-[state=open]:!slide-in-from-left-0 data-[state=closed]:!slide-out-to-left-0 [&>button]:!hidden"
-            : `${activeSection === 'warehouse' ? 'sm:max-w-[920px]' : 'sm:max-w-[640px]'} bg-gray-900 border-gray-700 p-0 !gap-0 overflow-hidden`
-          }
-          style={isMobile
-            ? { height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }
-            : { height: `min(${activeSection === 'warehouse' ? '700px' : '640px'}, calc(96dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))` }
-          }
-          onCloseAutoFocus={() => {
-            // After the closing animation fully completes, sweep any body styles that
-            // vaul or react-remove-scroll may have left behind. Safe to call here
-            // because focus is being returned and all overlay cleanup should be done.
-            document.body.style.overflow = '';
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.marginTop = '';
-            document.body.style.touchAction = '';
-            document.body.style.userSelect = '';
-            document.body.removeAttribute('data-scroll-locked');
-          }}
-        >
+      <ModalShell open={open} onClose={onClose} forcePlatformAdmin={forcePlatformAdmin} isMobile={isMobile} activeSection={activeSection}>
           <div
             className="flex flex-col h-full min-h-0 min-w-0 w-full"
           >
@@ -11953,8 +11978,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             </div>
           </div>
           
-        </DialogContent>
-      </Dialog>
+      </ModalShell>
 
 
       {/* Remove Test Orders Dialog */}
