@@ -18182,7 +18182,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       
       const orgId = reqOrgId(req);
       const { purchaseLabel } = await import('./services/order-shipping');
-      const result = await purchaseLabel(orderId, shipmentId, rateId, insurance, orgId);
+      const result = await purchaseLabel(orderId, shipmentId, rateId, orgId, insurance);
       
       res.json(result);
     } catch (error: any) {

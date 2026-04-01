@@ -318,6 +318,9 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   if (!order) {
     throw new Error(`Order ${request.orderId} not found`);
   }
+  if (!order.orgId) {
+    throw new Error(`Order ${request.orderId} has no organisation — cannot create shipment`);
+  }
 
   const vendor = await getShippingProvider(order.orgId);
 
@@ -446,8 +449,8 @@ export async function purchaseLabel(
   orderId: string,
   shipmentId: string,
   rateId: string,
+  orgId: string,
   insurance?: number,
-  orgId: string
 ): Promise<{
   shipment: any;
   order: any;
