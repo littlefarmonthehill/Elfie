@@ -186,6 +186,12 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
     refetchInterval: 30000,
   });
 
+  const { data: orgIntegrationsList = [] } = useQuery<any[]>({
+    queryKey: ['/api/org/integrations'],
+  });
+  const ebayIntegration = (orgIntegrationsList as any[]).find((i: any) => i.channel === 'ebay');
+  const ebayEnvironment: 'production' | 'sandbox' = (ebayIntegration?.credentials as any)?.environment ?? 'production';
+
   const { data: syncStatuses, isLoading: statusLoading } = useQuery<any>({
     queryKey: ['/api/sync/statuses'],
     refetchInterval: 15000,
@@ -1434,17 +1440,31 @@ function OverviewContent({
 
       {/* eBay-specific info banner */}
       {selectedChannel === 'ebay' && (
-        <div className="rounded-lg border border-blue-500/20 bg-blue-950/20 p-3 space-y-2 text-xs">
-          <p className="text-blue-300 font-medium flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-            eBay — Push-only channel
-          </p>
+        <div className={`rounded-lg border p-3 space-y-2 text-xs ${ebayEnvironment === 'sandbox' ? 'border-yellow-500/30 bg-yellow-950/20' : 'border-blue-500/20 bg-blue-950/20'}`}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className={`font-medium flex items-center gap-1.5 ${ebayEnvironment === 'sandbox' ? 'text-yellow-300' : 'text-blue-300'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayEnvironment === 'sandbox' ? 'bg-yellow-400' : 'bg-blue-400'}`} />
+              eBay — Push-only channel
+            </p>
+            {ebayEnvironment === 'sandbox' && (
+              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                Sandbox
+              </span>
+            )}
+          </div>
+          {ebayEnvironment === 'sandbox' && (
+            <p className="text-yellow-500/80 leading-relaxed">
+              Sandbox mode — listings are pushed to eBay sandbox only. Switch to Production in <span className="text-yellow-300">Settings → Platform Connections → eBay</span> when ready to go live.
+            </p>
+          )}
           <p className="text-gray-400 leading-relaxed">
             Your BrickLink inventory is pushed to eBay as fixed-price listings. Images come from your Image Center (never BrickLink CDN). Discrepancy analysis is not available for eBay — sync runs are always push operations.
           </p>
-          <p className="text-gray-500">
-            Configure eBay credentials in <span className="text-gray-300">Settings → Platform Connections → eBay</span>. Listing options (BrickLink ID field placement, catalog matching, listing duration) are set per org in the channel sync config.
-          </p>
+          {ebayEnvironment !== 'sandbox' && (
+            <p className="text-gray-500">
+              Configure eBay credentials in <span className="text-gray-300">Settings → Platform Connections → eBay</span>. Listing options (BrickLink ID field placement, catalog matching, listing duration) are set per org in the channel sync config.
+            </p>
+          )}
         </div>
       )}
 
