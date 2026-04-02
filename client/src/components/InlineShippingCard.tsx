@@ -73,8 +73,8 @@ type PackageOption = {
 };
 
 const PACKAGES: PackageOption[] = [
-  { id: "envelope",        label: "Envelope",        group: "standard", dims: { length: 9.5,  width: 4.125, height: 0.25 }, warnOz: 3.5  },
-  { id: "large_envelope",  label: "Large Envelope",  group: "standard", dims: { length: 15,   width: 12,    height: 0.75 }, warnOz: 13   },
+  { id: "envelope",        label: "Envelope",        group: "standard", predefined: "Letter", dims: { length: 9.5,  width: 4.125, height: 0.25 }, warnOz: 3.5  },
+  { id: "large_envelope",  label: "Large Envelope",  group: "standard", predefined: "Flat",   dims: { length: 15,   width: 12,    height: 0.75 }, warnOz: 13   },
   { id: "padded_envelope", label: "Padded Envelope", group: "standard", dims: { length: 12,   width: 9,     height: 2    }, warnOz: 80   },
   { id: "box",             label: "Box",             group: "standard", customDims: true },
   { id: "usps_flat_rate_env",    label: "Flat Rate Envelope",         group: "usps_priority", predefined: "FlatRateEnvelope",              dims: { length: 12.5,  width: 9.5,    height: 0.5  } },
