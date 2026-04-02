@@ -10931,6 +10931,7 @@ Format search_web URLs as markdown links.`;
         }
       }
 
+      const settings = await getOrgSettings(orgId);
       const rawSyncMode = settings?.channelSyncMode;
       const resolvedSyncMode = rawSyncMode === 'matched_sync' || rawSyncMode === 'quantity_only'
         ? 'matched_sync'
