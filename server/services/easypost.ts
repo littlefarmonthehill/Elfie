@@ -229,7 +229,7 @@ export class EasyPostShippingVendor implements IShippingVendor {
       shipmentId: response.id,
       ratesCount: response.rates?.length || 0,
       hasRates: !!response.rates,
-      sampleRate: response.rates?.[0]
+      allServices: (response.rates || []).map((r: any) => `${r.carrier}/${r.service}=$${r.rate}`)
     });
 
     // Map EasyPost rates to our interface
