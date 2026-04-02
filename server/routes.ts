@@ -17976,6 +17976,50 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // Fetch org's saved parcel templates from EasyPost
+  app.get("/api/shipping/parcel-templates", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { appSettings, orgIntegrations } = await import('@shared/schema');
+      const [integration] = await db
+        .select()
+        .from(orgIntegrations)
+        .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.type, 'shipping'), eq(orgIntegrations.isConnected, true)))
+        .limit(1);
+      let apiKey: string | undefined;
+      if (integration?.channel === 'easypost') {
+        const creds = (integration.credentials as Record<string, string>) ?? {};
+        apiKey = creds.mode === 'production' ? creds.apiKey : creds.testApiKey;
+      }
+      if (!apiKey) {
+        const [cfg] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+        const keyMode = cfg?.easypostKeyMode ?? 'test';
+        apiKey = keyMode === 'production' ? cfg?.easypostApiKey ?? undefined : cfg?.easypostTestApiKey ?? undefined;
+      }
+      if (!apiKey) return res.json([]);
+      const epRes = await fetch('https://api.easypost.com/v2/parcel_templates', {
+        headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}` },
+      });
+      if (!epRes.ok) return res.json([]);
+      const body = await epRes.json() as { parcel_templates?: any[] };
+      // Return only user-saved templates (carrier-provided ones are already in our local list)
+      const templates = (body.parcel_templates ?? [])
+        .filter((t: any) => !t.carrier_accounts || t.carrier_accounts.length === 0)
+        .map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          length: t.length,
+          width: t.width,
+          height: t.height,
+          predefined: t.predefined_package ?? null,
+        }));
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching parcel templates:", error);
+      res.json([]);
+    }
+  });
+
   // Validate a shipping address via EasyPost
   app.post("/api/fulfillment/validate-address", isApproved, async (req: any, res) => {
     try {

@@ -168,6 +168,12 @@ export default function InlineShippingCard({
     staleTime: 60000,
   });
 
+  type EpTemplate = { id: string; name: string; length: number; width: number; height: number; predefined: string | null };
+  const { data: epTemplates = [] } = useQuery<EpTemplate[]>({
+    queryKey: ['/api/shipping/parcel-templates'],
+    staleTime: 5 * 60 * 1000,
+  });
+
   const saveServiceMapping = async (label: string, easypostService: string) => {
     try {
       await apiRequest('POST', '/api/shipping/service-mappings', { label, easypostService });
@@ -316,8 +322,15 @@ export default function InlineShippingCard({
     if (raw <= 0) return null;
     const oz = toOz(raw, wu);
     if (oz > 1120) return `${raw} ${wu} exceeds the 70 lb USPS limit`;
-    if (pkg === "padded_envelope" && oz > 80)
-      return `${raw} ${wu} is heavy for a padded envelope — consider a box`;
+    const selected = PACKAGES.find(p => p.id === pkg);
+    if (selected?.warnOz && oz > selected.warnOz) {
+      const limitLabel = selected.warnOz < 4
+        ? `${selected.warnOz} oz First Class letter limit`
+        : selected.warnOz < 14
+          ? `${selected.warnOz} oz First Class large envelope limit`
+          : `${selected.warnOz / 16} lb limit for this package`;
+      return `${raw} ${wu} exceeds the ${limitLabel}`;
+    }
     return null;
   };
 
@@ -344,12 +357,28 @@ export default function InlineShippingCard({
         weight: weightOz,
       };
     }
-    return {
-      length: selected?.dims?.length ?? 12,
-      width: selected?.dims?.width ?? 9,
-      height: selected?.dims?.height ?? 2,
-      weight: weightOz,
-    };
+    if (selected) {
+      return {
+        length: selected.dims?.length ?? 12,
+        width: selected.dims?.width ?? 9,
+        height: selected.dims?.height ?? 2,
+        weight: weightOz,
+      };
+    }
+    // EasyPost saved template
+    const epTpl = epTemplates.find(t => t.id === pkg);
+    if (epTpl) {
+      const parcel: Record<string, any> = {
+        length: epTpl.length,
+        width: epTpl.width,
+        height: epTpl.height,
+        weight: weightOz,
+      };
+      if (epTpl.predefined) parcel.predefinedPackage = epTpl.predefined;
+      return parcel;
+    }
+    // Fallback
+    return { length: 12, width: 9, height: 2, weight: weightOz };
   };
 
   const fetchRates = async (
@@ -636,6 +665,7 @@ export default function InlineShippingCard({
           const stdPkgs = PACKAGES.filter(p => p.group === "standard");
           const priorityPkgs = PACKAGES.filter(p => p.group === "usps_priority");
           const selectedPkg = PACKAGES.find(p => p.id === packageType);
+          const selectedEpTpl = !selectedPkg ? epTemplates.find(t => t.id === packageType) : null;
           return (
             <div className="space-y-1.5">
               <Select
@@ -680,6 +710,19 @@ export default function InlineShippingCard({
                       </SelectItem>
                     ))}
                   </SelectGroup>
+                  {epTemplates.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">Saved in EasyPost</SelectLabel>
+                      {epTemplates.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="text-xs">{t.name}</span>
+                          <span className="text-gray-500 text-[10px] ml-1">
+                            {t.length}×{t.width}×{t.height}"
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
 
