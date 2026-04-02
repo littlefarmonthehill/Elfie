@@ -136,14 +136,14 @@ export function resolveOrderStatus(
   }
   // Guard against status regressions from terminal/advanced states.
   //
-  // 'shipped' may only move to 'cancelled' (e.g. BO post-ship cancel restores inventory)
-  // or stay 'shipped'.  All other backward moves (e.g. shipped → awaiting_shipment from
-  // stale BL data) are blocked.
+  // 'shipped' may advance to 'completed' (buyer confirmed receipt) or 'cancelled'
+  // (post-ship cancellation that restores inventory).  All true demotions (e.g.
+  // shipped → awaiting_shipment from stale BL data) are blocked.
   //
-  // 'completed' (buyer confirmed receipt) follows the same rule — it must never regress
-  // to 'shipped' when the next BL/BO sync cycle runs and still sees the old platform
-  // status.  It may only move to 'returned' or 'cancelled'.
-  const wouldDemoteFromShipped   = existingStatus === 'shipped'   && incomingStatus !== 'shipped';
+  // 'completed' (buyer confirmed receipt) must never regress — it may only move
+  // to 'returned' or 'cancelled'.
+  const wouldDemoteFromShipped   = existingStatus === 'shipped'   &&
+    !['shipped', 'completed', 'cancelled'].includes(incomingStatus);
   const wouldDemoteFromCompleted = existingStatus === 'completed' &&
     !['completed', 'returned', 'cancelled'].includes(incomingStatus);
   const wouldDemote = wouldDemoteFromShipped || wouldDemoteFromCompleted;
