@@ -41,11 +41,15 @@ type PackageOption = {
   predefined?: string;
   dims?: { length: number; width: number; height: number };
   customDims?: true;
+  // Max weight in oz before a warning is shown for this package type
+  warnOz?: number;
 };
 
 const PACKAGES: PackageOption[] = [
-  { id: "padded_envelope", label: "Padded Envelope", group: "standard", dims: { length: 12, width: 9, height: 2 } },
-  { id: "box", label: "Box", group: "standard", customDims: true },
+  { id: "envelope",        label: "Envelope",        group: "standard", dims: { length: 9.5,  width: 4.125, height: 0.25 }, warnOz: 3.5  },
+  { id: "large_envelope",  label: "Large Envelope",  group: "standard", dims: { length: 15,   width: 12,    height: 0.75 }, warnOz: 13   },
+  { id: "padded_envelope", label: "Padded Envelope", group: "standard", dims: { length: 12,   width: 9,     height: 2    }, warnOz: 80   },
+  { id: "box",             label: "Box",             group: "standard", customDims: true },
   { id: "usps_flat_rate_env", label: "Flat Rate Envelope", group: "usps_priority", predefined: "FlatRateEnvelope", dims: { length: 12.5, width: 9.5, height: 0.5 } },
   { id: "usps_padded_env", label: "Padded Flat Rate Envelope", group: "usps_priority", predefined: "FlatRatePaddedEnvelope", dims: { length: 12.5, width: 9.5, height: 1 } },
   { id: "usps_sm_box", label: "Small Flat Rate Box", group: "usps_priority", predefined: "SmallFlatRateBox", dims: { length: 8.625, width: 5.375, height: 1.625 } },
