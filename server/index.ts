@@ -62,9 +62,14 @@ const _doExit = (code: number) => {
   // restart, deploy, file-save HMR) reliably trigger EADDRINUSE.
   const finish = () => { _allowExit = true; _originalExit(code); };
   if (httpServer?.listening) {
+    // closeAllConnections() (Node 18.2+) immediately destroys all open sockets,
+    // ensuring the port is released before the new process tries to bind it.
+    if (typeof (httpServer as any).closeAllConnections === 'function') {
+      (httpServer as any).closeAllConnections();
+    }
     httpServer.close(() => finish());
     // Hard deadline: if close() stalls (keep-alive connections), force exit.
-    setTimeout(finish, 2000).unref();
+    setTimeout(finish, 1000).unref();
   } else {
     finish();
   }
@@ -73,7 +78,12 @@ const _doExit = (code: number) => {
 process.on('SIGTERM', () => {
   console.log('[SIGNAL] Received SIGTERM — stopping active syncs and flushing records...');
   // Release the port immediately so a new process can bind it while cleanup runs.
-  if (httpServer?.listening) httpServer.close();
+  if (httpServer?.listening) {
+    if (typeof (httpServer as any).closeAllConnections === 'function') {
+      (httpServer as any).closeAllConnections();
+    }
+    httpServer.close();
+  }
   const cleanup = async () => {
     try {
       const { requestPomShutdown } = await import('./services/bricklink');
