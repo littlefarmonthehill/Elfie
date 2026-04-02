@@ -50,11 +50,14 @@ const PACKAGES: PackageOption[] = [
   { id: "large_envelope",  label: "Large Envelope",  group: "standard", dims: { length: 15,   width: 12,    height: 0.75 }, warnOz: 13   },
   { id: "padded_envelope", label: "Padded Envelope", group: "standard", dims: { length: 12,   width: 9,     height: 2    }, warnOz: 80   },
   { id: "box",             label: "Box",             group: "standard", customDims: true },
-  { id: "usps_flat_rate_env", label: "Flat Rate Envelope", group: "usps_priority", predefined: "FlatRateEnvelope", dims: { length: 12.5, width: 9.5, height: 0.5 } },
-  { id: "usps_padded_env", label: "Padded Flat Rate Envelope", group: "usps_priority", predefined: "FlatRatePaddedEnvelope", dims: { length: 12.5, width: 9.5, height: 1 } },
-  { id: "usps_sm_box", label: "Small Flat Rate Box", group: "usps_priority", predefined: "SmallFlatRateBox", dims: { length: 8.625, width: 5.375, height: 1.625 } },
-  { id: "usps_md_box", label: "Medium Flat Rate Box", group: "usps_priority", predefined: "MediumFlatRateBoxTopLoading", dims: { length: 11, width: 8.5, height: 5.5 } },
-  { id: "usps_lg_box", label: "Large Flat Rate Box", group: "usps_priority", predefined: "LargeFlatRateBox", dims: { length: 12, width: 12, height: 5.5 } },
+  { id: "usps_flat_rate_env",    label: "Flat Rate Envelope",         group: "usps_priority", predefined: "FlatRateEnvelope",              dims: { length: 12.5,  width: 9.5,    height: 0.5  } },
+  { id: "usps_legal_env",        label: "Legal Flat Rate Envelope",   group: "usps_priority", predefined: "FlatRateLegalEnvelope",         dims: { length: 15,    width: 9.5,    height: 0.75 } },
+  { id: "usps_padded_env",       label: "Padded Flat Rate Envelope",  group: "usps_priority", predefined: "FlatRatePaddedEnvelope",        dims: { length: 12.5,  width: 9.5,    height: 1    } },
+  { id: "usps_sm_box",           label: "Small Flat Rate Box",        group: "usps_priority", predefined: "SmallFlatRateBox",              dims: { length: 8.625, width: 5.375,  height: 1.625} },
+  { id: "usps_md_box",           label: "Medium Flat Rate Box",       group: "usps_priority", predefined: "MediumFlatRateBoxTopLoading",   dims: { length: 11,    width: 8.5,    height: 5.5  } },
+  { id: "usps_lg_box",           label: "Large Flat Rate Box",        group: "usps_priority", predefined: "LargeFlatRateBox",              dims: { length: 12,    width: 12,     height: 5.5  } },
+  { id: "usps_rr_box_a",         label: "Regional Rate Box A",        group: "usps_priority", predefined: "RegionalRateBoxA",              dims: { length: 10.15, width: 7.15,   height: 5    } },
+  { id: "usps_rr_box_b",         label: "Regional Rate Box B",        group: "usps_priority", predefined: "RegionalRateBoxB",              dims: { length: 14.5,  width: 11.625, height: 3    } },
 ];
 
 type ShipAddress = {
