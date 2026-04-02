@@ -168,7 +168,7 @@ async function processEbayOrder(
   const rawId = ebayOrder.orderId ?? ebayOrder.legacyOrderId;
   if (!rawId) return;
 
-  const orderId           = `ebay-${rawId}`;
+  const orderId           = `eb-${rawId}`;
   const fulfillmentStatus = String(ebayOrder.orderFulfillmentStatus ?? 'NOT_STARTED');
   const cancelState       = String(ebayOrder.cancelStatus?.cancelState ?? 'NONE_REQUESTED');
   const normalizedStatus  = mapEbayStatus(fulfillmentStatus, cancelState);

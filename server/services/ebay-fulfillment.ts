@@ -144,10 +144,10 @@ export async function syncToEbay(
   const accessToken = await getAccessToken(creds, baseUrl);
 
   // ── Resolve line items ─────────────────────────────────────────────────────
-  // lineItemKey stored format: "ebay-{ebayOrderId}-{lineItemId}"
+  // lineItemKey stored format: "eb-{ebayOrderId}-{lineItemId}"
   // Strip the local order ID prefix to recover the raw eBay lineItemId.
   //
-  // order.id       = "ebay-18-12345-67890"  (local PK)
+  // order.id       = "eb-18-12345-67890"  (local PK)
   // order.orderNumber = "18-12345-67890"    (raw eBay order ID)
 
   const localOrderId = order.id as string;
