@@ -2538,6 +2538,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [ebayCertId, setEbayCertId] = useState('');
   const [ebayDevId, setEbayDevId] = useState('');
   const [ebayRefreshToken, setEbayRefreshToken] = useState('');
+  const [ebaySandboxAppId, setEbaySandboxAppId] = useState('');
+  const [ebaySandboxCertId, setEbaySandboxCertId] = useState('');
+  const [ebaySandboxDevId, setEbaySandboxDevId] = useState('');
+  const [ebaySandboxRefreshToken, setEbaySandboxRefreshToken] = useState('');
   const [ebayEnvironment, setEbayEnvironment] = useState<'production' | 'sandbox'>('production');
   const [ebayCredentialsSaving, setEbayCredentialsSaving] = useState(false);
 
@@ -2625,6 +2629,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [schedulerOrdersOpen, setSchedulerOrdersOpen] = useState(false);
   const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
   const [schedulerChannelBrickOwlOpen, setSchedulerChannelBrickOwlOpen] = useState(true);
+  const [schedulerChannelEbayOpen, setSchedulerChannelEbayOpen] = useState(true);
   const [channelSyncFieldsOpen, setChannelSyncFieldsOpen] = useState(false);
   const [triggeringSync, setTriggeringSync] = useState<string | null>(null);
   const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
@@ -5350,10 +5355,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     setEbayCredentialsSaving(true);
                     try {
                       const creds: Record<string, string> = { environment: ebayEnvironment };
-                      if (ebayAppId)      creds.appId        = ebayAppId;
-                      if (ebayCertId)     creds.certId       = ebayCertId;
-                      if (ebayDevId)      creds.devId        = ebayDevId;
-                      if (ebayRefreshToken) creds.refreshToken = ebayRefreshToken;
+                      if (ebayAppId)           creds.appId              = ebayAppId;
+                      if (ebayCertId)          creds.certId             = ebayCertId;
+                      if (ebayDevId)           creds.devId              = ebayDevId;
+                      if (ebayRefreshToken)    creds.refreshToken       = ebayRefreshToken;
+                      if (ebaySandboxAppId)    creds.sandboxAppId       = ebaySandboxAppId;
+                      if (ebaySandboxCertId)   creds.sandboxCertId      = ebaySandboxCertId;
+                      if (ebaySandboxDevId)    creds.sandboxDevId       = ebaySandboxDevId;
+                      if (ebaySandboxRefreshToken) creds.sandboxRefreshToken = ebaySandboxRefreshToken;
                       if (ebayInt) {
                         await apiRequest('PATCH', `/api/org/integrations/${ebayInt.id}`, { credentials: creds });
                       } else {
@@ -5364,6 +5373,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       setEbayCertId('');
                       setEbayDevId('');
                       setEbayRefreshToken('');
+                      setEbaySandboxAppId('');
+                      setEbaySandboxCertId('');
+                      setEbaySandboxDevId('');
+                      setEbaySandboxRefreshToken('');
                     } finally {
                       setEbayCredentialsSaving(false);
                     }
@@ -5381,38 +5394,69 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           Connected — credentials saved
                         </div>
                       )}
-                      <p className="text-[11px] text-gray-500">Obtain your App ID, Cert ID, and Dev ID from the <a href="https://developer.ebay.com/my/keys" target="_blank" rel="noopener noreferrer" className="underline text-gray-400 hover:text-gray-200">eBay Developer Program → Application Keys</a>. The refresh token is generated when you authorize your eBay seller account via OAuth.</p>
+                      <p className="text-[11px] text-gray-500">Obtain keys from the <a href="https://developer.ebay.com/my/keys" target="_blank" rel="noopener noreferrer" className="underline text-gray-400 hover:text-gray-200">eBay Developer Program → Application Keys</a>. Enter both sets so you can switch environments without losing credentials.</p>
 
-                      <div className="space-y-3">
+                      {/* Active environment selector */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-200">Active Environment</Label>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="ebay-env" value="production" checked={ebayEnvironment === 'production'} onChange={() => setEbayEnvironment('production')} className="focus:ring-purple-500" data-testid="radio-ebay-production" />
+                            <span className="text-xs text-gray-300">Production</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="ebay-env" value="sandbox" checked={ebayEnvironment === 'sandbox'} onChange={() => setEbayEnvironment('sandbox')} className="focus:ring-purple-500" data-testid="radio-ebay-sandbox" />
+                            <span className="text-xs text-gray-300">Sandbox</span>
+                          </label>
+                        </div>
+                        {ebayEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — listings will be pushed to eBay sandbox only</p>}
+                      </div>
+
+                      {/* Production credentials */}
+                      <div className="rounded-md border border-gray-700/60 bg-gray-800/20 p-3 space-y-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wide">Production</span>
+                          {existingCreds?.appId && <span className="text-[10px] text-green-400">saved</span>}
+                        </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-200">App ID (Client ID) <span className="text-gray-600 font-normal">{existingCreds?.appId ? '— saved, leave blank to keep' : ''}</span></Label>
+                          <Label className="text-xs text-gray-400">App ID (Client ID)</Label>
                           <Input className="text-xs font-mono" placeholder={existingCreds?.appId ? '••••••••' : 'MyApp-abc123…'} value={ebayAppId} onChange={(e) => setEbayAppId(e.target.value)} data-testid="input-ebay-app-id" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-200">Cert ID (Client Secret) <span className="text-gray-600 font-normal">{existingCreds?.certId ? '— saved, leave blank to keep' : ''}</span></Label>
-                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.certId ? '••••••••' : 'SBX-xxxxxxxx…'} value={ebayCertId} onChange={(e) => setEbayCertId(e.target.value)} data-testid="input-ebay-cert-id" />
+                          <Label className="text-xs text-gray-400">Cert ID (Client Secret)</Label>
+                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.certId ? '••••••••' : 'xxxxxxxxx…'} value={ebayCertId} onChange={(e) => setEbayCertId(e.target.value)} data-testid="input-ebay-cert-id" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-200">Dev ID <span className="text-gray-600 font-normal text-[10px]">optional</span></Label>
+                          <Label className="text-xs text-gray-400">Dev ID <span className="text-gray-600 font-normal text-[10px]">optional</span></Label>
                           <Input className="text-xs font-mono" placeholder={existingCreds?.devId ? '••••••••' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'} value={ebayDevId} onChange={(e) => setEbayDevId(e.target.value)} data-testid="input-ebay-dev-id" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-200">OAuth Refresh Token <span className="text-gray-600 font-normal">{existingCreds?.refreshToken ? '— saved, leave blank to keep' : ''}</span></Label>
+                          <Label className="text-xs text-gray-400">OAuth Refresh Token</Label>
                           <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.refreshToken ? '••••••••' : 'v^1.1#i^1#r^1#p^…'} value={ebayRefreshToken} onChange={(e) => setEbayRefreshToken(e.target.value)} data-testid="input-ebay-refresh-token" />
                         </div>
+                      </div>
+
+                      {/* Sandbox credentials */}
+                      <div className="rounded-md border border-gray-700/60 bg-gray-800/20 p-3 space-y-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wide">Sandbox</span>
+                          {existingCreds?.sandboxAppId && <span className="text-[10px] text-green-400">saved</span>}
+                        </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-200">Environment</Label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input type="radio" name="ebay-env" value="production" checked={ebayEnvironment === 'production'} onChange={() => setEbayEnvironment('production')} className="focus:ring-purple-500" data-testid="radio-ebay-production" />
-                              <span className="text-xs text-gray-300">Production</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input type="radio" name="ebay-env" value="sandbox" checked={ebayEnvironment === 'sandbox'} onChange={() => setEbayEnvironment('sandbox')} className="focus:ring-purple-500" data-testid="radio-ebay-sandbox" />
-                              <span className="text-xs text-gray-300">Sandbox (testing)</span>
-                            </label>
-                          </div>
-                          {ebayEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — listings will be pushed to eBay sandbox only</p>}
+                          <Label className="text-xs text-gray-400">App ID (Client ID)</Label>
+                          <Input className="text-xs font-mono" placeholder={existingCreds?.sandboxAppId ? '••••••••' : 'MyApp-SBX-abc123…'} value={ebaySandboxAppId} onChange={(e) => setEbaySandboxAppId(e.target.value)} data-testid="input-ebay-sandbox-app-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-400">Cert ID (Client Secret)</Label>
+                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.sandboxCertId ? '••••••••' : 'SBX-xxxxxxxxx…'} value={ebaySandboxCertId} onChange={(e) => setEbaySandboxCertId(e.target.value)} data-testid="input-ebay-sandbox-cert-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-400">Dev ID <span className="text-gray-600 font-normal text-[10px]">optional</span></Label>
+                          <Input className="text-xs font-mono" placeholder={existingCreds?.sandboxDevId ? '••••••••' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'} value={ebaySandboxDevId} onChange={(e) => setEbaySandboxDevId(e.target.value)} data-testid="input-ebay-sandbox-dev-id" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-400">OAuth Refresh Token</Label>
+                          <Input type="password" className="text-xs font-mono" placeholder={existingCreds?.sandboxRefreshToken ? '••••••••' : 'v^1.1#i^1#r^1#p^…'} value={ebaySandboxRefreshToken} onChange={(e) => setEbaySandboxRefreshToken(e.target.value)} data-testid="input-ebay-sandbox-refresh-token" />
                         </div>
                       </div>
 
@@ -5422,7 +5466,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <Trash2 className="w-3 h-3" /> Remove
                           </Button>
                         ) : <span />}
-                        <Button size="sm" className="text-xs" disabled={ebayCredentialsSaving || (!ebayAppId && !ebayCertId && !ebayRefreshToken && !!ebayInt)} onClick={saveEbayCreds} data-testid="button-save-ebay-creds">
+                        <Button size="sm" className="text-xs" disabled={ebayCredentialsSaving || (!ebayAppId && !ebayCertId && !ebayRefreshToken && !ebaySandboxAppId && !ebaySandboxCertId && !ebaySandboxRefreshToken && !!ebayInt)} onClick={saveEbayCreds} data-testid="button-save-ebay-creds">
                           {ebayCredentialsSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : ebayInt ? 'Update Credentials' : 'Save & Connect'}
                         </Button>
                       </div>
@@ -6050,6 +6094,48 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       )}
                     </div>
 
+                        {/* eBay channel group */}
+                        {(() => {
+                          const ebayIntForScheduler = orgIntegrationsList.find(i => i.channel === 'ebay');
+                          const ebayConnected = !!(ebayIntForScheduler?.credentials && ((ebayIntForScheduler.credentials as any).refreshToken || (ebayIntForScheduler.credentials as any).sandboxRefreshToken));
+                          return (
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/30 overflow-hidden">
+                              <button
+                                onClick={() => setSchedulerChannelEbayOpen(!schedulerChannelEbayOpen)}
+                                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-gray-700/30 transition-colors group"
+                                data-testid="button-scheduler-channel-ebay-toggle"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                  <span className="text-xs font-semibold text-gray-200">eBay</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ebayConnected && channelSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                                    {ebayConnected && channelSyncEnabled ? 'Enabled' : !ebayConnected ? 'Not connected' : 'Disabled'}
+                                  </span>
+                                </div>
+                                {schedulerChannelEbayOpen
+                                  ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                                  : <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" />}
+                              </button>
+                              {schedulerChannelEbayOpen && (
+                                <div className="px-3 pb-3 pt-2 space-y-2 border-t border-gray-700/40">
+                                  {!ebayConnected ? (
+                                    <p className="text-xs text-gray-500">eBay credentials not configured. <button className="underline text-gray-400 hover:text-gray-200" onClick={() => { setActiveSection('platforms'); setActivePlatform('ebay'); }}>Add credentials →</button></p>
+                                  ) : (
+                                    <>
+                                      <p className="text-xs text-gray-400">Runs on the same schedule as Channel Sync above — push-only, no analysis phase.</p>
+                                      <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${(ebayIntForScheduler?.credentials as any)?.environment === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                        Active: <span className="text-gray-300 capitalize">{(ebayIntForScheduler?.credentials as any)?.environment ?? 'production'}</span>
+                                      </div>
+                                      <SyncStatusLine entry={syncStatuses?.channel ?? null} />
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
                       <p className="text-xs text-purple-300">
                         <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
@@ -6158,7 +6244,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       />
                     </div>
 
-                    {/* Row: BrickOwl Channel */}
+                    {/* Row: Channel Sync (BrickOwl + eBay) */}
                     <div id="autosync-channel-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
                       <button
                         onClick={() => { if (channelSyncEnabled) setExpandedAutoSyncService('channel'); }}
@@ -6170,9 +6256,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <Globe className="w-3.5 h-3.5 text-green-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-100">BrickOwl Channel</p>
+                          <p className="text-xs font-semibold text-gray-100">Channel Sync</p>
                           <p className="text-[10px] text-gray-500 leading-tight">
-                            {channelSyncEnabled ? `Every ${channelSyncFrequency}h` : 'Pushes your inventory from E.L.F.I.E. to BrickOwl'}
+                            {channelSyncEnabled ? `Every ${channelSyncFrequency}h · BrickOwl + eBay` : 'Pushes inventory to BrickOwl and eBay'}
                           </p>
                         </div>
                         {channelSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
