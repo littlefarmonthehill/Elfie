@@ -6874,8 +6874,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </>)}
 
                   </div>
-                <>
-              )}
 
               </div>
             )}

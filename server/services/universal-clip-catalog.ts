@@ -184,8 +184,16 @@ export async function importFromRebrickable(): Promise<ImportResult> {
 }
 
 /**
- * Reset stale no_image / failed rows back to 'pending' so the worker retries
- * them. Pass olderThanDays=0 to retry everything regardless of age.
+ * Reset stale items back to 'pending' so the worker retries them.
+ *
+ * - `failed` items are always included: these represent transient errors
+ *   (network timeouts, BrickLink outages) and are worth retrying automatically.
+ * - `no_image` items are only included when olderThanDays <= 0 (explicit
+ *   manual "retry everything" trigger). BrickLink rarely adds images to parts
+ *   that have never had one, so automatically recycling 50K+ no-image items
+ *   every month just burns cycles with no benefit.
+ *
+ * Pass olderThanDays=0 to retry everything (failed + no_image) regardless of age.
  * Returns the number of rows reset.
  */
 export async function retryStaleItems(olderThanDays: number = 30): Promise<number> {
@@ -193,6 +201,7 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
 
   let result: { partNo: string }[];
   if (olderThanDays <= 0) {
+    // Manual full-reset: include no_image too (user explicitly asked)
     result = await db.execute<{ partNo: string }>(
       sql`UPDATE universal_catalog_queue
           SET status = 'pending', attempted_at = NULL, error_msg = NULL
@@ -200,10 +209,13 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
           RETURNING part_no AS "partNo"`
     ).then(r => r.rows ?? []);
   } else {
+    // Scheduled retry: only reset 'failed' items (transient errors worth retrying).
+    // no_image items are left alone — BrickLink adding a photo to a previously
+    // imageless part is rare enough that a manual reset is more appropriate.
     result = await db.execute<{ partNo: string }>(
       sql`UPDATE universal_catalog_queue
           SET status = 'pending', attempted_at = NULL, error_msg = NULL
-          WHERE status IN ('no_image', 'failed')
+          WHERE status = 'failed'
             AND (attempted_at IS NULL OR attempted_at < ${cutoff.toISOString()}::timestamptz)
           RETURNING part_no AS "partNo"`
     ).then(r => r.rows ?? []);
