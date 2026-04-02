@@ -142,14 +142,26 @@ async function loadEbayCredentials(orgId: string): Promise<EbayCredentials | nul
 
   if (!row?.credentials) return null;
   const creds = row.credentials as Record<string, string>;
-  if (!creds.appId || !creds.certId || !creds.refreshToken) return null;
+  const env = (creds.environment as 'production' | 'sandbox') ?? 'production';
 
+  if (env === 'sandbox') {
+    if (!creds.sandboxAppId || !creds.sandboxCertId || !creds.sandboxRefreshToken) return null;
+    return {
+      appId:        creds.sandboxAppId,
+      certId:       creds.sandboxCertId,
+      devId:        creds.sandboxDevId ?? '',
+      refreshToken: creds.sandboxRefreshToken,
+      environment:  'sandbox',
+    };
+  }
+
+  if (!creds.appId || !creds.certId || !creds.refreshToken) return null;
   return {
     appId:        creds.appId,
     certId:       creds.certId,
-    devId:        creds.devId,
+    devId:        creds.devId ?? '',
     refreshToken: creds.refreshToken,
-    environment:  (creds.environment as 'production' | 'sandbox') ?? 'production',
+    environment:  'production',
   };
 }
 
