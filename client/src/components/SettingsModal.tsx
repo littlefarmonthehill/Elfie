@@ -2605,7 +2605,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomApiBudgetPct, setPomApiBudgetPct] = useState(70);
   const [catalogDetailApiBudgetPct, setCatalogDetailApiBudgetPct] = useState(20);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
-  const [expandedAutoSyncService, setExpandedAutoSyncService] = useState<'inventory' | 'orders' | 'channel' | null>(null);
+  const [expandedAutoSyncService, setExpandedAutoSyncService] = useState<'inventory' | 'orders' | 'brickOwl' | 'ebay' | null>(null);
   const [expandedAdminPanel, setExpandedAdminPanel] = useState<'defaults' | 'floors' | 'health' | null>('health');
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
@@ -2770,7 +2770,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setActiveSection('autoSync');
       const targetId = focusTarget === 'schedulerInventory' ? 'autosync-inventory-card'
         : focusTarget === 'schedulerOrders' ? 'autosync-orders-card'
-        : 'autosync-channel-card';
+        : 'autosync-brickOwl-card';
       setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
       return;
     }
@@ -6183,97 +6183,145 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     )}
                   </div>
 
-                  {/* Service list — toggle only, tap row to configure */}
-                  <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
+                  {/* ── Scheduler ───────────────────────────────────────── */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide px-0.5">Scheduler</p>
+                    <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                    {/* Row: BrickLink Inventory */}
-                    <div id="autosync-inventory-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
-                      <button
-                        onClick={() => { if (inventorySyncEnabled) setExpandedAutoSyncService('inventory'); }}
-                        disabled={!inventorySyncEnabled}
-                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
-                        data-testid="button-inventory-configure"
-                      >
-                        <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-                          <Package className="w-3.5 h-3.5 text-purple-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-100">BrickLink Inventory</p>
-                          <p className="text-[10px] text-gray-500 leading-tight">
-                            {inventorySyncEnabled ? `Every ${inventorySyncFrequency}h` : 'Pulls your live BrickLink store into E.L.F.I.E.'}
-                          </p>
-                        </div>
-                        {inventorySyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-                      </button>
-                      <Switch
-                        checked={inventorySyncEnabled}
-                        onCheckedChange={(checked) => {
-                          setInventorySyncEnabled(checked);
-                          updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                        }}
-                        data-testid="switch-inventory-sync"
-                      />
+                      {/* Row: Inventory */}
+                      <div id="autosync-inventory-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                        <button
+                          onClick={() => { if (inventorySyncEnabled) setExpandedAutoSyncService('inventory'); }}
+                          disabled={!inventorySyncEnabled}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                          data-testid="button-inventory-configure"
+                        >
+                          <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                            <Package className="w-3.5 h-3.5 text-purple-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-100">Inventory</p>
+                            <p className="text-[10px] text-gray-500 leading-tight">
+                              {inventorySyncEnabled ? `Every ${inventorySyncFrequency}h · pulls from BrickLink` : 'Pulls your live BrickLink store into E.L.F.I.E.'}
+                            </p>
+                          </div>
+                          {inventorySyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                        </button>
+                        <Switch
+                          checked={inventorySyncEnabled}
+                          onCheckedChange={(checked) => {
+                            setInventorySyncEnabled(checked);
+                            updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                          }}
+                          data-testid="switch-inventory-sync"
+                        />
+                      </div>
+
+                      {/* Row: Orders */}
+                      <div id="autosync-orders-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                        <button
+                          onClick={() => { if (ordersSyncEnabled) setExpandedAutoSyncService('orders'); }}
+                          disabled={!ordersSyncEnabled}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                          data-testid="button-orders-configure"
+                        >
+                          <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                            <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-100">Orders</p>
+                            <p className="text-[10px] text-gray-500 leading-tight">
+                              {ordersSyncEnabled ? `Every ${ordersSyncFrequency}m · pulls from BrickLink &amp; BrickOwl` : 'Syncs new orders from BrickLink and BrickOwl'}
+                            </p>
+                          </div>
+                          {ordersSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                        </button>
+                        <Switch
+                          checked={ordersSyncEnabled}
+                          onCheckedChange={(checked) => {
+                            setOrdersSyncEnabled(checked);
+                            updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                          }}
+                          data-testid="switch-orders-sync"
+                        />
+                      </div>
+
                     </div>
-
-                    {/* Row: Orders */}
-                    <div id="autosync-orders-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
-                      <button
-                        onClick={() => { if (ordersSyncEnabled) setExpandedAutoSyncService('orders'); }}
-                        disabled={!ordersSyncEnabled}
-                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
-                        data-testid="button-orders-configure"
-                      >
-                        <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                          <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-100">Orders</p>
-                          <p className="text-[10px] text-gray-500 leading-tight">
-                            {ordersSyncEnabled ? `Every ${ordersSyncFrequency}m` : 'Syncs new orders from BrickLink and BrickOwl'}
-                          </p>
-                        </div>
-                        {ordersSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-                      </button>
-                      <Switch
-                        checked={ordersSyncEnabled}
-                        onCheckedChange={(checked) => {
-                          setOrdersSyncEnabled(checked);
-                          updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
-                        }}
-                        data-testid="switch-orders-sync"
-                      />
-                    </div>
-
-                    {/* Row: Channel Sync (BrickOwl + eBay) */}
-                    <div id="autosync-channel-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
-                      <button
-                        onClick={() => { if (channelSyncEnabled) setExpandedAutoSyncService('channel'); }}
-                        disabled={!channelSyncEnabled}
-                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
-                        data-testid="button-channel-configure"
-                      >
-                        <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-                          <Globe className="w-3.5 h-3.5 text-green-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-100">Channel Sync</p>
-                          <p className="text-[10px] text-gray-500 leading-tight">
-                            {channelSyncEnabled ? `Every ${channelSyncFrequency}h · BrickOwl + eBay` : 'Pushes inventory to BrickOwl and eBay'}
-                          </p>
-                        </div>
-                        {channelSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-                      </button>
-                      <Switch
-                        checked={channelSyncEnabled}
-                        onCheckedChange={(checked) => {
-                          setChannelSyncEnabled(checked);
-                          updateSettingsMutation.mutate({ channelSyncEnabled: checked });
-                        }}
-                        data-testid="switch-channel-sync"
-                      />
-                    </div>
-
                   </div>
+
+                  {/* ── Channel Configuration ─────────────────────────── */}
+                  {(() => {
+                    const boInt = orgIntegrationsList.find(i => i.type === 'sales_channel' && i.channel !== 'ebay');
+                    const boConnected = !!boInt;
+                    const ebayIntL = orgIntegrationsList.find(i => i.channel === 'ebay');
+                    const ebayConnectedL = !!(ebayIntL?.credentials && ((ebayIntL.credentials as any).refreshToken || (ebayIntL.credentials as any).sandboxRefreshToken));
+                    const hasAnyChannel = boConnected || ebayConnectedL;
+                    return (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide px-0.5">Channel Configuration</p>
+                        <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
+
+                          {/* BrickOwl row */}
+                          {boConnected && (
+                            <div id="autosync-brickOwl-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                              <button
+                                onClick={() => setExpandedAutoSyncService('brickOwl')}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                                data-testid="button-brickOwl-configure"
+                              >
+                                <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                                  <Globe className="w-3.5 h-3.5 text-green-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-gray-100">BrickOwl</p>
+                                  <p className="text-[10px] text-gray-500 leading-tight">
+                                    {channelSyncEnabled ? `Every ${channelSyncFrequency}h · sync enabled` : 'Configure sync items &amp; fields'}
+                                  </p>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* eBay row */}
+                          {ebayConnectedL && (
+                            <div id="autosync-ebay-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                              <button
+                                onClick={() => setExpandedAutoSyncService('ebay')}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                                data-testid="button-ebay-configure"
+                              >
+                                <div className="w-7 h-7 rounded-md bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                                  <span className="text-[10px] font-bold text-orange-400">e</span>
+                                </div>
+                                <div className="flex-1 min-w-0 flex items-center gap-2">
+                                  <p className="text-xs font-semibold text-gray-100">eBay</p>
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">Beta</span>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Empty state */}
+                          {!hasAnyChannel && (
+                            <div className="px-4 py-6 text-center">
+                              <Globe className="w-5 h-5 text-gray-600 mx-auto mb-2" />
+                              <p className="text-xs text-gray-500">No sales channels connected yet</p>
+                              <button
+                                onClick={() => { setActiveSection('platforms'); }}
+                                className="text-[10px] text-blue-400 underline mt-1 hover:text-blue-300 transition-colors"
+                                data-testid="button-go-to-platforms"
+                              >
+                                Connect a channel in Platforms →
+                              </button>
+                            </div>
+                          )}
+
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Burn rate card */}
                   {(() => {
@@ -6307,7 +6355,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               <Package className="w-3 h-3 text-purple-400" />
-                              <span className="text-[11px] text-gray-400">BrickLink Inventory</span>
+                              <span className="text-[11px] text-gray-400">Inventory</span>
                               {inventorySyncEnabled && <span className="text-[10px] text-gray-600">every {inventorySyncFrequency}h</span>}
                             </div>
                             <span className="text-[11px] font-mono text-gray-300">
@@ -6336,13 +6384,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <Globe className="w-3 h-3 text-green-400" />
-                              <span className="text-[11px] text-gray-400">BrickOwl Channel</span>
-                            </div>
-                            <span className="text-[11px] font-mono text-gray-600">0 calls</span>
-                          </div>
                         </div>
                       </div>
                     );
@@ -6366,7 +6407,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <Package className="w-3.5 h-3.5 text-purple-400" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-100">BrickLink Inventory</p>
+                          <p className="text-sm font-medium text-gray-100">Inventory</p>
                           <p className="text-[10px] text-gray-500">Sync schedule &amp; settings</p>
                         </div>
                       </>
@@ -6382,14 +6423,25 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                       </>
                     )}
-                    {expandedAutoSyncService === 'channel' && (
+                    {expandedAutoSyncService === 'brickOwl' && (
                       <>
                         <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
                           <Globe className="w-3.5 h-3.5 text-green-400" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-100">Channel Sync</p>
-                          <p className="text-[10px] text-gray-500">BrickOwl + eBay · schedule &amp; settings</p>
+                          <p className="text-sm font-medium text-gray-100">BrickOwl</p>
+                          <p className="text-[10px] text-gray-500">Channel sync configuration</p>
+                        </div>
+                      </>
+                    )}
+                    {expandedAutoSyncService === 'ebay' && (
+                      <>
+                        <div className="w-7 h-7 rounded-md bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold text-orange-400">e</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-100">eBay</p>
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-orange-500/15 text-orange-400 font-semibold">Beta</span>
                         </div>
                       </>
                     )}
@@ -6406,7 +6458,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       {expandedAutoSyncService === 'orders' && (
                         <Switch checked={ordersSyncEnabled} onCheckedChange={(c) => { setOrdersSyncEnabled(c); updateSettingsMutation.mutate({ ordersSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-orders-sync-detail" />
                       )}
-                      {expandedAutoSyncService === 'channel' && (
+                      {(expandedAutoSyncService === 'brickOwl' || expandedAutoSyncService === 'ebay') && (
                         <Switch checked={channelSyncEnabled} onCheckedChange={(c) => { setChannelSyncEnabled(c); updateSettingsMutation.mutate({ channelSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-channel-sync-detail" />
                       )}
                     </div>
@@ -6478,10 +6530,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     </>)}
 
-                    {/* ── Channel Sync detail ── */}
-                    {expandedAutoSyncService === 'channel' && (<>
+                    {/* ── BrickOwl channel detail ── */}
+                    {expandedAutoSyncService === 'brickOwl' && (<>
 
-                      {/* ── SCHEDULE (shared across all channels) ── */}
+                      {/* Schedule */}
                       <div className="px-4 py-3 space-y-3">
                         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Schedule</p>
                         <div className="flex items-center justify-between gap-3">
@@ -6506,16 +6558,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                       </div>
 
-                      {/* ── BRICKOWL channel ── */}
+                      {/* ── BrickOwl config ── */}
                       <div className="border-t border-gray-700/40">
-                        {/* Section header */}
-                        <div className="px-4 py-2.5 flex items-center gap-2 bg-gray-800/30">
-                          <div className="w-4 h-4 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-                            <Globe className="w-2.5 h-2.5 text-green-400" />
-                          </div>
-                          <span className="text-xs font-semibold text-gray-100">BrickOwl</span>
-                          <span className="text-[10px] text-gray-500">— channel configuration</span>
-                        </div>
 
                         {/* Sync Mode */}
                         <div className="px-4 py-3 space-y-2 border-t border-gray-700/40">
@@ -6824,7 +6868,35 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         )}
                       </div>
 
-                      {/* ── EBAY channel ── */}
+                    </>)}
+
+                    {/* ── eBay channel detail ── */}
+                    {expandedAutoSyncService === 'ebay' && (<>
+                      {/* Schedule */}
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Schedule</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <Select
+                            value={String(channelSyncFrequency)}
+                            onValueChange={(v) => { const hours = Number(v); setChannelSyncFrequency(hours); updateSettingsMutation.mutate({ channelSyncFrequency: hours }); }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-ebay-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every hour</SelectItem>
+                              <SelectItem value="2">Every 2 hours</SelectItem>
+                              <SelectItem value="4">Every 4 hours</SelectItem>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <SyncStatusLine entry={syncStatuses?.channel ?? null} />
+                      </div>
+                      {/* Connection status & info */}
                       {(() => {
                         const ebayIntDetail = orgIntegrationsList.find(i => i.channel === 'ebay');
                         const ebayCredDetail = ebayIntDetail?.credentials as Record<string,string> | undefined;
@@ -6832,29 +6904,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         const ebayEnv = ebayCredDetail?.environment ?? 'production';
                         return (
                           <div className="border-t border-gray-700/40">
-                            {/* Section header */}
-                            <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-gray-800/30">
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-                                  <span className="text-[8px] font-bold text-orange-400">e</span>
-                                </div>
-                                <span className="text-xs font-semibold text-gray-100">eBay</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ebayConnectedDetail ? 'bg-green-500/20 text-green-400' : 'bg-gray-700/60 text-gray-500'}`}>
-                                  {ebayConnectedDetail ? 'Connected' : 'Not connected'}
-                                </span>
-                              </div>
-                              {!ebayConnectedDetail && (
-                                <button
-                                  className="text-[10px] text-gray-400 underline hover:text-gray-200 transition-colors"
-                                  onClick={() => { setActiveSection('platforms'); setActivePlatform('ebay'); setExpandedAutoSyncService(null); }}
-                                  data-testid="button-ebay-configure-from-channel"
-                                >
-                                  Add credentials →
-                                </button>
-                              )}
-                            </div>
-                            {/* eBay body */}
-                            <div className="px-4 py-3 space-y-2 border-t border-gray-700/40">
+                            <div className="px-4 py-3 space-y-3">
                               {ebayConnectedDetail ? (
                                 <>
                                   <div className="flex items-center gap-2 text-[11px] text-gray-400">
@@ -6863,13 +6913,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     {ebayEnv === 'sandbox' && <span className="text-[10px] px-1 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-medium">Sandbox</span>}
                                   </div>
                                   <p className="text-[10px] text-gray-500 leading-relaxed">
-                                    Push-only — quantity and price are sent to eBay on each sync run. Follows the schedule above. Field-level configuration for eBay is coming soon.
+                                    Push-only — quantity and price are sent to eBay on each sync run. Field-level configuration is coming soon.
                                   </p>
                                 </>
                               ) : (
-                                <p className="text-[10px] text-gray-500 leading-relaxed">
-                                  Once connected, eBay listings will receive quantity and price updates on every sync. Connect your eBay account in the Platforms tab to enable this channel.
-                                </p>
+                                <>
+                                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                                    Once connected, eBay listings will receive quantity and price updates on every sync run.
+                                  </p>
+                                  <button
+                                    className="text-[10px] text-blue-400 underline hover:text-blue-300 transition-colors"
+                                    onClick={() => { setActiveSection('platforms'); setActivePlatform('ebay'); setExpandedAutoSyncService(null); }}
+                                    data-testid="button-ebay-configure-from-channel"
+                                  >
+                                    Connect eBay in Platforms →
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>
