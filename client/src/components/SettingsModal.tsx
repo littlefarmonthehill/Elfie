@@ -5354,7 +5354,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const saveEbayCreds = async () => {
                     setEbayCredentialsSaving(true);
                     try {
-                      const creds: Record<string, string> = { environment: ebayEnvironment };
+                      // Start from the existing stored credentials so we never wipe keys the user
+                      // didn't re-enter (e.g. changing environment toggle alone).
+                      const creds: Record<string, string> = { ...(existingCreds ?? {}), environment: ebayEnvironment };
                       if (ebayAppId)           creds.appId              = ebayAppId;
                       if (ebayCertId)          creds.certId             = ebayCertId;
                       if (ebayDevId)           creds.devId              = ebayDevId;
@@ -6251,8 +6253,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                   {/* ── Channel Configuration ─────────────────────────── */}
                   {(() => {
-                    const boInt = orgIntegrationsList.find(i => i.type === 'sales_channel' && i.channel !== 'ebay');
-                    const boConnected = !!boInt;
+                    // BrickOwl uses platform_settings (has_brickowlApiKey), not org_integrations
+                    const boConnected = !!(settings as any)?.has_brickowlApiKey || !!(settings as any)?.brickowlConnectedViaEnv;
                     const ebayIntL = orgIntegrationsList.find(i => i.channel === 'ebay');
                     const ebayConnectedL = !!(ebayIntL?.credentials && ((ebayIntL.credentials as any).refreshToken || (ebayIntL.credentials as any).sandboxRefreshToken));
                     const hasAnyChannel = boConnected || ebayConnectedL;
