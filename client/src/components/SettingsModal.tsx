@@ -6308,8 +6308,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                   {/* ── Channel Configuration ─────────────────────────── */}
                   {(() => {
-                    // BrickOwl uses platform_settings (has_brickowlApiKey), not org_integrations
-                    const boConnected = !!(settings as any)?.has_brickowlApiKey || !!(settings as any)?.brickowlConnectedViaEnv;
+                    // BrickOwl credentials live in org_integrations (Phase-105 migration)
+                    const boIntL = orgIntegrationsList.find(i => i.channel === 'brickowl');
+                    const boConnected = !!(boIntL?.credentials && (boIntL.credentials as any).apiKey);
                     const ebayIntL = orgIntegrationsList.find(i => i.channel === 'ebay');
                     const ebayConnectedL = !!(ebayIntL?.credentials && ((ebayIntL.credentials as any).refreshToken || (ebayIntL.credentials as any).sandboxRefreshToken));
                     const hasAnyChannel = boConnected || ebayConnectedL;
