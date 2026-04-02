@@ -2420,6 +2420,28 @@ export async function runMigrations() {
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS channel_sync_config_org_channel_unique ON channel_sync_config(org_id, channel_key)`);
     console.log('[Migration] Phase-104 (channel_key on channel_sync_config) complete.');
 
+    // Phase-105: Migrate BrickOwl API key from app_settings → org_integrations.
+    // BrickOwl credentials now live at the org level in org_integrations (same as eBay)
+    // so they are never conflated with platform-level configuration.
+    await client.query(`
+      INSERT INTO org_integrations (org_id, channel, type, display_name, credentials, is_connected)
+      SELECT
+        a.id          AS org_id,
+        'brickowl'    AS channel,
+        'sales_channel' AS type,
+        'BrickOwl'    AS display_name,
+        jsonb_build_object('apiKey', a.brickowl_api_key) AS credentials,
+        true          AS is_connected
+      FROM app_settings a
+      WHERE a.brickowl_api_key IS NOT NULL
+        AND a.brickowl_api_key <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM org_integrations oi
+          WHERE oi.org_id = a.id AND oi.channel = 'brickowl'
+        )
+    `);
+    console.log('[Migration] Phase-105 (BrickOwl API key → org_integrations) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

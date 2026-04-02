@@ -2,6 +2,7 @@ import { db } from "../db";
 import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
+import { getBrickOwlApiKey } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
 
@@ -25,7 +26,6 @@ export interface BrickOwlOrderSyncResult {
  * Full sync mode fetches all orders regardless of timestamp.
  */
 export async function syncBrickOwlOrders(
-  apiKey: string,
   orgId: string,
   options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {},
   onProgress?: (processed: number, total: number) => void
@@ -37,6 +37,11 @@ export async function syncBrickOwlOrders(
     totalOrders: 0,
     errors: [],
   };
+
+  const apiKey = await getBrickOwlApiKey(orgId);
+  if (!apiKey) {
+    return { ...result, errors: ['BrickOwl API key not configured. Add it in Settings → Platforms.'] };
+  }
 
   try {
     console.log(`\n🦉 Starting BrickOwl order sync...`);

@@ -757,11 +757,9 @@ async function syncToBrickOwl(order: any, trackingNumber: string): Promise<void>
     return;
   }
 
-  // Get BrickOwl API credentials from org settings
-  const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, order.orgId)).limit(1);
-
-  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY || '';
+  // Get BrickOwl API key from org_integrations
+  const { getBrickOwlApiKey } = await import('./brickowl');
+  const apiKey = await getBrickOwlApiKey(order.orgId);
 
   if (!apiKey) {
     console.log(`⚠️  BrickOwl API key not configured, skipping sync for order ${order.orderNumber}`);

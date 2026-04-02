@@ -7,9 +7,9 @@
  */
 
 import type { IChannelSync, ChannelSyncOptions, ChannelSyncResult, ConnectionTestResult, FeedbackPayload, FeedbackResult } from './channel-sync-interface';
-import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, postBrickOwlFeedback } from './brickowl';
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, postBrickOwlFeedback, getBrickOwlApiKey } from './brickowl';
 import { db } from '../db';
-import { channelSyncConfig, appSettings } from '@shared/schema';
+import { channelSyncConfig } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 
 export class BrickOwlChannelAdapter implements IChannelSync {
@@ -68,17 +68,13 @@ export class BrickOwlChannelAdapter implements IChannelSync {
 
   async testConnection(orgId: string, _credentials: Record<string, string>): Promise<ConnectionTestResult> {
     try {
-      const [settings] = await db
-        .select({ brickowlApiKey: appSettings.brickowlApiKey })
-        .from(appSettings)
-        .where(eq(appSettings.id, orgId))
-        .limit(1);
-      if (!settings?.brickowlApiKey) {
-        return { ok: false, message: 'No BrickOwl API key configured. Add it in Settings → Platform Connections.' };
+      const apiKey = await getBrickOwlApiKey(orgId);
+      if (!apiKey) {
+        return { ok: false, message: 'No BrickOwl API key configured. Add it in Settings → Platforms.' };
       }
       // Lightweight connectivity check: fetch the first page of inventory
       const url = new URL('https://api.brickowl.com/v1/inventory/list');
-      url.searchParams.set('key', settings.brickowlApiKey);
+      url.searchParams.set('key', apiKey);
       url.searchParams.set('active_only', '0');
       const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) });
       if (!resp.ok) {

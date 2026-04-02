@@ -1,9 +1,23 @@
 import { db } from "../db";
-import { appSettings, blInventory, blColors, channelLotLinks } from "@shared/schema";
+import { blInventory, blColors, channelLotLinks, orgIntegrations } from "@shared/schema";
 import { eq, isNotNull, isNull, inArray, sql, and, gt } from "drizzle-orm";
 import { decodeHTML } from "entities";
 
 const BO_CHANNEL = 'brickowl' as const;
+
+/**
+ * Fetch the BrickOwl API key for an org from org_integrations.
+ * Falls back to the BRICKOWL_API_KEY env var (platform-level override).
+ */
+export async function getBrickOwlApiKey(orgId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ credentials: orgIntegrations.credentials })
+    .from(orgIntegrations)
+    .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'brickowl')))
+    .limit(1);
+  const apiKey = (row?.credentials as Record<string, string> | undefined)?.apiKey;
+  return apiKey || process.env.BRICKOWL_API_KEY || null;
+}
 
 // Normalize a note/description string so both sides of a BL↔BO comparison are
 // always in the same canonical form before being compared or pushed to BrickOwl.
@@ -164,10 +178,9 @@ async function brickowlFetchWithRetry(
 // Make a BrickOwl API GET request
 async function brickowlGet(endpoint: string, params?: Record<string, string>, orgId?: string): Promise<any> {
   if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  const apiKey = settings?.brickowlApiKey;
+  const apiKey = await getBrickOwlApiKey(orgId);
   if (!apiKey) {
-    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
+    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > Platforms.`);
   }
 
   const queryParams = new URLSearchParams({ key: apiKey, ...params });
@@ -190,10 +203,9 @@ async function brickowlGet(endpoint: string, params?: Record<string, string>, or
 // Make a BrickOwl API POST request
 async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?: string): Promise<any> {
   if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  const apiKey = settings?.brickowlApiKey;
+  const apiKey = await getBrickOwlApiKey(orgId);
   if (!apiKey) {
-    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
+    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > Platforms.`);
   }
 
   const formData = new URLSearchParams({ key: apiKey, ...data });
@@ -397,9 +409,8 @@ async function brickowlBatch(
   orgId?: string,
 ): Promise<any[]> {
   if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  const apiKey = settings?.brickowlApiKey;
-  if (!apiKey) throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
+  const apiKey = await getBrickOwlApiKey(orgId);
+  if (!apiKey) throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > Platforms.`);
 
   // BrickOwl expects the requests field value to be the full JSON object
   // {"requests":[...]}, not just the raw array [...] — see API docs example.

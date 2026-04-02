@@ -5055,17 +5055,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* Sales Channels */}
                     <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                       <span className="app-label">Sales Channels</span>
-                      <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
-                        data-testid="button-add-sales-channel"
-                        onClick={() => { setAddIntegrationType('sales_channel'); setAddIntChannel('brickowl'); setAddIntDisplayName('BrickOwl'); setAddIntApiKey(''); }}>
-                        <Plus className="w-3 h-3" /> Add
-                      </Button>
                     </div>
                     <button onClick={() => setActivePlatform('brickowl')}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
                       data-testid="nav-platform-brickowl"
                     >
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${brickowlApiKey || (settings as any)?.has_brickowlApiKey || (settings as any)?.brickowlConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${orgIntegrationsList.some(i => i.channel === 'brickowl') || (settings as any)?.brickowlConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
                       <span className="flex-1 text-left">BrickOwl</span>
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-amber-400 border-amber-500/20 bg-amber-500/10">Read + Write</span>
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
@@ -5085,7 +5080,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </button>
                       );
                     })()}
-                    {orgIntegrationsList.filter(i => i.type === 'sales_channel' && i.channel !== 'ebay').map(integration => (
+                    {orgIntegrationsList.filter(i => i.type === 'sales_channel' && i.channel !== 'ebay' && i.channel !== 'brickowl').map(integration => (
                       <button key={integration.id} onClick={() => { setActivePlatform(String(integration.id)); setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
                         data-testid={`nav-platform-${integration.id}`}
@@ -5334,18 +5329,44 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 )}
 
                 {/* ── DETAIL: BrickOwl ─────────────────────────────────────── */}
-                {activePlatform === 'brickowl' && (
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
-                      <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.</TooltipContent></Tooltip>
+                {activePlatform === 'brickowl' && (() => {
+                  const boInt = orgIntegrationsList.find(i => i.channel === 'brickowl');
+                  const saveBrickowlKey = () => {
+                    if (!brickowlApiKey) return;
+                    const newCreds = { ...((boInt?.credentials as Record<string,string>) ?? {}), apiKey: brickowlApiKey };
+                    if (boInt) {
+                      updateIntegrationMutation.mutate({ id: boInt.id, credentials: newCreds });
+                    } else {
+                      createIntegrationMutation.mutate({ channel: 'brickowl', type: 'sales_channel', displayName: 'BrickOwl', credentials: newCreds });
+                    }
+                    setBrickowlApiKey('');
+                  };
+                  return (
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
+                        <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.</TooltipContent></Tooltip>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="brickowl-key" className="text-xs text-gray-200">API Key</Label>
+                        <Input
+                          id="brickowl-key"
+                          type="password"
+                          placeholder={boInt ? "Key saved — leave blank to keep" : "Enter BrickOwl API Key"}
+                          className="text-xs"
+                          value={brickowlApiKey}
+                          onChange={(e) => setBrickowlApiKey(e.target.value)}
+                          onBlur={saveBrickowlKey}
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveBrickowlKey(); }}
+                          data-testid="input-brickowl-key"
+                        />
+                      </div>
+                      <div className="pt-2 border-t border-gray-700 flex justify-end">
+                        <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}><Trash2 className="w-3 h-3" /> Remove</Button>
+                      </div>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="brickowl-key" className="text-xs text-gray-200">API Key</Label><Input id="brickowl-key" type="password" placeholder={(settings as any)?.has_brickowlApiKey ? "Key saved — leave blank to keep" : "Enter BrickOwl API Key"} className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => { if (brickowlApiKey) updateSettingsMutation.mutate({ brickowlApiKey }); }} data-testid="input-brickowl-key" /></div>
-                    <div className="pt-2 border-t border-gray-700 flex justify-end">
-                      <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}><Trash2 className="w-3 h-3" /> Remove</Button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ── DETAIL: eBay ─────────────────────────────────────────── */}
                 {activePlatform === 'ebay' && (() => {
@@ -5577,7 +5598,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <p className="text-sm text-gray-400">This will clear all BrickOwl credentials. You can re-enter them at any time.</p>
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => setRemovePrimaryDialog(null)} data-testid="button-cancel-remove-primary">Cancel</Button>
-                      <Button variant="destructive" size="sm" data-testid="button-confirm-remove-primary" onClick={() => { setBrickowlApiKey(''); updateSettingsMutation.mutate({ brickowlApiKey: null }); setRemovePrimaryDialog(null); }}>Remove</Button>
+                      <Button variant="destructive" size="sm" data-testid="button-confirm-remove-primary" onClick={() => { const boInt = orgIntegrationsList.find(i => i.channel === 'brickowl'); if (boInt) deleteIntegrationMutation.mutate(boInt.id); setBrickowlApiKey(''); setRemovePrimaryDialog(null); }}>Remove</Button>
                     </div>
                   </div>
                 </ResponsiveModal>

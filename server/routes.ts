@@ -11,7 +11,6 @@ const SECRET_FIELDS = [
   'bricklinkConsumerSecret',
   'bricklinkTokenValue',
   'bricklinkTokenSecret',
-  'brickowlApiKey',
   'stripeSecretKey',
   'easypostApiKey',
   'easypostTestApiKey',
@@ -40,7 +39,7 @@ import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAd
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
-import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./services/brickowl";
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, getBrickOwlApiKey } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup, saveXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
@@ -5895,7 +5894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const masked = maskSettingsSecrets(settings as any);
       res.json({
         ...masked,
-        brickowlConnectedViaEnv: !settings?.brickowlApiKey && !!process.env.BRICKOWL_API_KEY,
+        brickowlConnectedViaEnv: !!process.env.BRICKOWL_API_KEY,
       });
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -10511,9 +10510,8 @@ Format search_web URLs as markdown links.`;
         lastSyncedAt: new Date().toISOString(),
       };
 
-      // Check if BrickOwl API key is configured
-      const settings = await getOrgSettings(orgId);
-      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
+      // Check if BrickOwl API key is configured (credentials live in org_integrations)
+      const brickowlEnabled = !!(await getBrickOwlApiKey(orgId));
 
       // Get actual BrickOwl inventory stats if enabled
       let brickowlStats = {
@@ -11010,10 +11008,8 @@ Format search_web URLs as markdown links.`;
         return res.status(400).json({ error: `Platform ${platform} is not supported yet` });
       }
 
-      const settings = await getOrgSettings(orgId);
-      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
-
-      if (!brickowlEnabled) {
+      const boApiKey = await getBrickOwlApiKey(orgId);
+      if (!boApiKey) {
         return res.status(400).json({ error: 'BrickOwl API key not configured' });
       }
 
@@ -14677,7 +14673,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const settings = await getOrgSettings(orgId);
       const bricklinkEnabled = !!(settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
         settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret);
-      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
+      const brickowlEnabled = !!(await getBrickOwlApiKey(orgId));
 
       // Get last sync times from sync_metadata
       const [blSyncMeta] = await db
@@ -18714,7 +18710,7 @@ Write a 1–2 sentence feedback comment for this order.`;
 
       // Test BrickOwl orders
       if (platform === 'brickowl' || platform === 'both') {
-        const boApiKey = settings.brickowlApiKey || process.env.BRICKOWL_API_KEY;
+        const boApiKey = await getBrickOwlApiKey(orgId);
         if (!boApiKey) {
           return res.status(400).json({ error: "BrickOwl API key not configured" });
         }
