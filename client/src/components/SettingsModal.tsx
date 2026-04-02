@@ -2564,7 +2564,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [editIntDisplayName, setEditIntDisplayName] = useState('');
   const [editIntApiKey, setEditIntApiKey] = useState('');
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
-  const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | null>(null);
+  const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
   // International Shipping / Customs
   const [customsSigner, setCustomsSigner] = useState("");
   const [blIossNumber, setBlIossNumber] = useState("");
@@ -3544,10 +3544,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setSelectedModel(settings.selectedModel || "gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
       setFeedbackPrompt((settings as any).feedbackPrompt || "");
-      setBricklinkConsumerKey(unmask(settings.bricklinkConsumerKey));
-      setBricklinkConsumerSecret(unmask(settings.bricklinkConsumerSecret));
-      setBricklinkTokenValue(unmask(settings.bricklinkTokenValue));
-      setBricklinkTokenSecret(unmask(settings.bricklinkTokenSecret));
       setOrgBlApiCallLimit((settings as any).blApiCallLimit ?? 4900);
       setBrickowlApiKey(unmask(settings.brickowlApiKey));
       setStripeSecretKey(unmask(settings.stripeSecretKey));
@@ -5039,7 +5035,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </span>
                     </div>
                     {[
-                      { key: 'bricklink', label: 'BrickLink', connected: !!bricklinkConsumerKey || !!(settings as any)?.has_bricklinkConsumerKey, badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
+                      { key: 'bricklink', label: 'BrickLink', connected: !!orgIntegrationsList.find(i => i.channel === 'bricklink'), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
                     ].map(p => (
                       <button key={p.key} onClick={() => setActivePlatform(p.key)}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
@@ -5182,7 +5178,29 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 )}
 
                 {/* ── DETAIL: BrickLink ─────────────────────────────────────── */}
-                {activePlatform === 'bricklink' && (
+                {activePlatform === 'bricklink' && (() => {
+                  const blInt = orgIntegrationsList.find(i => i.channel === 'bricklink');
+                  const saveBricklinkCreds = () => {
+                    if (!bricklinkConsumerKey && !bricklinkConsumerSecret && !bricklinkTokenValue && !bricklinkTokenSecret) return;
+                    const existingCreds = (blInt?.credentials as Record<string, string>) ?? {};
+                    const newCreds = {
+                      ...existingCreds,
+                      ...(bricklinkConsumerKey    ? { consumerKey:    bricklinkConsumerKey    } : {}),
+                      ...(bricklinkConsumerSecret ? { consumerSecret: bricklinkConsumerSecret } : {}),
+                      ...(bricklinkTokenValue     ? { tokenValue:     bricklinkTokenValue     } : {}),
+                      ...(bricklinkTokenSecret    ? { tokenSecret:    bricklinkTokenSecret    } : {}),
+                    };
+                    if (blInt) {
+                      updateIntegrationMutation.mutate({ id: blInt.id, credentials: newCreds });
+                    } else {
+                      createIntegrationMutation.mutate({ channel: 'bricklink', type: 'data_source', displayName: 'BrickLink', credentials: newCreds });
+                    }
+                    setBricklinkConsumerKey('');
+                    setBricklinkConsumerSecret('');
+                    setBricklinkTokenValue('');
+                    setBricklinkTokenSecret('');
+                  };
+                  return (
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
@@ -5300,10 +5318,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <div className="relative flex justify-center"><span className="bg-card px-2 text-[10px] text-gray-600">or enter manually</span></div>
                     </div>
 
-                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder={(settings as any)?.has_bricklinkConsumerKey ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Key"} className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder={(settings as any)?.has_bricklinkConsumerSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Secret"} className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-secret" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder={(settings as any)?.has_bricklinkTokenValue ? "Key saved — leave blank to keep" : "Enter BrickLink Token Value"} className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder={(settings as any)?.has_bricklinkTokenSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Token Secret"} className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder={blInt ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Key"} className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={saveBricklinkCreds} onKeyDown={(e) => { if (e.key === 'Enter') saveBricklinkCreds(); }} data-testid="input-bricklink-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder={blInt ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Secret"} className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={saveBricklinkCreds} onKeyDown={(e) => { if (e.key === 'Enter') saveBricklinkCreds(); }} data-testid="input-bricklink-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder={blInt ? "Key saved — leave blank to keep" : "Enter BrickLink Token Value"} className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={saveBricklinkCreds} onKeyDown={(e) => { if (e.key === 'Enter') saveBricklinkCreds(); }} data-testid="input-bricklink-token" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder={blInt ? "Key saved — leave blank to keep" : "Enter BrickLink Token Secret"} className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={saveBricklinkCreds} onKeyDown={(e) => { if (e.key === 'Enter') saveBricklinkCreds(); }} data-testid="input-bricklink-token-secret" /></div>
                     <div className="pt-2 border-t border-gray-700 space-y-2">
                       <div className="space-y-1">
                         <Label className="text-xs text-gray-200">Daily API Call Ceiling</Label>
@@ -5325,8 +5343,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                       <p className="text-[10px] text-gray-500">Platform background schedulers use a separate credential set configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Services</button>.</p>
                     </div>
+                    {blInt && (
+                      <div className="pt-2 border-t border-gray-700 flex justify-end">
+                        <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-bricklink" onClick={() => setRemovePrimaryDialog('bricklink')}><Trash2 className="w-3 h-3" /> Remove</Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                  ); })()}
 
                 {/* ── DETAIL: BrickOwl ─────────────────────────────────────── */}
                 {activePlatform === 'brickowl' && (() => {
@@ -5588,17 +5611,28 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 <ResponsiveModal
                   open={!!removePrimaryDialog}
                   onOpenChange={(open) => { if (!open) setRemovePrimaryDialog(null); }}
-                  title="Remove BrickOwl"
+                  title={removePrimaryDialog === 'bricklink' ? 'Remove BrickLink' : 'Remove BrickOwl'}
                   icon={Globe}
                   iconColor="text-red-400"
-                  description="Clear all BrickOwl credentials"
-                  testId="modal-remove-brickowl"
+                  description={removePrimaryDialog === 'bricklink' ? 'Clear all BrickLink credentials' : 'Clear all BrickOwl credentials'}
+                  testId="modal-remove-primary"
                 >
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-400">This will clear all BrickOwl credentials. You can re-enter them at any time.</p>
+                    <p className="text-sm text-gray-400">
+                      {removePrimaryDialog === 'bricklink'
+                        ? 'This will clear all BrickLink credentials. You can re-enter them at any time.'
+                        : 'This will clear all BrickOwl credentials. You can re-enter them at any time.'}
+                    </p>
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => setRemovePrimaryDialog(null)} data-testid="button-cancel-remove-primary">Cancel</Button>
-                      <Button variant="destructive" size="sm" data-testid="button-confirm-remove-primary" onClick={() => { const boInt = orgIntegrationsList.find(i => i.channel === 'brickowl'); if (boInt) deleteIntegrationMutation.mutate(boInt.id); setBrickowlApiKey(''); setRemovePrimaryDialog(null); }}>Remove</Button>
+                      <Button variant="destructive" size="sm" data-testid="button-confirm-remove-primary" onClick={() => {
+                        const channel = removePrimaryDialog;
+                        const int = orgIntegrationsList.find(i => i.channel === channel);
+                        if (int) deleteIntegrationMutation.mutate(int.id);
+                        if (channel === 'brickowl') setBrickowlApiKey('');
+                        if (channel === 'bricklink') { setBricklinkConsumerKey(''); setBricklinkConsumerSecret(''); setBricklinkTokenValue(''); setBricklinkTokenSecret(''); }
+                        setRemovePrimaryDialog(null);
+                      }}>Remove</Button>
                     </div>
                   </div>
                 </ResponsiveModal>

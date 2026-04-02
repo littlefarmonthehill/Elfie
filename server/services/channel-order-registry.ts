@@ -19,37 +19,27 @@ import type {
 } from "./channel-order-sync-interface";
 
 // ── BrickLink ─────────────────────────────────────────────────────────────────
+// BrickLink credentials live in org_integrations (not app_settings), so
+// isConfigured always returns true — syncBrickLinkOrders handles the
+// "not configured" path itself (mirrors the eBay / BrickOwl adapter pattern).
 
 class BrickLinkOrderSyncAdapter implements IChannelOrderSync {
   readonly channelKey      = 'bricklink';
   readonly label           = 'BrickLink';
   readonly marketplaceName = 'BrickLink';
 
-  isConfigured(s: any): boolean {
-    return !!(
-      s.bricklinkConsumerKey &&
-      s.bricklinkConsumerSecret &&
-      s.bricklinkTokenValue &&
-      s.bricklinkTokenSecret
-    );
+  isConfigured(_s: any): boolean {
+    return true;
   }
 
   async syncOrders(
-    s: any,
+    _s: any,
     orgId: string,
     options: ChannelOrderSyncOptions,
     onProgress: OrderSyncProgressCallback,
   ): Promise<ChannelOrderSyncResult> {
     const { syncBrickLinkOrders } = await import('./bricklink-order-sync');
-    return syncBrickLinkOrders(
-      s.bricklinkConsumerKey,
-      s.bricklinkConsumerSecret,
-      s.bricklinkTokenValue,
-      s.bricklinkTokenSecret,
-      orgId,
-      options,
-      onProgress,
-    );
+    return syncBrickLinkOrders(orgId, options, onProgress);
   }
 }
 

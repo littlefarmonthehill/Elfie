@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, orgIntegrations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -78,9 +78,9 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
   return BL_API_CALLS_PER_DAY_DEFAULT;
 }
 
-// Resolve BrickLink credentials: platform schedulers → platform_settings, org calls → app_settings.
+// Resolve BrickLink credentials: platform schedulers → platform_settings, org calls → org_integrations.
 // Throws if credentials are missing — no silent fallbacks.
-async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: string; consumerSecret: string; tokenValue: string; tokenSecret: string }> {
+export async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: string; consumerSecret: string; tokenValue: string; tokenSecret: string }> {
   if (orgId === PLATFORM_ORG_ID) {
     const [platRow] = await db
       .select({ blConsumerKey: platformSettings.blConsumerKey, blConsumerSecret: platformSettings.blConsumerSecret, blTokenValue: platformSettings.blTokenValue, blTokenSecret: platformSettings.blTokenSecret })
@@ -97,16 +97,17 @@ async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: st
     return { consumerKey, consumerSecret, tokenValue, tokenSecret };
   }
   const [orgRow] = await db
-    .select({ bricklinkConsumerKey: appSettings.bricklinkConsumerKey, bricklinkConsumerSecret: appSettings.bricklinkConsumerSecret, bricklinkTokenValue: appSettings.bricklinkTokenValue, bricklinkTokenSecret: appSettings.bricklinkTokenSecret })
-    .from(appSettings)
-    .where(eq(appSettings.orgId, orgId))
+    .select()
+    .from(orgIntegrations)
+    .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'bricklink')))
     .limit(1);
-  const consumerKey    = cleanToken(orgRow?.bricklinkConsumerKey    || '');
-  const consumerSecret = cleanToken(orgRow?.bricklinkConsumerSecret || '');
-  const tokenValue     = cleanToken(orgRow?.bricklinkTokenValue     || '');
-  const tokenSecret    = cleanToken(orgRow?.bricklinkTokenSecret    || '');
+  const creds = orgRow?.credentials as any;
+  const consumerKey    = cleanToken(creds?.consumerKey    || '');
+  const consumerSecret = cleanToken(creds?.consumerSecret || '');
+  const tokenValue     = cleanToken(creds?.tokenValue     || '');
+  const tokenSecret    = cleanToken(creds?.tokenSecret    || '');
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    throw new Error(`[BrickLink] BrickLink credentials are not configured for org "${orgId}". Add them in Settings > API Credentials.`);
+    throw new Error(`[BrickLink] BrickLink credentials are not configured for org "${orgId}". Add them in Settings > Platforms > BrickLink.`);
   }
   return { consumerKey, consumerSecret, tokenValue, tokenSecret };
 }

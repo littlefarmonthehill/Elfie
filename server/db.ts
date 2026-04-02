@@ -2442,6 +2442,33 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-105 (BrickOwl API key → org_integrations) complete.');
 
+    // Phase-106: Migrate BrickLink credentials from app_settings → org_integrations.
+    // BrickLink org credentials (inventory + order sync) now live in org_integrations
+    // alongside BrickOwl and eBay. Platform-level BrickLink creds remain in platform_settings.
+    await client.query(`
+      INSERT INTO org_integrations (org_id, channel, type, display_name, credentials, is_connected)
+      SELECT
+        a.id            AS org_id,
+        'bricklink'     AS channel,
+        'data_source'   AS type,
+        'BrickLink'     AS display_name,
+        jsonb_build_object(
+          'consumerKey',    a.bricklink_consumer_key,
+          'consumerSecret', a.bricklink_consumer_secret,
+          'tokenValue',     a.bricklink_token_value,
+          'tokenSecret',    a.bricklink_token_secret
+        )               AS credentials,
+        true            AS is_connected
+      FROM app_settings a
+      WHERE a.bricklink_consumer_key IS NOT NULL
+        AND a.bricklink_consumer_key <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM org_integrations oi
+          WHERE oi.org_id = a.id AND oi.channel = 'bricklink'
+        )
+    `);
+    console.log('[Migration] Phase-106 (BrickLink credentials → org_integrations) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

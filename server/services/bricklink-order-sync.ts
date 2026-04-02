@@ -2,7 +2,7 @@ import { db } from "../db";
 import { orders, orderDetails, orderAdjustments, blInventory, blCatalog } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, getBrickLinkOrderMessages, mapBrickLinkCondition } from "./bricklink-orders";
-import { bricklinkRequest } from "./bricklink";
+import { bricklinkRequest, getBricklinkCredentials } from "./bricklink";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
@@ -86,10 +86,6 @@ export interface BrickLinkOrderSyncResult {
  * Full sync mode bypasses this filter and processes every order.
  */
 export async function syncBrickLinkOrders(
-  consumerKey: string,
-  consumerSecret: string,
-  tokenValue: string,
-  tokenSecret: string,
   orgId: string,
   options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {},
   onProgress?: (processed: number, total: number) => void
@@ -104,6 +100,13 @@ export async function syncBrickLinkOrders(
 
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
+
+    let consumerKey: string, consumerSecret: string, tokenValue: string, tokenSecret: string;
+    try {
+      ({ consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId));
+    } catch (credErr: any) {
+      return { ...result, errors: [`BrickLink credentials not configured: ${credErr.message}`] };
+    }
 
     const fetchedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in',

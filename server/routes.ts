@@ -7,10 +7,6 @@ import { addConnection, removeConnection, broadcast } from "./sse";
 
 const SECRET_FIELDS = [
   'openaiApiKey',
-  'bricklinkConsumerKey',
-  'bricklinkConsumerSecret',
-  'bricklinkTokenValue',
-  'bricklinkTokenSecret',
   'stripeSecretKey',
   'easypostApiKey',
   'easypostTestApiKey',
@@ -14671,8 +14667,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
       // Get settings to check API credentials
       const settings = await getOrgSettings(orgId);
-      const bricklinkEnabled = !!(settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
-        settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret);
+      const { getBricklinkCredentials } = await import('./services/bricklink');
+      const bricklinkEnabled = await getBricklinkCredentials(orgId).then(() => true).catch(() => false);
       const brickowlEnabled = !!(await getBrickOwlApiKey(orgId));
 
       // Get last sync times from sync_metadata
@@ -18484,16 +18480,16 @@ Write a 1–2 sentence feedback comment for this order.`;
       if (!skip && order.marketplace === 'BrickLink' && order.orderNumber) {
         // 1. Update BrickLink order status to COMPLETED
         try {
-          const settings = await getOrgSettings(orgId);
-          if (settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret &&
-              settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret) {
+          const { getBricklinkCredentials } = await import('./services/bricklink.js');
+          const blCreds = await getBricklinkCredentials(orgId).catch(() => null);
+          if (blCreds) {
             const { updateBrickLinkOrderToCompleted } = await import('./services/bricklink-orders.js');
             await updateBrickLinkOrderToCompleted(
               order.orderNumber,
-              settings.bricklinkConsumerKey,
-              settings.bricklinkConsumerSecret,
-              settings.bricklinkTokenValue,
-              settings.bricklinkTokenSecret,
+              blCreds.consumerKey,
+              blCreds.consumerSecret,
+              blCreds.tokenValue,
+              blCreds.tokenSecret,
             );
           }
         } catch (blErr: any) {
@@ -18562,8 +18558,9 @@ Write a 1–2 sentence feedback comment for this order.`;
       // Test BrickLink orders
       if (platform === 'bricklink' || platform === 'both') {
         try {
-          if (!settings.bricklinkConsumerKey || !settings.bricklinkConsumerSecret || 
-              !settings.bricklinkTokenValue || !settings.bricklinkTokenSecret) {
+          const { getBricklinkCredentials: getBLCreds } = await import('./services/bricklink');
+          const blCreds = await getBLCreds(orgId).catch(() => null);
+          if (!blCreds) {
             console.log('BrickLink API credentials missing - skipping BrickLink');
             // Don't return error - just skip BrickLink if credentials missing
           } else {
@@ -18623,10 +18620,10 @@ Write a 1–2 sentence feedback comment for this order.`;
               const { getBrickLinkOrderItems } = await import('./services/bricklink-orders');
               const blItems = await getBrickLinkOrderItems(
                 parseInt(orderId),
-                settings.bricklinkConsumerKey!,
-                settings.bricklinkConsumerSecret!,
-                settings.bricklinkTokenValue!,
-                settings.bricklinkTokenSecret!
+                blCreds.consumerKey,
+                blCreds.consumerSecret,
+                blCreds.tokenValue,
+                blCreds.tokenSecret
               );
               
               console.log(`BrickLink API returned ${blItems.length} items for order ${orderId}`);

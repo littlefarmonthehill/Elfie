@@ -716,16 +716,12 @@ async function syncToBrickLink(order: any, trackingNumber: string, carrier: stri
     return;
   }
 
-  // Get BrickLink API credentials from org settings
-  const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, order.orgId)).limit(1);
-
-  const consumerKey = settings?.bricklinkConsumerKey || '';
-  const consumerSecret = settings?.bricklinkConsumerSecret || '';
-  const tokenValue = settings?.bricklinkTokenValue || '';
-  const tokenSecret = settings?.bricklinkTokenSecret || '';
-
-  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+  // Get BrickLink API credentials from org_integrations
+  const { getBricklinkCredentials } = await import('./bricklink');
+  let consumerKey: string, consumerSecret: string, tokenValue: string, tokenSecret: string;
+  try {
+    ({ consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(order.orgId));
+  } catch {
     console.log(`⚠️  BrickLink credentials not configured, skipping sync for order ${order.orderNumber}`);
     return;
   }
