@@ -26,6 +26,33 @@ const EU_COUNTRIES = new Set([
   'NL','PL','PT','RO','SE','SI','SK',
 ]);
 
+// EasyPost returns short USPS service codes — map them to full USPS names
+const USPS_SERVICE_LABELS: Record<string, string> = {
+  First:                'First Class Mail',
+  GroundAdvantage:      'Ground Advantage',
+  Priority:             'Priority Mail',
+  Express:              'Priority Mail Express',
+  ParcelSelect:         'Parcel Select',
+  ParcelSelectLightweight: 'Parcel Select Lightweight',
+  MediaMail:            'Media Mail',
+  LibraryMail:          'Library Mail',
+  CriticalMail:         'Critical Mail',
+};
+
+// When a predefined package is active, append its short name to "Priority Mail" so
+// users can see it's the flat-rate / regional-rate variant, not variable pricing.
+const PREDEFINED_SHORT: Record<string, string> = {
+  FlatRateEnvelope:           'Flat Rate Env.',
+  FlatRateLegalEnvelope:      'Legal Flat Rate Env.',
+  FlatRatePaddedEnvelope:     'Padded Flat Rate Env.',
+  SmallFlatRateBox:           'Small Flat Rate Box',
+  MediumFlatRateBoxTopLoading:'Medium Flat Rate Box',
+  MediumFlatRateBoxSideLoading:'Medium Flat Rate Box',
+  LargeFlatRateBox:           'Large Flat Rate Box',
+  RegionalRateBoxA:           'Regional Rate Box A',
+  RegionalRateBoxB:           'Regional Rate Box B',
+};
+
 export type Rate = {
   id: string;
   carrier: string;
@@ -818,6 +845,19 @@ export default function InlineShippingCard({
             const uspsRates = rates.filter(r => r.carrier?.toUpperCase().includes("USPS"));
             const otherRates = rates.filter(r => !r.carrier?.toUpperCase().includes("USPS"));
             const otherCarriers = [...new Set(otherRates.map(r => r.carrier).filter(Boolean))];
+            // Active predefined package string (for qualifying "Priority Mail" label)
+            const activePkg = PACKAGES.find(p => p.id === packageType);
+            const activePredefined = activePkg?.predefined ?? null;
+
+            const uspsLabel = (svc: string) => {
+              const base = USPS_SERVICE_LABELS[svc] ?? svc;
+              if (activePredefined && svc === 'Priority') {
+                const suffix = PREDEFINED_SHORT[activePredefined];
+                return suffix ? `${base} · ${suffix}` : base;
+              }
+              return base;
+            };
+
             return (
               <div className="space-y-1">
                 <div className="min-w-0">
@@ -847,7 +887,7 @@ export default function InlineShippingCard({
                               return (
                                 <SelectItem key={rate.id} value={rate.id}>
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-medium text-xs">{rate.service}</span>
+                                    <span className="font-medium text-xs">{uspsLabel(rate.service)}</span>
                                     <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
                                     {cPick && <span className="text-blue-400 text-[10px]">★</span>}
                                     {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
