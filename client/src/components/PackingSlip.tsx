@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import QRCode from 'qrcode';
 import { cleanItemName, shippingTier } from "@/lib/item-utils";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
@@ -473,6 +474,195 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   }
 
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
+}
+
+// ─── Lot labels (thermal, 2" × 3") ───────────────────────────────────────────
+
+export interface LotLabelItem {
+  partNumber?: string | null;
+  sku?: string | null;
+  itemName?: string | null;
+  colorName?: string | null;
+  colorId?: number | null;
+  condition?: string | null;
+  quantity: number;
+  inventoryId?: number | null;
+  binLocation?: string | null;
+  imageUrl?: string | null;
+}
+
+const LBL_W  = 50.8;   // 2" in mm
+const LBL_H  = 76.2;   // 3" in mm
+const LM     = 2.5;    // left margin
+const RM     = 2.5;    // right margin
+const TM     = 2.5;    // top margin
+const LBL_CW = LBL_W - LM - RM;  // 45.8mm content width
+const QR_SZ  = 16;     // QR code square size mm
+
+async function generateQR(text: string): Promise<string | null> {
+  try {
+    return await QRCode.toDataURL(text, { width: 200, margin: 1 });
+  } catch {
+    return null;
+  }
+}
+
+export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): Promise<void> {
+  if (items.length === 0) return;
+
+  const logo = await loadLogoInfo(org?.logoUrl);
+  const orgName = org?.name || '';
+
+  const qrDataUrls = await Promise.all(
+    items.map(item => {
+      const qrText = item.binLocation
+        ? `BIN:${item.binLocation}`
+        : item.inventoryId
+          ? `LOT:${item.inventoryId}`
+          : null;
+      return qrText ? generateQR(qrText) : Promise.resolve(null);
+    })
+  );
+
+  const imgDataUrls = await Promise.all(
+    items.map(item =>
+      loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl })
+    )
+  );
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [LBL_W, LBL_H],
+  });
+
+  for (let i = 0; i < items.length; i++) {
+    if (i > 0) doc.addPage([LBL_W, LBL_H], 'portrait');
+
+    const item    = items[i];
+    const qrData  = qrDataUrls[i];
+    const imgData = imgDataUrls[i];
+    const partStr = item.partNumber || item.sku || '';
+    const condStr = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
+
+    let y = TM;
+
+    // ── Row 1: org name (left) + small logo (right) ───────────────────────────
+    if (orgName) {
+      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(160, 160, 160);
+      doc.text(orgName.toUpperCase(), LM, y + 2.2);
+    }
+    if (logo && logo.w > 0 && logo.h > 0) {
+      const lh = 5;
+      const lw = (logo.w / logo.h) * lh;
+      doc.addImage(logo.dataUrl, 'PNG', LBL_W - RM - lw, y, lw, lh);
+    }
+    y += 6;
+
+    // ── Row 2: part image (left) + part number (right) ────────────────────────
+    const THUMB = 13;
+    if (imgData) {
+      try { doc.addImage(imgData, 'PNG', LM, y, THUMB, THUMB); } catch { /* skip */ }
+    } else {
+      doc.setDrawColor(210, 210, 210);
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(LM, y, THUMB, THUMB, 1, 1, 'FD');
+    }
+    const textX = LM + THUMB + 2;
+    const textW = LBL_CW - THUMB - 2;
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(10, 10, 10);
+    // Shrink part# to fit if needed
+    let pSize = 14;
+    while (pSize > 8 && doc.getTextWidth(partStr) > textW) {
+      pSize -= 0.5;
+      doc.setFontSize(pSize);
+    }
+    doc.text(partStr, textX, y + 5);
+
+    // Item name below part# (within thumbnail column)
+    if (item.itemName) {
+      const shortName = cleanItemName(item.itemName, partStr);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(110, 110, 110);
+      const nameLines = doc.splitTextToSize(shortName, textW) as string[];
+      const displayLines = nameLines.slice(0, 2);
+      if (nameLines.length > 2) displayLines[1] = displayLines[1].slice(0, -1) + '\u2026';
+      displayLines.forEach((line, li) => doc.text(line, textX, y + 9.5 + li * 4));
+    }
+
+    y += THUMB + 2.5;
+
+    // ── Row 3: color · condition ──────────────────────────────────────────────
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.15);
+    doc.line(LM, y, LM + LBL_CW, y);
+    y += 3;
+
+    const colorCondParts = [item.colorName, condStr].filter(Boolean).join('  ·  ');
+    if (colorCondParts) {
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      doc.text(colorCondParts, LM, y + 3.2);
+    }
+    y += 7;
+
+    // ── Row 4: quantity ───────────────────────────────────────────────────────
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(10, 10, 10);
+    doc.text(`\u00d7${item.quantity}`, LM, y + 5.5);
+    y += 9;
+
+    // ── Row 5: divider ────────────────────────────────────────────────────────
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.15);
+    doc.line(LM, y, LM + LBL_CW, y);
+    y += 2.5;
+
+    // ── Row 6: bin location (left) + QR code (right) ─────────────────────────
+    const qrX = LBL_W - RM - QR_SZ;
+    const binTextW = qrX - LM - 2;
+
+    if (item.binLocation) {
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(140, 140, 140);
+      doc.text('LOCATION', LM, y + 2.5);
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(10, 10, 10);
+      let bSize = 13;
+      while (bSize > 7 && doc.getTextWidth(item.binLocation) > binTextW) {
+        bSize -= 0.5;
+        doc.setFontSize(bSize);
+      }
+      doc.text(item.binLocation, LM, y + 9);
+    }
+
+    if (qrData) {
+      try { doc.addImage(qrData, 'PNG', qrX, y, QR_SZ, QR_SZ); } catch { /* skip */ }
+    }
+
+    y += QR_SZ + 2;
+
+    // ── Row 7: lot ID ─────────────────────────────────────────────────────────
+    if (item.inventoryId) {
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Lot ${item.inventoryId}`, LM, y + 2.5);
+    }
+  }
+
+  hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
 }
 
 // ─── Packing slips ────────────────────────────────────────────────────────────

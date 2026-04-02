@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
-import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode } from "./PackingSlip";
+import { printPackingSlips, printPicklist, printLotLabels, buildShortCodeMap, shortCode } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -46,7 +46,16 @@ type PicklistBinItem = {
   remarks: string | null;
   inventoryQty: number | null;
 };
-type PicklistBin = { items: PicklistBinItem[] };
+type PicklistBinLocation = {
+  aisle: { name: string };
+  shelf: { name: string };
+  bin: { name: string; description: string | null };
+};
+type PicklistBin = {
+  binId: number | null;
+  warehouseLocation: PicklistBinLocation | null;
+  items: PicklistBinItem[];
+};
 
 const WORKFLOW_STATUSES = ['new', 'processing', 'bump', 'issue', 'on_hold', 'done'] as const;
 type WorkflowStatus = typeof WORKFLOW_STATUSES[number];
@@ -905,9 +914,37 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     }
   };
 
-  const handlePrintLotLabels = (orderIds: string[]) => {
-    if (orderIds.length === 0) return;
-    toast({ title: "Lot Labels", description: "Lot label printing is coming in a future update." });
+  const handlePrintLotLabels = async () => {
+    if (selectedOrders.size === 0) return;
+    try {
+      const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
+      // Build one label per lot, sorted by bin location then part#
+      const labels = freshBins
+        .flatMap(bin => {
+          const loc = bin.warehouseLocation;
+          // QR encodes just the bin name (matches scan-to-pick BIN: protocol)
+          const binName = loc?.bin.name ?? null;
+          return bin.items
+            .filter(item => selectedOrders.has(item.orderId))
+            .map(item => ({
+              ...item,
+              binLocation: binName,
+              _sortKey: `${loc?.aisle.name ?? 'zzz'}\x00${loc?.shelf.name ?? 'zzz'}\x00${loc?.bin.name ?? 'zzz'}\x00${item.partNumber || item.sku || ''}`,
+            }));
+        })
+        .sort((a, b) => a._sortKey.localeCompare(b._sortKey, undefined, { numeric: true }));
+      if (labels.length === 0) {
+        toast({ title: "No items", description: "No picklist items found for the selected orders." });
+        return;
+      }
+      await printLotLabels(
+        labels,
+        org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined
+      );
+    } catch (error) {
+      console.error('Error generating lot labels:', error);
+      toast({ title: "Error", description: "Failed to generate lot labels. Please try again.", variant: "destructive" });
+    }
   };
 
   const handleReadyChange = (orderId: string, state: ShippingReadyState | null) => {
@@ -1489,7 +1526,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         {/* ── Tab-specific action bar — full width ── */}
         {activeTab === 'picklist' && (
           <div className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Print</span>
+            {/* Picking group */}
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 shrink-0">Picking</span>
             <Button
               size="sm"
               variant="outline"
@@ -1499,8 +1537,22 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               data-testid="button-print-picklist"
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              Picklist
+              Sheet
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={selectedOrders.size === 0}
+              onClick={handlePrintLotLabels}
+              className="text-xs whitespace-nowrap shrink-0"
+              data-testid="button-print-lot-labels"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              Labels
+            </Button>
+            {/* Separator */}
+            <div className="w-px h-5 bg-gray-700/60 shrink-0 mx-0.5" />
+            {/* Packing */}
             <Button
               size="sm"
               variant="outline"
@@ -1511,17 +1563,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             >
               <Printer className="w-3.5 h-3.5" />
               Packing Slips
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={selectedOrders.size === 0}
-              onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-print-lot-labels"
-            >
-              <Tag className="w-3.5 h-3.5" />
-              Lot Labels
             </Button>
           </div>
         )}
