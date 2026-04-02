@@ -6478,372 +6478,368 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     </>)}
 
-                    {/* ── BrickOwl Channel detail ── */}
+                    {/* ── Channel Sync detail ── */}
                     {expandedAutoSyncService === 'channel' && (<>
-                      {/* Frequency */}
-                      <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <Label className="text-xs text-gray-300">Run every</Label>
-                        <Select
-                          value={String(channelSyncFrequency)}
-                          onValueChange={(v) => { const hours = Number(v); setChannelSyncFrequency(hours); updateSettingsMutation.mutate({ channelSyncFrequency: hours }); }}
-                        >
-                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">Every hour</SelectItem>
-                            <SelectItem value="2">Every 2 hours</SelectItem>
-                            <SelectItem value="4">Every 4 hours</SelectItem>
-                            <SelectItem value="6">Every 6 hours</SelectItem>
-                            <SelectItem value="12">Every 12 hours</SelectItem>
-                            <SelectItem value="24">Every 24 hours</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Status */}
-                      <div className="px-4 py-2.5">
+
+                      {/* ── SCHEDULE (shared across all channels) ── */}
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Schedule</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <Select
+                            value={String(channelSyncFrequency)}
+                            onValueChange={(v) => { const hours = Number(v); setChannelSyncFrequency(hours); updateSettingsMutation.mutate({ channelSyncFrequency: hours }); }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every hour</SelectItem>
+                              <SelectItem value="2">Every 2 hours</SelectItem>
+                              <SelectItem value="4">Every 4 hours</SelectItem>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                       </div>
-                      {/* Sync Scope — in-scope lot count + exclusion breakdown */}
-                      {syncScopeData && (
-                        <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-scope">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
-                            <span className="text-[10px] text-gray-500">{syncScopeData.totalLots.toLocaleString()} total BL lots</span>
-                          </div>
-                          {/* Main in-scope stat */}
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-lg font-bold text-white font-mono" data-testid="stat-scope-in-scope">{syncScopeData.inScopeLots.toLocaleString()}</span>
-                            <span className="text-[11px] text-gray-400">lots in scope</span>
-                          </div>
-                          {/* Exclusion breakdown */}
-                          {syncScopeData.exclusions.length > 0 ? (
-                            <div className="space-y-1">
-                              {syncScopeData.exclusions.map((ex) => (
-                                <div key={ex.reason} className="flex items-center justify-between gap-2">
-                                  <span className="text-[10px] text-gray-500 truncate">{ex.reason}</span>
-                                  <span className="text-[10px] font-mono text-amber-400 shrink-0">-{ex.count.toLocaleString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-gray-600">No exclusion rules active</p>
-                          )}
-                          {/* Zero-qty note */}
-                          {syncScopeData.zeroQtyInScope > 0 && (
-                            <p className="text-[10px] text-gray-600 pt-0.5">{syncScopeData.zeroQtyInScope.toLocaleString()} in-scope lots have 0 qty (will deactivate on BO)</p>
-                          )}
-                        </div>
-                      )}
-                      {/* Last sync result */}
-                      {channelLastResult && (
-                        <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
-                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                              channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
-                              channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
-                              'bg-red-900/50 text-red-400'
-                            }`} data-testid="text-channel-last-status">
-                              {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
-                            </span>
-                            <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
-                            <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
-                              {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-2">
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
-                            <button onClick={() => channelLastResult.lotsUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${channelLastResult.lotsUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated {channelLastResult.lotsUpdated > 0 && <span className="text-blue-600">↗</span>}</div></button>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
-                          </div>
-                          {channelLastResult.errors.length > 0 && (
-                            <div className="space-y-1 mt-1" data-testid="list-channel-errors">
-                              {channelLastResult.errors.slice(0, 3).map((err, i) => (
-                                <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
-                              ))}
-                              {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* Sync Mode */}
-                      <div className="px-4 py-3 space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-200">Sync Mode</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-xs text-xs">
-                              Controls how the channel sync behaves across all connected sales channels.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {([
-                            { id: 'analysis',     label: 'Analysis',     desc: 'Read-only — compare channels, no edits made' },
-                            { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
-                            { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
-                          ] as const).map(({ id, label, desc }) => (
-                            <button
-                              key={id}
-                              onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
-                              className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                              data-testid={`button-sync-mode-${id}`}
-                            >
-                              <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                              <div>
-                                <span className="text-xs font-medium text-gray-200">{label}</span>
-                                <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Item Groups */}
-                      <button
-                        onClick={() => setChannelItemGroupsOpen(!channelItemGroupsOpen)}
-                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
-                        data-testid="button-channel-item-groups-toggle"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-gray-200">Item Groups</span>
-                          <span className="text-[10px] text-gray-500">— what gets synced</span>
-                        </div>
-                        {channelItemGroupsOpen
-                          ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
-                          : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
-                      </button>
-                      {channelItemGroupsOpen && (
-                        <div className="px-4 pb-3 space-y-3">
-                          {/* Item type description */}
-                          <p className="text-[10px] text-gray-500 leading-relaxed">
-                            Choose which categories of items get synced to this channel. Turning a group off will
-                            skip unlisted items and <strong className="text-gray-400">deactivate any existing listings</strong> on the next sync.
-                          </p>
-                          {/* Item Types */}
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Item Types</p>
-                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                              {([
-                                { code: 'P', label: 'Parts',    desc: 'Bricks, plates, tiles, and all individual components' },
-                                { code: 'M', label: 'Minifigs', desc: 'Complete minifigures and minifig parts' },
-                                { code: 'S', label: 'Sets',     desc: 'Complete assembled LEGO sets' },
-                                { code: 'G', label: 'Gear',     desc: 'Non-building accessories (tools, clothing, etc.)' },
-                              ] as const).map(({ code, label, desc }) => {
-                                const isSynced = syncItemTypes[code] !== false;
-                                return (
-                                  <div key={code} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-medium text-gray-200">{label}</p>
-                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
-                                    </div>
-                                    <Switch
-                                      checked={isSynced}
-                                      onCheckedChange={(checked) => {
-                                        const next = { ...syncItemTypes, [code]: checked };
-                                        if (checked) delete next[code]; // remove false entry; missing = synced
-                                        setSyncItemTypes(next);
-                                        updateSyncFieldMutation.mutate({ syncItemTypes: next });
-                                      }}
-                                      data-testid={`switch-sync-item-type-${code}`}
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {/* Bulk Lots */}
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Bulk Lots</p>
-                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-gray-200">Bulkinator bundles</p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">All active bulk lots from the Bulkinator tool</p>
-                                </div>
-                                <Switch
-                                  checked={syncBulkLots}
-                                  onCheckedChange={(checked) => {
-                                    setSyncBulkLots(checked);
-                                    updateSyncFieldMutation.mutate({ syncBulkLots: checked });
-                                  }}
-                                  data-testid="switch-sync-bulk-lots"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          {/* Stockrooms */}
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">BrickLink Stockrooms</p>
-                            <p className="text-[10px] text-gray-500 mb-1.5 leading-relaxed">
-                              <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                              <strong className="text-gray-400">Hidden</strong> — create on BrickOwl but keep hidden from buyers.{' '}
-                              <strong className="text-gray-400">Active</strong> — sync as normal for-sale listings.
-                            </p>
-                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                              {(['A', 'B', 'C'] as const).map((id) => {
-                                const mode = syncStockroomModes[id] ?? 'skip';
-                                const statusText: Record<string, string> = {
-                                  skip:   'Ignored — not tracked on BrickOwl',
-                                  hidden: 'Legacy hidden — new items skipped, existing deactivated',
-                                  sync:   'Linked on BrickOwl, hidden from buyers',
-                                  active: 'Live on BrickOwl as for-sale listings',
-                                };
-                                return (
-                                  <div key={id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
-                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{statusText[mode] ?? mode}</p>
-                                    </div>
-                                    <div className="flex items-center gap-0.5 rounded border border-gray-700 bg-gray-900 p-0.5 shrink-0">
-                                      {(['skip', 'sync', 'active'] as const).map((opt) => (
-                                        <button
-                                          key={opt}
-                                          onClick={() => {
-                                            const next = { ...syncStockroomModes, [id]: opt } as Record<string, 'skip'|'hidden'|'active'|'sync'>;
-                                            setSyncStockroomModes(next);
-                                            updateSyncFieldMutation.mutate({ syncStockroomModes: next });
-                                          }}
-                                          data-testid={`button-sync-stockroom-${id}-${opt}`}
-                                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-                                            mode === opt
-                                              ? opt === 'skip'   ? 'bg-gray-700 text-gray-200'
-                                              : opt === 'sync'   ? 'bg-blue-600/70 text-blue-100'
-                                              :                    'bg-green-600/70 text-green-100'
-                                              : 'text-gray-500 hover:text-gray-300'
-                                          }`}
-                                        >
-                                          {opt === 'sync' ? 'Hidden' : opt.charAt(0).toUpperCase() + opt.slice(1)}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {/* Price Floor */}
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Price Floor</p>
-                            <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
-                              Lots priced below this amount will be skipped on sync — and any existing BrickOwl listings for those lots will be deactivated. Leave blank to sync all lots regardless of price.
-                            </p>
-                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 px-3 py-2.5 flex items-center gap-2">
-                              <span className="text-xs text-gray-400 select-none">$</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="e.g. 0.05"
-                                value={syncPriceFloor}
-                                onChange={(e) => setSyncPriceFloor(e.target.value)}
-                                onBlur={() => {
-                                  const parsed = parseFloat(syncPriceFloor);
-                                  const floor = !syncPriceFloor || isNaN(parsed) || parsed <= 0 ? null : parsed;
-                                  updateSyncFieldMutation.mutate({ syncPriceFloor: floor });
-                                }}
-                                className="flex-1 bg-transparent text-xs text-gray-200 placeholder-gray-600 outline-none"
-                                data-testid="input-sync-price-floor"
-                              />
-                              {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
-                                <button
-                                  onClick={() => {
-                                    setSyncPriceFloor('');
-                                    updateSyncFieldMutation.mutate({ syncPriceFloor: null });
-                                  }}
-                                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                                  data-testid="button-clear-price-floor"
-                                >
-                                  Clear
-                                </button>
-                              )}
-                            </div>
-                            {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
-                              <p className="text-[10px] text-amber-400/80 mt-1.5">
-                                Lots under ${parseFloat(syncPriceFloor).toFixed(2)} will not be listed on BrickOwl.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
 
-                      {/* Sync fields */}
-                      <button
-                        onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
-                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
-                        data-testid="button-channel-fields-toggle"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-gray-200">Sync Fields</span>
-                          <span className="text-[10px] text-gray-500">— what data gets written</span>
+                      {/* ── BRICKOWL channel ── */}
+                      <div className="border-t border-gray-700/40">
+                        {/* Section header */}
+                        <div className="px-4 py-2.5 flex items-center gap-2 bg-gray-800/30">
+                          <div className="w-4 h-4 rounded bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                            <Globe className="w-2.5 h-2.5 text-green-400" />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-100">BrickOwl</span>
+                          <span className="text-[10px] text-gray-500">— channel configuration</span>
                         </div>
-                        {channelSyncFieldsOpen
-                          ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
-                          : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
-                      </button>
-                      {channelSyncFieldsOpen && (
-                        <div className="px-4 pb-3 space-y-2">
-                          <Label className="text-xs text-gray-200">Fields to Sync</Label>
-                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+
+                        {/* Sync Mode */}
+                        <div className="px-4 py-3 space-y-2 border-t border-gray-700/40">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-gray-200">Sync Mode</Label>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
-                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
-                                  </div>
-                                  <Switch checked disabled data-testid="switch-sync-field-qty" />
-                                </div>
+                                <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
                               </TooltipTrigger>
-                              <TooltipContent side="left" className="max-w-xs text-xs">
-                                {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
+                              <TooltipContent side="right" className="max-w-xs text-xs">
+                                Controls how BrickOwl listings are managed during each sync run.
                               </TooltipContent>
                             </Tooltip>
-                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-200">Base Price</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots</p>
-                              </div>
-                              <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
-                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-1.5">
                             {([
-                              { key: 'syncRemarks',      label: 'Remarks',           desc: 'BrickLink Remarks → BrickOwl personal note',           value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                              { key: 'syncDescription',  label: 'Description',       desc: 'BrickLink Description → BrickOwl public note',          value: syncFieldDescription, set: setSyncFieldDescription },
-                              { key: 'syncTierPrice',    label: 'Tier Pricing',      desc: 'Syncs bulk discount tiers from BrickLink',              value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                              { key: 'syncSalePercent',  label: 'Sale %',            desc: 'Syncs BrickLink sale rate to BrickOwl sale %',          value: syncFieldSalePercent, set: setSyncFieldSalePercent },
-                              { key: 'syncBulkQty',      label: 'Min Quantity',      desc: 'BrickLink Bulk → BrickOwl bulk_qty',                    value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
-                              { key: 'syncLotWeight',    label: 'Custom Lot Weight', desc: 'BrickLink My Weight → BrickOwl lot_weight',             value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
-                            ] as const).map(({ key, label, desc, value, set }) => (
-                              <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-gray-200">{label}</p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                              { id: 'analysis',     label: 'Analysis',     desc: 'Read-only — compare channels, no edits made' },
+                              { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
+                              { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
+                            ] as const).map(({ id, label, desc }) => (
+                              <button
+                                key={id}
+                                onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
+                                className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                                data-testid={`button-sync-mode-${id}`}
+                              >
+                                <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                                <div>
+                                  <span className="text-xs font-medium text-gray-200">{label}</span>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
                                 </div>
-                                <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
-                              </div>
+                              </button>
                             ))}
-                            <div className="px-3 py-2.5">
-                              <p className="text-[10px] text-gray-500 leading-tight">
-                                Stockroom sync settings have moved to <strong className="text-gray-400">Item Groups</strong> above.
-                              </p>
-                            </div>
                           </div>
                         </div>
-                      )}
-                      {/* ── eBay section ── */}
+
+                        {/* Sync Scope */}
+                        {syncScopeData && (
+                          <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-scope">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
+                              <span className="text-[10px] text-gray-500">{syncScopeData.totalLots.toLocaleString()} total BL lots</span>
+                            </div>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-lg font-bold text-white font-mono" data-testid="stat-scope-in-scope">{syncScopeData.inScopeLots.toLocaleString()}</span>
+                              <span className="text-[11px] text-gray-400">lots in scope</span>
+                            </div>
+                            {syncScopeData.exclusions.length > 0 ? (
+                              <div className="space-y-1">
+                                {syncScopeData.exclusions.map((ex) => (
+                                  <div key={ex.reason} className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] text-gray-500 truncate">{ex.reason}</span>
+                                    <span className="text-[10px] font-mono text-amber-400 shrink-0">-{ex.count.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-gray-600">No exclusion rules active</p>
+                            )}
+                            {syncScopeData.zeroQtyInScope > 0 && (
+                              <p className="text-[10px] text-gray-600 pt-0.5">{syncScopeData.zeroQtyInScope.toLocaleString()} in-scope lots have 0 qty (will deactivate on BO)</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Last sync result */}
+                        {channelLastResult && (
+                          <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-last-result">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
+                                channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                                'bg-red-900/50 text-red-400'
+                              }`} data-testid="text-channel-last-status">
+                                {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
+                              </span>
+                              <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                              <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
+                                {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
+                              <button onClick={() => channelLastResult.lotsUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${channelLastResult.lotsUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated {channelLastResult.lotsUpdated > 0 && <span className="text-blue-600">↗</span>}</div></button>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
+                            </div>
+                            {channelLastResult.errors.length > 0 && (
+                              <div className="space-y-1 mt-1" data-testid="list-channel-errors">
+                                {channelLastResult.errors.slice(0, 3).map((err, i) => (
+                                  <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                                ))}
+                                {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Item Groups accordion */}
+                        <button
+                          onClick={() => setChannelItemGroupsOpen(!channelItemGroupsOpen)}
+                          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
+                          data-testid="button-channel-item-groups-toggle"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-gray-200">Item Groups</span>
+                            <span className="text-[10px] text-gray-500">— what gets synced</span>
+                          </div>
+                          {channelItemGroupsOpen
+                            ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
+                            : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                        </button>
+                        {channelItemGroupsOpen && (
+                          <div className="px-4 pb-3 space-y-3">
+                            <p className="text-[10px] text-gray-500 leading-relaxed">
+                              Choose which categories of items get synced to BrickOwl. Turning a group off will
+                              skip unlisted items and <strong className="text-gray-400">deactivate any existing listings</strong> on the next sync.
+                            </p>
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Item Types</p>
+                              <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                                {([
+                                  { code: 'P', label: 'Parts',    desc: 'Bricks, plates, tiles, and all individual components' },
+                                  { code: 'M', label: 'Minifigs', desc: 'Complete minifigures and minifig parts' },
+                                  { code: 'S', label: 'Sets',     desc: 'Complete assembled LEGO sets' },
+                                  { code: 'G', label: 'Gear',     desc: 'Non-building accessories (tools, clothing, etc.)' },
+                                ] as const).map(({ code, label, desc }) => {
+                                  const isSynced = syncItemTypes[code] !== false;
+                                  return (
+                                    <div key={code} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-gray-200">{label}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                                      </div>
+                                      <Switch
+                                        checked={isSynced}
+                                        onCheckedChange={(checked) => {
+                                          const next = { ...syncItemTypes, [code]: checked };
+                                          if (checked) delete next[code];
+                                          setSyncItemTypes(next);
+                                          updateSyncFieldMutation.mutate({ syncItemTypes: next });
+                                        }}
+                                        data-testid={`switch-sync-item-type-${code}`}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Bulk Lots</p>
+                              <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200">Bulkinator bundles</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">All active bulk lots from the Bulkinator tool</p>
+                                  </div>
+                                  <Switch
+                                    checked={syncBulkLots}
+                                    onCheckedChange={(checked) => { setSyncBulkLots(checked); updateSyncFieldMutation.mutate({ syncBulkLots: checked }); }}
+                                    data-testid="switch-sync-bulk-lots"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">BrickLink Stockrooms</p>
+                              <p className="text-[10px] text-gray-500 mb-1.5 leading-relaxed">
+                                <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
+                                <strong className="text-gray-400">Hidden</strong> — create on BrickOwl but keep hidden from buyers.{' '}
+                                <strong className="text-gray-400">Active</strong> — sync as normal for-sale listings.
+                              </p>
+                              <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                                {(['A', 'B', 'C'] as const).map((id) => {
+                                  const mode = syncStockroomModes[id] ?? 'skip';
+                                  const statusText: Record<string, string> = {
+                                    skip:   'Ignored — not tracked on BrickOwl',
+                                    hidden: 'Legacy hidden — new items skipped, existing deactivated',
+                                    sync:   'Linked on BrickOwl, hidden from buyers',
+                                    active: 'Live on BrickOwl as for-sale listings',
+                                  };
+                                  return (
+                                    <div key={id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{statusText[mode] ?? mode}</p>
+                                      </div>
+                                      <div className="flex items-center gap-0.5 rounded border border-gray-700 bg-gray-900 p-0.5 shrink-0">
+                                        {(['skip', 'sync', 'active'] as const).map((opt) => (
+                                          <button
+                                            key={opt}
+                                            onClick={() => {
+                                              const next = { ...syncStockroomModes, [id]: opt } as Record<string, 'skip'|'hidden'|'active'|'sync'>;
+                                              setSyncStockroomModes(next);
+                                              updateSyncFieldMutation.mutate({ syncStockroomModes: next });
+                                            }}
+                                            data-testid={`button-sync-stockroom-${id}-${opt}`}
+                                            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                              mode === opt
+                                                ? opt === 'skip'   ? 'bg-gray-700 text-gray-200'
+                                                : opt === 'sync'   ? 'bg-blue-600/70 text-blue-100'
+                                                :                    'bg-green-600/70 text-green-100'
+                                                : 'text-gray-500 hover:text-gray-300'
+                                            }`}
+                                          >
+                                            {opt === 'sync' ? 'Hidden' : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Price Floor</p>
+                              <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                                Lots priced below this amount will be skipped — and existing BrickOwl listings for those lots will be deactivated.
+                              </p>
+                              <div className="rounded-md border border-gray-700/60 bg-gray-800/20 px-3 py-2.5 flex items-center gap-2">
+                                <span className="text-xs text-gray-400 select-none">$</span>
+                                <input
+                                  type="number" min="0" step="0.01" placeholder="e.g. 0.05"
+                                  value={syncPriceFloor}
+                                  onChange={(e) => setSyncPriceFloor(e.target.value)}
+                                  onBlur={() => {
+                                    const parsed = parseFloat(syncPriceFloor);
+                                    const floor = !syncPriceFloor || isNaN(parsed) || parsed <= 0 ? null : parsed;
+                                    updateSyncFieldMutation.mutate({ syncPriceFloor: floor });
+                                  }}
+                                  className="flex-1 bg-transparent text-xs text-gray-200 placeholder-gray-600 outline-none"
+                                  data-testid="input-sync-price-floor"
+                                />
+                                {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
+                                  <button
+                                    onClick={() => { setSyncPriceFloor(''); updateSyncFieldMutation.mutate({ syncPriceFloor: null }); }}
+                                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                                    data-testid="button-clear-price-floor"
+                                  >Clear</button>
+                                )}
+                              </div>
+                              {syncPriceFloor && parseFloat(syncPriceFloor) > 0 && (
+                                <p className="text-[10px] text-amber-400/80 mt-1.5">Lots under ${parseFloat(syncPriceFloor).toFixed(2)} will not be listed on BrickOwl.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sync Fields accordion */}
+                        <button
+                          onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
+                          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
+                          data-testid="button-channel-fields-toggle"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-gray-200">Sync Fields</span>
+                            <span className="text-[10px] text-gray-500">— what data gets written</span>
+                          </div>
+                          {channelSyncFieldsOpen
+                            ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
+                            : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                        </button>
+                        {channelSyncFieldsOpen && (
+                          <div className="px-4 pb-3 space-y-2">
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
+                                    </div>
+                                    <Switch checked disabled data-testid="switch-sync-field-qty" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs text-xs">
+                                  {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
+                                </TooltipContent>
+                              </Tooltip>
+                              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200">Base Price</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink</p>
+                                </div>
+                                <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
+                              </div>
+                              {([
+                                { key: 'syncRemarks',      label: 'Remarks',           desc: 'BrickLink Remarks → BrickOwl personal note',      value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                                { key: 'syncDescription',  label: 'Description',       desc: 'BrickLink Description → BrickOwl public note',     value: syncFieldDescription, set: setSyncFieldDescription },
+                                { key: 'syncTierPrice',    label: 'Tier Pricing',      desc: 'Syncs bulk discount tiers from BrickLink',         value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                                { key: 'syncSalePercent',  label: 'Sale %',            desc: 'Syncs BrickLink sale rate to BrickOwl sale %',     value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                                { key: 'syncBulkQty',      label: 'Min Quantity',      desc: 'BrickLink Bulk → BrickOwl bulk_qty',               value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
+                                { key: 'syncLotWeight',    label: 'Custom Lot Weight', desc: 'BrickLink My Weight → BrickOwl lot_weight',        value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
+                              ] as const).map(({ key, label, desc, value, set }) => (
+                                <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200">{label}</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                                  </div>
+                                  <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── EBAY channel ── */}
                       {(() => {
                         const ebayIntDetail = orgIntegrationsList.find(i => i.channel === 'ebay');
                         const ebayCredDetail = ebayIntDetail?.credentials as Record<string,string> | undefined;
                         const ebayConnectedDetail = !!(ebayCredDetail?.refreshToken || ebayCredDetail?.sandboxRefreshToken);
+                        const ebayEnv = ebayCredDetail?.environment ?? 'production';
                         return (
-                          <div className="border-t border-gray-700/40 px-4 py-3 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
+                          <div className="border-t border-gray-700/40">
+                            {/* Section header */}
+                            <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-gray-800/30">
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">eBay</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ebayConnectedDetail ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                                <div className="w-4 h-4 rounded bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                                  <span className="text-[8px] font-bold text-orange-400">e</span>
+                                </div>
+                                <span className="text-xs font-semibold text-gray-100">eBay</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ebayConnectedDetail ? 'bg-green-500/20 text-green-400' : 'bg-gray-700/60 text-gray-500'}`}>
                                   {ebayConnectedDetail ? 'Connected' : 'Not connected'}
                                 </span>
                               </div>
@@ -6857,17 +6853,25 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 </button>
                               )}
                             </div>
-                            {ebayConnectedDetail ? (
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayCredDetail?.environment === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
-                                  Active environment: <span className="text-gray-300 capitalize">{ebayCredDetail?.environment ?? 'production'}</span>
-                                </div>
-                                <p className="text-[10px] text-gray-500">Push-only — runs on the same schedule as BrickOwl above. Frequency and sync mode apply to both channels.</p>
-                              </div>
-                            ) : (
-                              <p className="text-[10px] text-gray-500">Once connected, eBay listings will be pushed on every sync alongside BrickOwl.</p>
-                            )}
+                            {/* eBay body */}
+                            <div className="px-4 py-3 space-y-2 border-t border-gray-700/40">
+                              {ebayConnectedDetail ? (
+                                <>
+                                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayEnv === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                    <span className="capitalize">{ebayEnv}</span>
+                                    {ebayEnv === 'sandbox' && <span className="text-[10px] px-1 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-medium">Sandbox</span>}
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                                    Push-only — quantity and price are sent to eBay on each sync run. Follows the schedule above. Field-level configuration for eBay is coming soon.
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-[10px] text-gray-500 leading-relaxed">
+                                  Once connected, eBay listings will receive quantity and price updates on every sync. Connect your eBay account in the Platforms tab to enable this channel.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       })()}
