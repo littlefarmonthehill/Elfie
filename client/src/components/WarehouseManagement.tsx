@@ -1376,6 +1376,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     {activeView === 'lots' && item.colorName && (
                       <span className="text-[10px] text-muted-foreground">{item.colorName}</span>
                     )}
+                    {activeView === 'lots' && item.quantity != null && (
+                      <span className="text-[10px] text-muted-foreground/70">×{item.quantity}</span>
+                    )}
                     {activeView === 'lots' && item.newOrUsed && (
                       <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}>
                         {item.newOrUsed === 'N' ? 'New' : 'Used'}
@@ -1968,6 +1971,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                         {item.itemType && <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}</span>}
                         {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                        {item.quantity != null && <span className="text-[10px] text-muted-foreground/60 shrink-0">×{item.quantity}</span>}
                         {fillBinTrackQty && checked && (
                           <input
                             type="number"
