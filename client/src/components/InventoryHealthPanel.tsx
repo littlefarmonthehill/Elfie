@@ -1287,6 +1287,7 @@ function sortSets(sets: SetGroup[], key: SetSortKey): SetGroup[] {
 function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?: (id: number) => void }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SetSortKey>('name');
+  const [noLocationOnly, setNoLocationOnly] = useState(false);
   const [pomRunning, setPomRunning] = useState(false);
   const [pomProgress, setPomProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -1298,9 +1299,11 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
   });
 
   const filtered = sortSets(
-    (sets ?? []).filter(s =>
-      !search || s.itemNo.toLowerCase().includes(search.toLowerCase()) || s.itemName.toLowerCase().includes(search.toLowerCase())
-    ),
+    (sets ?? []).filter(s => {
+      if (search && !s.itemNo.toLowerCase().includes(search.toLowerCase()) && !s.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      if (noLocationOnly && !s.lots.some(l => !l.binNames)) return false;
+      return true;
+    }),
     sortKey,
   );
 
@@ -1409,7 +1412,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
         </button>
       </div>
 
-      {/* Toolbar row 2: sort chips */}
+      {/* Toolbar row 2: sort chips + filters */}
       <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-none flex-shrink-0">
         <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wide shrink-0 mr-0.5">Sort</span>
         {SET_SORT_OPTIONS.map(o => (
@@ -1426,6 +1429,18 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
             {o.chip}
           </button>
         ))}
+        <span className="text-[9px] text-muted-foreground/30 shrink-0 mx-0.5">|</span>
+        <button
+          onClick={() => setNoLocationOnly(v => !v)}
+          className={`text-[10px] whitespace-nowrap px-2 py-0.5 rounded border transition-colors shrink-0 ${
+            noLocationOnly
+              ? 'border-orange-500/50 bg-orange-950/40 text-orange-300'
+              : 'border-border bg-muted/20 text-muted-foreground hover-elevate'
+          }`}
+          data-testid="btn-filter-no-location"
+        >
+          No location
+        </button>
       </div>
       <div className="border-b border-border flex-shrink-0" />
 
