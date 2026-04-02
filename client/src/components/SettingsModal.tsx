@@ -6388,8 +6388,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <Globe className="w-3.5 h-3.5 text-green-400" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-100">BrickOwl Channel</p>
-                          <p className="text-[10px] text-gray-500">Sync schedule &amp; settings</p>
+                          <p className="text-sm font-medium text-gray-100">Channel Sync</p>
+                          <p className="text-[10px] text-gray-500">BrickOwl + eBay · schedule &amp; settings</p>
                         </div>
                       </>
                     )}
@@ -6833,10 +6833,48 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         </div>
                       )}
+                      {/* ── eBay section ── */}
+                      {(() => {
+                        const ebayIntDetail = orgIntegrationsList.find(i => i.channel === 'ebay');
+                        const ebayCredDetail = ebayIntDetail?.credentials as Record<string,string> | undefined;
+                        const ebayConnectedDetail = !!(ebayCredDetail?.refreshToken || ebayCredDetail?.sandboxRefreshToken);
+                        return (
+                          <div className="border-t border-gray-700/40 px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">eBay</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ebayConnectedDetail ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                                  {ebayConnectedDetail ? 'Connected' : 'Not connected'}
+                                </span>
+                              </div>
+                              {!ebayConnectedDetail && (
+                                <button
+                                  className="text-[10px] text-gray-400 underline hover:text-gray-200 transition-colors"
+                                  onClick={() => { setActiveSection('platforms'); setActivePlatform('ebay'); setExpandedAutoSyncService(null); }}
+                                  data-testid="button-ebay-configure-from-channel"
+                                >
+                                  Add credentials →
+                                </button>
+                              )}
+                            </div>
+                            {ebayConnectedDetail ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayCredDetail?.environment === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                                  Active environment: <span className="text-gray-300 capitalize">{ebayCredDetail?.environment ?? 'production'}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500">Push-only — runs on the same schedule as BrickOwl above. Frequency and sync mode apply to both channels.</p>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-gray-500">Once connected, eBay listings will be pushed on every sync alongside BrickOwl.</p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </>)}
 
                   </div>
-                </>
+                <>
               )}
 
               </div>
