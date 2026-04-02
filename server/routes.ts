@@ -16311,6 +16311,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         commonJoins(db.select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
           itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
@@ -16322,12 +16323,13 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             ilike(blInventory.itemNo, `${q}%`)
           ))
           .orderBy(asc(blInventory.itemNo))
-          .limit(500),
+          .limit(50),
 
         // Bucket 2: name contains query but itemNo does NOT start with query — sorted by name
         commonJoins(db.select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
           itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
@@ -16340,7 +16342,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             sql`${blInventory.itemNo} NOT ILIKE ${q + '%'}`
           ))
           .orderBy(asc(blCatalog.itemName))
-          .limit(75),
+          .limit(25),
       ]);
 
       res.json([...prefixMatches, ...nameMatches]);
@@ -16358,6 +16360,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
           itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
@@ -16477,6 +16480,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           id: inventoryLocations.id,
           inventoryId: inventoryLocations.inventoryId,
           itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
           itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,

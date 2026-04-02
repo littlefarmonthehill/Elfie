@@ -610,7 +610,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       locations.forEach((loc: any) => {
         if (!assignedMap.has(loc.inventoryId)) {
           assignedMap.set(loc.inventoryId, {
-            id: loc.inventoryId, itemNo: loc.itemNo, itemName: loc.itemName,
+            id: loc.inventoryId, itemNo: loc.itemNo, itemType: loc.itemType, itemName: loc.itemName,
             colorName: loc.colorName, newOrUsed: loc.newOrUsed,
             binNames: [], locationCount: 0, assigned: true,
           });
@@ -1368,6 +1368,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <span className="text-xs font-medium truncate">
                       {activeView === 'lots' ? (item.itemNo || item.name || '—') : item.name}
                     </span>
+                    {activeView === 'lots' && item.itemType && (
+                      <span className="text-[10px] text-muted-foreground/70">
+                        {item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}
+                      </span>
+                    )}
                     {activeView === 'lots' && item.colorName && (
                       <span className="text-[10px] text-muted-foreground">{item.colorName}</span>
                     )}
@@ -1961,6 +1966,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         />
                         <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
                         <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                        {item.itemType && <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}</span>}
                         {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
                         {fillBinTrackQty && checked && (
                           <input
