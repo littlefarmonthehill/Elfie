@@ -1237,8 +1237,7 @@ type SetSortKey =
   | 'name'
   | 'listed_avg_desc' | 'listed_max_desc'
   | 'sold_avg_desc'   | 'sold_max_desc'
-  | 'pom_desc'
-  | 'ready_asc';
+  | 'pom_desc';
 
 const SET_SORT_OPTIONS: { value: SetSortKey; label: string; chip: string }[] = [
   { value: 'name',            label: 'Name A–Z',     chip: 'Name'    },
@@ -1246,7 +1245,6 @@ const SET_SORT_OPTIONS: { value: SetSortKey; label: string; chip: string }[] = [
   { value: 'listed_max_desc', label: 'Listed Max ↓', chip: 'L.Max ↓' },
   { value: 'sold_avg_desc',   label: 'Sold Avg ↓',   chip: 'S.Avg ↓' },
   { value: 'sold_max_desc',   label: 'Sold Max ↓',   chip: 'S.Max ↓' },
-  { value: 'ready_asc',       label: 'Readiness ↑',  chip: 'Ready ↑' },
 ];
 
 function setMaxPrice(set: SetGroup, field: keyof SetLot): number {
@@ -1261,14 +1259,6 @@ function setMaxPrice(set: SetGroup, field: keyof SetLot): number {
   return max === -Infinity ? -1 : max;
 }
 
-function setReadyFrac(set: SetGroup): number {
-  const total = set.lots.length;
-  if (total === 0) return 0;
-  const ready = set.lots.filter(l =>
-    l.hasInstructions !== null && l.hasBox !== null && l.pctComplete !== null
-  ).length;
-  return ready / total;
-}
 
 function sortSets(sets: SetGroup[], key: SetSortKey): SetGroup[] {
   const s = [...sets];
@@ -1279,7 +1269,6 @@ function sortSets(sets: SetGroup[], key: SetSortKey): SetGroup[] {
     case 'sold_avg_desc':   return s.sort((a, b) => setMaxPrice(b, 'soldAvgPrice')  - setMaxPrice(a, 'soldAvgPrice'));
     case 'sold_max_desc':   return s.sort((a, b) => setMaxPrice(b, 'soldMaxPrice')  - setMaxPrice(a, 'soldMaxPrice'));
     case 'pom_desc':        return s.sort((a, b) => setMaxPrice(b, 'suggestedPrice') - setMaxPrice(a, 'suggestedPrice'));
-    case 'ready_asc':       return s.sort((a, b) => setReadyFrac(a) - setReadyFrac(b));
     default: return s;
   }
 }
@@ -1412,8 +1401,8 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
         </button>
       </div>
 
-      {/* Toolbar row 2: sort chips + filters */}
-      <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-none flex-shrink-0">
+      {/* Toolbar row 2: sort chips */}
+      <div className="flex items-center gap-1.5 px-4 pb-1.5 overflow-x-auto scrollbar-none flex-shrink-0">
         <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wide shrink-0 mr-0.5">Sort</span>
         {SET_SORT_OPTIONS.map(o => (
           <button
@@ -1429,7 +1418,11 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
             {o.chip}
           </button>
         ))}
-        <span className="text-[9px] text-muted-foreground/30 shrink-0 mx-0.5">|</span>
+      </div>
+
+      {/* Toolbar row 3: filters */}
+      <div className="flex items-center gap-1.5 px-4 pb-2 flex-shrink-0">
+        <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wide shrink-0 mr-0.5">Filter</span>
         <button
           onClick={() => setNoLocationOnly(v => !v)}
           className={`text-[10px] whitespace-nowrap px-2 py-0.5 rounded border transition-colors shrink-0 ${
