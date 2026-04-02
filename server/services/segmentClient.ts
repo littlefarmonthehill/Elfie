@@ -64,20 +64,26 @@ export function startService() {
     d.toString().split('\n').forEach((line) => {
       line = line.trim();
       if (!line) return;
+      // Strip ANSI color codes so the content checks below work regardless of
+      // whether Flask/werkzeug colorizes its output (it does in some environments).
+      const clean = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
       // Flask prints startup info to stderr — use it as a ready signal too
-      if (line.includes('Running on')) {
+      if (clean.includes('Running on')) {
         ready = true;
         hasEverBeenReady = true;
         console.log(`[SegClient] Service ready (stderr signal) in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+        return; // don't log the "Running on" line itself
       }
-      // Suppress noisy but harmless lines:
-      // - Flask startup banner
-      // - Expected 404/502 from /embed-url when BrickLink CDN images are missing
-      // - Download progress bars from model downloads
-      if (line.startsWith('WARNING') || line.startsWith('Press') || line.startsWith(' * ')) return;
-      if (line.includes('POST /embed-url') && (line.includes('404') || line.includes('502'))) return;
-      if (/^\d+%\|/.test(line)) return; // progress bar lines like "18%|██..."
-      console.error(`[SegService ERR] ${line}`);
+      // Suppress noisy but harmless startup banner lines:
+      //   "WARNING: This is a development server…"
+      //   "Press CTRL+C to quit"
+      //   " * Serving Flask app …"
+      if (clean.startsWith('WARNING') || clean.startsWith('Press') || clean.startsWith('* ')) return;
+      // Expected 404/502 from /embed-url when BrickLink CDN images are missing
+      if (clean.includes('POST /embed-url') && (clean.includes('404') || clean.includes('502'))) return;
+      // Download progress bars like "18%|██..."
+      if (/^\d+%\|/.test(clean)) return;
+      console.error(`[SegService ERR] ${clean}`);
     });
   });
 

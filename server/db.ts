@@ -18,7 +18,8 @@ export const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('[DB] Idle client error (handled):', err.message);
+  // Neon serverless occasionally drops idle connections — this is expected and handled.
+  console.warn('[DB] Idle client reconnect (handled):', err.message);
 });
 
 // Keepalive: run a lightweight query every 60 s to prevent Neon serverless
