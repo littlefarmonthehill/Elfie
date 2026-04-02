@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { appSettings } from "@shared/schema";
+import { appSettings, PLATFORM_ORG_ID } from "@shared/schema";
 import { syncLock } from "./sync-lock";
 import { sql } from "drizzle-orm";
 import { CHANNEL_ORDER_SYNCS } from "./channel-order-registry";
@@ -117,6 +117,11 @@ export async function runPlatformOrderSync(
 
     for (const settings of allOrgSettings) {
       const orgId = settings.id;
+
+      // Skip the platform-admin row — it has no user orders, and its BrickLink
+      // credentials resolve to the platform enrichment account which would treat
+      // all 4 000+ orders as "new" (none stored under orgId='platform').
+      if (orgId === PLATFORM_ORG_ID) continue;
 
       // Determine which channels to run
       const channelsToRun = platform === 'all'
