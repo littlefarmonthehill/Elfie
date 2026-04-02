@@ -9800,8 +9800,7 @@ Format search_web URLs as markdown links.`;
         WHERE bi.org_id = ${orgId}
           AND LOWER(bi.item_no) = LOWER(${itemNo})
           AND bi.deleted_at IS NULL
-          AND bi.quantity > 0
-        ORDER BY bi.color_id NULLS LAST, bi.new_or_used
+        ORDER BY bi.quantity DESC, bi.color_id NULLS LAST, bi.new_or_used
       `);
       const rows = (result as any).rows ?? [];
       res.json(rows);

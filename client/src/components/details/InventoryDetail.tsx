@@ -1918,11 +1918,12 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                               const d = new Date(v.date_created);
                               return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
                             })() : '—';
+                            const isZeroQty = v.quantity === 0;
                             return (
                               <div
                                 key={v.id}
                                 onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
-                                className={`grid gap-x-2 items-center rounded pl-6 pr-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
+                                className={`grid gap-x-2 items-center rounded pl-6 pr-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : isZeroQty ? 'bg-white/[0.02] opacity-50' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
                                 style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 4rem 3rem' }}
                               >
                                 {/* Condition */}
@@ -1932,7 +1933,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                                 {/* Lot ID */}
                                 <span className={`text-right font-mono ${isCurrent ? 'text-violet-300' : 'text-gray-400'}`}>#{v.id}</span>
                                 {/* Qty */}
-                                <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
+                                <span className={`text-right font-mono ${isZeroQty ? 'text-gray-600' : 'text-gray-300'}`}>{v.quantity}</span>
                                 {/* Price */}
                                 <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
                                 {/* Date Created */}

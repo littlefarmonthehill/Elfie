@@ -250,19 +250,21 @@ export default function Home() {
       (platform.discrepancies?.quantityDifferences || 0);
   }, 0) || 0;
 
-  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string, initialTab?: string): Promise<boolean> => {
-    // Check if this is a BrickLink catalog item (used by Brickspotter heatmap badges)
+  // Shared helper: fetch inventory data and open it in the provided modal setter.
+  // Handles both bricklink-prefixed catalog IDs and real numeric inventory IDs.
+  const openInventoryDetail = async (
+    id: number | string,
+    initialTab: string | undefined,
+    setModal: (state: { open: boolean; data: DetailData | null }) => void,
+  ): Promise<boolean> => {
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
 
-    // Handle BrickLink catalog items (used by Brickspotter heatmap badges)
-    // Strategy: try real inventory first (full drawer), fall back to scan-data catalog view
-    if (isBrickLinkCatalog && type === 'inventory') {
+    if (isBrickLinkCatalog) {
       const raw = String(id).replace('bricklink-', '');
       const colorMatch = raw.match(/__c(\d+)$/);
       const itemNo = colorMatch ? raw.slice(0, raw.length - colorMatch[0].length) : raw;
       const colorId = colorMatch ? colorMatch[1] : null;
 
-      // 1. Try inventory search with exact color first
       try {
         if (colorId) {
           const searchParams = new URLSearchParams({ itemNo, colorId, limit: '50' });
@@ -270,154 +272,102 @@ export default function Home() {
           if (searchRes.ok) {
             const lots = await searchRes.json();
             if (Array.isArray(lots) && lots.length > 0) {
-              return handleDashboardItemClick('inventory', lots[0].id, initialTab);
+              return openInventoryDetail(lots[0].id, initialTab, setModal);
             }
           }
         }
-        // 2. Try part-only fallback (color mismatch / minifigs / stickers)
         const fallbackParams = new URLSearchParams({ itemNo, limit: '50' });
         const fallbackRes = await fetch(`/api/inventory/search?${fallbackParams}`);
         if (fallbackRes.ok) {
           const lots = await fallbackRes.json();
           if (Array.isArray(lots) && lots.length > 0) {
-            return handleDashboardItemClick('inventory', lots[0].id, initialTab);
+            return openInventoryDetail(lots[0].id, initialTab, setModal);
           }
         }
-      } catch { /* ignore, fall through to catalog view */ }
+      } catch { /* fall through to catalog view */ }
 
-      // 3. Not in inventory — fetch real BrickLink catalog data + price guide from server
-      //    (uses 6-month price_guide_cache so BL API calls are rare after first hit)
       const itemType = sessionStorage.getItem(`bl-itemtype-${itemNo}`) ?? 'PART';
-
-      // Show loading state immediately so the drawer opens without delay
-      setDetailModal({
-        open: true,
-        data: { type: 'inventory', data: { id: String(id), loading: true } as any, initialTab }
-      });
+      setModal({ open: true, data: { type: 'inventory', data: { id: String(id), loading: true } as any, initialTab } });
 
       try {
         const params = new URLSearchParams({ ...(colorId ? { colorId } : {}) });
         const catalogRes = await fetch(`/api/catalog/lookup/${encodeURIComponent(itemType)}/${encodeURIComponent(itemNo)}?${params}`);
         if (catalogRes.ok) {
           const catalogData = await catalogRes.json();
-          setDetailModal({
-            open: true,
-            data: { type: 'inventory', data: { ...catalogData, loadingPriceOMagic: false }, initialTab }
-          });
+          setModal({ open: true, data: { type: 'inventory', data: { ...catalogData, loadingPriceOMagic: false }, initialTab } });
           return true;
         }
       } catch { /* fall through */ }
 
-      // Server fetch failed — close modal
-      setDetailModal({ open: false, data: null });
+      setModal({ open: false, data: null });
       return false;
     }
 
-    // Open modal immediately with loading state for real inventory/order IDs
-    setDetailModal({
-      open: true,
-      data: { type, data: { id, loading: true } as any, initialTab }
-    });
+    // Numeric inventory ID
+    setModal({ open: true, data: { type: 'inventory', data: { id, loading: true } as any, initialTab } });
 
-    // Fetch real data from API in background
-    if (type === 'order') {
-      try {
-        const response = await fetch(`/api/orders/${id}`);
-        if (response.ok) {
-          const orderData = await response.json();
-          setDetailModal({
-            open: true,
-            data: { type: 'order', data: orderData }
-          });
-        } else {
-          console.error('Failed to fetch order:', response.statusText);
-          // Fallback to generic mock data if API fails
-          const orderNumber = String(id).replace(/^(ord-|ss-|bl-|bo-)/, '');
-          setDetailModal({
-            open: true,
-            data: { 
-              type: 'order', 
-              data: {
-                orderId: String(id),
-                orderNumber: orderNumber,
-                platform: 'BrickLink' as const,
-                status: 'Paid' as const,
-                customer: {
-                  name: 'Customer',
-                  email: 'customer@example.com',
-                  address: '123 Main St',
-                  city: 'City',
-                  state: 'ST',
-                  zip: '12345',
-                  country: 'US',
-                },
-                orderDate: new Date().toISOString(),
-                items: [],
-                shipping: 0,
-                tax: 0,
-                total: 0,
-              }
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching order:', error);
+    try {
+      const response = await fetch(`/api/inventory/${id}`);
+      if (response.ok) {
+        const inventoryData = await response.json();
+        setModal({ open: true, data: { type: 'inventory', data: { ...inventoryData, loadingPriceOMagic: true }, initialTab } });
+
+        const params = new URLSearchParams();
+        if (inventoryData.colorId) params.append('color_id', inventoryData.colorId.toString());
+        if (inventoryData.newOrUsed) params.append('new_or_used', inventoryData.newOrUsed);
+        const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${params.toString() ? `?${params.toString()}` : ''}`;
+
+        const priceResponse = await fetch(priceGuideUrl);
+        let priceOMagicData = null;
+        if (priceResponse.ok) priceOMagicData = await priceResponse.json();
+
+        setModal({ open: true, data: { type: 'inventory', data: { ...inventoryData, priceOMagic: priceOMagicData, loadingPriceOMagic: false }, initialTab } });
+      } else {
+        console.error('Failed to fetch inventory:', response.statusText);
       }
-    } else if (type === 'inventory') {
-      try {
-        const response = await fetch(`/api/inventory/${id}`);
-        if (response.ok) {
-          const inventoryData = await response.json();
-          
-          // Update modal with inventory data immediately
-          setDetailModal({
-            open: true,
-            data: { 
-              type: 'inventory', 
-              data: { ...inventoryData, loadingPriceOMagic: true },
-              initialTab,
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+    return true;
+  };
+
+  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string, initialTab?: string): Promise<boolean> => {
+    if (type === 'inventory') {
+      return openInventoryDetail(id, initialTab, setDetailModal);
+    }
+
+    // Order type — open modal immediately with loading state then fetch
+    setDetailModal({ open: true, data: { type: 'order', data: { id, loading: true } as any, initialTab } });
+
+    try {
+      const response = await fetch(`/api/orders/${id}`);
+      if (response.ok) {
+        const orderData = await response.json();
+        setDetailModal({ open: true, data: { type: 'order', data: orderData } });
+      } else {
+        console.error('Failed to fetch order:', response.statusText);
+        const orderNumber = String(id).replace(/^(ord-|ss-|bl-|bo-)/, '');
+        setDetailModal({
+          open: true,
+          data: {
+            type: 'order',
+            data: {
+              orderId: String(id),
+              orderNumber: orderNumber,
+              platform: 'BrickLink' as const,
+              status: 'Paid' as const,
+              customer: { name: 'Customer', email: 'customer@example.com', address: '123 Main St', city: 'City', state: 'ST', zip: '12345', country: 'US' },
+              orderDate: new Date().toISOString(),
+              items: [],
+              shipping: 0,
+              tax: 0,
+              total: 0,
             }
-          });
-          
-          // Fetch Price-o-Matic data in background
-          const params = new URLSearchParams();
-          if (inventoryData.colorId) {
-            params.append('color_id', inventoryData.colorId.toString());
           }
-          if (inventoryData.newOrUsed) {
-            params.append('new_or_used', inventoryData.newOrUsed);
-          }
-          const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
-            params.toString() ? `?${params.toString()}` : ''
-          }`;
-          
-          const priceResponse = await fetch(priceGuideUrl);
-          
-          let priceOMagicData = null;
-          if (priceResponse.ok) {
-            priceOMagicData = await priceResponse.json();
-          }
-          
-          const finalData = {
-            ...inventoryData,
-            priceOMagic: priceOMagicData,
-            loadingPriceOMagic: false
-          };
-          
-          setDetailModal({
-            open: true,
-            data: { 
-              type: 'inventory', 
-              data: finalData,
-              initialTab,
-            }
-          });
-        } else {
-          console.error('Failed to fetch inventory:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching inventory:', error);
+        });
       }
+    } catch (error) {
+      console.error('Error fetching order:', error);
     }
     return true;
   };
