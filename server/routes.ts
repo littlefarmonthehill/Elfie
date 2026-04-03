@@ -1142,39 +1142,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/platform-admin/platform-services/ebay-credentials', isSuperAdmin, async (req, res) => {
     try {
       const body = req.body as Record<string, string | undefined>;
-      const updateSet: Record<string, any> = { updatedAt: sql`CURRENT_TIMESTAMP` };
-      const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID };
 
-      const fields: Array<[string, string]> = [
-        ['prodAppId',          'ebayProdAppId'],
-        ['prodCertId',         'ebayProdCertId'],
-        ['prodDevId',          'ebayProdDevId'],
-        ['prodRuName',         'ebayProdRuName'],
-        ['sandboxAppId',       'ebaySandboxAppId'],
-        ['sandboxCertId',      'ebaySandboxCertId'],
-        ['sandboxDevId',       'ebaySandboxDevId'],
-        ['sandboxRuName',      'ebaySandboxRuName'],
-        ['notificationToken',  'ebayNotificationToken'],
+      // Map of request body key → schema property key (camelCase, as Drizzle expects)
+      const fieldMap: Array<[string, keyof typeof platformSettings.$inferInsert]> = [
+        ['prodAppId',         'ebayProdAppId'],
+        ['prodCertId',        'ebayProdCertId'],
+        ['prodDevId',         'ebayProdDevId'],
+        ['prodRuName',        'ebayProdRuName'],
+        ['sandboxAppId',      'ebaySandboxAppId'],
+        ['sandboxCertId',     'ebaySandboxCertId'],
+        ['sandboxDevId',      'ebaySandboxDevId'],
+        ['sandboxRuName',     'ebaySandboxRuName'],
+        ['notificationToken', 'ebayNotificationToken'],
       ];
 
-      for (const [bodyKey, dbCol] of fields) {
+      const setClause: Partial<typeof platformSettings.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+      const savedKeys: string[] = [];
+
+      for (const [bodyKey, schemaKey] of fieldMap) {
         const val = body[bodyKey];
         if (typeof val === 'string' && val.trim().length > 0) {
-          updateSet[dbCol] = val.trim();
-          insertValues[dbCol] = val.trim();
+          (setClause as any)[schemaKey] = val.trim();
+          savedKeys.push(schemaKey);
         }
       }
 
-      if (Object.keys(updateSet).length <= 1) {
+      if (savedKeys.length === 0) {
         return res.status(400).json({ message: 'No credential fields provided' });
       }
 
-      await db.insert(platformSettings).values(insertValues).onConflictDoUpdate({
-        target: platformSettings.id,
-        set: updateSet,
-      });
+      await db.update(platformSettings)
+        .set(setClause)
+        .where(eq(platformSettings.id, 'platform'));
+
+      console.log(`[eBay Creds] Saved fields: ${savedKeys.join(', ')}`);
       res.json({ ok: true });
     } catch (err: any) {
+      console.error('[eBay Creds] Save failed:', err.message);
       res.status(500).json({ message: err?.message || 'Failed to save eBay credentials' });
     }
   });
