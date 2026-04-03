@@ -5785,67 +5785,29 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     {/* Inventory Sync */}
                     <div>
-                      <button
-                        id="settings-inventory-sync-header"
-                        onClick={() => setSchedulerInventoryOpen(!schedulerInventoryOpen)}
-                        className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                        data-testid="button-scheduler-inventory-toggle"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-200">Inventory Sync</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${inventorySyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{inventorySyncEnabled ? 'Enabled' : 'Disabled'}</span>
-                        </div>
-                        {schedulerInventoryOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                      </button>
-                      {schedulerInventoryOpen && (
+                      <div className="flex items-center gap-2 py-2 mb-3 border-b border-gray-600/60">
+                        <span className="text-sm font-semibold text-gray-200">Inventory &amp; Channel Sync</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${channelSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{channelSyncEnabled ? 'Enabled' : 'Disabled'}</span>
+                      </div>
                       <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-100">Inventory Sync (Daily)</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover-lg">
-                                <p className="font-semibold text-gray-200">Inventory Sync</p>
-                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database and saves an XML backup. Categories, colors, and catalog enrichment are handled by platform-level schedulers.</p>
-                                <p className="sm-description">Runs once daily. Safe to trigger manually at any time.</p>
-                              </PopoverContent>
-                            </Popover>
+                            <Label className="text-xs font-medium text-gray-100">Auto Sync</Label>
                           </div>
-                          <p className="text-xs text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Pulls BrickLink inventory then pushes to all connected channels</p>
                           <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Switch
-                            checked={inventorySyncEnabled}
-                            onCheckedChange={(checked) => {
-                              setInventorySyncEnabled(checked);
-                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                            }}
-                            data-testid="switch-inventory-sync"
-                          />
+                          <button
+                            onClick={() => { setActiveSection('autoSync'); }}
+                            className="text-[10px] text-blue-400 underline hover:text-blue-300 transition-colors"
+                            data-testid="button-go-to-autosync"
+                          >
+                            Configure in Auto-Sync →
+                          </button>
                         </div>
                       </div>
-                      
-                      {inventorySyncEnabled && (
-                        <div className="ml-4 space-y-2">
-                          <Label htmlFor="inventory-time" className="text-xs text-gray-200">Sync Time</Label>
-                          <Input
-                            id="inventory-time"
-                            type="time"
-                            value={inventorySyncTime}
-                            onChange={(e) => setInventorySyncTime(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
-                            className="text-xs w-32"
-                            data-testid="input-inventory-time"
-                          />
-                          <p className="text-xs text-gray-500">Time in your local timezone</p>
-                        </div>
-                      )}
 
                       {/* BrickLink Store Info */}
                       <div className="mt-3 bg-gray-800/60 border border-purple-500/20 rounded-lg p-3 space-y-2">
@@ -5873,7 +5835,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         )}
                       </div>
                       </div>
-                      )}
                     </div>
 
                     <Separator className="bg-gray-700" />
@@ -6013,11 +5974,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide px-0.5">Scheduler</p>
                     <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                      {/* Row: Inventory */}
+                      {/* Row: Inventory & Channels */}
                       <div id="autosync-inventory-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
                         <button
-                          onClick={() => { if (inventorySyncEnabled) setExpandedAutoSyncService('inventory'); }}
-                          disabled={!inventorySyncEnabled}
+                          onClick={() => { if (channelSyncEnabled) setExpandedAutoSyncService('inventory'); }}
+                          disabled={!channelSyncEnabled}
                           className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
                           data-testid="button-inventory-configure"
                         >
@@ -6025,18 +5986,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <Package className="w-3.5 h-3.5 text-purple-400" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-100">Inventory</p>
+                            <p className="text-xs font-semibold text-gray-100">Inventory &amp; Channels</p>
                             <p className="text-[10px] text-gray-500 leading-tight">
-                              {inventorySyncEnabled ? `Every ${inventorySyncFrequency}h · pulls from BrickLink` : 'Pulls your live BrickLink store into E.L.F.I.E.'}
+                              {channelSyncEnabled ? `Every ${channelSyncFrequency}h · BrickLink → all channels` : 'Syncs BrickLink inventory then pushes to all channels'}
                             </p>
                           </div>
-                          {inventorySyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                          {channelSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
                         </button>
                         <Switch
-                          checked={inventorySyncEnabled}
+                          checked={channelSyncEnabled}
                           onCheckedChange={(checked) => {
-                            setInventorySyncEnabled(checked);
-                            updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                            setChannelSyncEnabled(checked);
+                            updateSettingsMutation.mutate({ channelSyncEnabled: checked });
                           }}
                           data-testid="switch-inventory-sync"
                         />
@@ -6056,7 +6017,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-gray-100">Orders</p>
                             <p className="text-[10px] text-gray-500 leading-tight">
-                              {ordersSyncEnabled ? `Every ${ordersSyncFrequency}m · pulls from BrickLink &amp; BrickOwl` : 'Syncs new orders from BrickLink and BrickOwl'}
+                              {ordersSyncEnabled ? `Every ${ordersSyncFrequency}m · all channels: BrickLink, BrickOwl &amp; eBay` : 'Syncs new orders from all channels'}
                             </p>
                           </div>
                           {ordersSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
@@ -6152,7 +6113,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   {/* Burn rate card */}
                   {(() => {
                     const DAILY_LIMIT = 5000;
-                    const invSyncsPerDay = inventorySyncEnabled ? Math.floor(24 / inventorySyncFrequency) : 0;
+                    const invSyncsPerDay = channelSyncEnabled ? Math.floor(24 / channelSyncFrequency) : 0;
                     const ordSyncsPerDay = ordersSyncEnabled    ? Math.floor(1440 / ordersSyncFrequency)  : 0;
                     const invCalls  = invSyncsPerDay;
                     const ordCalls  = ordSyncsPerDay;
@@ -6274,12 +6235,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* Enable/disable toggle in header */}
                     <div className="ml-auto flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-gray-500">
-                        {expandedAutoSyncService === 'inventory' ? (inventorySyncEnabled ? 'Enabled' : 'Disabled')
+                        {expandedAutoSyncService === 'inventory' ? (channelSyncEnabled ? 'Enabled' : 'Disabled')
                          : expandedAutoSyncService === 'orders' ? (ordersSyncEnabled ? 'Enabled' : 'Disabled')
                          : channelSyncEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       {expandedAutoSyncService === 'inventory' && (
-                        <Switch checked={inventorySyncEnabled} onCheckedChange={(c) => { setInventorySyncEnabled(c); updateSettingsMutation.mutate({ inventorySyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-inventory-sync-detail" />
+                        <Switch checked={channelSyncEnabled} onCheckedChange={(c) => { setChannelSyncEnabled(c); updateSettingsMutation.mutate({ channelSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-inventory-sync-detail" />
                       )}
                       {expandedAutoSyncService === 'orders' && (
                         <Switch checked={ordersSyncEnabled} onCheckedChange={(c) => { setOrdersSyncEnabled(c); updateSettingsMutation.mutate({ ordersSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-orders-sync-detail" />
@@ -6293,18 +6254,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   {/* Detail config card */}
                   <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                    {/* ── Inventory detail ── */}
+                    {/* ── Inventory & Channels detail ── */}
                     {expandedAutoSyncService === 'inventory' && (<>
                       <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <Label className="text-xs text-gray-300">Run every</Label>
+                        <div>
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <p className="text-[10px] text-gray-500 mt-0.5">BrickLink pull → all channels in sequence</p>
+                        </div>
                         <Select
-                          value={String(inventorySyncFrequency)}
-                          onValueChange={(v) => { const hours = Number(v); setInventorySyncFrequency(hours); updateSettingsMutation.mutate({ inventorySyncFrequency: hours }); }}
+                          value={String(channelSyncFrequency)}
+                          onValueChange={(v) => { const hours = Number(v); setChannelSyncFrequency(hours); updateSettingsMutation.mutate({ channelSyncFrequency: hours }); }}
                         >
                           <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-inventory-frequency">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="4">Every 4 hours</SelectItem>
                             <SelectItem value="6">Every 6 hours</SelectItem>
                             <SelectItem value="12">Every 12 hours</SelectItem>
                             <SelectItem value="24">Every 24 hours</SelectItem>
