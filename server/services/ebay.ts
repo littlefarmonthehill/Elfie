@@ -13,7 +13,7 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCatalog, channelLotLinks, orgIntegrations, channelSyncConfig } from '@shared/schema';
+import { blInventory, blColors, blCatalog, channelLotLinks, orgIntegrations, channelSyncConfig, platformSettings } from '@shared/schema';
 import { eq, and, inArray, isNull, isNotNull } from 'drizzle-orm';
 import { getImagesForLot } from './user-image-store';
 
@@ -130,39 +130,43 @@ function parseSkuToBlInvId(sku: string): number | null {
 // ── OAuth / Credentials ────────────────────────────────────────────────────
 
 /**
- * Load eBay credentials from org_integrations for this org.
- * Returns null if not configured.
+ * Load eBay credentials for an org.
+ * - App credentials (AppId, CertId, DevId, RuName) come from platform_settings (shared across orgs).
+ * - User tokens (refreshToken) come from org_integrations (per-org OAuth).
+ * Returns null if not fully configured.
  */
 async function loadEbayCredentials(orgId: string): Promise<EbayCredentials | null> {
-  const [row] = await db
-    .select()
-    .from(orgIntegrations)
-    .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'ebay')))
-    .limit(1);
+  // Load both in parallel
+  const [[psRow], [orgRow]] = await Promise.all([
+    db.select().from(platformSettings).limit(1),
+    db.select().from(orgIntegrations)
+      .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'ebay')))
+      .limit(1),
+  ]);
 
-  if (!row?.credentials) return null;
-  const creds = row.credentials as Record<string, string>;
-  const env = (creds.environment as 'production' | 'sandbox') ?? 'production';
+  const orgCreds = (orgRow?.credentials ?? {}) as Record<string, string>;
+  const env = (orgCreds.environment as 'production' | 'sandbox') ?? 'production';
 
   if (env === 'sandbox') {
-    if (!creds.sandboxAppId || !creds.sandboxCertId || !creds.sandboxRefreshToken) return null;
-    return {
-      appId:        creds.sandboxAppId,
-      certId:       creds.sandboxCertId,
-      devId:        creds.sandboxDevId ?? '',
-      refreshToken: creds.sandboxRefreshToken,
-      environment:  'sandbox',
-    };
+    // App creds: from platform_settings sandbox columns (fallback to legacy org-level fields)
+    const appId  = psRow?.ebaySandboxAppId  ?? orgCreds.sandboxAppId  ?? '';
+    const certId = psRow?.ebaySandboxCertId ?? orgCreds.sandboxCertId ?? '';
+    const devId  = psRow?.ebaySandboxDevId  ?? orgCreds.sandboxDevId  ?? '';
+    // User token: always from org_integrations
+    const refreshToken = orgCreds.sandboxRefreshToken ?? '';
+
+    if (!appId || !certId || !refreshToken) return null;
+    return { appId, certId, devId, refreshToken, environment: 'sandbox' };
   }
 
-  if (!creds.appId || !creds.certId || !creds.refreshToken) return null;
-  return {
-    appId:        creds.appId,
-    certId:       creds.certId,
-    devId:        creds.devId ?? '',
-    refreshToken: creds.refreshToken,
-    environment:  'production',
-  };
+  // Production
+  const appId  = psRow?.ebayProdAppId  ?? orgCreds.appId  ?? '';
+  const certId = psRow?.ebayProdCertId ?? orgCreds.certId ?? '';
+  const devId  = psRow?.ebayProdDevId  ?? orgCreds.devId  ?? '';
+  const refreshToken = orgCreds.refreshToken ?? '';
+
+  if (!appId || !certId || !refreshToken) return null;
+  return { appId, certId, devId, refreshToken, environment: 'production' };
 }
 
 /**

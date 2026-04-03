@@ -1108,6 +1108,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/platform-services/ebay-credentials — presence/prefix (no secrets)
+  app.get('/api/platform-admin/platform-services/ebay-credentials', isSuperAdmin, async (_req, res) => {
+    try {
+      const [ps] = await db.select().from(platformSettings).limit(1);
+      const prefix = (v: string | null | undefined) => v ? v.substring(0, 12) + '…' : null;
+      res.json({
+        prod: {
+          hasAppId:  !!ps?.ebayProdAppId,
+          hasCertId: !!ps?.ebayProdCertId,
+          hasDevId:  !!ps?.ebayProdDevId,
+          hasRuName: !!ps?.ebayProdRuName,
+          appIdPrefix:  prefix(ps?.ebayProdAppId),
+          ruNamePrefix: prefix(ps?.ebayProdRuName),
+        },
+        sandbox: {
+          hasAppId:  !!ps?.ebaySandboxAppId,
+          hasCertId: !!ps?.ebaySandboxCertId,
+          hasDevId:  !!ps?.ebaySandboxDevId,
+          hasRuName: !!ps?.ebaySandboxRuName,
+          appIdPrefix:  prefix(ps?.ebaySandboxAppId),
+          ruNamePrefix: prefix(ps?.ebaySandboxRuName),
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to load eBay credentials' });
+    }
+  });
+
+  // POST /api/platform-admin/platform-services/ebay-credentials — save platform eBay app creds
+  app.post('/api/platform-admin/platform-services/ebay-credentials', isSuperAdmin, async (req, res) => {
+    try {
+      const body = req.body as Record<string, string | undefined>;
+      const updateSet: Record<string, any> = { updatedAt: sql`CURRENT_TIMESTAMP` };
+      const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID };
+
+      const fields: Array<[string, string]> = [
+        ['prodAppId',      'ebayProdAppId'],
+        ['prodCertId',     'ebayProdCertId'],
+        ['prodDevId',      'ebayProdDevId'],
+        ['prodRuName',     'ebayProdRuName'],
+        ['sandboxAppId',   'ebaySandboxAppId'],
+        ['sandboxCertId',  'ebaySandboxCertId'],
+        ['sandboxDevId',   'ebaySandboxDevId'],
+        ['sandboxRuName',  'ebaySandboxRuName'],
+      ];
+
+      for (const [bodyKey, dbCol] of fields) {
+        const val = body[bodyKey];
+        if (typeof val === 'string' && val.trim().length > 0) {
+          updateSet[dbCol] = val.trim();
+          insertValues[dbCol] = val.trim();
+        }
+      }
+
+      if (Object.keys(updateSet).length <= 1) {
+        return res.status(400).json({ message: 'No credential fields provided' });
+      }
+
+      await db.insert(platformSettings).values(insertValues).onConflictDoUpdate({
+        target: platformSettings.id,
+        set: updateSet,
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to save eBay credentials' });
+    }
+  });
+
   // GET /api/platform-admin/platform-services/openai-status
   app.get('/api/platform-admin/platform-services/openai-status', isSuperAdmin, async (_req, res) => {
     try {

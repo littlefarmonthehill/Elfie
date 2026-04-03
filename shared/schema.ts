@@ -750,6 +750,17 @@ export const platformSettings = pgTable("platform_settings", {
   // Per-plan frequency floors — minimum interval each plan tier is allowed to use
   // Structure: { inventory: { beta: 24, core: 12, pro: 6 }, orders: { ... }, channel: { ... } }
   syncFloorsByPlan: jsonb("sync_floors_by_plan"),
+  // eBay Developer App credentials (platform-level — shared across all orgs)
+  // Production environment
+  ebayProdAppId: text("ebay_prod_app_id"),
+  ebayProdCertId: text("ebay_prod_cert_id"),
+  ebayProdDevId: text("ebay_prod_dev_id"),
+  ebayProdRuName: text("ebay_prod_ru_name"),
+  // Sandbox environment
+  ebaySandboxAppId: text("ebay_sandbox_app_id"),
+  ebaySandboxCertId: text("ebay_sandbox_cert_id"),
+  ebaySandboxDevId: text("ebay_sandbox_dev_id"),
+  ebaySandboxRuName: text("ebay_sandbox_ru_name"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

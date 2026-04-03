@@ -2529,6 +2529,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [platformBlTokenSecret, setPlatformBlTokenSecret] = useState("");
   const [platformBlSaving, setPlatformBlSaving] = useState(false);
   const [platformBlTesting, setPlatformBlTesting] = useState(false);
+  // eBay platform credentials state
+  const [platformEbayProdAppId,     setPlatformEbayProdAppId]     = useState('');
+  const [platformEbayProdCertId,    setPlatformEbayProdCertId]    = useState('');
+  const [platformEbayProdDevId,     setPlatformEbayProdDevId]     = useState('');
+  const [platformEbayProdRuName,    setPlatformEbayProdRuName]    = useState('');
+  const [platformEbaySandboxAppId,  setPlatformEbaySandboxAppId]  = useState('');
+  const [platformEbaySandboxCertId, setPlatformEbaySandboxCertId] = useState('');
+  const [platformEbaySandboxDevId,  setPlatformEbaySandboxDevId]  = useState('');
+  const [platformEbaySandboxRuName, setPlatformEbaySandboxRuName] = useState('');
+  const [platformEbaySaving,        setPlatformEbaySaving]        = useState(false);
 
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
@@ -2739,7 +2749,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink' | 'ebay'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
   const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
@@ -3410,6 +3420,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && superAdmin && isAuditPlatformBl,
     refetchInterval: isAuditPlatformBl ? 15000 : false,
     retry: 0,
+  });
+
+  type PlatformEbayCredsData = {
+    prod: { hasAppId: boolean; hasCertId: boolean; hasDevId: boolean; hasRuName: boolean; appIdPrefix: string | null; ruNamePrefix: string | null };
+    sandbox: { hasAppId: boolean; hasCertId: boolean; hasDevId: boolean; hasRuName: boolean; appIdPrefix: string | null; ruNamePrefix: string | null };
+  };
+  const { data: platformEbayCredsData, refetch: refetchEbayCreds } = useQuery<PlatformEbayCredsData>({
+    queryKey: ['/api/platform-admin/platform-services/ebay-credentials'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'ebay' && superAdmin,
   });
 
   type BlApiBreakdownRow = {
@@ -11431,10 +11450,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
                 {/* Tab strip */}
                 {(() => {
-                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'bricklink' | 'ebay'; label: string; Icon: React.ElementType }> = [
                     { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
                     { id: 'stripe', label: 'Stripe', Icon: CreditCard },
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
+                    { id: 'ebay', label: 'eBay', Icon: Tag },
                   ];
                   return (
                     <div className="tool-tab-bar overflow-x-auto">
@@ -11675,7 +11695,147 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </div>
                 )}
 
-                {/* ── OpenAI tab ─────────────────────────────────── */}
+                {/* ── eBay tab ─────────────────────────────────────────── */}
+                {activePlatformServicesTab === 'ebay' && (
+                  <div className="space-y-3">
+                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">
+                      Platform-level eBay developer app credentials. These are shared across all orgs and used to generate OAuth tokens. Each org connects their individual eBay seller account in <strong className="text-gray-300">Settings → Platforms → eBay</strong>.
+                    </p>
+
+                    {/* Production credentials */}
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Globe className="h-3.5 w-3.5 text-blue-400/80" />
+                        <span className="text-xs font-semibold text-gray-200">Production App</span>
+                        {platformEbayCredsData && (
+                          <Badge variant="outline" className={`ml-auto text-[9px] ${platformEbayCredsData.prod.hasAppId && platformEbayCredsData.prod.hasCertId ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-gray-400 border-gray-600 bg-gray-500/5'}`}>
+                            {platformEbayCredsData.prod.hasAppId && platformEbayCredsData.prod.hasCertId ? 'Configured' : 'Not Configured'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        {([
+                          { label: 'App ID (Client ID)', bodyKey: 'prodAppId', value: platformEbayProdAppId, setter: setPlatformEbayProdAppId, has: platformEbayCredsData?.prod.hasAppId, prefix: platformEbayCredsData?.prod.appIdPrefix, testId: 'input-ps-ebay-prod-app-id' },
+                          { label: 'Cert ID (Client Secret)', bodyKey: 'prodCertId', value: platformEbayProdCertId, setter: setPlatformEbayProdCertId, has: platformEbayCredsData?.prod.hasCertId, prefix: null, testId: 'input-ps-ebay-prod-cert-id' },
+                          { label: 'Dev ID', bodyKey: 'prodDevId', value: platformEbayProdDevId, setter: setPlatformEbayProdDevId, has: platformEbayCredsData?.prod.hasDevId, prefix: null, testId: 'input-ps-ebay-prod-dev-id' },
+                          { label: 'RuName (Auth Accepted URL)', bodyKey: 'prodRuName', value: platformEbayProdRuName, setter: setPlatformEbayProdRuName, has: platformEbayCredsData?.prod.hasRuName, prefix: platformEbayCredsData?.prod.ruNamePrefix, testId: 'input-ps-ebay-prod-ru-name' },
+                        ] as Array<{ label: string; bodyKey: string; value: string; setter: (v: string) => void; has: boolean | undefined; prefix: string | null | undefined; testId: string }>).map(({ label, value, setter, has, prefix, testId }) => (
+                          <div key={label}>
+                            <label className="block app-label mb-1">
+                              {label}
+                              {has && !value && (
+                                <span className="ml-2 text-[9px] text-green-500/70 font-normal">{prefix ?? '••••••••'} configured</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={has && !value ? '••••••••  (enter new value to replace)' : `Enter ${label.toLowerCase()}`}
+                              value={value}
+                              onChange={e => setter(e.target.value)}
+                              data-testid={testId}
+                              className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sandbox credentials */}
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Sandbox App</span>
+                        {platformEbayCredsData && (
+                          <Badge variant="outline" className={`ml-auto text-[9px] ${platformEbayCredsData.sandbox.hasAppId && platformEbayCredsData.sandbox.hasCertId ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-gray-400 border-gray-600 bg-gray-500/5'}`}>
+                            {platformEbayCredsData.sandbox.hasAppId && platformEbayCredsData.sandbox.hasCertId ? 'Configured' : 'Not Configured'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 space-y-2.5">
+                        {([
+                          { label: 'App ID (Client ID)', bodyKey: 'sandboxAppId', value: platformEbaySandboxAppId, setter: setPlatformEbaySandboxAppId, has: platformEbayCredsData?.sandbox.hasAppId, prefix: platformEbayCredsData?.sandbox.appIdPrefix, testId: 'input-ps-ebay-sandbox-app-id' },
+                          { label: 'Cert ID (Client Secret)', bodyKey: 'sandboxCertId', value: platformEbaySandboxCertId, setter: setPlatformEbaySandboxCertId, has: platformEbayCredsData?.sandbox.hasCertId, prefix: null, testId: 'input-ps-ebay-sandbox-cert-id' },
+                          { label: 'Dev ID', bodyKey: 'sandboxDevId', value: platformEbaySandboxDevId, setter: setPlatformEbaySandboxDevId, has: platformEbayCredsData?.sandbox.hasDevId, prefix: null, testId: 'input-ps-ebay-sandbox-dev-id' },
+                          { label: 'RuName (Auth Accepted URL)', bodyKey: 'sandboxRuName', value: platformEbaySandboxRuName, setter: setPlatformEbaySandboxRuName, has: platformEbayCredsData?.sandbox.hasRuName, prefix: platformEbayCredsData?.sandbox.ruNamePrefix, testId: 'input-ps-ebay-sandbox-ru-name' },
+                        ] as Array<{ label: string; bodyKey: string; value: string; setter: (v: string) => void; has: boolean | undefined; prefix: string | null | undefined; testId: string }>).map(({ label, value, setter, has, prefix, testId }) => (
+                          <div key={label}>
+                            <label className="block app-label mb-1">
+                              {label}
+                              {has && !value && (
+                                <span className="ml-2 text-[9px] text-green-500/70 font-normal">{prefix ?? '••••••••'} configured</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={has && !value ? '••••••••  (enter new value to replace)' : `Enter ${label.toLowerCase()}`}
+                              value={value}
+                              onChange={e => setter(e.target.value)}
+                              data-testid={testId}
+                              className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Save button */}
+                    <div className="flex items-center gap-2 px-1">
+                      <button
+                        data-testid="button-ps-ebay-save"
+                        disabled={platformEbaySaving}
+                        onClick={async () => {
+                          const payload: Record<string, string> = {};
+                          if (platformEbayProdAppId)     payload.prodAppId     = platformEbayProdAppId;
+                          if (platformEbayProdCertId)    payload.prodCertId    = platformEbayProdCertId;
+                          if (platformEbayProdDevId)     payload.prodDevId     = platformEbayProdDevId;
+                          if (platformEbayProdRuName)    payload.prodRuName    = platformEbayProdRuName;
+                          if (platformEbaySandboxAppId)  payload.sandboxAppId  = platformEbaySandboxAppId;
+                          if (platformEbaySandboxCertId) payload.sandboxCertId = platformEbaySandboxCertId;
+                          if (platformEbaySandboxDevId)  payload.sandboxDevId  = platformEbaySandboxDevId;
+                          if (platformEbaySandboxRuName) payload.sandboxRuName = platformEbaySandboxRuName;
+                          if (Object.keys(payload).length === 0) {
+                            toast({ title: 'Nothing to save', description: 'Enter at least one credential field.', variant: 'destructive' });
+                            return;
+                          }
+                          setPlatformEbaySaving(true);
+                          try {
+                            const res = await fetch('/api/platform-admin/platform-services/ebay-credentials', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(payload),
+                            });
+                            if (!res.ok) throw new Error((await res.json()).message || 'Failed');
+                            // Clear inputs after successful save
+                            setPlatformEbayProdAppId(''); setPlatformEbayProdCertId('');
+                            setPlatformEbayProdDevId(''); setPlatformEbayProdRuName('');
+                            setPlatformEbaySandboxAppId(''); setPlatformEbaySandboxCertId('');
+                            setPlatformEbaySandboxDevId(''); setPlatformEbaySandboxRuName('');
+                            await refetchEbayCreds();
+                            toast({ title: 'eBay credentials saved', description: 'Platform eBay app credentials updated.' });
+                          } catch (err: any) {
+                            toast({ title: 'Save failed', description: err?.message, variant: 'destructive' });
+                          } finally {
+                            setPlatformEbaySaving(false);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors disabled:opacity-50"
+                      >
+                        {platformEbaySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save eBay Credentials
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 px-1 pt-1">
+                      <a href="https://developer.ebay.com/my/keys" target="_blank" rel="noopener noreferrer" data-testid="link-ebay-dev-keys" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded px-2 py-1 transition-colors">
+                        <ExternalLink className="h-3 w-3 shrink-0" />Developer Keys
+                      </a>
+                      <a href="https://developer.ebay.com/api-docs/static/oauth-redirect-uri.html" target="_blank" rel="noopener noreferrer" data-testid="link-ebay-runame-docs" className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2 py-1 transition-colors">
+                        <ExternalLink className="h-3 w-3 shrink-0" />RuName Docs
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 {activePlatformServicesTab === 'openai' && (
                   <div className="space-y-3">
                     <div className="sm-card">
