@@ -1131,7 +1131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ruNamePrefix: prefix(ps?.ebaySandboxRuName),
         },
         hasNotificationToken: !!ps?.ebayNotificationToken,
-        notificationEndpoint: 'https://elfie.replit.app/api/ebay/notifications',
+        notificationEndpoint: `${(req.headers['x-forwarded-proto'] as string) || req.protocol || 'https'}://${(req.headers['x-forwarded-host'] as string) || req.headers.host || ''}/api/ebay/notifications`,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load eBay credentials' });
@@ -14481,8 +14481,6 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // eBay requires every developer app to receive account deletion notifications.
   // GET: challenge verification handshake (no auth — called by eBay).
   // POST: notification receiver (no auth — called by eBay).
-  const EBAY_NOTIFICATION_ENDPOINT = 'https://elfie.replit.app/api/ebay/notifications';
-
   app.get('/api/ebay/notifications', async (req, res) => {
     try {
       const challengeCode = req.query.challenge_code as string | undefined;
@@ -14499,8 +14497,16 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(500).json({ error: 'Notification token not configured' });
       }
 
+      // Build the endpoint URL from the request so it always matches exactly
+      // what the user registered in eBay's developer portal, regardless of domain.
+      const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || '';
+      const notificationEndpoint = `${proto}://${host}/api/ebay/notifications`;
+
+      console.log(`[eBay Notifications] Challenge received. Endpoint used for hash: ${notificationEndpoint}`);
+
       const hash = createHash('sha256')
-        .update(challengeCode + token + EBAY_NOTIFICATION_ENDPOINT)
+        .update(challengeCode + token + notificationEndpoint)
         .digest('hex');
 
       res.json({ challengeResponse: hash });

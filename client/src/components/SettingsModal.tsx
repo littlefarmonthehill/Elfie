@@ -12030,7 +12030,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <div className="px-4 py-3 space-y-3">
                         <p className="text-[10px] text-gray-400">eBay requires an account deletion notification endpoint for GDPR compliance. Set a verification token below, then use the same token in the eBay Developer Portal → Notifications.</p>
                         <div className="text-[10px] font-mono bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-gray-300 break-all select-all">
-                          {platformEbayCredsData?.notificationEndpoint ?? 'https://elfie.replit.app/api/ebay/notifications'}
+                          {platformEbayCredsData?.notificationEndpoint ?? '/api/ebay/notifications'}
                         </div>
                         <div>
                           <label className="block text-[10px] text-gray-400 mb-1">Verification Token <span className="text-gray-600">(32–80 chars, you choose)</span></label>
