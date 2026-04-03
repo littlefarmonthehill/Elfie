@@ -177,11 +177,11 @@ export async function runChannelSync(forceFullScan = false) {
   return runScheduledChannelSync(forceFullScan, orgId);
 }
 
-export async function runChannelSyncForOrg(orgId: string, forceFullScan = false) {
-  return runScheduledChannelSync(forceFullScan, orgId);
+export async function runChannelSyncForOrg(orgId: string, forceFullScan = false, targetChannel?: string) {
+  return runScheduledChannelSync(forceFullScan, orgId, targetChannel);
 }
 
-async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
+async function runScheduledChannelSync(forceFullScan = false, orgId?: string, targetChannel?: string) {
   if (!syncLock.acquire('Channel Sync')) {
     console.log('⏭️ Scheduled channel sync skipped — another sync is running');
     return;
@@ -201,8 +201,15 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   }
 
   // Discover which channels are configured for this org
-  const channelKeys = orgId ? await getConfiguredChannelKeys(orgId) : ['brickowl'];
-  console.log(`\n🌐 Starting scheduled channel sync for ${channelKeys.length} channel(s): ${channelKeys.join(', ')} (mode: ${syncMode})`);
+  let channelKeys = orgId ? await getConfiguredChannelKeys(orgId) : ['brickowl'];
+  // If a specific channel was requested (manual sync from a single tile), run only that one
+  if (targetChannel) {
+    channelKeys = channelKeys.filter(k => k === targetChannel);
+    if (channelKeys.length === 0) {
+      console.warn(`[Channel] targetChannel "${targetChannel}" not in configured channels — nothing to sync`);
+    }
+  }
+  console.log(`\n🌐 Starting scheduled channel sync for ${channelKeys.length} channel(s): ${channelKeys.join(', ')} (mode: ${syncMode}${targetChannel ? `, targeted: ${targetChannel}` : ''})`);
 
   await upsertSyncMetadata(SYNC_ID, effectiveOrgId, { status: 'in_progress' });
 

@@ -1,0 +1,20 @@
+bricklink] Inventory sync already in progress
+[brickowl] 1651-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 3834-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 40016-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 70800-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 30280-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 76054-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 75119-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 853912: create failed — BrickOwl API error: 404 Not Found - {"error":{"status":"Invalid BOID, item not found"}}
+[brickowl] 75168-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 40108-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 40015-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 3833-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 7641-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 8024-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 30495-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 6458-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 30416-1: create failed — BrickOwl API error: 400 Bad Request - {"error":{"status":"Invalid condition"}}
+[brickowl] 10720-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}
+[brickowl] 75173-1: create failed — BrickOwl API error: 400 Bad Request - {"error":"Invalid parameter 'condition' must be one of New,New (Sealed),New (Complete),New (Incomplete),Used (Complete),Used (Incomplete),Used (Like New),Used (Good),Used (Acceptable),Other"}

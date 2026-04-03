@@ -219,12 +219,18 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   });
 
   const syncMutation = useMutation({
-    mutationFn: (opts?: { fullScan?: boolean }) => apiRequest('POST', '/api/sync/channel', { fullScan: opts?.fullScan ?? false }),
-    onSuccess: () => {
+    mutationFn: (opts?: { fullScan?: boolean; channel?: string }) =>
+      apiRequest('POST', '/api/sync/channel', {
+        fullScan: opts?.fullScan ?? false,
+        channel: opts?.channel ?? selectedChannel,
+      }),
+    onSuccess: (_data, opts) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
       setDrawerOpen(false);
-      toast({ title: 'Channel sync complete', description: 'All connected channels have been updated.' });
+      const ch = opts?.channel ?? selectedChannel;
+      const label = ch === 'brickowl' ? 'BrickOwl' : ch === 'ebay' ? 'eBay' : ch;
+      toast({ title: 'Channel sync complete', description: `${label} has been updated.` });
     },
     onError: (err: any) => {
       toast({ title: 'Sync failed', description: err?.message || 'Could not complete channel sync.', variant: 'destructive' });

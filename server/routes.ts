@@ -14599,8 +14599,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       }
       const { runChannelSyncForOrg } = await import("./services/channel-sync-scheduler");
       const forceFullScan = req.body?.fullScan === true;
+      const targetChannel: string | undefined = req.body?.channel || undefined;
       const orgId = reqOrgId(req);
-      await runChannelSyncForOrg(orgId, forceFullScan);
+      await runChannelSyncForOrg(orgId, forceFullScan, targetChannel);
       res.json({ success: true });
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already running');
