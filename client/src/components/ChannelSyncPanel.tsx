@@ -274,7 +274,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   const selectedChannelData = displayChannels.find(c => c.key === selectedChannel) ?? displayChannels[0];
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
   // Target object for the currently selected channel (stats, discrepancies, syncMode are channel-specific)
-  const selectedTarget = selectedChannelData?.target ?? brickOwl ?? null;
+  const selectedTarget = selectedChannelData?.target ?? (selectedChannel === 'brickowl' ? brickOwl : null);
   const aggregateSync = syncStatuses?.channel;
   // Use per-channel stats when available; fall back to aggregate only for brickowl (primary channel).
   // Other channels (e.g. ebay) show null until they have their own sync record.
