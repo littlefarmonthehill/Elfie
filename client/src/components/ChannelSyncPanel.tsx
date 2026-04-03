@@ -267,8 +267,13 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
 
   const selectedChannelData = displayChannels.find(c => c.key === selectedChannel) ?? displayChannels[0];
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
-  const lastSync = syncStatuses?.channel;
-  const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+  const aggregateSync = syncStatuses?.channel;
+  // Use per-channel stats when available; fall back to aggregate only for brickowl (primary channel).
+  // Other channels (e.g. ebay) show null until they have their own sync record.
+  const lastSync = syncStatuses?.channels?.[selectedChannel] !== undefined
+    ? (syncStatuses?.channels?.[selectedChannel] ?? (selectedChannel === 'brickowl' ? aggregateSync : null))
+    : aggregateSync;
+  const isRunning = aggregateSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
 
   // When sync transitions from running → done, sequence a fresh status fetch (which repopulates
   // the server-side discrepancy cache) then invalidate the detail drawer so it re-reads fresh data.

@@ -11805,7 +11805,7 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       if (!lot.unit_price) return res.status(400).json({ error: 'Set a price before syncing to BrickOwl' });
 
       const { createBrickOwlLot, updateBrickOwlLot } = await import('./services/brickowl');
-      const boCondition = lot.condition === 'N' ? 'new' : 'usedg';
+      const boCondition = lot.condition === 'N' ? 'new' : 'used';
 
       // If this lot already has a BO listing, update it in-place
       if (lot.bo_lot_id) {
@@ -14667,7 +14667,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }
         await db.update(blInventory).set({ updatedAt: new Date() }).where(eq(blInventory.id, blId));
         await deleteBrickOwlLot(lot.lot_id, orgId);
-        const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'usedg');
+        const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'used');
         await createBrickOwlLot({
           boid,
           quantity: parseInt(lot.qty),
@@ -14775,7 +14775,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.get("/api/sync/statuses", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'rebrickable_set_parts'];
+      const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'rebrickable_set_parts', 'channel_sync_brickowl', 'channel_sync_ebay'];
       const rows = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), inArray(syncMetadata.id, ids)));
 
       // Cross-check in_progress records against live in-memory state.
@@ -14837,10 +14837,15 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
           };
         }
       }
+      const channelAggregate = pick('channel_sync');
       res.json({
         inventory: pick('bricklink_inventory'),
         priceomatic: pick('priceomatic_cache'),
-        channel: pick('channel_sync'),
+        channel: channelAggregate,
+        channels: {
+          brickowl: pick('channel_sync_brickowl') ?? channelAggregate,
+          ebay:     pick('channel_sync_ebay'),
+        },
         orders: ordersMeta,
         bricklink_orders: pick('bricklink_orders'),
         brickowl_orders: pick('brickowl_orders'),

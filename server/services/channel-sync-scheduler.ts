@@ -291,15 +291,24 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
         const wasAborted = channelKey === 'brickowl' ? isChannelSyncAbortRequested() : false;
         if (wasAborted) anyAborted = true;
 
+        const channelStatus = result.errors.length > 0 || wasAborted ? 'partial' : 'success';
         perChannel[channelKey] = {
           lotsCreated: result.lotsCreated,
           lotsUpdated: result.lotsUpdated,
           lotsSkipped: result.lotsSkipped,
           errorCount:  result.errors.length,
           errors:      result.errors.slice(0, 10),
-          status:      result.errors.length > 0 || wasAborted ? 'partial' : 'success',
+          status:      channelStatus,
           updatedItems: channelUpdatedItems,
         };
+
+        // Write per-channel metadata so each channel tile shows its own stats
+        await upsertSyncMetadata(`channel_sync_${channelKey}`, effectiveOrgId, {
+          status:         channelStatus,
+          recordsAdded:   result.lotsCreated,
+          recordsUpdated: result.lotsUpdated,
+          errorMessage:   result.errors.length > 0 ? result.errors.slice(0, 3).join('; ') : null,
+        });
 
         console.log(`[Channel] ✓ ${channelKey}: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors`);
       } catch (chanErr: any) {
@@ -314,6 +323,10 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
           errors:      [chanErr.message],
           status:      'error',
         };
+        await upsertSyncMetadata(`channel_sync_${channelKey}`, effectiveOrgId, {
+          status:       'error',
+          errorMessage: chanErr.message,
+        });
       }
     }
 
