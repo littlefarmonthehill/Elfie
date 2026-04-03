@@ -649,7 +649,7 @@ export async function syncInventoryItem(
 }> {
   try {
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = blItem.newOrUsed === 'N' ? 'new' : 'used';
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
     // Priority: pre-built taggedLotMap → channel_lot_links DB lookup → linear scan of brickowlInventory.
@@ -737,7 +737,8 @@ export async function syncInventoryItem(
         brickowlInventory = await getBrickOwlInventory(false, orgId);
       }
       const untaggedMatches = brickowlInventory.filter((lot: any) =>
-        lot.boid === boid && lot.condition === condition
+        lot.boid === boid &&
+        (lot.condition === condition || (condition === 'used' && lot.condition === 'usedg'))
       );
 
       if (untaggedMatches.length === 1) {
@@ -1008,7 +1009,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: item.unitPrice ? parseFloat(item.unitPrice) : 0,
-            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            condition: item.newOrUsed === 'N' ? 'new' : 'used',
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1033,7 +1034,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: lotPrice,
-            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            condition: item.newOrUsed === 'N' ? 'new' : 'used',
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1056,7 +1057,7 @@ export async function syncBrickLinkToBrickOwl(
     }
 
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = item.newOrUsed === 'N' ? 'new' : 'used';
 
     const taggedLot = taggedLotMap.get(item.id.toString());
 
@@ -1532,7 +1533,7 @@ export async function syncBrickLinkToBrickOwl(
     }
     const item = adoptCandidates[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = item.newOrUsed === 'N' ? 'new' : 'used';
 
     const boid = boidMap.get(adoptIdx);
 
@@ -1542,7 +1543,8 @@ export async function syncBrickLinkToBrickOwl(
       result.lotsSkipped++;
     } else {
       const untagged = brickowlInventory.filter(
-        (lot: any) => lot.boid === boid && lot.condition === condition
+        (lot: any) => lot.boid === boid &&
+          (lot.condition === condition || (condition === 'used' && lot.condition === 'usedg'))
       );
 
       const itemTierPrice = buildTierPriceString(item.tierQuantity1, item.tierPrice1, item.tierQuantity2, item.tierPrice2, item.tierQuantity3, item.tierPrice3);

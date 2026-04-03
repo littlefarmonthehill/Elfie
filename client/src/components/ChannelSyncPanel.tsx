@@ -562,6 +562,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
               displayChannels={displayChannels}
               selectedChannel={selectedChannel}
               onChannelSelect={selectChannel}
+              ebayEnvironment={ebayEnvironment}
             />
           )}
         </div>
@@ -817,6 +818,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
                 displayChannels={displayChannels}
                 selectedChannel={selectedChannel}
                 onChannelSelect={selectChannel}
+                ebayEnvironment={ebayEnvironment}
               />
             )}
           </div>
@@ -1328,6 +1330,7 @@ function OverviewContent({
   displayChannels,
   selectedChannel,
   onChannelSelect,
+  ebayEnvironment,
 }: any) {
   const [showFullSync, setShowFullSync] = useState(false);
   const selectedChannelLabel: string = displayChannels?.find((c: any) => c.key === selectedChannel)?.label ?? 'Channel';
