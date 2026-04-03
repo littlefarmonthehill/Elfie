@@ -636,32 +636,36 @@ export async function mapColorId(bricklinkColorId: number, orgId?: string): Prom
 }
 
 /**
- * Maps a BrickLink new/used code + item type to the full condition string
- * required by BrickOwl's CREATE/UPDATE lot API.
+ * Maps a BrickLink new/used code + item type to the BrickOwl condition SHORT CODE
+ * required by the CREATE and UPDATE lot API.
  *
- * IMPORTANT: Despite what the BrickOwl docs page says, the actual API
- * rejects short codes (new, news, usedg, etc.) and requires full strings:
- *   New | New (Sealed) | New (Complete) | New (Incomplete)
- *   Used (Complete) | Used (Incomplete) | Used (Like New)
- *   Used (Good) | Used (Acceptable) | Other
- * (confirmed from live API error responses)
+ * CONFIRMED via live API testing (April 2026):
+ *   - Full strings ('New (Sealed)', 'Used (Good)', etc.) are ALWAYS rejected with 400.
+ *     The error message displays full strings as examples — do NOT send them.
+ *   - Short codes are required for both create and update calls.
+ *   - The valid short code set differs by item type:
+ *       Sets  : news, usedc  (new-sealed / used-complete)
+ *       Gear  : news, usedc  (all codes accepted, but sealed/complete most appropriate)
+ *       Parts, Minifigs, Books, Instructions, everything else:
+ *               new,  usedg  (new / used-good)
  *
- * Note: BrickOwl's GET /inventory/list still RETURNS short codes — those
- * short codes are only used for matching existing lots, never sent to the API.
+ * BrickOwl's GET /inventory/list returns the same short codes in the 'full_con' field —
+ * those short codes are used for matching existing lots but are never sent to write APIs
+ * (they come from the API response, so they already ARE the right format for matching).
  *
- * Mapping strategy (BrickLink N/U → BrickOwl full condition string):
- *   Sets (S) / Gear (G) : N → 'New (Sealed)',  U → 'Used (Complete)'
- *   Everything else     : N → 'New',            U → 'Used (Good)'
+ * Mapping (BrickLink N/U → BrickOwl short code):
+ *   Sets / Gear : N → 'news',  U → 'usedc'
+ *   Everything else: N → 'new', U → 'usedg'
  */
 export function toBOApiCondition(newOrUsed: string, itemType?: string): string {
   const isNew = newOrUsed === 'N';
   const type = (itemType ?? '').toUpperCase();
-  // Sets and Gear use sealed/complete qualifiers
-  if (type === 'S' || type === 'G') {
-    return isNew ? 'New (Sealed)' : 'Used (Complete)';
+  // Sets and Gear use sealed/complete short codes
+  if (type === 'SET' || type === 'S' || type === 'GEAR' || type === 'G') {
+    return isNew ? 'news' : 'usedc';
   }
-  // Minifigs, Parts, Books, Instructions, and everything else
-  return isNew ? 'New' : 'Used (Good)';
+  // Parts, Minifigs, Books, Instructions, and everything else
+  return isNew ? 'new' : 'usedg';
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
@@ -678,8 +682,8 @@ export async function syncInventoryItem(
 }> {
   try {
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
-    const apiCondition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined); // full string for BO API calls
+    const apiCondition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined);
+    const isUsedItem   = blItem.newOrUsed !== 'N';
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
     // Priority: pre-built taggedLotMap → channel_lot_links DB lookup → linear scan of brickowlInventory.
@@ -766,11 +770,12 @@ export async function syncInventoryItem(
       if (!brickowlInventory) {
         brickowlInventory = await getBrickOwlInventory(false, orgId);
       }
-      const USED_CONDITIONS = ['usedg', 'usedn', 'useda'];
-      const untaggedMatches = brickowlInventory.filter((lot: any) =>
-        lot.boid === boid &&
-        (lot.condition === condition || (condition === 'usedg' && USED_CONDITIONS.includes(lot.condition)))
-      );
+      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda'];
+      const untaggedMatches = brickowlInventory.filter((lot: any) => {
+        const lotCond = lot.full_con || lot.condition;
+        return lot.boid === boid &&
+          (lotCond === apiCondition || (isUsedItem && USED_CONDITIONS.includes(lotCond)));
+      });
 
       if (untaggedMatches.length === 1) {
         // Exactly one pre-existing lot for this part + condition — safe to adopt it.
@@ -802,7 +807,7 @@ export async function syncInventoryItem(
         return {
           success: false,
           action: 'skipped',
-          error: `${untaggedMatches.length} duplicate untagged BrickOwl lots found for ${blItem.itemNo} (BOID ${boid}, condition: ${condition}). Clean up duplicates on BrickOwl first.`,
+          error: `${untaggedMatches.length} duplicate untagged BrickOwl lots found for ${blItem.itemNo} (BOID ${boid}, condition: ${apiCondition}). Clean up duplicates on BrickOwl first.`,
         };
       }
     }
@@ -1088,8 +1093,8 @@ export async function syncBrickLinkToBrickOwl(
     }
 
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
-    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined); // full string for BO API calls
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined);
+    const isUsedItem   = item.newOrUsed !== 'N';
 
     const taggedLot = taggedLotMap.get(item.id.toString());
 
@@ -1565,8 +1570,8 @@ export async function syncBrickLinkToBrickOwl(
     }
     const item = adoptCandidates[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
-    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined); // full string for BO API calls
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined);
+    const isUsedItem   = item.newOrUsed !== 'N';
 
     const boid = boidMap.get(adoptIdx);
 
@@ -1575,11 +1580,12 @@ export async function syncBrickLinkToBrickOwl(
       // not a sync failure. Count as skipped, not an error.
       result.lotsSkipped++;
     } else {
-      const USED_CONDITIONS = ['usedg', 'usedn', 'useda'];
-      const untagged = brickowlInventory.filter(
-        (lot: any) => lot.boid === boid &&
-          (lot.condition === condition || (condition === 'usedg' && USED_CONDITIONS.includes(lot.condition)))
-      );
+      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda'];
+      const untagged = brickowlInventory.filter((lot: any) => {
+        const lotCond = lot.full_con || lot.condition;
+        return lot.boid === boid &&
+          (lotCond === apiCondition || (isUsedItem && USED_CONDITIONS.includes(lotCond)));
+      });
 
       const itemTierPrice = buildTierPriceString(item.tierQuantity1, item.tierPrice1, item.tierQuantity2, item.tierPrice2, item.tierQuantity3, item.tierPrice3);
       const itemForSale   = item.isStockRoom ? 0 : 1;
