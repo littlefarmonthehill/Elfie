@@ -14533,7 +14533,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
   app.get("/api/channel-sync/progress", isApproved, async (req, res) => {
     const { getChannelSyncProgress } = await import("./services/channel-sync-scheduler");
-    res.json(getChannelSyncProgress());
+    const channel = typeof req.query.channel === 'string' ? req.query.channel : undefined;
+    res.json(getChannelSyncProgress(channel));
   });
 
   app.get("/api/channel-sync/last-result", isApproved, async (req, res) => {

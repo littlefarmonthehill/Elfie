@@ -281,10 +281,13 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   const lastSync = syncStatuses?.channels?.[selectedChannel] !== undefined
     ? (syncStatuses?.channels?.[selectedChannel] ?? (selectedChannel === 'brickowl' ? aggregateSync : null))
     : aggregateSync;
-  const isRunning = aggregateSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
 
-  // When sync transitions from running → done, sequence a fresh status fetch (which repopulates
-  // the server-side discrepancy cache) then invalidate the detail drawer so it re-reads fresh data.
+  // isRunning: true only when THIS channel's metadata is in_progress (or mutation pending)
+  // anyChannelRunning: true when any channel is syncing — used to block starting a new sync
+  const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+  const anyChannelRunning = aggregateSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+
+  // When THIS channel's sync transitions from running → done, refresh status + discrepancies
   const prevIsRunningRef = useRef(isRunning);
   useEffect(() => {
     const wasRunning = prevIsRunningRef.current;
@@ -297,7 +300,8 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   }, [isRunning]);
 
   const { data: progressData } = useQuery<{ processed: number; total: number; phase: string }>({
-    queryKey: ['/api/channel-sync/progress'],
+    queryKey: ['/api/channel-sync/progress', selectedChannel],
+    queryFn: () => fetch(`/api/channel-sync/progress?channel=${selectedChannel}`, { credentials: 'include' }).then(r => r.json()),
     refetchInterval: isRunning ? 1500 : false,
     enabled: isRunning,
   });
@@ -569,7 +573,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
           ) : (
             <OverviewContent
               brickOwl={brickOwl} lastSync={lastSync} lastResult={lastResult} isLoading={isLoading}
-              isRunning={isRunning} syncMutation={syncMutation} stopMutation={stopMutation}
+              isRunning={isRunning} anyChannelRunning={anyChannelRunning} syncMutation={syncMutation} stopMutation={stopMutation}
               onOpenSettings={onOpenSettings} setDrawerOpen={() => {}}
               discrepancyAreas={discrepancyAreas} totalDiscrepancies={totalDiscrepancies}
               onSelectArea={(type) => setSelectedArea(type)}
@@ -821,6 +825,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
                 lastResult={lastResult}
                 isLoading={isLoading}
                 isRunning={isRunning}
+                anyChannelRunning={anyChannelRunning}
                 syncMutation={syncMutation}
                 stopMutation={stopMutation}
                 onOpenSettings={onOpenSettings}
@@ -1333,6 +1338,7 @@ function OverviewContent({
   lastResult,
   isLoading,
   isRunning,
+  anyChannelRunning,
   syncMutation,
   stopMutation,
   onOpenSettings,
@@ -1370,21 +1376,21 @@ function OverviewContent({
         <Button
           size="sm"
           variant="secondary"
-          disabled={isRunning || syncMutation.isPending}
+          disabled={anyChannelRunning || syncMutation.isPending}
           onClick={() => { setShowFullSync(false); syncMutation.mutate(); }}
           data-testid="button-channel-sync-now"
         >
-          {syncMutation.isPending || isRunning ? (
+          {syncMutation.isPending || anyChannelRunning ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
           ) : (
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           )}
-          {isRunning ? 'Syncing…' : 'Sync Now'}
+          {anyChannelRunning ? 'Syncing…' : 'Sync Now'}
         </Button>
         <Button
           size="sm"
           variant="ghost"
-          disabled={isRunning}
+          disabled={anyChannelRunning}
           onClick={() => setShowFullSync(v => !v)}
           data-testid="button-channel-full-scan-toggle"
           className={showFullSync ? 'toggle-elevate toggle-elevated' : 'toggle-elevate'}
@@ -1402,7 +1408,7 @@ function OverviewContent({
           <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
           Schedule
         </Button>
-        {isRunning && (
+        {anyChannelRunning && (
           <Button
             size="sm"
             variant="ghost"
@@ -1419,7 +1425,7 @@ function OverviewContent({
             {stopMutation.isPending ? 'Stopping…' : 'Stop Sync'}
           </Button>
         )}
-        {totalDiscrepancies > 0 && !isRunning && (
+        {totalDiscrepancies > 0 && !anyChannelRunning && (
           <Button
             size="sm"
             variant="ghost"
@@ -1441,7 +1447,7 @@ function OverviewContent({
           <Button
             size="sm"
             variant="ghost"
-            disabled={isRunning || syncMutation.isPending}
+            disabled={anyChannelRunning || syncMutation.isPending}
             onClick={() => { syncMutation.mutate({ fullScan: true }); setShowFullSync(false); }}
             data-testid="button-channel-run-full-scan"
           >

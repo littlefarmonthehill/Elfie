@@ -15,7 +15,8 @@ const RETRY_BASE_MS = 5 * 60 * 1000;
 
 const retry = { count: 0, nextAt: 0 };
 
-let channelSyncProgress: { processed: number; total: number; phase: 'idle' | 'fetching' | 'syncing' } = { processed: 0, total: 0, phase: 'idle' };
+// Per-channel progress map — each channel updates its own slot independently
+const channelSyncProgress: Record<string, { processed: number; total: number; phase: 'idle' | 'fetching' | 'syncing' }> = {};
 
 interface ChannelResult {
   lotsCreated: number;
@@ -46,7 +47,10 @@ export function getChannelSyncIsRunning() {
   return syncLock.getActive().includes('Channel Sync');
 }
 
-export function getChannelSyncProgress() {
+export function getChannelSyncProgress(channel?: string) {
+  if (channel) {
+    return channelSyncProgress[channel] ?? { processed: 0, total: 0, phase: 'idle' };
+  }
   return { ...channelSyncProgress };
 }
 
@@ -272,13 +276,16 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       }
 
       console.log(`[Channel] → Syncing channel: ${channelKey}`);
+      // Mark this channel as in_progress in DB immediately so its tile shows "syncing"
+      await upsertSyncMetadata(`channel_sync_${channelKey}`, effectiveOrgId, { status: 'in_progress' });
+      channelSyncProgress[channelKey] = { processed: 0, total: 0, phase: 'fetching' };
       try {
         const result = await adapter.syncFromBrickLink(effectiveOrgId, {
           mode: syncMode,
           fullScan: forceFullScan || !sinceTime,
           sinceTime,
           onProgress: (processed, total) => {
-            channelSyncProgress = { processed, total, phase: 'syncing' };
+            channelSyncProgress[channelKey] = { processed, total, phase: 'syncing' };
           },
         });
 
@@ -316,6 +323,8 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
           recordsUpdated: result.lotsUpdated,
           errorMessage:   result.errors.length > 0 ? result.errors.slice(0, 3).join('; ') : null,
         });
+        // Clear this channel's progress slot — it's done
+        channelSyncProgress[channelKey] = { processed: 0, total: 0, phase: 'idle' };
 
         console.log(`[Channel] ✓ ${channelKey}: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors`);
       } catch (chanErr: any) {
@@ -334,6 +343,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
           status:       'error',
           errorMessage: chanErr.message,
         });
+        channelSyncProgress[channelKey] = { processed: 0, total: 0, phase: 'idle' };
       }
     }
 
