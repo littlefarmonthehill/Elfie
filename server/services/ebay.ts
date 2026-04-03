@@ -689,7 +689,7 @@ export async function syncBrickLinkToEbay(
         isNull(blInventory.deletedAt),
       ));
   } catch (err: any) {
-    console.error('[eBay] Failed to load BrickLink inventory:', err.message, err.stack);
+    console.error('[eBay] Failed to load BrickLink inventory:', err.message);
     result.errors.push(`Failed to load BrickLink inventory: ${err.message}`);
     return result;
   }
@@ -723,7 +723,7 @@ export async function syncBrickLinkToEbay(
         : Promise.resolve([]),
     ]);
   } catch (err: any) {
-    console.error('[eBay] Failed to load catalog/color data:', err.message, err.stack);
+    console.error('[eBay] Failed to load catalog/color data:', err.message);
     result.errors.push(`Failed to load catalog data: ${err.message}`);
     return result;
   }
@@ -744,7 +744,7 @@ export async function syncBrickLinkToEbay(
         eq(channelLotLinks.channel, EBAY_CHANNEL),
       ));
   } catch (err: any) {
-    console.error('[eBay] Failed to load channel lot links:', err.message, err.stack);
+    console.error('[eBay] Failed to load channel lot links:', err.message);
     result.errors.push(`Failed to load channel lot links: ${err.message}`);
     return result;
   }
@@ -761,6 +761,7 @@ export async function syncBrickLinkToEbay(
     ebayItems = await getAllEbayInventoryItems(orgId);
     result.totalApiCalls += Math.ceil(ebayItems.size / 200) + 1;
   } catch (err: any) {
+    console.error('[eBay] Failed to fetch eBay inventory:', err.message);
     result.errors.push(`Failed to fetch eBay inventory: ${err.message}`);
     return result;
   }
