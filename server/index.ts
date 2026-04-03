@@ -23,8 +23,8 @@ import { startImageHarvester } from "./services/image-store";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
 import { initStripeKey } from "./services/stripe";
-import { blInventory, blCatalogClipEmbeddings, embeddingJobs } from "@shared/schema";
-import { sql as drizzleSqlCount, inArray } from "drizzle-orm";
+import { blInventory, blCatalogClipEmbeddings, embeddingJobs, syncMetadata } from "@shared/schema";
+import { sql as drizzleSqlCount, inArray, eq } from "drizzle-orm";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
 const _originalExit = process.exit.bind(process);
@@ -525,35 +525,53 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         console.log('[Dev] Auto-sync schedulers suppressed — dev server shares production DB/credentials. Use manual sync buttons in the UI.');
       }
 
-      // 4i. Auto-resume CLIP visual catalog build (15s: segment service warm-up)
-      setTimeout(async () => {
-        try {
-          const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
-          if (getActiveBuild()?.running) return;
-          const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
-          const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blCatalogClipEmbeddings)
-            .where(drizzleSqlCount`source = 'catalog'`);
-          const total = Number((invCount as any).count);
-          const done = Number((embCount as any).count);
-          if (total > 0 && done < total) {
-            console.log(`[CLIP Catalog] Auto-resuming build — ${done}/${total} embedded.`);
-            const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
-            const items = rows.map(r => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
-            buildCatalogEmbeddings(items, (p) => {
-              if (p.done % 100 === 0 || p.done === p.total)
-                console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
-            }).then((final) => {
-              console.log(`[CLIP Catalog] Auto-resume complete: ${final.done} embedded, ${final.errors} errors`);
-            }).catch((e) => console.error('[CLIP Catalog] Auto-resume failed:', e.message));
-          } else if (total > 0) {
-            console.log(`[CLIP Catalog] Catalog complete (${done}/${total}) — no resume needed`);
-          }
-        } catch (e: any) {
-          console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
-        }
-      }, 15_000);
+      // 4i. Auto-resume CLIP visual catalog build.
+      // Polls every 60 s until no sync is in_progress before loading inventory
+      // into memory — prevents OOM when CLIP starts while a channel sync is
+      // already holding a large working set.
+      const scheduleClipAutoResume = (delayMs: number) => {
+        setTimeout(async () => {
+          try {
+            const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
+            if (getActiveBuild()?.running) return;
 
-      // 4j. Auto-resume inventory & orders vector enrichment (20s)
+            // Defer if any sync is actively running to avoid memory spike.
+            const inProgressRows = await db.select({ id: syncMetadata.id })
+              .from(syncMetadata)
+              .where(eq(syncMetadata.lastSyncStatus, 'in_progress'))
+              .limit(1);
+            if (inProgressRows.length > 0) {
+              console.log(`[CLIP Catalog] Sync in progress (${inProgressRows[0].id}) — deferring auto-resume 60 s`);
+              scheduleClipAutoResume(60_000);
+              return;
+            }
+
+            const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
+            const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blCatalogClipEmbeddings)
+              .where(drizzleSqlCount`source = 'catalog'`);
+            const total = Number((invCount as any).count);
+            const done = Number((embCount as any).count);
+            if (total > 0 && done < total) {
+              console.log(`[CLIP Catalog] Auto-resuming build — ${done}/${total} embedded.`);
+              const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+              const items = rows.map(r => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+              buildCatalogEmbeddings(items, (p) => {
+                if (p.done % 100 === 0 || p.done === p.total)
+                  console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
+              }).then((final) => {
+                console.log(`[CLIP Catalog] Auto-resume complete: ${final.done} embedded, ${final.errors} errors`);
+              }).catch((e) => console.error('[CLIP Catalog] Auto-resume failed:', e.message));
+            } else if (total > 0) {
+              console.log(`[CLIP Catalog] Catalog complete (${done}/${total}) — no resume needed`);
+            }
+          } catch (e: any) {
+            console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
+          }
+        }, delayMs);
+      };
+      scheduleClipAutoResume(60_000); // Start no sooner than 60 s after boot
+
+      // 4j. Auto-resume inventory & orders vector enrichment (90s — let CLIP check run first)
       setTimeout(async () => {
         try {
           const { createEmbeddingJob } = await import('./services/embedding-worker');
@@ -587,7 +605,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         } catch (e: any) {
           console.error('[EmbedResume] Auto-resume check failed (non-fatal):', e.message);
         }
-      }, 20_000);
+      }, 90_000);
 
       // 4k. Auto-resume Universal Catalog worker (90s: CLIP model warm-up)
       setTimeout(async () => {
