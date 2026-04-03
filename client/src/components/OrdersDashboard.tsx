@@ -21,9 +21,8 @@ import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
-// BrickLink is always present as a fixed button; entries here are channel platforms.
-// To add eBay: push 'ebay' to this array and add a PLATFORM_CONFIG entry.
-const ORDER_SYNC_CHANNEL_KEYS: OrderSyncPlatform[] = ['brickowl'];
+// BrickLink is always present as a fixed button; entries here are additional channel platforms.
+const ORDER_SYNC_CHANNEL_KEYS: OrderSyncPlatform[] = ['brickowl', 'ebay'];
 
 interface OrderStats {
   totalOrders: number;

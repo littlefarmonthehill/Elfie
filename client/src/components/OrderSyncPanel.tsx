@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 
-export type OrderSyncPlatform = 'bricklink' | 'brickowl';
+export type OrderSyncPlatform = 'bricklink' | 'brickowl' | 'ebay';
 
 interface OrderSyncPanelProps {
   platform: OrderSyncPlatform;
@@ -126,6 +126,26 @@ export const PLATFORM_CONFIG: Record<OrderSyncPlatform, {
       activeArrow: 'text-cyan-400',
     },
   },
+  ebay: {
+    label: 'eBay',
+    syncId: 'ebay_orders',
+    syncRoute: '/api/sync/ebay/orders',
+    Icon: ShoppingCart,
+    accentText: 'text-yellow-100',
+    accentBorder: 'border-yellow-500/40',
+    accentBg: 'from-yellow-950/50 to-gray-950/70',
+    accentIcon: 'text-yellow-400',
+    testId: 'order-sync-ebay-panel',
+    sidebar: {
+      activeButton: 'border-yellow-400/70 bg-yellow-900/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]',
+      idleButton: 'border-yellow-500/30 bg-yellow-950/30',
+      activeIcon: 'bg-yellow-800/70 ring-yellow-400/60',
+      idleIcon: 'bg-yellow-900/60 ring-yellow-500/40',
+      iconColor: 'text-yellow-300',
+      labelColor: 'text-yellow-100',
+      activeArrow: 'text-yellow-400',
+    },
+  },
 };
 
 // Date presets for "Sync From…" picker
@@ -215,12 +235,14 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
 
   const progressRoute = platform === 'bricklink'
     ? '/api/sync/bricklink/orders/progress'
-    : '/api/sync/brickowl/orders/progress';
+    : platform === 'brickowl'
+    ? '/api/sync/brickowl/orders/progress'
+    : null;
 
   const { data: progressData } = useQuery<{ status: string; currentStep: string; progress: number; processed: number; total: number }>({
-    queryKey: [progressRoute],
-    refetchInterval: isSyncing ? 2000 : false,
-    enabled: isSyncing,
+    queryKey: [progressRoute ?? 'no-progress'],
+    refetchInterval: isSyncing && progressRoute ? 2000 : false,
+    enabled: isSyncing && !!progressRoute,
   });
 
   const progressPct = progressData?.progress ?? 0;

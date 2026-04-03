@@ -145,6 +145,8 @@ interface ChannelSyncPanelProps {
   inlineMode?: boolean;
   onClose?: () => void;
   initialChannel?: string;
+  /** Lock this panel to a single channel — hides the channel switcher. */
+  channel?: string;
 }
 
 /** Map channelKey → the target name used in platform-sync API paths. */
@@ -160,18 +162,19 @@ function channelTargetName(key: string) {
   return CHANNEL_DISPLAY[key]?.targetName ?? key;
 }
 
-export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, initialChannel }: ChannelSyncPanelProps) {
+export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, initialChannel, channel: lockedChannel }: ChannelSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
   const [showAuditReport, setShowAuditReport] = useState(false);
   const [showColorRepair, setShowColorRepair] = useState(false);
   const [changeDetail, setChangeDetail] = useState<'created' | 'updated' | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState(initialChannel ?? 'brickowl');
+  const [selectedChannel, setSelectedChannel] = useState(lockedChannel ?? initialChannel ?? 'brickowl');
 
   useEffect(() => {
+    if (lockedChannel) { selectChannel(lockedChannel); return; }
     if (initialChannel) selectChannel(initialChannel);
-  }, [initialChannel]);
+  }, [initialChannel, lockedChannel]);
 
   function selectChannel(key: string) {
     setSelectedChannel(key);
@@ -251,9 +254,16 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
     });
 
   // Fallback: if platformData not loaded yet, show brickowl as the only channel
-  const displayChannels = configuredChannels.length > 0
+  const allDisplayChannels = configuredChannels.length > 0
     ? configuredChannels
     : [{ key: 'brickowl', label: 'BrickOwl', target: null }];
+
+  // When locked to a single channel, only expose that one (hides the switcher)
+  const displayChannels = lockedChannel
+    ? (allDisplayChannels.find(c => c.key === lockedChannel)
+        ? allDisplayChannels.filter(c => c.key === lockedChannel)
+        : [{ key: lockedChannel, label: channelLabel(lockedChannel), target: null }])
+    : allDisplayChannels;
 
   const selectedChannelData = displayChannels.find(c => c.key === selectedChannel) ?? displayChannels[0];
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
@@ -559,17 +569,23 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
     );
   }
 
+  const isEbayChannel = selectedChannel === 'ebay';
+  const barBorder   = isEbayChannel ? 'border-yellow-500/40' : 'border-green-500/40';
+  const barBg       = isEbayChannel ? 'from-yellow-950/50 to-gray-950/70' : 'from-green-950/50 to-gray-950/70';
+  const barIcon     = isEbayChannel ? 'text-yellow-400' : 'text-green-400';
+  const barLabel    = isEbayChannel ? 'text-yellow-100' : 'text-green-100';
+
   return (
     <>
       <button
         onClick={() => setDrawerOpen(true)}
-        className="w-full text-left rounded-lg border border-green-500/40 bg-gradient-to-br from-green-950/50 to-gray-950/70 p-3 space-y-2 hover-elevate"
-        data-testid="channel-sync-panel"
+        className={`w-full text-left rounded-lg border ${barBorder} bg-gradient-to-br ${barBg} p-3 space-y-2 hover-elevate`}
+        data-testid={`channel-sync-panel-${selectedChannel}`}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-green-400 shrink-0" />
-            <span className="text-xs font-semibold text-green-100">{channelLabel(selectedChannel)} — Inventory</span>
+            <Globe className={`w-3.5 h-3.5 ${barIcon} shrink-0`} />
+            <span className={`text-xs font-semibold ${barLabel}`}>{channelLabel(selectedChannel)} — Inventory</span>
             {isRunning && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />

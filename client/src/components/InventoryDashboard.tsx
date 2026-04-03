@@ -389,7 +389,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
           <div className="flex flex-col gap-2">
             <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-            <ChannelSyncPanel onOpenSettings={onOpenSettings} />
+            <ChannelSyncPanel channel="brickowl" onOpenSettings={onOpenSettings} />
+            <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
           </div>
         </div>
 
