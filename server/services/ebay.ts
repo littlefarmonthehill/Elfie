@@ -712,7 +712,7 @@ export async function syncBrickLinkToEbay(
   try {
     [catalogRows, colorRows] = await Promise.all([
       itemNos.length > 0
-        ? db.select({ itemNo: blCatalog.itemNo, itemType: blCatalog.itemType, name: blCatalog.name })
+        ? db.select({ itemNo: blCatalog.itemNo, itemType: blCatalog.itemType, name: blCatalog.itemName })
             .from(blCatalog)
             .where(inArray(blCatalog.itemNo, itemNos))
         : Promise.resolve([]),
