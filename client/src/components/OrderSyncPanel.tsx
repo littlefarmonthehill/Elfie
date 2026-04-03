@@ -187,6 +187,13 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
     refetchInterval: 30000,
   });
 
+  const { data: orgIntegrationsList = [] } = useQuery<any[]>({
+    queryKey: ['/api/org/integrations'],
+    enabled: platform === 'ebay',
+  });
+  const isEbaySandbox = platform === 'ebay' &&
+    ((orgIntegrationsList as any[]).find((i: any) => i.channel === 'ebay')?.credentials as any)?.environment === 'sandbox';
+
   const meta = syncStatuses?.[cfg.syncId];
   const isRunning = meta?.lastSyncStatus === 'in_progress' ||
     syncStatuses?.running?.[cfg.syncId];
@@ -264,6 +271,11 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
           <div className="flex items-center gap-2">
             <Icon className={`w-3.5 h-3.5 ${cfg.accentIcon} shrink-0`} />
             <span className={`text-xs font-semibold ${cfg.accentText}`}>{cfg.label} — Orders</span>
+            {isEbaySandbox && (
+              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5 uppercase tracking-wide shrink-0">
+                Sandbox
+              </span>
+            )}
             {isSyncing && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -333,10 +345,15 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
               ) : (
                 <Icon className={`w-4 h-4 ${cfg.accentIcon} flex-shrink-0`} />
               )}
-              <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+              <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1 flex items-center gap-2">
                 {changeDetail === 'added' ? `Recently Added — ${cfg.label}`
                   : changeDetail === 'updated' ? `Recently Updated — ${cfg.label}`
                   : `${cfg.label} — Order Sync`}
+                {isEbaySandbox && !changeDetail && (
+                  <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                    Sandbox
+                  </span>
+                )}
               </DrawerTitle>
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"

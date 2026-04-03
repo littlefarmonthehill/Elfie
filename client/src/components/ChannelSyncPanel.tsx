@@ -633,6 +633,11 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
           <div className="flex items-center gap-2">
             <Globe className={`w-3.5 h-3.5 ${barIcon} shrink-0`} />
             <span className={`text-xs font-semibold ${barLabel}`}>{channelLabel(selectedChannel)} — Inventory</span>
+            {isEbayChannel && ebayEnvironment === 'sandbox' && (
+              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5 uppercase tracking-wide shrink-0">
+                Sandbox
+              </span>
+            )}
             {isRunning && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
