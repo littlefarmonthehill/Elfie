@@ -2635,6 +2635,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [ebaySyncFieldDescription, setEbaySyncFieldDescription] = useState(true);
   const [ebaySyncFieldImages, setEbaySyncFieldImages] = useState(true);
   const [ebayBlIdField, setEbayBlIdField] = useState<'custom_label' | 'item_specifics'>('custom_label');
+  const [ebayPriceUpliftPercent, setEbayPriceUpliftPercent] = useState('');
+  const [ebayPriceSyncMode, setEbayPriceSyncMode] = useState<'always' | 'initial_only'>('always');
   const [ebaySyncItemTypes, setEbaySyncItemTypes] = useState<Record<string, boolean>>({});
   const [ebaySyncStockroomModes, setEbaySyncStockroomModes] = useState<Record<string, 'skip'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [ebaySyncPriceFloor, setEbaySyncPriceFloor] = useState('');
@@ -3046,6 +3048,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setEbaySyncFieldDescription((cc.syncDescription as boolean) ?? true);
     setEbaySyncFieldImages((cc.syncImages as boolean) ?? true);
     setEbayBlIdField((cc.ebayBlIdField as 'custom_label' | 'item_specifics') ?? 'custom_label');
+    const uplift = cc.ebayPriceUpliftPercent as number | undefined;
+    setEbayPriceUpliftPercent(uplift != null && uplift > 0 ? String(uplift) : '');
+    setEbayPriceSyncMode((cc.priceSyncMode as 'always' | 'initial_only') ?? 'always');
   }, [ebaySyncFieldConfig]);
   const updateEbaySyncFieldMutation = useMutation({
     mutationFn: (patch: Partial<{ syncPrice: boolean; syncStockroomModes: Record<string, string>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null; channelConfig: Record<string, unknown> }>) =>
@@ -6923,6 +6928,75 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </div>
                               <Switch checked={ebaySyncFieldDescription} onCheckedChange={(c) => { setEbaySyncFieldDescription(c); updateEbaySyncFieldMutation.mutate({ channelConfig: { syncDescription: c } }); }} data-testid="switch-ebay-field-description" />
                             </div>
+                          </div>
+
+                          {/* Price Uplift + Sync Mode — shown when price sync is on */}
+                          {ebaySyncFieldPrice && (
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              {/* Sync Mode */}
+                              <div className="px-3 py-2.5 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="text-xs font-medium text-gray-200">Price Sync Mode</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
+                                      eBay has its own pricing tools (Promoted Listings, Best Offer, markdown sales). If you plan to use those, set this to <strong className="text-gray-400">Initial listing only</strong> so the sync never overwrites prices eBay has adjusted.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-0.5 rounded border border-gray-700 bg-gray-900 p-0.5 w-fit">
+                                  {([
+                                    { val: 'always' as const, label: 'Always sync' },
+                                    { val: 'initial_only' as const, label: 'Initial listing only' },
+                                  ]).map(({ val, label }) => (
+                                    <button
+                                      key={val}
+                                      onClick={() => { setEbayPriceSyncMode(val); updateEbaySyncFieldMutation.mutate({ channelConfig: { priceSyncMode: val } }); }}
+                                      data-testid={`button-ebay-price-sync-mode-${val}`}
+                                      className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-colors ${ebayPriceSyncMode === val ? 'bg-blue-600/70 text-blue-100' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                                {ebayPriceSyncMode === 'initial_only' && (
+                                  <p className="text-[10px] text-amber-400/80">Price is written once when the eBay listing is created. Subsequent syncs update quantity only.</p>
+                                )}
+                              </div>
+                              {/* Price Uplift */}
+                              <div className="px-3 py-2.5 space-y-2">
+                                <p className="text-xs font-medium text-gray-200">Price Uplift</p>
+                                <p className="text-[10px] text-gray-500 leading-relaxed">
+                                  eBay charges a <strong className="text-gray-400">final value fee of ~13.25%</strong> on most LEGO categories, plus managed payment processing fees (~2.35%). A typical uplift of <strong className="text-gray-400">15–16%</strong> keeps your net return even with BrickLink. Leave empty for no uplift.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <div className="rounded border border-gray-700 bg-gray-900 px-2.5 py-1.5 flex items-center gap-1 flex-1 max-w-[120px]">
+                                    <input
+                                      type="number" min="0" max="99" step="0.5" placeholder="0"
+                                      value={ebayPriceUpliftPercent}
+                                      onChange={(e) => setEbayPriceUpliftPercent(e.target.value)}
+                                      onBlur={() => {
+                                        const parsed = parseFloat(ebayPriceUpliftPercent);
+                                        const pct = !ebayPriceUpliftPercent || isNaN(parsed) || parsed <= 0 ? 0 : Math.min(parsed, 99);
+                                        updateEbaySyncFieldMutation.mutate({ channelConfig: { ebayPriceUpliftPercent: pct } });
+                                        setEbayPriceUpliftPercent(pct > 0 ? String(pct) : '');
+                                      }}
+                                      className="w-full bg-transparent text-xs text-gray-200 placeholder-gray-600 outline-none"
+                                      data-testid="input-ebay-price-uplift"
+                                    />
+                                    <span className="text-xs text-gray-500 select-none shrink-0">%</span>
+                                  </div>
+                                  {ebayPriceUpliftPercent && parseFloat(ebayPriceUpliftPercent) > 0 && (
+                                    <p className="text-[10px] text-blue-400/80">BL $1.00 → eBay ${(1 * (1 + parseFloat(ebayPriceUpliftPercent) / 100)).toFixed(2)}</p>
+                                  )}
+                                </div>
+                                {ebayPriceUpliftPercent && parseFloat(ebayPriceUpliftPercent) > 0 && parseFloat(ebayPriceUpliftPercent) < 13 && (
+                                  <p className="text-[10px] text-amber-400/80">Uplift of {ebayPriceUpliftPercent}% may not fully cover eBay fees (~13.25% FVF + ~2.35% payment).</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
                             {/* Images */}
                             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                               <div className="min-w-0">

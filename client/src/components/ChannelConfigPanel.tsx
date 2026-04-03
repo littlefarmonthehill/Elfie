@@ -76,23 +76,27 @@ export const CHANNEL_FIELD_META: Record<string, ChannelFieldMeta> = {
 
 /** eBay-specific channel configuration (stored in channelConfig JSONB). */
 export interface EbayChannelConfig {
-  ebayBlIdField:       'custom_label' | 'item_specifics';
-  ebayCatalogMatch:    boolean;
-  ebayListingDuration: string;
-  syncImages:          boolean;
-  syncDescription:     boolean;
-  ebayMarketplaceId:   string;
-  ebayConditionUsed:   string;
+  ebayBlIdField:          'custom_label' | 'item_specifics';
+  ebayCatalogMatch:       boolean;
+  ebayListingDuration:    string;
+  syncImages:             boolean;
+  syncDescription:        boolean;
+  ebayMarketplaceId:      string;
+  ebayConditionUsed:      string;
+  ebayPriceUpliftPercent: number;
+  priceSyncMode:          'always' | 'initial_only';
 }
 
 export const defaultEbayChannelConfig: EbayChannelConfig = {
-  ebayBlIdField:       'custom_label',
-  ebayCatalogMatch:    true,
-  ebayListingDuration: 'GTC',
-  syncImages:          true,
-  syncDescription:     true,
-  ebayMarketplaceId:   'EBAY_US',
-  ebayConditionUsed:   'USED_VERY_GOOD',
+  ebayBlIdField:          'custom_label',
+  ebayCatalogMatch:       true,
+  ebayListingDuration:    'GTC',
+  syncImages:             true,
+  syncDescription:        true,
+  ebayMarketplaceId:      'EBAY_US',
+  ebayConditionUsed:      'USED_VERY_GOOD',
+  ebayPriceUpliftPercent: 0,
+  priceSyncMode:          'always',
 };
 
 interface AnalysisResult {

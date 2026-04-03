@@ -51,27 +51,96 @@ const tokenCache: Map<string, { accessToken: string; expiresAt: number }> = new 
 // ── Type definitions ───────────────────────────────────────────────────────
 
 export interface EbayChannelConfig {
-  ebayBlIdField:       'custom_label' | 'item_specifics';
-  ebayCatalogMatch:    boolean;
-  ebayListingDuration: string;
-  syncImages:          boolean;
-  syncDescription:     boolean;
-  ebayMarketplaceId:   string;
-  ebayConditionUsed:   string;
+  ebayBlIdField:          'custom_label' | 'item_specifics';
+  ebayCatalogMatch:       boolean;
+  ebayListingDuration:    string;
+  syncImages:             boolean;
+  syncDescription:        boolean;
+  ebayMarketplaceId:      string;
+  ebayConditionUsed:      string;
+  ebayPriceUpliftPercent: number;    // 0 = no uplift; e.g. 15 = +15%
+  priceSyncMode:          'always' | 'initial_only'; // initial_only = never re-send price on offer updates
   ebayFulfillmentPolicyId?: string;
   ebayPaymentPolicyId?:     string;
   ebayReturnPolicyId?:      string;
 }
 
 export const defaultEbayChannelConfig: EbayChannelConfig = {
-  ebayBlIdField:       'custom_label',
-  ebayCatalogMatch:    true,
-  ebayListingDuration: 'GTC',
-  syncImages:          true,
-  syncDescription:     true,
-  ebayMarketplaceId:   'EBAY_US',
-  ebayConditionUsed:   'USED_VERY_GOOD',
+  ebayBlIdField:          'custom_label',
+  ebayCatalogMatch:       true,
+  ebayListingDuration:    'GTC',
+  syncImages:             true,
+  syncDescription:        true,
+  ebayMarketplaceId:      'EBAY_US',
+  ebayConditionUsed:      'USED_VERY_GOOD',
+  ebayPriceUpliftPercent: 0,
+  priceSyncMode:          'always',
 };
+
+// BrickLink color name → official LEGO color name mapping (for eBay item specifics).
+// eBay's "Color" aspect expects official LEGO names used in LEGO instructions / Pick-a-Brick.
+const BL_TO_LEGO_COLOR: Record<string, string> = {
+  'Dark Bluish Gray':    'Dark Stone Grey',
+  'Light Bluish Gray':   'Medium Stone Grey',
+  'Very Light Bluish Gray': 'White Glow',
+  'Flat Silver':         'Silver Metallic',
+  'Chrome Silver':       'Chrome Silver',
+  'Pearl Dark Gray':     'Titanium Metallic',
+  'Pearl Light Gray':    'Silver Drum Lacquered',
+  'Medium Stone Gray':   'Medium Stone Grey',
+  'Warm Gold':           'Warm Gold',
+  'Flat Dark Gold':      'Warm Gold',
+  'Chrome Gold':         'Chrome Gold',
+  'Pearl Gold':          'Warm Gold',
+  'Reddish Brown':       'Reddish Brown',
+  'Dark Orange':         'Dark Orange',
+  'Sand Yellow':         'Brick Yellow',
+  'Brick Yellow':        'Brick Yellow',
+  'Medium Nougat':       'Medium Nougat',
+  'Nougat':              'Nougat',
+  'Dark Nougat':         'Dark Nougat',
+  'Maersk Blue':         'Maersk Blue',
+  'Earth Orange':        'Dark Nougat',
+  'Dark Green':          'Dark Green',
+  'Sand Green':          'Sand Green',
+  'Lime':                'Bright Yellowish Green',
+  'Yellow-Green':        'Bright Yellowish Green',
+  'Medium Green':        'Medium Green',
+  'Olive Green':         'Olive Green',
+  'Dark Red':            'Dark Red',
+  'Rust':                'Rust',
+  'Salmon':              'Light Nougat',
+  'Light Salmon':        'Light Nougat',
+  'Dark Blue':           'Dark Blue',
+  'Medium Blue':         'Medium Blue',
+  'Sand Blue':           'Sand Blue',
+  'Dark Purple':         'Dark Purple',
+  'Medium Lavender':     'Medium Lilac',
+  'Lavender':            'Lavender',
+  'Dark Pink':           'Dark Pink',
+  'Medium Dark Pink':    'Bright Pink',
+  'Magenta':             'Magenta',
+  'Trans-Clear':         'Transparent',
+  'Trans-Black':         'Transparent Black Infrared',
+  'Trans-Red':           'Transparent Red',
+  'Trans-Orange':        'Transparent Fluorescent Red-Orange',
+  'Trans-Neon Orange':   'Transparent Fluorescent Red-Orange',
+  'Trans-Yellow':        'Transparent Yellow',
+  'Trans-Neon Yellow':   'Transparent Fluorescent Yellow',
+  'Trans-Green':         'Transparent Green',
+  'Trans-Neon Green':    'Transparent Fluorescent Green',
+  'Trans-Dark Blue':     'Transparent Blue',
+  'Trans-Medium Blue':   'Transparent Medium Blue',
+  'Trans-Purple':        'Transparent Violet',
+  'Trans-Dark Pink':     'Transparent Pink',
+  'Glow In Dark White':  'Phosphorescent White',
+  'Glow In Dark Opaque': 'Phosphorescent Green',
+};
+
+function toLegoColorName(blColorName: string | null): string | null {
+  if (!blColorName) return null;
+  return BL_TO_LEGO_COLOR[blColorName] ?? blColorName;
+}
 
 export interface EbaySyncResult {
   lotsCreated:   number;
@@ -461,13 +530,41 @@ function buildInventoryItemBody(opts: {
     condition: blLot.newOrUsed ?? 'U',
   });
 
-  const aspects: Record<string, string[]> = {
-    Brand:         ['LEGO'],
-    'LEGO Theme':  ['LEGO'],
-    'Set Number':  [blLot.itemNo],
+  // eBay item type label for the Type aspect
+  const typeAspectValue: Record<string, string> = {
+    P: 'Parts', M: 'Minifigure', S: 'Complete Set', G: 'Gear', B: 'Instruction Booklet',
   };
-  if (colorName && blLot.itemType !== 'S') aspects['Color'] = [colorName];
+
+  const aspects: Record<string, string[]> = {
+    Brand: ['LEGO'],
+  };
+
+  // Type aspect
+  const typeLabel = typeAspectValue[blLot.itemType ?? 'P'];
+  if (typeLabel) aspects['Type'] = [typeLabel];
+
+  // Color aspect — use official LEGO color name
+  const legoColorName = toLegoColorName(colorName);
+  if (legoColorName && blLot.itemType !== 'S') aspects['Color'] = [legoColorName];
+
+  // Condition aspect
   if (blLot.newOrUsed) aspects['Condition'] = [isNew ? 'New' : 'Used'];
+
+  // Part number / Design ID (MPN) for non-set types
+  if (blLot.itemType !== 'S' && blLot.itemType !== 'B') {
+    aspects['Part Number'] = [blLot.itemNo];
+    aspects['MPN'] = [blLot.itemNo]; // eBay MPN field
+  }
+
+  // For sets: LEGO Set Number
+  if (blLot.itemType === 'S') {
+    aspects['Set Number'] = [blLot.itemNo];
+  }
+
+  // Quantity in lot
+  if ((blLot.quantity ?? 0) > 0) {
+    aspects['Quantity'] = [String(blLot.quantity)];
+  }
 
   // Store BrickLink lot ID in item specifics if configured
   if (config.ebayBlIdField === 'item_specifics') {
@@ -498,6 +595,10 @@ function buildEbayDescription(blLot: any, itemName: string | null, colorName: st
   if (itemName) lines.push(`<b>${itemName}</b> (${blLot.itemNo})`);
   if (colorName && blLot.itemType !== 'S') lines.push(`Color: ${colorName}`);
   lines.push(`Condition: ${blLot.newOrUsed === 'N' ? 'New' : 'Used'}`);
+  // For minifigures, always include the BrickLink minifig ID — collectors actively search for it
+  if (blLot.itemType === 'M') {
+    lines.push(`BrickLink Minifig ID: ${blLot.itemNo}`);
+  }
   if (blLot.description) lines.push(`<br>${blLot.description}`);
   lines.push('<br><i>Listed and fulfilled by an independent LEGO seller. Part of a larger collection — see store for more items.</i>');
   return lines.join('<br>');
@@ -506,13 +607,25 @@ function buildEbayDescription(blLot: any, itemName: string | null, colorName: st
 // ── Offer body builder ────────────────────────────────────────────────────
 
 function buildOfferBody(opts: {
-  sku:        string;
-  blLot:      any;
-  categoryId: string;
-  config:     EbayChannelConfig;
+  sku:           string;
+  blLot:         any;
+  categoryId:    string;
+  config:        EbayChannelConfig;
+  isUpdate:      boolean;   // true when updating an existing offer
+  existingPrice?: string;   // eBay's current price — used when priceSyncMode='initial_only' on updates
 }): Record<string, unknown> {
-  const { sku, blLot, categoryId, config } = opts;
-  const price = parseFloat(blLot.unitPrice ?? '0');
+  const { sku, blLot, categoryId, config, isUpdate, existingPrice } = opts;
+
+  // Compute final listing price
+  let listingPrice: number;
+  if (isUpdate && config.priceSyncMode === 'initial_only' && existingPrice != null) {
+    // Don't override existing eBay price — keep whatever eBay has
+    listingPrice = parseFloat(existingPrice);
+  } else {
+    const blPrice = parseFloat(blLot.unitPrice ?? '0');
+    const upliftFactor = 1 + Math.max(0, config.ebayPriceUpliftPercent ?? 0) / 100;
+    listingPrice = blPrice * upliftFactor;
+  }
 
   const body: Record<string, unknown> = {
     sku,
@@ -523,11 +636,12 @@ function buildOfferBody(opts: {
     categoryId,
     pricingSummary: {
       price: {
-        value:    price.toFixed(2),
+        value:    Math.max(0.01, listingPrice).toFixed(2),
         currency: 'USD',
       },
     },
     listingDescription: buildEbayDescription(blLot, null, null),
+    // Only attempt catalog product details for Sets (only category with eBay ePID coverage)
     includeCatalogProductDetails: config.ebayCatalogMatch && blLot.itemType === 'S',
   };
 
@@ -754,7 +868,11 @@ export async function syncBrickLinkToEbay(
       const existingOffer = isMatched ? await getOfferForSku(orgId, sku) : null;
       result.totalApiCalls++;
 
-      const offerBody = buildOfferBody({ sku, blLot: lot, categoryId, config });
+      const offerBody = buildOfferBody({
+        sku, blLot: lot, categoryId, config,
+        isUpdate: !!existingOffer,
+        existingPrice: existingOffer?.price,
+      });
 
       if (existingOffer) {
         // Update existing offer
