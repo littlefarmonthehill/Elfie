@@ -1109,7 +1109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/platform-admin/platform-services/ebay-credentials — presence/prefix (no secrets)
-  app.get('/api/platform-admin/platform-services/ebay-credentials', isSuperAdmin, async (_req, res) => {
+  app.get('/api/platform-admin/platform-services/ebay-credentials', isSuperAdmin, async (req, res) => {
     try {
       const [ps] = await db.select().from(platformSettings).limit(1);
       const prefix = (v: string | null | undefined) => v ? v.substring(0, 12) + '…' : null;
