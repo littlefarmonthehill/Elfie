@@ -39,8 +39,13 @@ export class EbayChannelAdapter implements IChannelSync {
         .from(channelSyncConfig)
         .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'ebay')))
         .limit(1);
-      if (cfgRow?.channelConfig) {
-        channelConfig_ = { ...defaultEbayChannelConfig, ...(cfgRow.channelConfig as Partial<EbayChannelConfig>) };
+      if (cfgRow) {
+        channelConfig_ = {
+          ...defaultEbayChannelConfig,
+          ...(cfgRow.channelConfig as Partial<EbayChannelConfig>),
+          syncItemTypes: (cfgRow.syncItemTypes as Record<string, boolean>) ?? {},
+          syncPriceFloor: cfgRow.syncPriceFloor != null ? Number(cfgRow.syncPriceFloor) : null,
+        };
       }
     } catch { /* use defaults */ }
 

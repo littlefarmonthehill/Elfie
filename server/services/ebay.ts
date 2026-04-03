@@ -63,6 +63,8 @@ export interface EbayChannelConfig {
   ebayFulfillmentPolicyId?: string;
   ebayPaymentPolicyId?:     string;
   ebayReturnPolicyId?:      string;
+  syncItemTypes:          Record<string, boolean>; // e.g. { S: true, P: false } — false = excluded
+  syncPriceFloor:         number | null;           // lots priced below this are skipped; null = no floor
 }
 
 export const defaultEbayChannelConfig: EbayChannelConfig = {
@@ -75,6 +77,8 @@ export const defaultEbayChannelConfig: EbayChannelConfig = {
   ebayConditionUsed:      'USED_VERY_GOOD',
   ebayPriceUpliftPercent: 0,
   priceSyncMode:          'always',
+  syncItemTypes:          {},
+  syncPriceFloor:         null,
 };
 
 // BrickLink color name → official LEGO color name mapping (for eBay item specifics).
@@ -694,12 +698,18 @@ export async function syncBrickLinkToEbay(
     return result;
   }
 
-  // Filter by syncItemTypes
+  // Filter by syncItemTypes and syncPriceFloor
+  const hasItemTypeFilter = Object.keys(config.syncItemTypes).length > 0;
+  const priceFloor = config.syncPriceFloor ?? null;
   const blLots = rawBl.filter(lot => {
-    // If itemType is missing, skip
     if (!lot.itemType) return false;
-    // Stockroom lots: skip if stockroom mode is 'skip' for that stockroom
-    // (handled later, just include all for now)
+    // Item-type filter: skip types explicitly set to false
+    if (hasItemTypeFilter && config.syncItemTypes[lot.itemType] === false) return false;
+    // Price floor: skip lots priced below the floor
+    if (priceFloor && priceFloor > 0) {
+      const lotPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
+      if (lotPrice < priceFloor) return false;
+    }
     return true;
   });
 

@@ -11150,10 +11150,12 @@ Format search_web URLs as markdown links.`;
     try {
       const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
       const { requestChannelSyncStop } = await import('./services/brickowl');
+      const { requestEbayAbort } = await import('./services/ebay');
       if (!getChannelSyncIsRunning()) {
         return res.json({ success: false, message: 'No sync is currently running.' });
       }
       requestChannelSyncStop();
+      requestEbayAbort();
       console.log('[ChannelSync] Stop requested by user');
       res.json({ success: true, message: 'Stop signal sent — sync will finish its current batch then halt.' });
     } catch (error) {
