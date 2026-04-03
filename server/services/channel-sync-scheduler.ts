@@ -240,8 +240,6 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       }
     } catch { /* non-fatal — default to full sync */ }
 
-    channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
-
     // ── Step 0: BrickLink inventory sync (source of truth, always first) ──
     console.log('[Channel] → Step 0: BrickLink inventory sync (source of truth)');
     await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, { status: 'in_progress' });
@@ -401,7 +399,6 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
     });
   } finally {
-    channelSyncProgress = { processed: 0, total: 0, phase: 'idle' };
     syncLock.release('Channel Sync');
   }
 }
