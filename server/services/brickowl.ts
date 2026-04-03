@@ -73,6 +73,19 @@ export interface SyncUpdatedItem {
   }>;
 }
 
+export interface SkippedCreateItem {
+  itemNo: string;
+  blInvId?: number;
+  boid?: string;
+  lotId?: string;
+  colorId?: number;
+  colorName?: string;
+  qty?: number;
+  price?: string;
+  condition?: string;
+  itemType?: string;
+}
+
 export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
@@ -82,6 +95,10 @@ export interface BrickOwlSyncResult {
   totalApiCalls: number;
   preview?: SyncPreviewBreakdown; // populated when mode === 'analysis'
   updatedItems?: SyncUpdatedItem[]; // per-item field-level changes (capped at 200)
+  // Items skipped during create because BrickOwl is retiring the catalog entry
+  skippedScheduledForDeletion?: SkippedCreateItem[];
+  // Items skipped during create because the resolved BOID doesn't exist on BO
+  skippedInvalidBoid?: SkippedCreateItem[];
 }
 
 export interface BrickOwlInventoryLot {
@@ -922,6 +939,8 @@ export async function syncBrickLinkToBrickOwl(
     lotsSkipped: 0,
     errors: [],
     totalApiCalls: 0,
+    skippedScheduledForDeletion: [],
+    skippedInvalidBoid: [],
   };
 
   // Clear any stale abort flag from a previous run.
@@ -1518,8 +1537,15 @@ export async function syncBrickLinkToBrickOwl(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('scheduled for deletion')) {
-          // BrickOwl has this lot queued for removal — skip silently, not our error
+          // BrickOwl has this lot queued for removal — track it so the tile can show the user
           console.warn(`[ChannelSync] Skipping lot_id=${job.lot_id} (${job.blItemNo}): BrickOwl item is scheduled for deletion`);
+          result.skippedScheduledForDeletion!.push({
+            itemNo: job.blItemNo,
+            lotId: job.lot_id,
+            condition: job.condition,
+            qty: job.absolute_quantity,
+            price: job.price.toFixed(3),
+          });
           result.lotsSkipped++;
         } else {
           result.errors.push(`${job.blItemNo} lot_id=${job.lot_id}: ${msg}`);
@@ -1683,14 +1709,36 @@ export async function syncBrickLinkToBrickOwl(
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           if (msg.includes('scheduled for deletion')) {
-            // BrickOwl has this lot queued for removal — skip silently, not our error
+            // BrickOwl is retiring this catalog entry — track it for the UI tile
             console.warn(`[ChannelSync] Skipping ${item.itemNo} (BOID ${boid}): BrickOwl item is scheduled for deletion`);
+            result.skippedScheduledForDeletion!.push({
+              itemNo: item.itemNo,
+              blInvId: item.id,
+              boid,
+              colorId: item.colorId ?? undefined,
+              colorName: item.color ?? undefined,
+              qty: item.quantity,
+              price: item.unitPrice ?? undefined,
+              condition: item.newOrUsed,
+              itemType: item.itemType ?? undefined,
+            });
             result.lotsSkipped++;
           } else if (msg.includes('Invalid BOID') || msg.includes('item not found') || (msg.includes('404') && msg.includes('not found'))) {
-            // The BOID we resolved doesn't exist on BrickOwl — permanent catalog gap,
-            // not a retriable error. Treat as a quiet skip so it doesn't flip the sync
-            // status to 'partial' and block incremental sinceTime advancement.
+            // The BOID we resolved doesn't exist on BrickOwl — permanent catalog gap.
+            // Track it for the UI tile; treat as a quiet skip (not a hard error) so it
+            // doesn't flip status to 'partial' and block incremental sinceTime advancement.
             console.warn(`[ChannelSync] Skipping ${item.itemNo} (BOID ${boid}): BOID not found on BrickOwl (permanent catalog gap)`);
+            result.skippedInvalidBoid!.push({
+              itemNo: item.itemNo,
+              blInvId: item.id,
+              boid,
+              colorId: item.colorId ?? undefined,
+              colorName: item.color ?? undefined,
+              qty: item.quantity,
+              price: item.unitPrice ?? undefined,
+              condition: item.newOrUsed,
+              itemType: item.itemType ?? undefined,
+            });
             result.lotsSkipped++;
           } else {
             result.errors.push(`${item.itemNo}: create failed — ${msg}`);

@@ -26,6 +26,8 @@ interface ChannelResult {
   errors: string[];
   status: 'success' | 'partial' | 'error';
   updatedItems?: SyncUpdatedItem[];
+  skippedScheduledForDeletion?: any[];
+  skippedInvalidBoid?: any[];
 }
 
 interface ChannelSyncLastResult {
@@ -338,6 +340,8 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
           errors:      result.errors.slice(0, 10),
           status:      channelStatus,
           updatedItems: channelUpdatedItems,
+          skippedScheduledForDeletion: (result as any).skippedScheduledForDeletion ?? [],
+          skippedInvalidBoid:          (result as any).skippedInvalidBoid          ?? [],
         };
 
         // Write per-channel metadata so each channel tile shows its own stats

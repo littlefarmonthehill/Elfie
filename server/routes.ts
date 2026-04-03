@@ -10596,6 +10596,8 @@ Format search_web URLs as markdown links.`;
       let lotWeightDifferencesCount = 0;
       let forSaleDifferencesCount = 0;
       let salePercentDifferencesCount = 0;
+      let scheduledForDeletionCount = 0;
+      let invalidBoidCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -10994,6 +10996,21 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:lot_weight', { data: lotWeightDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:for_sale',       { data: forSaleDiscrepancies,       timestamp: now });
           discrepancyCache.set('BrickOwl:sale_percent',   { data: salePercentDiscrepancies,   timestamp: now });
+
+          // Populate skip-reason tiles from the last channel sync result (transient, per-run)
+          try {
+            const { getChannelSyncLastResult } = await import('./services/channel-sync-scheduler');
+            const lastResult = getChannelSyncLastResult();
+            const brickowlResult = lastResult?.perChannel?.['brickowl'];
+            const skippedDeletion: any[] = brickowlResult?.skippedScheduledForDeletion ?? [];
+            const skippedBoid:     any[] = brickowlResult?.skippedInvalidBoid          ?? [];
+            discrepancyCache.set('BrickOwl:scheduled_deletion', { data: skippedDeletion, timestamp: now });
+            discrepancyCache.set('BrickOwl:invalid_boid',       { data: skippedBoid,     timestamp: now });
+            scheduledForDeletionCount = skippedDeletion.length;
+            invalidBoidCount          = skippedBoid.length;
+          } catch {
+            // non-fatal: tiles just show 0
+          }
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -11040,6 +11057,8 @@ Format search_web URLs as markdown links.`;
               lotWeightDifferences: lotWeightDifferencesCount,
               forSaleDifferences:      forSaleDifferencesCount,
               salePercentDifferences:  salePercentDifferencesCount,
+              scheduledForDeletion:    scheduledForDeletionCount,
+              invalidBoid:             invalidBoidCount,
             },
           },
           {

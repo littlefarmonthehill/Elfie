@@ -39,6 +39,8 @@ import {
   Search,
   Warehouse,
   ChevronDown,
+  Trash2,
+  Link2Off,
 } from "lucide-react";
 import {
   Drawer,
@@ -127,7 +129,7 @@ function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | '
   );
 }
 
-type DiscrepancyType = 'missing' | 'type_mismatch' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale' | 'sale_percent';
+type DiscrepancyType = 'missing' | 'type_mismatch' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale' | 'sale_percent' | 'scheduled_deletion' | 'invalid_boid';
 
 interface DiscrepancyArea {
   type: DiscrepancyType;
@@ -326,9 +328,11 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   const orphanedDiffs = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
   const bulkQtyDiffs = brickOwl?.discrepancies?.bulkQtyDifferences ?? 0;
   const lotWeightDiffs = brickOwl?.discrepancies?.lotWeightDifferences ?? 0;
-  const forSaleDiffs       = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
-  const salePercentDiffs   = brickOwl?.discrepancies?.salePercentDifferences ?? 0;
-  const totalDiscrepancies = missingLots + typeMismatchLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs;
+  const forSaleDiffs           = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
+  const salePercentDiffs       = brickOwl?.discrepancies?.salePercentDifferences ?? 0;
+  const scheduledDeletionDiffs = brickOwl?.discrepancies?.scheduledForDeletion ?? 0;
+  const invalidBoidDiffs       = brickOwl?.discrepancies?.invalidBoid ?? 0;
+  const totalDiscrepancies = missingLots + typeMismatchLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs + scheduledDeletionDiffs + invalidBoidDiffs;
 
   // Compact tile counts come from the selected channel's own target data (not always BrickOwl)
   const tileDiscrepancies = selectedTarget?.discrepancies
@@ -469,6 +473,26 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
       bgColor: 'bg-violet-950/30',
       count: forSaleDiffs,
       description: 'Stockroom / for-sale visibility out of sync',
+    },
+    {
+      type: 'scheduled_deletion',
+      label: 'Scheduled for Deletion',
+      icon: Trash2,
+      accentColor: 'text-red-400',
+      borderColor: 'border-red-500/40',
+      bgColor: 'bg-red-950/30',
+      count: scheduledDeletionDiffs,
+      description: 'BrickOwl is retiring this catalog entry — lot create/update was skipped',
+    },
+    {
+      type: 'invalid_boid',
+      label: 'Invalid BOID',
+      icon: Link2Off,
+      accentColor: 'text-amber-400',
+      borderColor: 'border-amber-500/40',
+      bgColor: 'bg-amber-950/30',
+      count: invalidBoidDiffs,
+      description: 'Resolved BOID does not exist on BrickOwl — catalog gap, lot create was skipped',
     },
   ].filter(a => a.count > 0);
 
@@ -1635,7 +1659,7 @@ function OverviewContent({
 
       {/* Lot Issues — BrickOwl only */}
       {selectedChannel !== 'ebay' && (() => {
-        const LOT_TYPES: DiscrepancyType[] = ['missing', 'type_mismatch', 'unlinked', 'orphaned'];
+        const LOT_TYPES: DiscrepancyType[] = ['missing', 'type_mismatch', 'unlinked', 'orphaned', 'scheduled_deletion', 'invalid_boid'];
         const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
         return (
           <div className="space-y-1.5">
@@ -1958,23 +1982,64 @@ function DiscrepancyRow({ item, type, area }: {
           )}
         </div>
       )}
+
+      {type === 'scheduled_deletion' && (
+        <div className="flex items-center gap-3 flex-wrap text-[11px]">
+          {item.boid && (
+            <span className="text-gray-400">BOID: <span className="text-white font-mono">{item.boid}</span></span>
+          )}
+          {item.lotId && (
+            <span className="text-gray-400">Lot ID: <span className="text-white font-mono">{item.lotId}</span></span>
+          )}
+          {item.qty != null && (
+            <span className="text-gray-400">Qty: <span className="text-white font-mono">{item.qty}</span></span>
+          )}
+          {item.price != null && (
+            <span className="text-gray-400">Price: <span className="text-white font-mono">${Number(item.price).toFixed(2)}</span></span>
+          )}
+          {item.condition && (
+            <span className="text-gray-400">Cond: <span className="text-gray-300">{item.condition}</span></span>
+          )}
+          <span className="text-red-400 italic">BrickOwl is retiring this catalog entry — lot was skipped</span>
+        </div>
+      )}
+
+      {type === 'invalid_boid' && (
+        <div className="flex items-center gap-3 flex-wrap text-[11px]">
+          {item.boid && (
+            <span className="text-gray-400">BOID: <span className="text-amber-300 font-mono">{item.boid}</span></span>
+          )}
+          {item.qty != null && (
+            <span className="text-gray-400">Qty: <span className="text-white font-mono">{item.qty}</span></span>
+          )}
+          {item.price != null && (
+            <span className="text-gray-400">Price: <span className="text-white font-mono">${Number(item.price).toFixed(2)}</span></span>
+          )}
+          {item.condition && (
+            <span className="text-gray-400">Cond: <span className="text-gray-300">{item.condition}</span></span>
+          )}
+          <span className="text-amber-400 italic">BOID not found on BrickOwl — catalog gap, lot create skipped</span>
+        </div>
+      )}
     </div>
   );
 }
 
 const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }> = [
-  { type: 'missing',      label: 'Missing Lots',                         color: '#f97316' },
-  { type: 'type_mismatch', label: 'Type Mismatch (BL: Part / BO: Minifig)', color: '#a78bfa' },
-  { type: 'unlinked',    label: 'Unlinked BrickOwl Lots',                color: '#9ca3af' },
-  { type: 'orphaned',    label: 'Orphaned BrickOwl Lots',  color: '#fb7185' },
-  { type: 'price',       label: 'Price Differences',       color: '#eab308' },
-  { type: 'quantity',    label: 'Quantity Differences',    color: '#60a5fa' },
-  { type: 'remarks',     label: 'Remark Differences',      color: '#a855f7' },
-  { type: 'description', label: 'Description Differences', color: '#ec4899' },
-  { type: 'bulk_qty',     label: 'Bulk Qty Differences',    color: '#22d3ee' },
-  { type: 'lot_weight',   label: 'Lot Weight Differences',  color: '#2dd4bf' },
-  { type: 'for_sale',     label: 'Stockroom Mismatch',      color: '#a78bfa' },
-  { type: 'sale_percent', label: 'Sale % Differences',      color: '#fb923c' },
+  { type: 'missing',              label: 'Missing Lots',                         color: '#f97316' },
+  { type: 'type_mismatch',        label: 'Type Mismatch (BL: Part / BO: Minifig)', color: '#a78bfa' },
+  { type: 'unlinked',             label: 'Unlinked BrickOwl Lots',               color: '#9ca3af' },
+  { type: 'orphaned',             label: 'Orphaned BrickOwl Lots',               color: '#fb7185' },
+  { type: 'scheduled_deletion',   label: 'Scheduled for Deletion',               color: '#f87171' },
+  { type: 'invalid_boid',         label: 'Invalid BOID',                         color: '#fbbf24' },
+  { type: 'price',                label: 'Price Differences',                    color: '#eab308' },
+  { type: 'quantity',             label: 'Quantity Differences',                 color: '#60a5fa' },
+  { type: 'remarks',              label: 'Remark Differences',                   color: '#a855f7' },
+  { type: 'description',          label: 'Description Differences',              color: '#ec4899' },
+  { type: 'bulk_qty',             label: 'Bulk Qty Differences',                 color: '#22d3ee' },
+  { type: 'lot_weight',           label: 'Lot Weight Differences',               color: '#2dd4bf' },
+  { type: 'for_sale',             label: 'Stockroom Mismatch',                   color: '#a78bfa' },
+  { type: 'sale_percent',         label: 'Sale % Differences',                   color: '#fb923c' },
 ];
 
 function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }: {
