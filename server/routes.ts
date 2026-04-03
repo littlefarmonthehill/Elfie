@@ -11030,7 +11030,6 @@ Format search_web URLs as markdown links.`;
             discrepancies: {
               missingLots: missingLotsCount,
               typeMismatchLots: typeMismatchLotsCount,
-              missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
               priceDifferences: priceDifferencesCount,
               quantityDifferences: quantityDifferencesCount,
               remarksDifferences: remarksDifferencesCount,

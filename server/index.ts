@@ -454,11 +454,21 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
           'bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion',
           'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders',
           'forum_sync', 'rebrickable_set_parts', 'market_news_sync', 'business_intel_sync',
-          'channel_sync_brickowl', 'channel_sync_ebay',
         ];
+        // Per-channel sync IDs get a separate treatment: mark as error but DO NOT reset
+        // lastSyncTime to epoch 0. Keeping the previous good sync time means the next run
+        // stays incremental (fetching only recent changes) rather than doing a full re-fetch
+        // of all 21,000+ BO lots, which spikes RAM to 650MB+ and can OOM the deployment.
+        const channelSpecificIds = ['channel_sync_brickowl', 'channel_sync_ebay'];
+
         for (const id of staleIds) {
           await dbInstance.update(syncMeta)
             .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server restart.', lastSyncTime: new Date(0), updatedAt: new Date() })
+            .where(drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`);
+        }
+        for (const id of channelSpecificIds) {
+          await dbInstance.update(syncMeta)
+            .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server restart.', updatedAt: new Date() })
             .where(drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`);
         }
         console.log('[Startup] Cleared any stale in_progress sync records');
