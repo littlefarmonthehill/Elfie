@@ -13,7 +13,7 @@
  */
 
 import { db } from "../db";
-import { orders, orderDetails, orgIntegrations, syncMetadata } from "@shared/schema";
+import { orders, orderDetails, orgIntegrations, syncMetadata, platformSettings } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
@@ -52,21 +52,23 @@ interface EbayCreds {
 }
 
 async function loadEbayCreds(orgId: string): Promise<EbayCreds | null> {
-  const [row] = await db
-    .select()
-    .from(orgIntegrations)
-    .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'ebay')))
-    .limit(1);
+  const [[row], [ps]] = await Promise.all([
+    db.select().from(orgIntegrations)
+      .where(and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, 'ebay')))
+      .limit(1),
+    db.select().from(platformSettings).limit(1),
+  ]);
 
   const creds = row?.credentials as Record<string, string> | undefined;
-  if (!creds?.appId || !creds?.certId || !creds?.refreshToken) return null;
+  if (!creds?.refreshToken) return null;
 
-  return {
-    appId:        creds.appId,
-    certId:       creds.certId,
-    refreshToken: creds.refreshToken,
-    environment:  (creds.environment as 'production' | 'sandbox') ?? 'production',
-  };
+  const env = (creds.environment as 'production' | 'sandbox') ?? 'production';
+  const appId  = creds.appId  ?? (env === 'sandbox' ? ps?.ebaySandboxAppId  : ps?.ebayProdAppId)  ?? '';
+  const certId = creds.certId ?? (env === 'sandbox' ? ps?.ebaySandboxCertId : ps?.ebayProdCertId) ?? '';
+
+  if (!appId || !certId) return null;
+
+  return { appId, certId, refreshToken: creds.refreshToken, environment: env };
 }
 
 async function getEbayAccessToken(creds: EbayCreds): Promise<string> {
