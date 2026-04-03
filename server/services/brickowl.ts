@@ -635,6 +635,27 @@ export async function mapColorId(bricklinkColorId: number, orgId?: string): Prom
   return resolveBoColorId(bricklinkColorId, orgId);
 }
 
+/**
+ * Maps a BrickLink new/used code + item type to the full condition string
+ * the BrickOwl CREATE/UPDATE lot API requires.
+ *
+ * BrickOwl's GET /inventory/list returns short codes (new, usedg, usedn, useda).
+ * BrickOwl's POST /inventory/create and POST /inventory/update require full
+ * human-readable strings: New | New (Sealed) | New (Complete) | New (Incomplete)
+ *   | Used (Complete) | Used (Incomplete) | Used (Like New)
+ *   | Used (Good) | Used (Acceptable) | Other
+ */
+export function toBOApiCondition(newOrUsed: string, itemType?: string): string {
+  const isNew = newOrUsed === 'N';
+  const type = (itemType ?? '').toUpperCase();
+  // Sets and Gear require complete/sealed qualifiers
+  if (type === 'S' || type === 'G') {
+    return isNew ? 'New (Sealed)' : 'Used (Complete)';
+  }
+  // Minifigs, Parts, Books, Instructions, and everything else
+  return isNew ? 'New' : 'Used (Good)';
+}
+
 // Sync a single inventory item from BrickLink to BrickOwl
 export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
@@ -649,7 +670,8 @@ export async function syncInventoryItem(
 }> {
   try {
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
+    const apiCondition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined); // full string for BO API calls
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
     // Priority: pre-built taggedLotMap → channel_lot_links DB lookup → linear scan of brickowlInventory.
@@ -704,7 +726,7 @@ export async function syncInventoryItem(
           lot_id: taggedLot.lot_id,
           absolute_quantity: blItem.quantity,
           price: newPrice,
-          condition,
+          condition: apiCondition,
           for_sale: 1,
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
@@ -755,7 +777,7 @@ export async function syncInventoryItem(
           external_id: blItem.id.toString(), // Tag it so future syncs use Step 1
           absolute_quantity: blItem.quantity,
           price: newPrice,
-          condition,
+          condition: apiCondition,
           for_sale: 1,
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
@@ -798,7 +820,7 @@ export async function syncInventoryItem(
       boid,
       quantity: blItem.quantity,
       price: newPrice,
-      condition,
+      condition: apiCondition,
       for_sale: 1,
       external_id: blItem.id.toString(), // Tag immediately so future syncs find it in Step 1
       personal_note: blItem.remarks || undefined,
@@ -1010,7 +1032,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: item.unitPrice ? parseFloat(item.unitPrice) : 0,
-            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined),
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1035,7 +1057,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: lotPrice,
-            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined),
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1058,7 +1080,8 @@ export async function syncBrickLinkToBrickOwl(
     }
 
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined); // full string for BO API calls
 
     const taggedLot = taggedLotMap.get(item.id.toString());
 
@@ -1180,7 +1203,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: taggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: newPrice,
-            condition,
+            condition: apiCondition,
             qtyChanged,
             priceChanged,
             hasNonQtyChange: hasNonQty,
@@ -1534,7 +1557,8 @@ export async function syncBrickLinkToBrickOwl(
     }
     const item = adoptCandidates[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg'; // short code for matching BO GET inventory
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined); // full string for BO API calls
 
     const boid = boidMap.get(adoptIdx);
 
@@ -1564,7 +1588,7 @@ export async function syncBrickLinkToBrickOwl(
             external_id: item.id.toString(),
             absolute_quantity: item.quantity,
             price: newPrice,
-            condition,
+            condition: apiCondition,
             for_sale: itemForSale,
             personal_note:   item.remarks     || undefined,
             public_note:     item.description || undefined,
@@ -1601,7 +1625,7 @@ export async function syncBrickLinkToBrickOwl(
             boid,
             quantity: item.quantity,
             price: newPrice,
-            condition,
+            condition: apiCondition,
             for_sale: itemForSale,
             external_id: item.id.toString(),
             personal_note:   item.remarks     || undefined,

@@ -11804,8 +11804,8 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       if (!lot) return res.status(404).json({ error: 'Not found' });
       if (!lot.unit_price) return res.status(400).json({ error: 'Set a price before syncing to BrickOwl' });
 
-      const { createBrickOwlLot, updateBrickOwlLot } = await import('./services/brickowl');
-      const boCondition = lot.condition === 'N' ? 'new' : 'used';
+      const { createBrickOwlLot, updateBrickOwlLot, toBOApiCondition } = await import('./services/brickowl');
+      const boCondition = toBOApiCondition(lot.condition ?? 'U', undefined); // bulk lots: no item type → defaults to New/Used (Good)
 
       // If this lot already has a BO listing, update it in-place
       if (lot.bo_lot_id) {
@@ -14627,7 +14627,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
   // Background worker that runs the actual fix loop.
   async function runColorRepair(orgId: string, lotIdsFilter: Set<string> | null) {
-    const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
+    const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName, toBOApiCondition } = await import('./services/brickowl');
 
     const boInventory = await getBrickOwlInventory(false, orgId);
     const taggedLots = boInventory.filter(lot => lot.external_lot_ids?.other);
@@ -14667,7 +14667,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }
         await db.update(blInventory).set({ updatedAt: new Date() }).where(eq(blInventory.id, blId));
         await deleteBrickOwlLot(lot.lot_id, orgId);
-        const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'used');
+        const condition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined);
         await createBrickOwlLot({
           boid,
           quantity: parseInt(lot.qty),
