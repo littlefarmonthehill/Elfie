@@ -11805,7 +11805,7 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       if (!lot.unit_price) return res.status(400).json({ error: 'Set a price before syncing to BrickOwl' });
 
       const { createBrickOwlLot, updateBrickOwlLot, toBOApiCondition } = await import('./services/brickowl');
-      const boCondition = toBOApiCondition(lot.condition ?? 'U', undefined); // bulk lots: no item type → defaults to New/Used (Good)
+      const boCondition = toBOApiCondition(lot.condition ?? 'U', undefined); // bulk lots: no item type → 'new' or 'usedg'
 
       // If this lot already has a BO listing, update it in-place
       if (lot.bo_lot_id) {

@@ -636,24 +636,26 @@ export async function mapColorId(bricklinkColorId: number, orgId?: string): Prom
 }
 
 /**
- * Maps a BrickLink new/used code + item type to the full condition string
- * the BrickOwl CREATE/UPDATE lot API requires.
+ * Maps a BrickLink new/used code + item type to the condition ID
+ * required by BrickOwl's CREATE/UPDATE lot API.
  *
- * BrickOwl's GET /inventory/list returns short codes (new, usedg, usedn, useda).
- * BrickOwl's POST /inventory/create and POST /inventory/update require full
- * human-readable strings: New | New (Sealed) | New (Complete) | New (Incomplete)
- *   | Used (Complete) | Used (Incomplete) | Used (Like New)
- *   | Used (Good) | Used (Acceptable) | Other
+ * Both BrickOwl's GET /inventory/list AND its POST create/update endpoints
+ * use the same short condition IDs (verified against official API docs):
+ *   new | news | newc | newi | usedc | usedi | usedn | usedg | useda | other
+ *
+ * Mapping strategy (BrickLink N/U → BrickOwl condition ID):
+ *   Sets (S) / Gear (G) : N → 'news' (New Sealed),  U → 'usedc' (Used Complete)
+ *   Everything else     : N → 'new',                 U → 'usedg' (Used Good)
  */
 export function toBOApiCondition(newOrUsed: string, itemType?: string): string {
   const isNew = newOrUsed === 'N';
   const type = (itemType ?? '').toUpperCase();
-  // Sets and Gear require complete/sealed qualifiers
+  // Sets and Gear use sealed/complete qualifiers
   if (type === 'S' || type === 'G') {
-    return isNew ? 'New (Sealed)' : 'Used (Complete)';
+    return isNew ? 'news' : 'usedc';
   }
   // Minifigs, Parts, Books, Instructions, and everything else
-  return isNew ? 'New' : 'Used (Good)';
+  return isNew ? 'new' : 'usedg';
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
