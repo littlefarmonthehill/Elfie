@@ -2469,6 +2469,13 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-106 (BrickLink credentials → org_integrations) complete.');
 
+    // Phase-107: Add ebay_notification_token to platform_settings for compliance endpoint.
+    await client.query(`
+      ALTER TABLE platform_settings
+        ADD COLUMN IF NOT EXISTS ebay_notification_token text
+    `);
+    console.log('[Migration] Phase-107 (ebay_notification_token on platform_settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

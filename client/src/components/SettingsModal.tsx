@@ -2537,8 +2537,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [platformEbaySandboxAppId,  setPlatformEbaySandboxAppId]  = useState('');
   const [platformEbaySandboxCertId, setPlatformEbaySandboxCertId] = useState('');
   const [platformEbaySandboxDevId,  setPlatformEbaySandboxDevId]  = useState('');
-  const [platformEbaySandboxRuName, setPlatformEbaySandboxRuName] = useState('');
-  const [platformEbaySaving,        setPlatformEbaySaving]        = useState(false);
+  const [platformEbaySandboxRuName,      setPlatformEbaySandboxRuName]      = useState('');
+  const [platformEbayNotificationToken,  setPlatformEbayNotificationToken]  = useState('');
+  const [platformEbaySaving,             setPlatformEbaySaving]             = useState(false);
 
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
@@ -3455,6 +3456,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   type PlatformEbayCredsData = {
     prod: { hasAppId: boolean; hasCertId: boolean; hasDevId: boolean; hasRuName: boolean; appIdPrefix: string | null; ruNamePrefix: string | null };
     sandbox: { hasAppId: boolean; hasCertId: boolean; hasDevId: boolean; hasRuName: boolean; appIdPrefix: string | null; ruNamePrefix: string | null };
+    hasNotificationToken: boolean;
+    notificationEndpoint: string;
   };
   const { data: platformEbayCredsData, refetch: refetchEbayCreds } = useQuery<PlatformEbayCredsData>({
     queryKey: ['/api/platform-admin/platform-services/ebay-credentials'],
@@ -12015,6 +12018,34 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     </div>
 
+                    {/* Notification compliance */}
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <span className="text-xs font-semibold text-gray-200">Notification Compliance</span>
+                        {platformEbayCredsData?.hasNotificationToken
+                          ? <span className="ml-auto text-[9px] text-green-400 border border-green-500/30 bg-green-500/5 rounded px-1.5 py-0.5">Token saved</span>
+                          : <span className="ml-auto text-[9px] text-amber-400 border border-amber-500/30 bg-amber-500/5 rounded px-1.5 py-0.5">Required by eBay</span>
+                        }
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[10px] text-gray-400">eBay requires an account deletion notification endpoint for GDPR compliance. Set a verification token below, then use the same token in the eBay Developer Portal → Notifications.</p>
+                        <div className="text-[10px] font-mono bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-gray-300 break-all select-all">
+                          {platformEbayCredsData?.notificationEndpoint ?? 'https://elfie.replit.app/api/ebay/notifications'}
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1">Verification Token <span className="text-gray-600">(32–80 chars, you choose)</span></label>
+                          <input
+                            type="password"
+                            placeholder={platformEbayCredsData?.hasNotificationToken ? '••••••••  (enter new value to replace)' : 'Enter a random string, e.g. a UUID'}
+                            value={platformEbayNotificationToken}
+                            onChange={e => setPlatformEbayNotificationToken(e.target.value)}
+                            data-testid="input-ps-ebay-notification-token"
+                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Save button */}
                     <div className="flex items-center gap-2 px-1">
                       <button
@@ -12029,7 +12060,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           if (platformEbaySandboxAppId)  payload.sandboxAppId  = platformEbaySandboxAppId;
                           if (platformEbaySandboxCertId) payload.sandboxCertId = platformEbaySandboxCertId;
                           if (platformEbaySandboxDevId)  payload.sandboxDevId  = platformEbaySandboxDevId;
-                          if (platformEbaySandboxRuName) payload.sandboxRuName = platformEbaySandboxRuName;
+                          if (platformEbaySandboxRuName)      payload.sandboxRuName      = platformEbaySandboxRuName;
+                          if (platformEbayNotificationToken) payload.notificationToken = platformEbayNotificationToken;
                           if (Object.keys(payload).length === 0) {
                             toast({ title: 'Nothing to save', description: 'Enter at least one credential field.', variant: 'destructive' });
                             return;
@@ -12047,6 +12079,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             setPlatformEbayProdDevId(''); setPlatformEbayProdRuName('');
                             setPlatformEbaySandboxAppId(''); setPlatformEbaySandboxCertId('');
                             setPlatformEbaySandboxDevId(''); setPlatformEbaySandboxRuName('');
+                            setPlatformEbayNotificationToken('');
                             await refetchEbayCreds();
                             toast({ title: 'eBay credentials saved', description: 'Platform eBay app credentials updated.' });
                           } catch (err: any) {

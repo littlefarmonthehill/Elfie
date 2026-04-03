@@ -1130,6 +1130,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           appIdPrefix:  prefix(ps?.ebaySandboxAppId),
           ruNamePrefix: prefix(ps?.ebaySandboxRuName),
         },
+        hasNotificationToken: !!ps?.ebayNotificationToken,
+        notificationEndpoint: 'https://elfie.replit.app/api/ebay/notifications',
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load eBay credentials' });
@@ -1144,14 +1146,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID };
 
       const fields: Array<[string, string]> = [
-        ['prodAppId',      'ebayProdAppId'],
-        ['prodCertId',     'ebayProdCertId'],
-        ['prodDevId',      'ebayProdDevId'],
-        ['prodRuName',     'ebayProdRuName'],
-        ['sandboxAppId',   'ebaySandboxAppId'],
-        ['sandboxCertId',  'ebaySandboxCertId'],
-        ['sandboxDevId',   'ebaySandboxDevId'],
-        ['sandboxRuName',  'ebaySandboxRuName'],
+        ['prodAppId',          'ebayProdAppId'],
+        ['prodCertId',         'ebayProdCertId'],
+        ['prodDevId',          'ebayProdDevId'],
+        ['prodRuName',         'ebayProdRuName'],
+        ['sandboxAppId',       'ebaySandboxAppId'],
+        ['sandboxCertId',      'ebaySandboxCertId'],
+        ['sandboxDevId',       'ebaySandboxDevId'],
+        ['sandboxRuName',      'ebaySandboxRuName'],
+        ['notificationToken',  'ebayNotificationToken'],
       ];
 
       for (const [bodyKey, dbCol] of fields) {
@@ -14463,6 +14466,51 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err?.message });
+    }
+  });
+
+  // ── eBay Marketplace Account Deletion Notification (compliance) ─────────────
+  // eBay requires every developer app to receive account deletion notifications.
+  // GET: challenge verification handshake (no auth — called by eBay).
+  // POST: notification receiver (no auth — called by eBay).
+  const EBAY_NOTIFICATION_ENDPOINT = 'https://elfie.replit.app/api/ebay/notifications';
+
+  app.get('/api/ebay/notifications', async (req, res) => {
+    try {
+      const challengeCode = req.query.challenge_code as string | undefined;
+      if (!challengeCode) return res.status(400).json({ error: 'Missing challenge_code' });
+
+      const [ps] = await db.select({ token: platformSettings.ebayNotificationToken })
+        .from(platformSettings)
+        .where(eq(platformSettings.id, 'platform'))
+        .limit(1);
+
+      const token = ps?.token ?? '';
+      if (!token) {
+        console.warn('[eBay Notifications] challenge_code received but no verification token configured');
+        return res.status(500).json({ error: 'Notification token not configured' });
+      }
+
+      const hash = createHash('sha256')
+        .update(challengeCode + token + EBAY_NOTIFICATION_ENDPOINT)
+        .digest('hex');
+
+      res.json({ challengeResponse: hash });
+    } catch (err: any) {
+      console.error('[eBay Notifications] Challenge error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/ebay/notifications', async (req, res) => {
+    try {
+      const topic = req.body?.metadata?.topic ?? 'unknown';
+      console.log(`[eBay Notifications] Received notification: topic=${topic}`);
+      // For account deletion notifications, no action is needed — E.L.F.I.E. holds no eBay buyer PII.
+      res.status(200).json({ ok: true });
+    } catch (err: any) {
+      console.error('[eBay Notifications] POST error:', err.message);
+      res.status(200).json({ ok: true }); // Always 200 to prevent eBay retries
     }
   });
 

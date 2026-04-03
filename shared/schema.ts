@@ -761,6 +761,8 @@ export const platformSettings = pgTable("platform_settings", {
   ebaySandboxCertId: text("ebay_sandbox_cert_id"),
   ebaySandboxDevId: text("ebay_sandbox_dev_id"),
   ebaySandboxRuName: text("ebay_sandbox_ru_name"),
+  // Notification compliance token — set once in eBay Developer Portal → Notifications
+  ebayNotificationToken: text("ebay_notification_token"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
