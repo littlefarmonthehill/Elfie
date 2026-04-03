@@ -14,7 +14,12 @@
 
 // Pairs that are allowed to run at the same time
 const COMPATIBLE_PAIRS: Array<[string, string]> = [
-  ['Order Sync', 'Price-o-Matic'],
+  ['Order Sync',   'Price-o-Matic'],
+  // Channel Sync drives Inventory Sync internally (Step 0: BrickLink → local DB).
+  // Declaring them compatible lets syncBricklinkData acquire its own lock while
+  // Channel Sync already holds its lock, so Step 0 actually runs instead of
+  // silently falling through to stale local DB data.
+  ['Channel Sync', 'Inventory Sync'],
 ];
 
 function buildCompatibilityMap(): Map<string, Set<string>> {

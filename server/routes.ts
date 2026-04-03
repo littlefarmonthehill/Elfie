@@ -13804,9 +13804,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
     const orgId = reqOrgId(req);
     const SYNC_ID = 'bricklink_inventory';
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
-      return res.status(409).json({ success: false, error: `Cannot start Inventory Sync: ${blocker} is already running.` });
+    if (syncLock.isBlockedFor('Inventory Sync')) {
+      const blocker = syncLock.getBlockersFor('Inventory Sync').join(', ');
+      return res.status(409).json({ success: false, error: `Cannot start BrickLink Inventory Sync: ${blocker} is already running.` });
     }
     try {
       await db.insert(syncMetadata).values({
@@ -14254,6 +14254,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // BrickLink order sync endpoint
   app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {
+      if (syncLock.isBlockedFor('Order Sync')) {
+        const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
+        return res.status(409).json({ success: false, error: `Cannot start BrickLink order sync: ${blocker} is already running.` });
+      }
       const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("bricklink", { limit, fullSync, sinceDate });
@@ -14277,6 +14281,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // BrickOwl order sync endpoint
   app.post("/api/sync/brickowl/orders", isApproved, async (req: any, res) => {
     try {
+      if (syncLock.isBlockedFor('Order Sync')) {
+        const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
+        return res.status(409).json({ success: false, error: `Cannot start BrickOwl order sync: ${blocker} is already running.` });
+      }
       const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("brickowl", { limit, fullSync, sinceDate });
@@ -14463,6 +14471,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // eBay order sync endpoint
   app.post("/api/sync/ebay/orders", isApproved, async (req: any, res) => {
     try {
+      if (syncLock.isBlockedFor('Order Sync')) {
+        const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
+        return res.status(409).json({ success: false, error: `Cannot start eBay order sync: ${blocker} is already running.` });
+      }
       const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("ebay", { limit, fullSync, sinceDate });
@@ -14486,6 +14498,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // Multi-platform order sync endpoint (all registered channels)
   app.post("/api/sync/all-platforms/orders", isApproved, async (req: any, res) => {
     try {
+      if (syncLock.isBlockedFor('Order Sync')) {
+        const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
+        return res.status(409).json({ success: false, error: `Cannot start order sync: ${blocker} is already running.` });
+      }
       const { limit = 50, fullSync = false } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("all", { limit, fullSync });
@@ -14594,8 +14610,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // Manual channel sync trigger
   app.post("/api/sync/channel", isApproved, async (req, res) => {
     try {
-      if (syncLock.isRunning()) {
-        const blocker = syncLock.getActive().join(', ');
+      if (syncLock.isBlockedFor('Channel Sync')) {
+        const blocker = syncLock.getBlockersFor('Channel Sync').join(', ');
         return res.status(409).json({ success: false, error: `Cannot start Channel Sync: ${blocker} is already running.` });
       }
       const { runChannelSyncForOrg } = await import("./services/channel-sync-scheduler");
