@@ -14805,6 +14805,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         bricklink_inventory:    syncLock.getActive().includes('Inventory Sync'),
         priceomatic_cache:      getPomIsRunning(),
         channel_sync:           getChannelSyncIsRunning(),
+        channel_sync_brickowl:  getChannelSyncIsRunning(),
+        channel_sync_ebay:      getChannelSyncIsRunning(),
         bricklink_orders:       getOrderSyncIsRunning(),
         brickowl_orders:        getOrderSyncIsRunning(),
         rebrickable_set_parts:  getRebrickableSyncIsRunning(),
