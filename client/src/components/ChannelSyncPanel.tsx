@@ -267,6 +267,8 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
 
   const selectedChannelData = displayChannels.find(c => c.key === selectedChannel) ?? displayChannels[0];
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
+  // Target object for the currently selected channel (stats, discrepancies, syncMode are channel-specific)
+  const selectedTarget = selectedChannelData?.target ?? brickOwl ?? null;
   const aggregateSync = syncStatuses?.channel;
   // Use per-channel stats when available; fall back to aggregate only for brickowl (primary channel).
   // Other channels (e.g. ebay) show null until they have their own sync record.
@@ -317,6 +319,11 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   const forSaleDiffs       = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
   const salePercentDiffs   = brickOwl?.discrepancies?.salePercentDifferences ?? 0;
   const totalDiscrepancies = missingLots + typeMismatchLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs;
+
+  // Compact tile counts come from the selected channel's own target data (not always BrickOwl)
+  const tileDiscrepancies = selectedTarget?.discrepancies
+    ? Object.values(selectedTarget.discrepancies as Record<string, number>).reduce((s: number, v: number) => s + (v ?? 0), 0)
+    : (selectedChannel === 'brickowl' ? totalDiscrepancies : 0);
 
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -600,12 +607,12 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
             )}
           </div>
           <div className="flex items-center gap-2">
-            <SyncModeBadge mode={brickOwl?.syncMode} size="sm" />
+            <SyncModeBadge mode={selectedTarget?.syncMode} size="sm" />
             <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
           </div>
         </div>
 
-        {showProgress && (
+        {showProgress && !isEbayChannel && (
           <div className="space-y-1" data-testid="channel-sync-progress">
             <Progress value={progressPct} className="h-1.5" />
             <div className="flex justify-between text-[10px] text-gray-500">
@@ -629,14 +636,14 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {brickOwl?.stats && (
+            {selectedTarget?.stats && (
               <>
                 <span className="text-[10px] text-gray-400">
-                  <span className="text-white font-mono font-semibold">{brickOwl.stats.totalLots?.toLocaleString() ?? '—'}</span>
+                  <span className="text-white font-mono font-semibold">{selectedTarget.stats.totalLots?.toLocaleString() ?? '—'}</span>
                   {' '}lots
                 </span>
                 <span className="text-[10px] text-gray-400">
-                  <span className="text-white font-mono font-semibold">{brickOwl.stats.totalParts?.toLocaleString() ?? '—'}</span>
+                  <span className="text-white font-mono font-semibold">{selectedTarget.stats.totalParts?.toLocaleString() ?? '—'}</span>
                   {' '}parts
                 </span>
               </>
@@ -662,19 +669,19 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
           </div>
         )}
 
-        {!isLoading && totalDiscrepancies > 0 && (
+        {!isLoading && tileDiscrepancies > 0 && (
           <div
             className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/25 rounded px-2 py-1.5"
             data-testid="channel-discrepancy-indicator"
           >
             <AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" />
             <span className="text-[10px] font-semibold text-orange-300">
-              {totalDiscrepancies} discrepanc{totalDiscrepancies === 1 ? 'y' : 'ies'} detected
+              {tileDiscrepancies} discrepanc{tileDiscrepancies === 1 ? 'y' : 'ies'} detected
             </span>
           </div>
         )}
 
-        {!isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && lastSync?.lastSyncStatus === 'success' && (
+        {!isLoading && selectedTarget?.enabled && tileDiscrepancies === 0 && lastSync?.lastSyncStatus === 'success' && (
           <div className="flex items-center gap-1.5 text-[10px] text-green-400/70">
             <CheckCircle2 className="w-2.5 h-2.5" />
             <span>{selectedChannelData?.label ?? 'Channel'} is in sync</span>
