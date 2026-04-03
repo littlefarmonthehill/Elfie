@@ -102,6 +102,31 @@ export default function Home() {
       window.history.replaceState({}, '', url.toString());
     }
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ebayStatus = params.get('ebay_status');
+    if (!ebayStatus) return;
+    const env = params.get('ebay_env') ?? 'production';
+    const url = new URL(window.location.href);
+    url.searchParams.delete('ebay_status');
+    url.searchParams.delete('ebay_env');
+    url.searchParams.delete('ebay_error');
+    window.history.replaceState({}, '', url.toString());
+    if (ebayStatus === 'connected') {
+      queryClient.invalidateQueries({ queryKey: ['/api/ebay/connection/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/org/integrations'] });
+      toast({
+        title: `eBay ${env} account connected`,
+        description: 'Your eBay seller account is linked. You can now sync inventory.',
+      });
+      openSettings('platforms');
+    } else if (ebayStatus === 'error') {
+      const errMsg = params.get('ebay_error') ?? 'Unknown error';
+      toast({ title: 'eBay connection failed', description: decodeURIComponent(errMsg), variant: 'destructive' });
+      openSettings('platforms');
+    }
+  }, []);
   // Global iOS scroll-freeze recovery.
   // If the body gets stuck with scroll-locking styles (e.g. a vaul Drawer or Radix
   // Dialog fails to clean up on abrupt unmount), the next touch interaction will
