@@ -636,26 +636,32 @@ export async function mapColorId(bricklinkColorId: number, orgId?: string): Prom
 }
 
 /**
- * Maps a BrickLink new/used code + item type to the condition ID
+ * Maps a BrickLink new/used code + item type to the full condition string
  * required by BrickOwl's CREATE/UPDATE lot API.
  *
- * Both BrickOwl's GET /inventory/list AND its POST create/update endpoints
- * use the same short condition IDs (verified against official API docs):
- *   new | news | newc | newi | usedc | usedi | usedn | usedg | useda | other
+ * IMPORTANT: Despite what the BrickOwl docs page says, the actual API
+ * rejects short codes (new, news, usedg, etc.) and requires full strings:
+ *   New | New (Sealed) | New (Complete) | New (Incomplete)
+ *   Used (Complete) | Used (Incomplete) | Used (Like New)
+ *   Used (Good) | Used (Acceptable) | Other
+ * (confirmed from live API error responses)
  *
- * Mapping strategy (BrickLink N/U → BrickOwl condition ID):
- *   Sets (S) / Gear (G) : N → 'news' (New Sealed),  U → 'usedc' (Used Complete)
- *   Everything else     : N → 'new',                 U → 'usedg' (Used Good)
+ * Note: BrickOwl's GET /inventory/list still RETURNS short codes — those
+ * short codes are only used for matching existing lots, never sent to the API.
+ *
+ * Mapping strategy (BrickLink N/U → BrickOwl full condition string):
+ *   Sets (S) / Gear (G) : N → 'New (Sealed)',  U → 'Used (Complete)'
+ *   Everything else     : N → 'New',            U → 'Used (Good)'
  */
 export function toBOApiCondition(newOrUsed: string, itemType?: string): string {
   const isNew = newOrUsed === 'N';
   const type = (itemType ?? '').toUpperCase();
   // Sets and Gear use sealed/complete qualifiers
   if (type === 'S' || type === 'G') {
-    return isNew ? 'news' : 'usedc';
+    return isNew ? 'New (Sealed)' : 'Used (Complete)';
   }
   // Minifigs, Parts, Books, Instructions, and everything else
-  return isNew ? 'new' : 'usedg';
+  return isNew ? 'New' : 'Used (Good)';
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
