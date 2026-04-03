@@ -263,9 +263,9 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                <Button size="sm" variant="secondary" disabled={isRunning || syncMutation.isPending} onClick={() => syncMutation.mutate()} data-testid="button-bricklink-sync-now">
-                  {syncMutation.isPending || isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                  {isRunning ? 'Syncing…' : 'Sync Now'}
+                <Button size="sm" variant="secondary" disabled={anyRunning} onClick={() => syncMutation.mutate()} data-testid="button-bricklink-sync-now">
+                  {anyRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                  {isChannelSyncRunning && !isRunning ? 'Channel sync running…' : isRunning ? 'Syncing…' : 'Sync Now'}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => onOpenSettings?.('platforms', 'schedulerInventory')} data-testid="button-bricklink-schedule">
                   <CalendarClock className="w-3.5 h-3.5 mr-1.5" />Schedule
@@ -502,16 +502,16 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={isRunning || syncMutation.isPending}
+                    disabled={anyRunning}
                     onClick={() => syncMutation.mutate()}
                     data-testid="button-bricklink-sync-now"
                   >
-                    {syncMutation.isPending || isRunning ? (
+                    {anyRunning ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                     ) : (
                       <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                     )}
-                    {isRunning ? 'Syncing…' : 'Sync Now'}
+                    {isChannelSyncRunning && !isRunning ? 'Channel sync running…' : isRunning ? 'Syncing…' : 'Sync Now'}
                   </Button>
                   <Button
                     size="sm"
