@@ -717,9 +717,9 @@ export async function syncBrickLinkToEbay(
             .where(inArray(blCatalog.itemNo, itemNos))
         : Promise.resolve([]),
       colorIds.length > 0
-        ? db.select({ colorId: blColors.colorId, colorName: blColors.colorName })
+        ? db.select({ colorId: blColors.id, colorName: blColors.name })
             .from(blColors)
-            .where(inArray(blColors.colorId, colorIds))
+            .where(inArray(blColors.id, colorIds))
         : Promise.resolve([]),
     ]);
   } catch (err: any) {
