@@ -11186,9 +11186,10 @@ Format search_web URLs as markdown links.`;
   app.get('/api/channel-sync/scope', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
+      const channelKey = (req.query.channel as string) || 'brickowl';
 
       const [cfgRow] = await db.select().from(channelSyncConfig)
-        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, 'brickowl'))).limit(1);
+        .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, channelKey))).limit(1);
       const stockroomModes: Record<string, 'skip' | 'hidden' | 'active'> =
         (cfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
 
@@ -11447,6 +11448,21 @@ Format search_web URLs as markdown links.`;
           patch.syncItemTypes = raw as Record<string, boolean>;
         } else {
           console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncItemTypes for ${orgId}:`, JSON.stringify(raw));
+        }
+      }
+      // channelConfig: partial JSONB merge for channel-specific settings (e.g. eBay syncImages, ebayBlIdField)
+      if ('channelConfig' in req.body) {
+        const raw = req.body.channelConfig;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          // Read existing row to merge
+          const [existingRow] = await db.select({ channelConfig: channelSyncConfig.channelConfig })
+            .from(channelSyncConfig)
+            .where(and(eq(channelSyncConfig.orgId, orgId), eq(channelSyncConfig.channelKey, channelKey)))
+            .limit(1);
+          const existing = (existingRow?.channelConfig as Record<string, unknown>) ?? {};
+          patch.channelConfig = { ...existing, ...raw };
+        } else {
+          console.warn(`[ChannelSyncConfig] PATCH rejected invalid channelConfig for ${orgId}:`, JSON.stringify(raw));
         }
       }
       if (Object.keys(patch).length === 0) {

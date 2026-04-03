@@ -2632,6 +2632,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'|'sync'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [syncItemTypes, setSyncItemTypes] = useState<Record<string, boolean>>({});
   const [ebaySyncFieldPrice, setEbaySyncFieldPrice] = useState(true);
+  const [ebaySyncFieldDescription, setEbaySyncFieldDescription] = useState(true);
+  const [ebaySyncFieldImages, setEbaySyncFieldImages] = useState(true);
+  const [ebayBlIdField, setEbayBlIdField] = useState<'custom_label' | 'item_specifics'>('custom_label');
   const [ebaySyncItemTypes, setEbaySyncItemTypes] = useState<Record<string, boolean>>({});
   const [ebaySyncStockroomModes, setEbaySyncStockroomModes] = useState<Record<string, 'skip'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [ebaySyncPriceFloor, setEbaySyncPriceFloor] = useState('');
@@ -2937,6 +2940,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && (activeSection === 'autoSync' || activeSection === 'platforms'),
     staleTime: 30000,
   });
+  const { data: ebayScopeData } = useQuery<SyncScopeData>({
+    queryKey: ['/api/channel-sync/scope', 'ebay'],
+    queryFn: () => fetch('/api/channel-sync/scope?channel=ebay', { credentials: 'include' }).then(r => r.json()),
+    enabled: open && (activeSection === 'autoSync' || activeSection === 'platforms'),
+    staleTime: 30000,
+  });
 
   const channelSyncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/platform-sync/sync', { platform: 'BrickOwl', limit: 10 }),
@@ -3018,6 +3027,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const { data: ebaySyncFieldConfig } = useQuery<{
     syncPrice: boolean; syncStockroomModes: Record<string, string>;
     syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null;
+    channelConfig: Record<string, unknown> | null;
   }>({
     queryKey: ['/api/channel-sync/config', 'ebay'],
     queryFn: () => fetch('/api/channel-sync/config?channel=ebay', { credentials: 'include' }).then(r => r.json()),
@@ -3032,9 +3042,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setEbaySyncStockroomModes((ebaySyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' }) as Record<string, 'skip'|'active'>);
     const floor = ebaySyncFieldConfig.syncPriceFloor;
     setEbaySyncPriceFloor(floor != null && Number(floor) > 0 ? String(floor) : '');
+    const cc = ebaySyncFieldConfig.channelConfig ?? {};
+    setEbaySyncFieldDescription((cc.syncDescription as boolean) ?? true);
+    setEbaySyncFieldImages((cc.syncImages as boolean) ?? true);
+    setEbayBlIdField((cc.ebayBlIdField as 'custom_label' | 'item_specifics') ?? 'custom_label');
   }, [ebaySyncFieldConfig]);
   const updateEbaySyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncStockroomModes: Record<string, string>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncStockroomModes: Record<string, string>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null; channelConfig: Record<string, unknown> }>) =>
       apiRequest('PATCH', '/api/channel-sync/config?channel=ebay', patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config', 'ebay'] });
@@ -6664,7 +6678,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* ── eBay channel detail ── */}
                     {expandedAutoSyncService === 'ebay' && (<>
 
-                      {/* Connection status badge */}
+                      {/* Connection status */}
                       {(() => {
                         const ebayIntDetail = orgIntegrationsList.find(i => i.channel === 'ebay');
                         const ebayCredDetail = ebayIntDetail?.credentials as Record<string,string> | undefined;
@@ -6681,11 +6695,38 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayEnv === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
                             <span className="capitalize">{ebayEnv}</span>
                             {ebayEnv === 'sandbox' && <span className="text-[10px] px-1 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-medium">Sandbox</span>}
+                            <span className="ml-auto text-[10px] text-gray-600">Full Control mode</span>
                           </div>
                         );
                       })()}
 
-                      {/* Last sync result — eBay-specific */}
+                      {/* Sync Scope */}
+                      {ebayScopeData && (
+                        <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-ebay-scope">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
+                            <span className="text-[10px] text-gray-500">{ebayScopeData.totalLots.toLocaleString()} total BL lots</span>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-lg font-bold text-white font-mono" data-testid="stat-ebay-scope-in-scope">{ebayScopeData.inScopeLots.toLocaleString()}</span>
+                            <span className="text-[11px] text-gray-400">lots in scope</span>
+                          </div>
+                          {ebayScopeData.exclusions.length > 0 ? (
+                            <div className="space-y-1">
+                              {ebayScopeData.exclusions.map((ex) => (
+                                <div key={ex.reason} className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-gray-500 truncate">{ex.reason}</span>
+                                  <span className="text-[10px] font-mono text-amber-400 shrink-0">-{ex.count.toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-600">No exclusion rules active</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Last sync result */}
                       {channelLastResult?.perChannel?.ebay && (() => {
                         const ebayResult = channelLastResult.perChannel!.ebay;
                         return (
@@ -6719,7 +6760,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         );
                       })()}
 
-                      {/* Item Groups */}
+                      {/* Item Groups accordion */}
                       <button
                         onClick={() => setChannelItemGroupsOpen(!channelItemGroupsOpen)}
                         className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
@@ -6733,6 +6774,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </button>
                       {channelItemGroupsOpen && (
                         <div className="px-4 pb-3 space-y-3">
+                          <p className="text-[10px] text-gray-500 leading-relaxed">
+                            Choose which categories get listed on eBay. Turning a group off will skip new items and <strong className="text-gray-400">deactivate any existing listings</strong> on the next sync.
+                          </p>
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Item Types</p>
                             <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
@@ -6749,16 +6793,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                       <p className="text-xs font-medium text-gray-200">{label}</p>
                                       <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
                                     </div>
-                                    <Switch
-                                      checked={isSynced}
-                                      onCheckedChange={(checked) => {
-                                        const next = { ...ebaySyncItemTypes, [code]: checked };
-                                        if (checked) delete next[code];
-                                        setEbaySyncItemTypes(next);
-                                        updateEbaySyncFieldMutation.mutate({ syncItemTypes: next });
-                                      }}
-                                      data-testid={`switch-ebay-item-type-${code}`}
-                                    />
+                                    <Switch checked={isSynced} onCheckedChange={(checked) => { const next = { ...ebaySyncItemTypes, [code]: checked }; if (checked) delete next[code]; setEbaySyncItemTypes(next); updateEbaySyncFieldMutation.mutate({ syncItemTypes: next }); }} data-testid={`switch-ebay-item-type-${code}`} />
                                   </div>
                                 );
                               })}
@@ -6781,16 +6816,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     </div>
                                     <div className="flex items-center gap-0.5 rounded border border-gray-700 bg-gray-900 p-0.5 shrink-0">
                                       {(['skip', 'active'] as const).map((opt) => (
-                                        <button
-                                          key={opt}
-                                          onClick={() => {
-                                            const next = { ...ebaySyncStockroomModes, [id]: opt };
-                                            setEbaySyncStockroomModes(next);
-                                            updateEbaySyncFieldMutation.mutate({ syncStockroomModes: next });
-                                          }}
-                                          data-testid={`button-ebay-stockroom-${id}-${opt}`}
-                                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${mode === opt ? (opt === 'skip' ? 'bg-gray-700 text-gray-200' : 'bg-green-600/70 text-green-100') : 'text-gray-500 hover:text-gray-300'}`}
-                                        >
+                                        <button key={opt} onClick={() => { const next = { ...ebaySyncStockroomModes, [id]: opt }; setEbaySyncStockroomModes(next); updateEbaySyncFieldMutation.mutate({ syncStockroomModes: next }); }} data-testid={`button-ebay-stockroom-${id}-${opt}`} className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${mode === opt ? (opt === 'skip' ? 'bg-gray-700 text-gray-200' : 'bg-green-600/70 text-green-100') : 'text-gray-500 hover:text-gray-300'}`}>
                                           {opt.charAt(0).toUpperCase() + opt.slice(1)}
                                         </button>
                                       ))}
@@ -6800,58 +6826,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               })}
                             </div>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Sync Fields */}
-                      <button
-                        onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
-                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
-                        data-testid="button-ebay-fields-toggle"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-gray-200">Sync Fields</span>
-                          <span className="text-[10px] text-gray-500">— what data gets written</span>
-                        </div>
-                        {channelSyncFieldsOpen ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
-                      </button>
-                      {channelSyncFieldsOpen && (
-                        <div className="px-4 pb-3 space-y-3">
-                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity <Lock className="w-2.5 h-2.5 text-gray-500" /></p>
-                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink to eBay</p>
-                                  </div>
-                                  <Switch checked disabled data-testid="switch-ebay-field-qty" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="left" className="max-w-xs text-xs">Quantity is always synced and cannot be disabled.</TooltipContent>
-                            </Tooltip>
-                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-200">Price</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to eBay</p>
-                              </div>
-                              <Switch checked={ebaySyncFieldPrice} onCheckedChange={(c) => { setEbaySyncFieldPrice(c); updateEbaySyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-ebay-field-price" />
-                            </div>
-                          </div>
+                          {/* Price Floor — inside Item Groups, same as BrickOwl */}
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Price Floor</p>
-                            <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">Lots priced below this amount will be excluded from eBay listings.</p>
+                            <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                              Lots priced below this amount will be skipped — and existing eBay listings for those lots will be ended.
+                            </p>
                             <div className="rounded-md border border-gray-700/60 bg-gray-800/20 px-3 py-2.5 flex items-center gap-2">
                               <span className="text-xs text-gray-400 select-none">$</span>
                               <input
                                 type="number" min="0" step="0.01" placeholder="e.g. 0.05"
                                 value={ebaySyncPriceFloor}
                                 onChange={(e) => setEbaySyncPriceFloor(e.target.value)}
-                                onBlur={() => {
-                                  const parsed = parseFloat(ebaySyncPriceFloor);
-                                  const floor = !ebaySyncPriceFloor || isNaN(parsed) || parsed <= 0 ? null : parsed;
-                                  updateEbaySyncFieldMutation.mutate({ syncPriceFloor: floor });
-                                }}
+                                onBlur={() => { const parsed = parseFloat(ebaySyncPriceFloor); const floor = !ebaySyncPriceFloor || isNaN(parsed) || parsed <= 0 ? null : parsed; updateEbaySyncFieldMutation.mutate({ syncPriceFloor: floor }); }}
                                 className="flex-1 bg-transparent text-xs text-gray-200 placeholder-gray-600 outline-none"
                                 data-testid="input-ebay-price-floor"
                               />
@@ -6863,6 +6850,136 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <p className="text-[10px] text-amber-400/80 mt-1.5">Lots under ${parseFloat(ebaySyncPriceFloor).toFixed(2)} will not be listed on eBay.</p>
                             )}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Sync Fields accordion */}
+                      <button
+                        onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
+                        data-testid="button-ebay-fields-toggle"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-200">Sync Fields</span>
+                          <span className="text-[10px] text-gray-500">— what data gets written to listings</span>
+                        </div>
+                        {channelSyncFieldsOpen ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {channelSyncFieldsOpen && (
+                        <div className="px-4 pb-3 space-y-2">
+                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                            {/* Quantity — always on */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity <Lock className="w-2.5 h-2.5 text-gray-500" /></p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">BrickLink qty → eBay <span className="font-mono text-gray-600">availability.quantity</span></p>
+                                  </div>
+                                  <Switch checked disabled data-testid="switch-ebay-field-qty" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">Quantity is always synced and cannot be disabled.</TooltipContent>
+                            </Tooltip>
+                            {/* Title — always on */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Title <Lock className="w-2.5 h-2.5 text-gray-500" /></p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Auto-generated from item name, color, condition, and part number</p>
+                                  </div>
+                                  <Switch checked disabled data-testid="switch-ebay-field-title" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">Title is always auto-generated from BrickLink catalog data.</TooltipContent>
+                            </Tooltip>
+                            {/* Condition — always on */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Condition <Lock className="w-2.5 h-2.5 text-gray-500" /></p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">BrickLink New/Used → eBay condition ID (1000 New, 3000 Used)</p>
+                                  </div>
+                                  <Switch checked disabled data-testid="switch-ebay-field-condition" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">Condition is always synced and cannot be disabled.</TooltipContent>
+                            </Tooltip>
+                            {/* Price */}
+                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-200">Base Price</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">BrickLink unit price → eBay <span className="font-mono text-gray-600">pricingSummary.price</span></p>
+                              </div>
+                              <Switch checked={ebaySyncFieldPrice} onCheckedChange={(c) => { setEbaySyncFieldPrice(c); updateEbaySyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-ebay-field-price" />
+                            </div>
+                            {/* Description */}
+                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-200">Description</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">BrickLink description → eBay HTML listing body</p>
+                              </div>
+                              <Switch checked={ebaySyncFieldDescription} onCheckedChange={(c) => { setEbaySyncFieldDescription(c); updateEbaySyncFieldMutation.mutate({ channelConfig: { syncDescription: c } }); }} data-testid="switch-ebay-field-description" />
+                            </div>
+                            {/* Images */}
+                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-200">Images</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Image Center photos → eBay listing image gallery (up to 12)</p>
+                              </div>
+                              <Switch checked={ebaySyncFieldImages} onCheckedChange={(c) => { setEbaySyncFieldImages(c); updateEbaySyncFieldMutation.mutate({ channelConfig: { syncImages: c } }); }} data-testid="switch-ebay-field-images" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SKU Mapping accordion */}
+                      <button
+                        onClick={() => setChannelDetailsExpanded(!channelDetailsExpanded)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group border-t border-gray-700/40"
+                        data-testid="button-ebay-sku-mapping-toggle"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-200">BrickLink ID Mapping</span>
+                          <span className="text-[10px] text-gray-500">— how BL lot IDs appear on eBay</span>
+                        </div>
+                        {channelDetailsExpanded ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {channelDetailsExpanded && (
+                        <div className="px-4 pb-3 space-y-3">
+                          <p className="text-[10px] text-gray-500 leading-relaxed">
+                            Every eBay listing is identified by a SKU in the format <span className="font-mono text-gray-400">BL-{'{'}<span className="text-orange-400">blInvId</span>{'}'}</span>. You can also surface the BrickLink lot ID as a visible item specific on the eBay listing for buyer reference.
+                          </p>
+                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                            {([
+                              {
+                                id: 'custom_label' as const,
+                                label: 'SKU only (default)',
+                                desc: 'BL lot ID stored as eBay SKU — not visible to buyers. Recommended.',
+                              },
+                              {
+                                id: 'item_specifics' as const,
+                                label: 'SKU + Item Specific',
+                                desc: 'Also adds "BrickLink Lot ID" as a visible item specific on each listing.',
+                              },
+                            ]).map(({ id, label, desc }) => (
+                              <button
+                                key={id}
+                                onClick={() => { setEbayBlIdField(id); updateEbaySyncFieldMutation.mutate({ channelConfig: { ebayBlIdField: id } }); }}
+                                className={`flex items-start gap-2 w-full px-3 py-2.5 text-left transition-colors ${ebayBlIdField === id ? 'bg-blue-500/10' : 'hover:bg-gray-800/40'}`}
+                                data-testid={`button-ebay-bl-id-field-${id}`}
+                              >
+                                <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${ebayBlIdField === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                                <div>
+                                  <span className="text-xs font-medium text-gray-200">{label}</span>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-gray-600">SKU format: <span className="font-mono text-gray-400">BL-12345678</span> where the number is the BrickLink inventory lot ID.</p>
                         </div>
                       )}
 

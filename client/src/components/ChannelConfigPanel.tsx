@@ -80,6 +80,7 @@ export interface EbayChannelConfig {
   ebayCatalogMatch:    boolean;
   ebayListingDuration: string;
   syncImages:          boolean;
+  syncDescription:     boolean;
   ebayMarketplaceId:   string;
   ebayConditionUsed:   string;
 }
@@ -89,6 +90,7 @@ export const defaultEbayChannelConfig: EbayChannelConfig = {
   ebayCatalogMatch:    true,
   ebayListingDuration: 'GTC',
   syncImages:          true,
+  syncDescription:     true,
   ebayMarketplaceId:   'EBAY_US',
   ebayConditionUsed:   'USED_VERY_GOOD',
 };

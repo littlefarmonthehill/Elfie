@@ -55,6 +55,7 @@ export interface EbayChannelConfig {
   ebayCatalogMatch:    boolean;
   ebayListingDuration: string;
   syncImages:          boolean;
+  syncDescription:     boolean;
   ebayMarketplaceId:   string;
   ebayConditionUsed:   string;
   ebayFulfillmentPolicyId?: string;
@@ -67,6 +68,7 @@ export const defaultEbayChannelConfig: EbayChannelConfig = {
   ebayCatalogMatch:    true,
   ebayListingDuration: 'GTC',
   syncImages:          true,
+  syncDescription:     true,
   ebayMarketplaceId:   'EBAY_US',
   ebayConditionUsed:   'USED_VERY_GOOD',
 };
@@ -475,7 +477,7 @@ function buildInventoryItemBody(opts: {
   const body: Record<string, unknown> = {
     product: {
       title,
-      description: buildEbayDescription(blLot, itemName, colorName),
+      description: config.syncDescription !== false ? buildEbayDescription(blLot, itemName, colorName) : undefined,
       aspects,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     },
