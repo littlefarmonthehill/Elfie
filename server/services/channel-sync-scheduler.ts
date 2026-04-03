@@ -6,6 +6,7 @@ import { getChannelAdapter } from "./channel-factory";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
+import { syncBricklinkData } from "./bricklink";
 
 const SYNC_ID   = 'channel_sync';
 const SYNC_TYPE = 'channel_sync';
@@ -229,6 +230,29 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
     } catch { /* non-fatal — default to full sync */ }
 
     channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
+
+    // ── Step 0: BrickLink inventory sync (source of truth, always first) ──
+    console.log('[Channel] → Step 0: BrickLink inventory sync (source of truth)');
+    await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, { status: 'in_progress' });
+    try {
+      const blResult = await syncBricklinkData(effectiveOrgId);
+      const blAdded   = blResult.inventoryAdded   ?? 0;
+      const blUpdated = blResult.inventoryUpdated  ?? 0;
+      console.log(`[Channel] ✓ BrickLink: ${blAdded} added, ${blUpdated} updated`);
+      await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
+        status: 'success',
+        recordsAdded:   blAdded,
+        recordsUpdated: blUpdated,
+      });
+    } catch (blErr: any) {
+      console.error('[Channel] ✗ BrickLink inventory sync failed:', blErr.message);
+      await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
+        status: 'error',
+        errorMessage: blErr.message,
+      });
+      // Continue with channel syncs using existing local DB data — do not abort
+      allErrors.push(`[bricklink] ${blErr.message}`);
+    }
 
     for (const channelKey of channelKeys) {
       let adapter;

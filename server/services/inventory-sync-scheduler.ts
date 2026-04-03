@@ -50,7 +50,7 @@ export async function startInventorySyncScheduler() {
 async function getEnabledInventorySyncOrgs(): Promise<Array<{ id: string; frequencyMs: number }>> {
   const rows = await db.select().from(appSettings);
   return rows
-    .filter(s => s.inventorySyncEnabled)
+    .filter(s => s.inventorySyncEnabled && !s.channelSyncEnabled) // orgs with channel sync get BL via the unified channel scheduler
     .map(s => ({ id: s.id, frequencyMs: (s.inventorySyncFrequency ?? 24) * 60 * 60 * 1000 }));
 }
 
