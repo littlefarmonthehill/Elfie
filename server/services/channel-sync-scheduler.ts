@@ -213,7 +213,12 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       console.warn(`[Channel] targetChannel "${targetChannel}" not in configured channels — nothing to sync`);
     }
   }
-  console.log(`\n🌐 Starting scheduled channel sync for ${channelKeys.length} channel(s): ${channelKeys.join(', ')} (mode: ${syncMode}${targetChannel ? `, targeted: ${targetChannel}` : ''})`);
+  // A targeted manual sync (single channel tile) skips the BrickLink SoT refresh —
+  // that step is the scheduler's responsibility and runs on the org's configured frequency.
+  // Manual per-channel syncs push from whatever is already in the local DB.
+  const isManualPerChannel = !!targetChannel;
+
+  console.log(`\n🌐 Starting ${isManualPerChannel ? 'manual' : 'scheduled'} channel sync for ${channelKeys.length} channel(s): ${channelKeys.join(', ')} (mode: ${syncMode}${targetChannel ? `, targeted: ${targetChannel}` : ''})`);
 
   await upsertSyncMetadata(SYNC_ID, effectiveOrgId, { status: 'in_progress' });
 
@@ -225,12 +230,15 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
   const perChannel: Record<string, ChannelResult> = {};
 
   try {
-    // Read last successful sync time for incremental mode
+    // Read last successful sync time for incremental mode.
+    // For targeted channel syncs, use that channel's own metadata so its incremental
+    // window is independent from the global channel_sync timestamp.
     let sinceTime: Date | undefined;
     try {
+      const metaId = isManualPerChannel ? `channel_sync_${targetChannel}` : SYNC_ID;
       const whereClause = orgId
-        ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, SYNC_ID))
-        : eq(syncMetadata.id, SYNC_ID);
+        ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, metaId))
+        : eq(syncMetadata.id, metaId);
       const [prevMeta] = await db.select().from(syncMetadata).where(whereClause).limit(1);
       if (!forceFullScan && prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
         sinceTime = new Date(prevMeta.lastSyncTime);
@@ -240,34 +248,36 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       }
     } catch { /* non-fatal — default to full sync */ }
 
-    // ── Step 0: BrickLink inventory sync (source of truth, always first) ──
-    console.log('[Channel] → Step 0: BrickLink inventory sync (source of truth)');
-    await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, { status: 'in_progress' });
-    try {
-      const blResult = await syncBricklinkData(effectiveOrgId);
-      const blAdded   = blResult.inventoryAdded   ?? 0;
-      const blUpdated = blResult.inventoryUpdated  ?? 0;
-      console.log(`[Channel] ✓ BrickLink: ${blAdded} added, ${blUpdated} updated`);
-      await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
-        status: 'success',
-        recordsAdded:   blAdded,
-        recordsUpdated: blUpdated,
-      });
-    } catch (blErr: any) {
-      const alreadyRunning = blErr.message?.includes('already in progress');
-      console.error('[Channel] ✗ BrickLink inventory sync failed:', blErr.message);
-      if (alreadyRunning) {
-        // Another BL sync is already running — leave the existing in_progress status so
-        // the BrickLink tile keeps showing "syncing…" instead of flashing a spurious error.
-        console.log('[Channel] BL sync lock collision — continuing channel push with existing DB data');
-      } else {
+    // ── Step 0: BrickLink inventory sync (source of truth) ──
+    // Runs only during the auto-scheduler's full sweep. Manual per-channel triggers
+    // push from existing local DB data — BL refresh is the scheduler's responsibility.
+    if (!isManualPerChannel) {
+      console.log('[Channel] → Step 0: BrickLink inventory sync (source of truth)');
+      await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, { status: 'in_progress' });
+      try {
+        const blResult = await syncBricklinkData(effectiveOrgId);
+        const blAdded   = blResult.inventoryAdded   ?? 0;
+        const blUpdated = blResult.inventoryUpdated  ?? 0;
+        console.log(`[Channel] ✓ BrickLink: ${blAdded} added, ${blUpdated} updated`);
         await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
-          status: 'error',
-          errorMessage: blErr.message,
+          status: 'success',
+          recordsAdded:   blAdded,
+          recordsUpdated: blUpdated,
         });
+      } catch (blErr: any) {
+        const alreadyRunning = blErr.message?.includes('already in progress');
+        console.error('[Channel] ✗ BrickLink inventory sync failed:', blErr.message);
+        if (alreadyRunning) {
+          console.log('[Channel] BL sync lock collision — continuing channel push with existing DB data');
+        } else {
+          await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
+            status: 'error',
+            errorMessage: blErr.message,
+          });
+        }
+        // Continue with channel syncs using existing local DB data — do not abort
+        allErrors.push(`[bricklink] ${blErr.message}`);
       }
-      // Continue with channel syncs using existing local DB data — do not abort
-      allErrors.push(`[bricklink] ${blErr.message}`);
     }
 
     for (const channelKey of channelKeys) {
