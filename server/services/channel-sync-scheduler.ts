@@ -245,7 +245,11 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
         ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, metaId))
         : eq(syncMetadata.id, metaId);
       const [prevMeta] = await db.select().from(syncMetadata).where(whereClause).limit(1);
-      if (!forceFullScan && prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
+      // Accept both 'success' and 'partial' as valid base points for incremental sync.
+      // A partial run still processed and advanced the clock for all non-erroring items,
+      // so using its lastSyncTime prevents re-processing every lot on the next run.
+      const canIncrement = prevMeta?.lastSyncStatus === 'success' || prevMeta?.lastSyncStatus === 'partial';
+      if (!forceFullScan && canIncrement && prevMeta?.lastSyncTime) {
         sinceTime = new Date(prevMeta.lastSyncTime);
         console.log(`[Channel] Incremental mode: processing BL items changed since ${sinceTime.toISOString()}`);
       } else {

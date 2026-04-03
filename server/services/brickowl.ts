@@ -1686,6 +1686,12 @@ export async function syncBrickLinkToBrickOwl(
             // BrickOwl has this lot queued for removal — skip silently, not our error
             console.warn(`[ChannelSync] Skipping ${item.itemNo} (BOID ${boid}): BrickOwl item is scheduled for deletion`);
             result.lotsSkipped++;
+          } else if (msg.includes('Invalid BOID') || msg.includes('item not found') || (msg.includes('404') && msg.includes('not found'))) {
+            // The BOID we resolved doesn't exist on BrickOwl — permanent catalog gap,
+            // not a retriable error. Treat as a quiet skip so it doesn't flip the sync
+            // status to 'partial' and block incremental sinceTime advancement.
+            console.warn(`[ChannelSync] Skipping ${item.itemNo} (BOID ${boid}): BOID not found on BrickOwl (permanent catalog gap)`);
+            result.lotsSkipped++;
           } else {
             result.errors.push(`${item.itemNo}: create failed — ${msg}`);
             result.lotsSkipped++;
