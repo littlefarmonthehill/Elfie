@@ -643,27 +643,45 @@ export async function mapColorId(bricklinkColorId: number, orgId?: string): Prom
  *   - Full strings ('New (Sealed)', 'Used (Good)', etc.) are ALWAYS rejected with 400.
  *     The error message displays full strings as examples — do NOT send them.
  *   - Short codes are required for both create and update calls.
- *   - The valid short code set differs by item type:
- *       Sets  : news, usedc  (new-sealed / used-complete)
- *       Gear  : news, usedc  (all codes accepted, but sealed/complete most appropriate)
- *       Parts, Minifigs, Books, Instructions, everything else:
- *               new,  usedg  (new / used-good)
+ *   - Valid short codes differ by item type AND (for Sets) BrickLink completeness:
  *
- * BrickOwl's GET /inventory/list returns the same short codes in the 'full_con' field —
- * those short codes are used for matching existing lots but are never sent to write APIs
- * (they come from the API response, so they already ARE the right format for matching).
+ *   Sets (completeness-aware):
+ *     BL completeness S + N → 'news'   (New Sealed)
+ *     BL completeness C + N → 'newc'   (New Complete)
+ *     BL completeness B + N → 'newi'   (New Incomplete)
+ *     unknown/null    + N → 'news'     (safest fallback for new sets)
+ *     BL completeness C + U → 'usedc'  (Used Complete)
+ *     BL completeness B + U → 'usedi'  (Used Incomplete)
+ *     unknown/null    + U → 'usedc'    (safest fallback for used sets)
  *
- * Mapping (BrickLink N/U → BrickOwl short code):
- *   Sets / Gear : N → 'news',  U → 'usedc'
- *   Everything else: N → 'new', U → 'usedg'
+ *   Gear: N → 'news', U → 'usedc'  (all codes accepted; sealed/complete most appropriate)
+ *
+ *   Parts, Minifigs, Books, Instructions, everything else:
+ *     N → 'new', U → 'usedg'
+ *
+ * BrickOwl's GET /inventory/list returns short codes in the 'full_con' field —
+ * used for matching existing lots, never sent to write APIs.
  */
-export function toBOApiCondition(newOrUsed: string, itemType?: string): string {
+export function toBOApiCondition(newOrUsed: string, itemType?: string, completeness?: string | null): string {
   const isNew = newOrUsed === 'N';
   const type = (itemType ?? '').toUpperCase();
-  // Sets and Gear use sealed/complete short codes
-  if (type === 'SET' || type === 'S' || type === 'GEAR' || type === 'G') {
+
+  if (type === 'SET' || type === 'S') {
+    const c = (completeness ?? '').toUpperCase();
+    if (isNew) {
+      if (c === 'C') return 'newc';   // New (Complete)
+      if (c === 'B') return 'newi';   // New (Incomplete)
+      return 'news';                  // New (Sealed) — default / completeness=S
+    } else {
+      if (c === 'B') return 'usedi';  // Used (Incomplete)
+      return 'usedc';                 // Used (Complete) — default / completeness=C
+    }
+  }
+
+  if (type === 'GEAR' || type === 'G') {
     return isNew ? 'news' : 'usedc';
   }
+
   // Parts, Minifigs, Books, Instructions, and everything else
   return isNew ? 'new' : 'usedg';
 }
@@ -682,7 +700,7 @@ export async function syncInventoryItem(
 }> {
   try {
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-    const apiCondition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined);
+    const apiCondition = toBOApiCondition(blItem.newOrUsed, blItem.itemType ?? undefined, blItem.completeness ?? undefined);
     const isUsedItem   = blItem.newOrUsed !== 'N';
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
@@ -770,7 +788,7 @@ export async function syncInventoryItem(
       if (!brickowlInventory) {
         brickowlInventory = await getBrickOwlInventory(false, orgId);
       }
-      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda'];
+      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda', 'usedi'];
       const untaggedMatches = brickowlInventory.filter((lot: any) => {
         const lotCond = lot.full_con || lot.condition;
         return lot.boid === boid &&
@@ -1045,7 +1063,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: item.unitPrice ? parseFloat(item.unitPrice) : 0,
-            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined),
+            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined, item.completeness ?? undefined),
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1070,7 +1088,7 @@ export async function syncBrickLinkToBrickOwl(
             lot_id: existingTaggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: lotPrice,
-            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined),
+            condition: toBOApiCondition(item.newOrUsed, item.itemType ?? undefined, item.completeness ?? undefined),
             qtyChanged: false,
             priceChanged: false,
             hasNonQtyChange: true,
@@ -1093,7 +1111,7 @@ export async function syncBrickLinkToBrickOwl(
     }
 
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined);
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined, item.completeness ?? undefined);
     const isUsedItem   = item.newOrUsed !== 'N';
 
     const taggedLot = taggedLotMap.get(item.id.toString());
@@ -1570,7 +1588,7 @@ export async function syncBrickLinkToBrickOwl(
     }
     const item = adoptCandidates[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
-    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined);
+    const apiCondition = toBOApiCondition(item.newOrUsed, item.itemType ?? undefined, item.completeness ?? undefined);
     const isUsedItem   = item.newOrUsed !== 'N';
 
     const boid = boidMap.get(adoptIdx);
@@ -1580,7 +1598,7 @@ export async function syncBrickLinkToBrickOwl(
       // not a sync failure. Count as skipped, not an error.
       result.lotsSkipped++;
     } else {
-      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda'];
+      const USED_CONDITIONS = ['usedg', 'usedc', 'usedn', 'useda', 'usedi'];
       const untagged = brickowlInventory.filter((lot: any) => {
         const lotCond = lot.full_con || lot.condition;
         return lot.boid === boid &&
