@@ -6402,13 +6402,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-scope">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
-                              <span className="text-[10px] text-gray-500">{syncScopeData.totalLots.toLocaleString()} total BL lots</span>
+                              <span className="text-[10px] text-gray-500">{syncScopeData.totalLots?.toLocaleString() ?? '—'} total BL lots</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                              <span className="text-lg font-bold text-white font-mono" data-testid="stat-scope-in-scope">{syncScopeData.inScopeLots.toLocaleString()}</span>
+                              <span className="text-lg font-bold text-white font-mono" data-testid="stat-scope-in-scope">{syncScopeData.inScopeLots?.toLocaleString() ?? '—'}</span>
                               <span className="text-[11px] text-gray-400">lots in scope</span>
                             </div>
-                            {syncScopeData.exclusions.length > 0 ? (
+                            {(syncScopeData.exclusions ?? []).length > 0 ? (
                               <div className="space-y-1">
                                 {syncScopeData.exclusions.map((ex) => (
                                   <div key={ex.reason} className="flex items-center justify-between gap-2">
@@ -6710,13 +6710,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-ebay-scope">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Sync Scope</span>
-                            <span className="text-[10px] text-gray-500">{ebayScopeData.totalLots.toLocaleString()} total BL lots</span>
+                            <span className="text-[10px] text-gray-500">{ebayScopeData.totalLots?.toLocaleString() ?? '—'} total BL lots</span>
                           </div>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-lg font-bold text-white font-mono" data-testid="stat-ebay-scope-in-scope">{ebayScopeData.inScopeLots.toLocaleString()}</span>
+                            <span className="text-lg font-bold text-white font-mono" data-testid="stat-ebay-scope-in-scope">{ebayScopeData.inScopeLots?.toLocaleString() ?? '—'}</span>
                             <span className="text-[11px] text-gray-400">lots in scope</span>
                           </div>
-                          {ebayScopeData.exclusions.length > 0 ? (
+                          {(ebayScopeData.exclusions ?? []).length > 0 ? (
                             <div className="space-y-1">
                               {ebayScopeData.exclusions.map((ex) => (
                                 <div key={ex.reason} className="flex items-center justify-between gap-2">
