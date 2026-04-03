@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
@@ -295,6 +295,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
 
               const isBrickOwl = order.marketplace === 'BrickOwl';
               const isShipped = order.orderStatus === 'shipped';
+              const isCompleted = order.orderStatus === 'completed';
               const isReturned = order.orderStatus === 'returned';
               const orderTotalNum = parseFloat(order.orderTotal ?? '0');
               const refundTotalNum = parseFloat(order.refundTotal ?? '0');
@@ -317,6 +318,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         {order.marketplace && (
                           <Badge variant="outline" className="text-xs">
                             {order.marketplace}
+                          </Badge>
+                        )}
+                        {isCompleted && (
+                          <Badge className="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 gap-1">
+                            <PackageCheck className="w-3 h-3" />
+                            Completed
                           </Badge>
                         )}
                         {isReturned && (
