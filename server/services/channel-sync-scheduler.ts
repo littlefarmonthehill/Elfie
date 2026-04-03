@@ -254,11 +254,18 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
         recordsUpdated: blUpdated,
       });
     } catch (blErr: any) {
+      const alreadyRunning = blErr.message?.includes('already in progress');
       console.error('[Channel] ✗ BrickLink inventory sync failed:', blErr.message);
-      await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
-        status: 'error',
-        errorMessage: blErr.message,
-      });
+      if (alreadyRunning) {
+        // Another BL sync is already running — leave the existing in_progress status so
+        // the BrickLink tile keeps showing "syncing…" instead of flashing a spurious error.
+        console.log('[Channel] BL sync lock collision — continuing channel push with existing DB data');
+      } else {
+        await upsertSyncMetadata('bricklink_inventory', effectiveOrgId, {
+          status: 'error',
+          errorMessage: blErr.message,
+        });
+      }
       // Continue with channel syncs using existing local DB data — do not abort
       allErrors.push(`[bricklink] ${blErr.message}`);
     }

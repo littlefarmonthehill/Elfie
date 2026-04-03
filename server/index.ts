@@ -454,6 +454,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
           'bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion',
           'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders',
           'forum_sync', 'rebrickable_set_parts', 'market_news_sync', 'business_intel_sync',
+          'channel_sync_brickowl', 'channel_sync_ebay',
         ];
         for (const id of staleIds) {
           await dbInstance.update(syncMeta)

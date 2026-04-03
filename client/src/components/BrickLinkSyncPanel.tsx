@@ -106,6 +106,11 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
   });
 
   const lastSync = syncStatuses?.inventory;
+  // True when the unified channel sync (BL pull + channel push) is running.
+  // The BL step marks bricklink_inventory as in_progress, but if there's a lock collision
+  // with a standalone BL sync, the status can flicker to error.  Detecting the channel
+  // sync separately lets us keep showing progress instead of a spurious red warning.
+  const isChannelSyncRunning = syncStatuses?.channel?.lastSyncStatus === 'in_progress';
 
   const syncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
@@ -129,23 +134,24 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
   });
 
   const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+  const anyRunning = isRunning || isChannelSyncRunning;
 
-  const prevIsRunningRef = useRef(isRunning);
+  const prevIsRunningRef = useRef(anyRunning);
   useEffect(() => {
     const wasRunning = prevIsRunningRef.current;
-    prevIsRunningRef.current = isRunning;
-    if (wasRunning && !isRunning) {
+    prevIsRunningRef.current = anyRunning;
+    if (wasRunning && !anyRunning) {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory/health'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sync/bricklink/recent-changes'] });
     }
-  }, [isRunning]);
+  }, [anyRunning]);
 
   const { data: progressData } = useQuery<{ status: string; currentStep: string; progress: number; details: any }>({
     queryKey: ['/api/sync/bricklink/progress'],
-    refetchInterval: isRunning ? 2000 : false,
-    enabled: isRunning,
+    refetchInterval: anyRunning ? 2000 : false,
+    enabled: anyRunning,
   });
 
   const { data: recentChanges, isLoading: recentChangesLoading } = useQuery<{ items: any[]; totalCount: number }>({
@@ -156,7 +162,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
   });
 
   const progressPct = progressData?.progress ?? 0;
-  const showProgress = isRunning;
+  const showProgress = anyRunning;
 
   function relTime(iso: string | null | undefined): string {
     if (!iso) return '';
@@ -169,17 +175,23 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
     return `${Math.floor(h / 24)}d ago`;
   }
 
+  // When channel sync is running but BL is not individually running, treat as neutral/in-progress
+  const effectiveStatus = (isChannelSyncRunning && !isRunning)
+    ? 'in_progress'
+    : lastSync?.lastSyncStatus;
+
   const syncStatusColor =
-    lastSync?.lastSyncStatus === 'success'  ? 'text-orange-300' :
-    lastSync?.lastSyncStatus === 'partial'  ? 'text-yellow-400' :
-    lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? 'text-red-400' :
+    effectiveStatus === 'success'  ? 'text-orange-300' :
+    effectiveStatus === 'partial'  ? 'text-yellow-400' :
+    effectiveStatus === 'error' || effectiveStatus === 'failed' ? 'text-red-400' :
+    effectiveStatus === 'in_progress' ? 'text-blue-400' :
     'text-gray-500';
 
   const SyncStatusIcon =
-    lastSync?.lastSyncStatus === 'success'  ? CheckCircle2 :
-    lastSync?.lastSyncStatus === 'partial'  ? AlertTriangle :
-    lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? XCircle :
-    Clock;
+    effectiveStatus === 'success'  ? CheckCircle2 :
+    effectiveStatus === 'partial'  ? AlertTriangle :
+    effectiveStatus === 'error' || effectiveStatus === 'failed' ? XCircle :
+    Loader2;
 
   const addedCount = lastSync?.recordsAdded ?? 0;
   const updatedCount = lastSync?.recordsUpdated ?? 0;
@@ -260,10 +272,10 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                 </Button>
               </div>
               <Separator className="bg-gray-700/60" />
-              {isRunning && (
+              {anyRunning && (
                 <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
-                  <div className="flex items-center gap-2 text-xs text-blue-300"><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="font-medium">Sync in progress</span></div>
-                  {progressData && (<><Progress value={progressPct} className="h-2" /><div className="flex justify-between text-[10px] text-gray-400"><span>{progressData.currentStep ?? 'Syncing…'}</span><span className="tabular-nums font-mono">{progressPct}%</span></div></>)}
+                  <div className="flex items-center gap-2 text-xs text-blue-300"><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="font-medium">{isChannelSyncRunning && !isRunning ? 'Channel sync in progress' : 'Sync in progress'}</span></div>
+                  {progressData && (<><Progress value={progressPct} className="h-2" /><div className="flex justify-between text-[10px] text-gray-400"><span>{isChannelSyncRunning && !isRunning ? 'Channel sync — updating channels…' : (progressData.currentStep ?? 'Syncing…')}</span><span className="tabular-nums font-mono">{progressPct}%</span></div></>)}
                 </div>
               )}
               {lastSync && (
@@ -349,7 +361,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
           <div className="space-y-1" data-testid="bricklink-sync-progress">
             <Progress value={progressPct} className="h-1.5" />
             <div className="flex justify-between text-[10px] text-gray-500">
-              <span>{progressData?.currentStep ?? 'Syncing…'}</span>
+              <span>{isChannelSyncRunning && !isRunning ? 'Channel sync — updating channels…' : (progressData?.currentStep ?? 'Syncing…')}</span>
               <span className="tabular-nums">{progressPct}%</span>
             </div>
           </div>
@@ -368,15 +380,17 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
               </span>
             </>
           )}
-          {lastSync ? (
+          {(lastSync || isChannelSyncRunning) ? (
             <span className={`flex items-center gap-1 text-[10px] ${syncStatusColor}`}>
-              <SyncStatusIcon className="w-2.5 h-2.5" />
-              {lastSync.lastSyncStatus === 'success'
+              <SyncStatusIcon className={`w-2.5 h-2.5 ${anyRunning ? 'animate-spin' : ''}`} />
+              {isChannelSyncRunning && !isRunning
+                ? 'channel sync in progress'
+                : lastSync?.lastSyncStatus === 'success'
                 ? `+${addedCount} added, ${updatedCount} updated`
-                : lastSync.lastSyncStatus === 'in_progress'
+                : lastSync?.lastSyncStatus === 'in_progress'
                 ? 'syncing…'
-                : lastSync.errorMessage ?? lastSync.lastSyncStatus}
-              {lastSync.lastSyncTime && (
+                : lastSync?.errorMessage ?? lastSync?.lastSyncStatus}
+              {!anyRunning && lastSync?.lastSyncTime && (
                 <span className="text-gray-500 ml-0.5">· {relTime(lastSync.lastSyncTime)}</span>
               )}
             </span>
