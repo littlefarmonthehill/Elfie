@@ -220,7 +220,12 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
 
   console.log(`\n🌐 Starting ${isManualPerChannel ? 'manual' : 'scheduled'} channel sync for ${channelKeys.length} channel(s): ${channelKeys.join(', ')} (mode: ${syncMode}${targetChannel ? `, targeted: ${targetChannel}` : ''})`);
 
-  await upsertSyncMetadata(SYNC_ID, effectiveOrgId, { status: 'in_progress' });
+  // Manual per-channel syncs only touch per-channel metadata — never the global
+  // channel_sync record. Updating the global record would light up the BrickLink
+  // tile (and any other UI that watches channel_sync) for an unrelated channel push.
+  if (!isManualPerChannel) {
+    await upsertSyncMetadata(SYNC_ID, effectiveOrgId, { status: 'in_progress' });
+  }
 
   // Aggregate totals across all channels
   let totalCreated = 0, totalUpdated = 0, totalSkipped = 0, totalApiCalls = 0;
@@ -381,13 +386,15 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       perChannel,
     };
 
-    await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
-      status,
-      recordsAdded:    totalCreated,
-      recordsUpdated:  totalUpdated,
-      errorMessage:    hasErrors ? `${allErrors.length} lots failed` : null,
-      lastSyncMetaJson: JSON.stringify(channelSyncLastResult),
-    });
+    if (!isManualPerChannel) {
+      await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
+        status,
+        recordsAdded:    totalCreated,
+        recordsUpdated:  totalUpdated,
+        errorMessage:    hasErrors ? `${allErrors.length} lots failed` : null,
+        lastSyncMetaJson: JSON.stringify(channelSyncLastResult),
+      });
+    }
 
     retry.count = 0;
     resolveSchedulerIssues(SYNC_TYPE);
@@ -402,10 +409,12 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
       console.log(`[Channel] All ${MAX_RETRIES} retries exhausted`);
     }
 
-    await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
-      status: 'error',
-      errorMessage: error.message,
-    });
+    if (!isManualPerChannel) {
+      await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
+        status: 'error',
+        errorMessage: error.message,
+      });
+    }
 
     recordSyncIssue({
       syncType: SYNC_TYPE,
