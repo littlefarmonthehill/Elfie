@@ -2860,6 +2860,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && (activeSection === 'autoSync' || (activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler') || activeSection === 'enrichment'),
   });
 
+  type ChannelPerResult = {
+    lotsCreated: number;
+    lotsUpdated: number;
+    lotsSkipped: number;
+    errorCount: number;
+    errors: string[];
+    status: 'success' | 'partial' | 'error';
+    updatedItems?: any[];
+  };
   const { data: channelLastResult } = useQuery<{
     completedAt: string;
     mode: string;
@@ -2870,6 +2879,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     totalApiCalls: number;
     errorCount: number;
     errors: string[];
+    perChannel?: Record<string, ChannelPerResult>;
   } | null>({
     queryKey: ['/api/channel-sync/last-result'],
     refetchInterval: 30000,
@@ -6397,39 +6407,48 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         )}
 
-                        {/* Last sync result */}
-                        {channelLastResult && (
-                          <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-last-result">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
-                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                                channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
-                                channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
-                                'bg-red-900/50 text-red-400'
-                              }`} data-testid="text-channel-last-status">
-                                {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
-                              </span>
-                              <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
-                              <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
-                                {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2">
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
-                              <button onClick={() => channelLastResult.lotsUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${channelLastResult.lotsUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated {channelLastResult.lotsUpdated > 0 && <span className="text-blue-600">↗</span>}</div></button>
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
-                            </div>
-                            {channelLastResult.errors.length > 0 && (
-                              <div className="space-y-1 mt-1" data-testid="list-channel-errors">
-                                {channelLastResult.errors.slice(0, 3).map((err, i) => (
-                                  <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
-                                ))}
-                                {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
+                        {/* Last sync result — BrickOwl-specific */}
+                        {channelLastResult && (() => {
+                          const boResult = channelLastResult.perChannel?.brickowl;
+                          const displayStatus = boResult?.status ?? channelLastResult.status;
+                          const displayCreated = boResult?.lotsCreated ?? channelLastResult.lotsCreated;
+                          const displayUpdated = boResult?.lotsUpdated ?? channelLastResult.lotsUpdated;
+                          const displaySkipped = boResult?.lotsSkipped ?? channelLastResult.lotsSkipped;
+                          const displayErrorCount = boResult?.errorCount ?? channelLastResult.errorCount;
+                          const displayErrors = boResult?.errors ?? channelLastResult.errors;
+                          return (
+                            <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-channel-last-result">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                  displayStatus === 'success' ? 'bg-green-900/50 text-green-400' :
+                                  displayStatus === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                                  'bg-red-900/50 text-red-400'
+                                }`} data-testid="text-channel-last-status">
+                                  {displayStatus === 'success' ? 'Success' : displayStatus === 'partial' ? 'Partial' : 'Error'}
+                                </span>
+                                <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                                <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
+                                  {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        )}
+                              <div className="grid grid-cols-4 gap-2">
+                                <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{displayCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
+                                <button onClick={() => displayUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${displayUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{displayUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated {displayUpdated > 0 && <span className="text-blue-600">↗</span>}</div></button>
+                                <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{displaySkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
+                                <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${displayErrorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{displayErrorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
+                              </div>
+                              {displayErrors.length > 0 && (
+                                <div className="space-y-1 mt-1" data-testid="list-channel-errors">
+                                  {displayErrors.slice(0, 3).map((err, i) => (
+                                    <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                                  ))}
+                                  {displayErrors.length > 3 && <p className="text-[10px] text-gray-600">+{displayErrors.length - 3} more errors</p>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Item Groups accordion */}
                         <button
@@ -6662,6 +6681,40 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ebayEnv === 'sandbox' ? 'bg-yellow-400' : 'bg-green-400'}`} />
                             <span className="capitalize">{ebayEnv}</span>
                             {ebayEnv === 'sandbox' && <span className="text-[10px] px-1 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-medium">Sandbox</span>}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Last sync result — eBay-specific */}
+                      {channelLastResult?.perChannel?.ebay && (() => {
+                        const ebayResult = channelLastResult.perChannel!.ebay;
+                        return (
+                          <div className="px-4 py-3 space-y-2 border-t border-gray-700/40" data-testid="card-ebay-last-result">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                ebayResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
+                                ebayResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                                'bg-red-900/50 text-red-400'
+                              }`} data-testid="text-ebay-last-status">
+                                {ebayResult.status === 'success' ? 'Success' : ebayResult.status === 'partial' ? 'Partial' : 'Error'}
+                              </span>
+                              <span className="text-[10px] text-gray-500" data-testid="text-ebay-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-ebay-created"><div className="text-sm font-bold text-green-400">{ebayResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-ebay-updated"><div className="text-sm font-bold text-blue-400">{ebayResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-ebay-skipped"><div className="text-sm font-bold text-gray-400">{ebayResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-ebay-errors"><div className={`text-sm font-bold ${ebayResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{ebayResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
+                            </div>
+                            {ebayResult.errors.length > 0 && (
+                              <div className="space-y-1 mt-1" data-testid="list-ebay-errors">
+                                {ebayResult.errors.slice(0, 3).map((err, i) => (
+                                  <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                                ))}
+                                {ebayResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{ebayResult.errors.length - 3} more errors</p>}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}

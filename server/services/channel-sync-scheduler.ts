@@ -16,6 +16,16 @@ const retry = { count: 0, nextAt: 0 };
 
 let channelSyncProgress: { processed: number; total: number; phase: 'idle' | 'fetching' | 'syncing' } = { processed: 0, total: 0, phase: 'idle' };
 
+interface ChannelResult {
+  lotsCreated: number;
+  lotsUpdated: number;
+  lotsSkipped: number;
+  errorCount: number;
+  errors: string[];
+  status: 'success' | 'partial' | 'error';
+  updatedItems?: SyncUpdatedItem[];
+}
+
 interface ChannelSyncLastResult {
   completedAt: string;
   mode: string;
@@ -27,6 +37,7 @@ interface ChannelSyncLastResult {
   errorCount: number;
   errors: string[];
   updatedItems?: SyncUpdatedItem[];
+  perChannel: Record<string, ChannelResult>;
 }
 let channelSyncLastResult: ChannelSyncLastResult | null = null;
 
@@ -199,6 +210,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   const allErrors: string[] = [];
   let anyAborted = false;
   let lastUpdatedItems: SyncUpdatedItem[] | undefined;
+  const perChannel: Record<string, ChannelResult> = {};
 
   try {
     // Read last successful sync time for incremental mode
@@ -243,20 +255,41 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
         totalUpdated   += result.lotsUpdated;
         totalSkipped   += result.lotsSkipped;
         totalApiCalls  += result.totalApiCalls;
-        allErrors.push(...result.errors.map(e => `[${channelKey}] ${e}`));
+        const channelErrors = result.errors.map(e => `[${channelKey}] ${e}`);
+        allErrors.push(...channelErrors);
 
         // Carry updatedItems from BrickOwl (UI-facing, channel-specific for now)
-        if (channelKey === 'brickowl' && (result as any).updatedItems) {
-          lastUpdatedItems = (result as any).updatedItems;
-        }
+        const channelUpdatedItems = channelKey === 'brickowl' && (result as any).updatedItems
+          ? (result as any).updatedItems
+          : undefined;
+        if (channelUpdatedItems) lastUpdatedItems = channelUpdatedItems;
 
         const wasAborted = channelKey === 'brickowl' ? isChannelSyncAbortRequested() : false;
         if (wasAborted) anyAborted = true;
 
+        perChannel[channelKey] = {
+          lotsCreated: result.lotsCreated,
+          lotsUpdated: result.lotsUpdated,
+          lotsSkipped: result.lotsSkipped,
+          errorCount:  result.errors.length,
+          errors:      result.errors.slice(0, 10),
+          status:      result.errors.length > 0 || wasAborted ? 'partial' : 'success',
+          updatedItems: channelUpdatedItems,
+        };
+
         console.log(`[Channel] ✓ ${channelKey}: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors`);
       } catch (chanErr: any) {
         console.error(`[Channel] ✗ ${channelKey} sync failed:`, chanErr.message);
+        console.error(`[Channel] ✗ ${channelKey} stack:`, chanErr.stack);
         allErrors.push(`[${channelKey}] ${chanErr.message}`);
+        perChannel[channelKey] = {
+          lotsCreated: 0,
+          lotsUpdated: 0,
+          lotsSkipped: 0,
+          errorCount:  1,
+          errors:      [chanErr.message],
+          status:      'error',
+        };
       }
     }
 
@@ -276,6 +309,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
       errorCount:    allErrors.length,
       errors:        allErrors.slice(0, 20),
       updatedItems:  lastUpdatedItems,
+      perChannel,
     };
 
     await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {

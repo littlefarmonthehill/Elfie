@@ -563,13 +563,20 @@ export async function syncBrickLinkToEbay(
   };
 
   // ── Step 1: Load BrickLink inventory ──────────────────────────────────────
-  const rawBl = await db
-    .select()
-    .from(blInventory)
-    .where(and(
-      eq(blInventory.orgId, orgId),
-      isNull(blInventory.deletedAt),
-    ));
+  let rawBl: (typeof blInventory.$inferSelect)[];
+  try {
+    rawBl = await db
+      .select()
+      .from(blInventory)
+      .where(and(
+        eq(blInventory.orgId, orgId),
+        isNull(blInventory.deletedAt),
+      ));
+  } catch (err: any) {
+    console.error('[eBay] Failed to load BrickLink inventory:', err.message, err.stack);
+    result.errors.push(`Failed to load BrickLink inventory: ${err.message}`);
+    return result;
+  }
 
   // Filter by syncItemTypes
   const blLots = rawBl.filter(lot => {
@@ -584,18 +591,26 @@ export async function syncBrickLinkToEbay(
   const itemNos = [...new Set(blLots.map(l => l.itemNo))];
   const colorIds = [...new Set(blLots.map(l => l.colorId).filter((c): c is number => c != null))];
 
-  const [catalogRows, colorRows] = await Promise.all([
-    itemNos.length > 0
-      ? db.select({ itemNo: blCatalog.itemNo, itemType: blCatalog.itemType, name: blCatalog.name })
-          .from(blCatalog)
-          .where(inArray(blCatalog.itemNo, itemNos))
-      : Promise.resolve([]),
-    colorIds.length > 0
-      ? db.select({ colorId: blColors.colorId, colorName: blColors.colorName })
-          .from(blColors)
-          .where(inArray(blColors.colorId, colorIds))
-      : Promise.resolve([]),
-  ]);
+  let catalogRows: { itemNo: string; itemType: string | null; name: string | null }[] = [];
+  let colorRows: { colorId: number; colorName: string }[] = [];
+  try {
+    [catalogRows, colorRows] = await Promise.all([
+      itemNos.length > 0
+        ? db.select({ itemNo: blCatalog.itemNo, itemType: blCatalog.itemType, name: blCatalog.name })
+            .from(blCatalog)
+            .where(inArray(blCatalog.itemNo, itemNos))
+        : Promise.resolve([]),
+      colorIds.length > 0
+        ? db.select({ colorId: blColors.colorId, colorName: blColors.colorName })
+            .from(blColors)
+            .where(inArray(blColors.colorId, colorIds))
+        : Promise.resolve([]),
+    ]);
+  } catch (err: any) {
+    console.error('[eBay] Failed to load catalog/color data:', err.message, err.stack);
+    result.errors.push(`Failed to load catalog data: ${err.message}`);
+    return result;
+  }
 
   const catalogMap = new Map<string, string>();
   for (const row of catalogRows) catalogMap.set(`${row.itemType}:${row.itemNo}`, row.name ?? '');
@@ -603,13 +618,20 @@ export async function syncBrickLinkToEbay(
   for (const row of colorRows) colorMap.set(row.colorId, row.colorName);
 
   // ── Step 3: Load existing channel lot links (BL→eBay mappings) ────────────
-  const existingLinks = await db
-    .select()
-    .from(channelLotLinks)
-    .where(and(
-      eq(channelLotLinks.orgId, orgId),
-      eq(channelLotLinks.channel, EBAY_CHANNEL),
-    ));
+  let existingLinks: (typeof channelLotLinks.$inferSelect)[];
+  try {
+    existingLinks = await db
+      .select()
+      .from(channelLotLinks)
+      .where(and(
+        eq(channelLotLinks.orgId, orgId),
+        eq(channelLotLinks.channel, EBAY_CHANNEL),
+      ));
+  } catch (err: any) {
+    console.error('[eBay] Failed to load channel lot links:', err.message, err.stack);
+    result.errors.push(`Failed to load channel lot links: ${err.message}`);
+    return result;
+  }
 
   const linkByBlInvId = new Map<number, string>(); // blInvId → eBay listing ID or SKU
   for (const link of existingLinks) {
