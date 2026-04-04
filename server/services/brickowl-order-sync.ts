@@ -178,6 +178,8 @@ async function processBrickOwlOrder(
 
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id, boOrder.status ?? boOrder.status_name);
   const effectiveOrderId = existingOrder?.id ?? orderId;
+  // BrickOwl status_id 0/1/7 map to 'awaiting_payment' — order exists but payment not confirmed.
+  const isUnpaid = normalizedStatus === 'awaiting_payment';
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
@@ -255,9 +257,12 @@ async function processBrickOwlOrder(
     // UPSERT instead of plain INSERT — handles race conditions from multi-device manual syncs
     // and cross-session re-inserts after server restarts.  inventoryDeducted is intentionally
     // excluded from the conflict update set so a previously-deducted order is never re-deducted.
+    if (isUnpaid) {
+      console.log(`💳 BrickOwl order ${orderId}: awaiting payment (status_id ${boOrder.status_id}) — setting workflowStatus='unpaid'`);
+    }
     const [upserted] = await db
       .insert(orders)
-      .values([{ ...orderData, orgId }])
+      .values([{ ...orderData, orgId, workflowStatus: isUnpaid ? 'unpaid' : 'new' }])
       .onConflictDoUpdate({
         target: orders.id,
         set: {
@@ -316,8 +321,14 @@ async function processBrickOwlOrder(
         previousStatus: existingOrder.orderStatus,
         // Preserve existing note if the sync returns null (wrong field name, blank API response, etc.)
         customerNotes: orderData.customerNotes ?? existingOrder.customerNotes ?? null,
+        // Auto-promote: if payment just arrived and workflow is still 'unpaid', advance to 'new'
+        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid ? { workflowStatus: 'new' } : {}),
       })
       .where(eq(orders.id, effectiveOrderId));
+
+    if (existingOrder.workflowStatus === 'unpaid' && !isUnpaid) {
+      console.log(`💳 BrickOwl order ${effectiveOrderId}: payment confirmed — auto-promoting workflowStatus 'unpaid' → 'new'`);
+    }
 
     result.ordersUpdated++;
 

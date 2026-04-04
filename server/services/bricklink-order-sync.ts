@@ -272,6 +272,8 @@ async function processBrickLinkOrder(
 
   const isReturn = blOrder.payment?.status === 'Returned';
   const normalizedStatus = isReturn ? 'returned' : mapPlatformStatus('bricklink', blOrder.status);
+  // BrickLink payment.status 'None' (or absent) means payment not yet received.
+  const isUnpaid = !isReturn && (!blOrder.payment?.status || blOrder.payment?.status === 'None');
 
   // Fetch full order detail for cost/shipping/address breakdown
   let orderDetail: any = null;
@@ -395,8 +397,14 @@ async function processBrickLinkOrder(
         ...(existingOrder.weight == null && orderData.weight
           ? { weight: orderData.weight, weightUnits: orderData.weightUnits }
           : {}),
+        // Auto-promote: if payment just arrived and workflow is still 'unpaid', advance to 'new'
+        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid ? { workflowStatus: 'new' } : {}),
       })
       .where(eq(orders.id, existingOrder.id));
+
+    if (existingOrder.workflowStatus === 'unpaid' && !isUnpaid) {
+      console.log(`💳 BrickLink order ${orderId}: payment received — auto-promoting workflowStatus 'unpaid' → 'new'`);
+    }
 
     result.ordersUpdated++;
 
@@ -447,9 +455,12 @@ async function processBrickLinkOrder(
     // Handles race conditions from concurrent manual syncs and server restarts.
     // inventoryDeducted is intentionally excluded from the conflict update set so
     // a previously-deducted order is never double-deducted on a re-sync.
+    if (isUnpaid) {
+      console.log(`💳 BrickLink order ${orderId}: payment not received — setting workflowStatus='unpaid'`);
+    }
     const [upserted] = await db
       .insert(orders)
-      .values([{ ...orderData, orgId }])
+      .values([{ ...orderData, orgId, workflowStatus: isUnpaid ? 'unpaid' : 'new' }])
       .onConflictDoUpdate({
         target: orders.id,
         set: {
