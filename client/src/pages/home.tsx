@@ -166,9 +166,7 @@ export default function Home() {
   });
   const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly;
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
-  const [activeDashboard, setActiveDashboard] = useState<DashboardType>(() =>
-    typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'inventory' : 'dashboard'
-  );
+  const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
@@ -1327,9 +1325,27 @@ export default function Home() {
                 if (activeDashboard === 'dashboard') {
                   return <BridgeQuadPanel onTune={tuneChannel} />;
                 }
+                // Non-Bridge: empty workspace — tools open here
                 return (
-                  <div style={{ height: '100%', overflowY: 'auto' }}>
-                    {renderDynamicDashboard(true, 'right')}
+                  <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', padding:'24px', position:'relative', overflow:'hidden' }}>
+                    {/* Ambient channel glow */}
+                    <div style={{ position:'absolute', inset:0, background:`radial-gradient(ellipse 60% 50% at 50% 50%, rgba(${screenRgb},0.07) 0%, transparent 70%)`, pointerEvents:'none' }} />
+                    {/* Corner grid marks */}
+                    {(['top-4 left-4','top-4 right-4','bottom-4 left-4','bottom-4 right-4'] as const).map((pos,i) => (
+                      <div key={i} className={`absolute ${pos}`} style={{ width:'18px', height:'18px', borderTop: i<2 ? `1px solid rgba(${screenRgb},0.25)` : 'none', borderBottom: i>=2 ? `1px solid rgba(${screenRgb},0.25)` : 'none', borderLeft: i%2===0 ? `1px solid rgba(${screenRgb},0.25)` : 'none', borderRight: i%2===1 ? `1px solid rgba(${screenRgb},0.25)` : 'none' }} />
+                    ))}
+                    {/* Channel ID badge */}
+                    <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'4px 10px', border:`1px solid rgba(${screenRgb},0.30)`, borderRadius:'6px', background:`rgba(${screenRgb},0.07)` }}>
+                      <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:screenHex, boxShadow:`0 0 8px ${screenHex}`, animation:'tv-dot-pulse 2s ease-in-out infinite' }} />
+                      <span style={{ fontSize:'9px', fontFamily:'monospace', color:screenHex, letterSpacing:'0.25em', textTransform:'uppercase', fontWeight:700 }}>CH {activeCh.num} · {activeCh.label}</span>
+                    </div>
+                    {/* Main workspace label */}
+                    <div style={{ textAlign:'center', display:'flex', flexDirection:'column', gap:'8px' }}>
+                      <div style={{ fontSize:'11px', fontFamily:'monospace', color:`rgba(${screenRgb},0.5)`, letterSpacing:'0.3em', textTransform:'uppercase' }}>WORKSPACE</div>
+                      <div style={{ fontSize:'9px', fontFamily:'monospace', color:'rgba(180,200,255,0.22)', letterSpacing:'0.15em', textTransform:'uppercase', lineHeight:1.6 }}>Select a tool from the left panel<br/>to open it here</div>
+                    </div>
+                    {/* Dashed border frame */}
+                    <div style={{ position:'absolute', inset:'20px', border:`1px dashed rgba(${screenRgb},0.10)`, borderRadius:'8px', pointerEvents:'none' }} />
                   </div>
                 );
               };
@@ -1425,7 +1441,7 @@ export default function Home() {
                                 </>
                               ) : (
                                 <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
-                                  {renderDynamicDashboard(true, 'left')}
+                                  {renderDynamicDashboard(true)}
                                 </div>
                               )}
                               {/* Now-viewing indicator — always visible */}
