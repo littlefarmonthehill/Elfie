@@ -77,6 +77,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browsePage, setBrowsePage] = useState(0);
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
+  const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>('systems');
 
   const openBrowse = (type: BrowseType) => {
     setBrowseDrawer(type);
@@ -126,6 +127,20 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     queryKey: ['/api/inventory/tool-stats'],
     staleTime: 2 * 60 * 1000,
   });
+
+  const { data: syncStatuses } = useQuery<any>({
+    queryKey: ['/api/sync/statuses'],
+    refetchInterval: 15000,
+  });
+
+  const hasChannelErrors = (() => {
+    if (!syncStatuses) return false;
+    const blErr = ['error', 'failed'].includes(syncStatuses.inventory?.lastSyncStatus);
+    const chErr = Object.values(syncStatuses.channels ?? {}).some(
+      (c: any) => ['error', 'failed'].includes(c?.lastSyncStatus)
+    );
+    return blErr || chErr;
+  })();
 
   const { data: pomInsights } = useQuery<{
     data: {
@@ -261,16 +276,52 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
         </div>
 
-        {/* Tools — Primary Workflows */}
-        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-tools">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-100/65 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
-            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
-              <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
-            </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
+        {/* SYSTEMS / UPLINK tab panel */}
+        <div className="relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden p-2.5 xl:p-3" data-testid="section-panel-tabs">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
+
+          {/* Retro control panel tab strip */}
+          <div className="flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 mb-3 shadow-inner" data-testid="control-panel-tabs">
+            <button
+              onClick={() => setPanelTab('systems')}
+              data-testid="tab-systems"
+              className={cn(
+                "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                panelTab === 'systems'
+                  ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
+                  : "text-gray-600 hover:text-gray-400"
+              )}
+            >
+              <Sparkles className="w-3 h-3 flex-shrink-0" />
+              Systems
+              {panelTab === 'systems' && (
+                <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
+              )}
+            </button>
+            <button
+              onClick={() => setPanelTab('uplink')}
+              data-testid="tab-uplink"
+              className={cn(
+                "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                panelTab === 'uplink'
+                  ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
+                  : "text-gray-600 hover:text-gray-400"
+              )}
+            >
+              <Globe className="w-3 h-3 flex-shrink-0" />
+              Uplink
+              {hasChannelErrors && panelTab !== 'uplink' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
+              )}
+              {panelTab === 'uplink' && (
+                <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
+              )}
+            </button>
           </div>
-          <div className={cn("grid grid-cols-2", "gap-2")}>
+
+          {/* SYSTEMS — Tools grid */}
+          {panelTab === 'systems' && (
+          <div className={cn("grid grid-cols-2", "gap-2")} data-testid="section-tools">
 
             {/* Price-O-Matic */}
             <button
@@ -375,23 +426,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </button>
 
           </div>
+          )}
 
-        </div>
-
-        {/* Selling Channels */}
-        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-selling-channels">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-100/65 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-2")}>
-            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
-              <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
+          {/* UPLINK — Selling Channels */}
+          {panelTab === 'uplink' && (
+            <div className="flex flex-col gap-2" data-testid="section-selling-channels">
+              <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
+              <ChannelSyncPanel channel="brickowl" onOpenSettings={onOpenSettings} />
+              <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
-          </div>
-          <div className="flex flex-col gap-2">
-            <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-            <ChannelSyncPanel channel="brickowl" onOpenSettings={onOpenSettings} />
-            <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
-          </div>
+          )}
         </div>
 
 
