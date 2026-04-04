@@ -63,8 +63,9 @@ export interface EbayChannelConfig {
   ebayFulfillmentPolicyId?: string;
   ebayPaymentPolicyId?:     string;
   ebayReturnPolicyId?:      string;
-  syncItemTypes:          Record<string, boolean>; // e.g. { S: true, P: false } — false = excluded
-  syncPriceFloor:         number | null;           // lots priced below this are skipped; null = no floor
+  syncItemTypes:          Record<string, boolean>;              // e.g. { S: true, P: false } — false = excluded
+  syncPriceFloor:         number | null;                        // lots priced below this are skipped; null = no floor
+  syncStockroomModes:     Record<string, 'skip' | 'active'>;   // per stockroom: skip = exclude, active = include
 }
 
 export const defaultEbayChannelConfig: EbayChannelConfig = {
@@ -79,6 +80,7 @@ export const defaultEbayChannelConfig: EbayChannelConfig = {
   priceSyncMode:          'always',
   syncItemTypes:          {},
   syncPriceFloor:         null,
+  syncStockroomModes:     { A: 'skip', B: 'skip', C: 'skip' },
 };
 
 // BrickLink color name → official LEGO color name mapping (for eBay item specifics).
@@ -698,7 +700,7 @@ export async function syncBrickLinkToEbay(
     return result;
   }
 
-  // Filter by syncItemTypes and syncPriceFloor
+  // Filter by syncItemTypes, syncPriceFloor, and syncStockroomModes
   const hasItemTypeFilter = Object.keys(config.syncItemTypes).length > 0;
   const priceFloor = config.syncPriceFloor ?? null;
   const blLots = rawBl.filter(lot => {
@@ -709,6 +711,11 @@ export async function syncBrickLinkToEbay(
     if (priceFloor && priceFloor > 0) {
       const lotPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
       if (lotPrice < priceFloor) return false;
+    }
+    // Stockroom filter: skip lots in stockrooms configured as 'skip'
+    if (lot.isStockRoom) {
+      const mode = config.syncStockroomModes[lot.stockRoomId ?? ''] ?? 'skip';
+      if (mode === 'skip') return false;
     }
     return true;
   });

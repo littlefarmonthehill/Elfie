@@ -45,6 +45,7 @@ export class EbayChannelAdapter implements IChannelSync {
           ...(cfgRow.channelConfig as Partial<EbayChannelConfig>),
           syncItemTypes: (cfgRow.syncItemTypes as Record<string, boolean>) ?? {},
           syncPriceFloor: cfgRow.syncPriceFloor != null ? Number(cfgRow.syncPriceFloor) : null,
+          syncStockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip' | 'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
         };
       }
     } catch { /* use defaults */ }
