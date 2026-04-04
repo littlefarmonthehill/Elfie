@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard, ShoppingCart, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,107 @@ import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
 import ChannelSyncPanel from "@/components/ChannelSyncPanel";
 import BundleTronPanel from "@/components/BundleTronPanel";
 import OrderSyncPanel, { PLATFORM_CONFIG as ORDER_PLATFORM_CONFIG, OrderSyncPlatform } from "@/components/OrderSyncPanel";
+
+function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
+  const { data: invStats } = useQuery<{ totalLots: number; totalParts: number; totalValue: number }>({
+    queryKey: ['/api/inventory/stats'],
+    staleTime: 60000,
+  });
+  const { data: orderStats } = useQuery<{ totalOrders: number; pendingOrders: number; shippedOrders: number }>({
+    queryKey: ['/api/orders/stats', 'mtd'],
+    staleTime: 60000,
+  });
+
+  const cards: Array<{
+    id: DashboardType; ch: string; label: string; hex: string; rgb: string;
+    Icon: React.ElementType;
+    stats: Array<{ label: string; value: string }>; desc: string;
+  }> = [
+    {
+      id: 'inventory', ch: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229',
+      Icon: Package,
+      stats: [
+        { label: 'LOTS',  value: invStats ? Number(invStats.totalLots).toLocaleString()  : '—' },
+        { label: 'PARTS', value: invStats ? Number(invStats.totalParts).toLocaleString() : '—' },
+      ],
+      desc: 'Stock · Pricing · Sync',
+    },
+    {
+      id: 'orders', ch: '03', label: 'ORDERS', hex: '#E8611C', rgb: '232,97,28',
+      Icon: ShoppingCart,
+      stats: [
+        { label: 'PENDING', value: orderStats ? Number(orderStats.pendingOrders).toLocaleString() : '—' },
+        { label: 'TOTAL',   value: orderStats ? Number(orderStats.totalOrders).toLocaleString()   : '—' },
+      ],
+      desc: 'Fulfillment · Workflow',
+    },
+    {
+      id: 'marketing', ch: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0',
+      Icon: Users,
+      stats: [
+        { label: 'ATTRACT',  value: 'TOOL' },
+        { label: 'ENGAGE',   value: 'TOOL' },
+      ],
+      desc: 'Attract · Engage · Retain',
+    },
+    {
+      id: 'sales', ch: '05', label: 'INSIGHTS', hex: '#00963C', rgb: '0,150,60',
+      Icon: TrendingUp,
+      stats: [
+        { label: 'REVENUE',  value: '→' },
+        { label: 'TRENDS',   value: '→' },
+      ],
+      desc: 'Analytics · Performance',
+    },
+  ];
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', padding: '12px', height: '100%', boxSizing: 'border-box' }}>
+      {cards.map(card => (
+        <button
+          key={card.id}
+          onClick={() => onTune(card.id)}
+          data-testid={`quad-card-${card.id}`}
+          style={{
+            background: `linear-gradient(145deg, rgba(${card.rgb},0.14) 0%, rgba(${card.rgb},0.04) 100%)`,
+            border: `1px solid rgba(${card.rgb},0.38)`,
+            borderRadius: '10px',
+            padding: '12px 14px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px',
+            boxShadow: `0 0 16px rgba(${card.rgb},0.12)`,
+            overflow: 'hidden',
+            position: 'relative',
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, rgba(${card.rgb},0.65), transparent)` }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <card.Icon style={{ width: '12px', height: '12px', color: card.hex, opacity: 0.7, flexShrink: 0 } as React.CSSProperties} />
+            <span style={{ fontFamily: 'monospace', fontSize: '8px', color: `rgba(${card.rgb},0.5)`, letterSpacing: '0.22em', textTransform: 'uppercase' }}>CH {card.ch}</span>
+            <div style={{ flex: 1, height: '1px', background: `rgba(${card.rgb},0.15)` }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '7px', color: `rgba(${card.rgb},0.35)`, letterSpacing: '0.15em' }}>ENTER →</span>
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 'clamp(13px,1.3vw,17px)', fontWeight: 900, color: card.hex, letterSpacing: '0.1em', textShadow: `0 0 10px ${card.hex}44` }}>
+            {card.label}
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(180,200,255,0.32)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{card.desc}</div>
+          <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', paddingTop: '4px' }}>
+            {card.stats.map(s => (
+              <div key={s.label} style={{ flex: 1, background: 'rgba(0,0,0,0.38)', borderRadius: '6px', padding: '5px 7px' }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 'clamp(12px,1.2vw,15px)', fontWeight: 700, color: card.hex, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '7px', color: 'rgba(180,200,255,0.38)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '2px' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   useAdminScaling();
@@ -398,16 +499,16 @@ export default function Home() {
     return true;
   };
 
-  const renderDynamicDashboard = (isDesktopMode?: boolean) => {
+  const renderDynamicDashboard = (isDesktopMode?: boolean, tvSplit?: 'left' | 'right') => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} tvSplit={tvSplit} />;
       default:
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
     }
@@ -432,19 +533,13 @@ export default function Home() {
     setRightPanelBrowse(null);
   };
 
-  const applyDefaultDesktopDrawer = (dashboard: DashboardType) => {
+  const applyDefaultDesktopDrawer = (_dashboard: DashboardType) => {
     setActiveInventoryDrawer(null);
     setActiveOrdersDrawer(null);
     setActiveMarketingDrawer(null);
     setActiveSalesDrawer(null);
     setBillingOpen(false);
     setRightPanelBrowse(null);
-    switch (dashboard) {
-      case 'inventory': setActiveInventoryDrawer('inventoryhealth'); break;
-      case 'orders':    setActiveOrdersDrawer('fulfillment'); break;
-      case 'marketing': setActiveMarketingDrawer('engage-new'); break;
-      case 'sales':     setActiveSalesDrawer('chart'); break;
-    }
   };
 
   const switchDashboardDesktop = (dashboard: DashboardType) => {
@@ -1230,30 +1325,11 @@ export default function Home() {
                 const drawer = renderActiveDrawer();
                 if (drawer) return <div className="flex flex-col h-full overflow-hidden">{drawer}</div>;
                 if (activeDashboard === 'dashboard') {
-                  return (
-                    <div style={{ height: '100%', overflowY: 'auto' }}>
-                      <GeneralDashboard
-                        onItemClick={handleDashboardItemClick}
-                        onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
-                        onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
-                        onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
-                        onOpenBilling={() => setBillingOpen(true)}
-                        onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                        onNavigate={(tab) => tuneChannel(tab as DashboardType)}
-                        section="ops"
-                        activeSection={activeDashboard as any}
-                      />
-                    </div>
-                  );
+                  return <BridgeQuadPanel onTune={tuneChannel} />;
                 }
-                const gradient =
-                  activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
-                  activeDashboard === 'orders'    ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
-                  activeDashboard === 'sales'     ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
-                                                    'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4';
                 return (
-                  <div className={gradient} style={{ height: '100%', overflowY: 'auto' }}>
-                    {renderDynamicDashboard(true)}
+                  <div style={{ height: '100%', overflowY: 'auto' }}>
+                    {renderDynamicDashboard(true, 'right')}
                   </div>
                 );
               };
@@ -1316,32 +1392,40 @@ export default function Home() {
                           {/* ── 1/3 | 2/3 screen split ── */}
                           <div style={{ position:'absolute',inset:0,display:'flex',zIndex:5,opacity:tvFlash?0:1,transition:'opacity 0.1s ease' }}>
 
-                            {/* LEFT 1/3 — Plan + station ID */}
+                            {/* LEFT 1/3 — Plan (Bridge) or channel metrics (other channels) */}
                             <div style={{ flex:'0 0 33.333%',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.12)',background:'rgba(8,10,28,0.80)',overflow:'hidden' }}>
-                              {!planCollapsed && (
+                              {activeDashboard === 'dashboard' ? (
+                                <>
+                                  {!planCollapsed && (
+                                    <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
+                                      <GeneralDashboard
+                                        onItemClick={handleDashboardItemClick}
+                                        onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
+                                        onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
+                                        onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
+                                        onOpenBilling={() => setBillingOpen(true)}
+                                        onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                                        onNavigate={(tab) => tuneChannel(tab as DashboardType)}
+                                        section="plan"
+                                      />
+                                    </div>
+                                  )}
+                                  {/* Station ID / collapse bar — Bridge only */}
+                                  <div style={{ flexShrink:0,padding:'3px 6px 3px 10px',background:'rgba(0,255,238,0.06)',borderTop:planCollapsed?'none':'1px solid rgba(0,255,238,0.16)',borderBottom:'1px solid rgba(0,255,238,0.16)',display:'flex',alignItems:'center',gap:'5px' }}>
+                                    <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:'#00FFEE',boxShadow:'0 0 4px #00FFEE',flexShrink:0 }} />
+                                    <span style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.6)',letterSpacing:'0.22em',textTransform:'uppercase',flex:1 }}>Station ID</span>
+                                    <button onClick={() => setPlanCollapsed(c => !c)} data-testid="button-plan-toggle" title={planCollapsed ? 'Show My Plan' : 'Hide My Plan'} style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.45)',letterSpacing:'0.1em',background:'none',border:'1px solid rgba(0,255,238,0.18)',borderRadius:'3px',padding:'1px 4px',cursor:'pointer',flexShrink:0 }}>
+                                      {planCollapsed ? 'PLAN ▲' : 'PLAN ▼'}
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
                                 <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
-                                  <GeneralDashboard
-                                    onItemClick={handleDashboardItemClick}
-                                    onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
-                                    onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
-                                    onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
-                                    onOpenBilling={() => setBillingOpen(true)}
-                                    onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                                    onNavigate={(tab) => tuneChannel(tab as DashboardType)}
-                                    section="plan"
-                                  />
+                                  {renderDynamicDashboard(true, 'left')}
                                 </div>
                               )}
-                              {/* Station ID / collapse bar */}
-                              <div style={{ flexShrink:0,padding:'3px 6px 3px 10px',background:'rgba(0,255,238,0.06)',borderTop:planCollapsed?'none':'1px solid rgba(0,255,238,0.16)',borderBottom:'1px solid rgba(0,255,238,0.16)',display:'flex',alignItems:'center',gap:'5px' }}>
-                                <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:'#00FFEE',boxShadow:'0 0 4px #00FFEE',flexShrink:0 }} />
-                                <span style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.6)',letterSpacing:'0.22em',textTransform:'uppercase',flex:1 }}>Station ID</span>
-                                <button onClick={() => setPlanCollapsed(c => !c)} data-testid="button-plan-toggle" title={planCollapsed ? 'Show My Plan' : 'Hide My Plan'} style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.45)',letterSpacing:'0.1em',background:'none',border:'1px solid rgba(0,255,238,0.18)',borderRadius:'3px',padding:'1px 4px',cursor:'pointer',flexShrink:0 }}>
-                                  {planCollapsed ? 'PLAN ▲' : 'PLAN ▼'}
-                                </button>
-                              </div>
-                              {/* Now-viewing indicator */}
-                              <div style={{ flexShrink:0,padding:'8px 12px',display:'flex',flexDirection:'column',gap:'5px' }}>
+                              {/* Now-viewing indicator — always visible */}
+                              <div style={{ flexShrink:0,padding:'8px 12px',borderTop:'1px solid rgba(0,255,238,0.08)',display:'flex',flexDirection:'column',gap:'5px' }}>
                                 <div style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.3)',letterSpacing:'0.2em',textTransform:'uppercase' }}>Now Viewing</div>
                                 <div style={{ display:'flex',alignItems:'center',gap:'7px' }}>
                                   <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:screenHex,boxShadow:`0 0 6px ${screenHex}`,flexShrink:0,animation:'tv-dot-pulse 2s ease-in-out infinite' }} />

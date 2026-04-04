@@ -279,6 +279,7 @@ interface SalesDashboardProps {
   activeDrawer?: SalesDrawer;
   onDrawerChange?: (drawer: SalesDrawer) => void;
   renderDrawerOnly?: boolean;
+  tvSplit?: 'left' | 'right';
 }
 
 interface Order {
@@ -291,7 +292,7 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit }: SalesDashboardProps) {
   const [chartDateRange, setChartDateRange] = useState<DateRangeValue>('mtd');
   const [perfDateRange, setPerfDateRange] = useState<DateRangeValue>('mtd');
   const [localDateRange, setLocalDateRange] = useState<DateRangeValue>(parentDateRange);
@@ -1386,7 +1387,8 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   }
 
   return (
-        <div className="p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
+      {(!tvSplit || tvSplit === 'left') && <>
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
         <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-3" data-testid="diagnostic-warnings">
@@ -1428,6 +1430,8 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
           </div>
         )}
       </div>
+      </>}
+      {(!tvSplit || tvSplit === 'right') && <>
 
       {/* ── Tools Section ── */}
       <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")}>
@@ -1528,6 +1532,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             </button>
           </div>
         </div>
+      </>}
 
       {/* ── Platform Orders Drawer ── */}
       <PlatformOrdersDrawer

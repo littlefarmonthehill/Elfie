@@ -43,6 +43,7 @@ interface OrdersDashboardProps {
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
+  tvSplit?: 'left' | 'right';
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -301,7 +302,7 @@ function QtySyncQueuePanel() {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit }: OrdersDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>('systems');
 
@@ -381,8 +382,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]">
-      <div className="space-y-3">
+        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
+      {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Orders Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
@@ -452,6 +453,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
           </div>
         </div>
+      </>}
+      {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
         <div className="relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden p-2.5" data-testid="section-panel-tabs">
@@ -598,8 +601,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
           )}
         </div>
-
-      </div>
+      </>}
 
     </div>
   );

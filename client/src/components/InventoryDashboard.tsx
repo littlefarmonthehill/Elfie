@@ -31,6 +31,7 @@ interface InventoryDashboardProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
   onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
+  tvSplit?: 'left' | 'right';
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
@@ -68,7 +69,7 @@ const CHANNEL_SYNC_CONFIG: Record<InvSyncChannel, {
 };
 
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen, tvSplit }: InventoryDashboardProps) {
 
   const { toast } = useToast();
 
@@ -195,8 +196,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
-      <div className={cn("space-y-3")}>
+        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
+      {(!tvSplit || tvSplit === 'left') && <>
 
         {/* Combined Inventory Info + Values */}
         <div
@@ -340,6 +341,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           </div>
         </div>
+      </>}
+      {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
         <div className="relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden p-2.5 xl:p-3" data-testid="section-panel-tabs">
@@ -502,10 +505,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           )}
         </div>
-
-
-
-      </div>
+      </>}
 
       {/* Browse Sheet — Lots / Parts / Categories
           Mounted as fixed inset-0 (immune to iOS keyboard repositioning) but LOOKS like
@@ -650,7 +650,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
       )}
 
-      {!desktopMode && (
+      {!desktopMode && !tvSplit && (
         <InventoryHealthPanel
           open={activeDrawer === 'inventoryhealth'}
           onOpenChange={(open) => { if (!open) onDrawerChange(null); }}

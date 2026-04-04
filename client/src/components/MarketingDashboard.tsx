@@ -45,6 +45,7 @@ interface MarketingDashboardProps {
   activeDrawer: MarketingDrawer;
   onDrawerChange: (drawer: MarketingDrawer) => void;
   renderDrawerOnly?: boolean;
+  tvSplit?: 'left' | 'right';
 }
 
 function parseShipTo(raw: string | null | undefined): { name: string; city: string; state: string; country: string } {
@@ -312,7 +313,7 @@ function CustomerListPanel({
   );
 }
 
-export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit }: MarketingDashboardProps) {
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
@@ -459,8 +460,8 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   }
 
   return (
-        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]">
-      <div className="space-y-3">
+        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
+      {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", "p-2.5")} data-testid="section-customer-overview">
@@ -487,6 +488,8 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <MetricCard label="Avg Orders" value={avgOrders} color="yellow" data-testid="metric-avg-orders" />
           </div>
         </div>
+      </>}
+      {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
         <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-marketing-tools">
@@ -659,8 +662,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
 
           </div>
         </div>
-
-      </div>
+      </>}
 
     </div>
   );
