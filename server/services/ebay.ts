@@ -29,13 +29,13 @@ export const EBAY_LEGO_CATEGORIES: Record<string, string> = {
   B: '11481',  // LEGO Instruction Books
 };
 
-// ── eBay Condition IDs ─────────────────────────────────────────────────────
-// conditionId strings used in Inventory API v1
+// ── eBay Condition enums ───────────────────────────────────────────────────
+// String enum values used in Sell Inventory REST API v1 (NOT the numeric IDs from Trading API)
 export const EBAY_CONDITIONS = {
-  NEW:             '1000',
-  USED_VERY_GOOD:  '3000',
-  USED_GOOD:       '4000',
-  USED_ACCEPTABLE: '5000',
+  NEW:             'NEW',
+  USED_VERY_GOOD:  'USED_VERY_GOOD',
+  USED_GOOD:       'USED_GOOD',
+  USED_ACCEPTABLE: 'USED_ACCEPTABLE',
 } as const;
 
 // ── eBay OAuth scopes required for Sell Inventory API ─────────────────────
