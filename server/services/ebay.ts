@@ -881,14 +881,15 @@ export async function syncBrickLinkToEbay(
     const itemBody = buildInventoryItemBody({ blLot: blLotNormalized, itemName, colorName, imageUrls, config });
 
     // ── PUT inventory item ──────────────────────────────────────────────────
+    console.log(`[eBay] PUT inventory_item sku=${sku} itemType=${lotTypeCode} categoryId=${categoryId} body=${JSON.stringify(itemBody)}`);
     try {
       const putResult = await ebayFetch(orgId, 'PUT', `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, itemBody);
       result.totalApiCalls++;
 
       if (!putResult.ok && putResult.status !== 204) {
-        const errMsg = putResult.data?.errors?.[0]?.message ?? JSON.stringify(putResult.data);
-        const errDetails = putResult.data?.errors?.map((e: any) => `[${e.errorId}] ${e.message}${e.parameters ? ' ' + JSON.stringify(e.parameters) : ''}`).join('; ') ?? '';
-        console.error(`[eBay] PUT inventory_item failed (${putResult.status}) for ${sku}: ${errDetails || errMsg}`);
+        const rawBody = JSON.stringify(putResult.data);
+        console.error(`[eBay] PUT inventory_item FAILED status=${putResult.status} sku=${sku} body=${rawBody}`);
+        const errMsg = putResult.data?.errors?.[0]?.message ?? rawBody;
         result.errors.push(`SKU ${sku}: inventory update failed — ${errMsg}`);
         result.lotsSkipped++;
         continue;
