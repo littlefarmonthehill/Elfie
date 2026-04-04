@@ -909,7 +909,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       )}
 
       {/* Operational areas */}
-      {showOps && (<div className="space-y-3" data-testid="section-ops-central">
+      {showOps && (<div className="space-y-3" data-testid="section-the-bridge">
         <OpAreaCard
           label="Inventory"
           Icon={Package}

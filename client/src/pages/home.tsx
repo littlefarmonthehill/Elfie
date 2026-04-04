@@ -1092,7 +1092,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* BS-only TABLET + DESKTOP layout (md+) — Plan info (left) + Ops Central (right) */}
+            {/* BS-only TABLET + DESKTOP layout (md+) — Plan info (left) + The Bridge (right) */}
             <div className="hidden md:flex h-full p-3 gap-3">
               <div className="flex h-full w-full rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden relative">
                 <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/15 rounded-tl-2xl pointer-events-none z-10" />
@@ -1232,7 +1232,7 @@ export default function Home() {
                     {/* 3-panel content row */}
                     <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 'clamp(8px,0.9vw,12px)' }}>
 
-                      {/* LEFT PANEL (~22%): Plan stacked above Ops Central */}
+                      {/* LEFT PANEL (~22%): Plan stacked above The Bridge */}
                       <div style={{ flex: '0 0 clamp(200px,22%,270px)', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid rgba(90,110,255,0.28)', background: 'rgba(10,12,32,0.92)', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5), 0 0 18px rgba(60,80,200,0.12)' }}>
 
                         {/* Your Plan — top section, collapsible; auto-sized to content */}
@@ -1254,7 +1254,7 @@ export default function Home() {
                         {/* Divider label with collapse toggle */}
                         <div style={{ flexShrink: 0, padding: '3px 6px 3px 10px', background: 'rgba(0,255,238,0.08)', borderBottom: '1px solid rgba(0,255,238,0.22)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#00FFEE', boxShadow: '0 0 4px #00FFEE', flexShrink: 0 }} />
-                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase', flex: 1 }}>Ops Central</span>
+                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase', flex: 1 }}>The Bridge</span>
                           <button
                             onClick={() => setPlanCollapsed(c => !c)}
                             data-testid="button-plan-toggle"
@@ -1265,7 +1265,7 @@ export default function Home() {
                           </button>
                         </div>
 
-                        {/* Ops Central — bottom section fills remaining height */}
+                        {/* The Bridge — bottom section fills remaining height */}
                         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                           <GeneralDashboard
                             onItemClick={handleDashboardItemClick}
