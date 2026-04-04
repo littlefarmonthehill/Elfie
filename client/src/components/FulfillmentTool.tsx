@@ -57,16 +57,17 @@ type PicklistBin = {
   items: PicklistBinItem[];
 };
 
-const WORKFLOW_STATUSES = ['new', 'processing', 'bump', 'issue', 'on_hold', 'done'] as const;
+const WORKFLOW_STATUSES = ['unpaid', 'new', 'processing', 'bump', 'issue', 'on_hold', 'done'] as const;
 type WorkflowStatus = typeof WORKFLOW_STATUSES[number];
 
 const WORKFLOW_META: Record<WorkflowStatus, { label: string; dot: string; badge: string; header: string }> = {
-  new:        { label: 'New',        dot: 'bg-gray-500',   badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',   header: 'text-gray-300' },
-  processing: { label: 'Processing', dot: 'bg-blue-500',   badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',   header: 'text-blue-300' },
-  bump:       { label: 'Bump',       dot: 'bg-amber-400',  badge: 'bg-amber-900/50 text-amber-300 border-amber-700/40', header: 'text-amber-300' },
-  issue:      { label: 'Issue',      dot: 'bg-red-500',    badge: 'bg-red-900/50 text-red-300 border-red-700/40',       header: 'text-red-300' },
+  unpaid:     { label: 'Unpaid',     dot: 'bg-orange-500', badge: 'bg-orange-900/50 text-orange-300 border-orange-700/40', header: 'text-orange-300' },
+  new:        { label: 'New',        dot: 'bg-gray-500',   badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',       header: 'text-gray-300' },
+  processing: { label: 'Processing', dot: 'bg-blue-500',   badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',       header: 'text-blue-300' },
+  bump:       { label: 'Bump',       dot: 'bg-amber-400',  badge: 'bg-amber-900/50 text-amber-300 border-amber-700/40',    header: 'text-amber-300' },
+  issue:      { label: 'Issue',      dot: 'bg-red-500',    badge: 'bg-red-900/50 text-red-300 border-red-700/40',          header: 'text-red-300' },
   on_hold:    { label: 'On Hold',    dot: 'bg-purple-500', badge: 'bg-purple-900/50 text-purple-300 border-purple-700/40', header: 'text-purple-300' },
-  done:       { label: 'Done',       dot: 'bg-green-500',  badge: 'bg-green-900/50 text-green-300 border-green-700/40', header: 'text-green-300' },
+  done:       { label: 'Done',       dot: 'bg-green-500',  badge: 'bg-green-900/50 text-green-300 border-green-700/40',    header: 'text-green-300' },
 };
 
 type Order = {
