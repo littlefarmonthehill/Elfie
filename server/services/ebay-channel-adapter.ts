@@ -60,6 +60,12 @@ export class EbayChannelAdapter implements IChannelSync {
       serverOrigin,
     );
 
+    if (result.errors.length > 0) {
+      console.error(`[eBay Sync] ${result.errors.length} error(s) for org ${orgId}:`);
+      result.errors.forEach((e, i) => console.error(`  [eBay Sync] error[${i}]: ${e}`));
+    }
+    console.log(`[eBay Sync] Result: created=${result.lotsCreated} updated=${result.lotsUpdated} skipped=${result.lotsSkipped} errors=${result.errors.length} apiCalls=${result.totalApiCalls}`);
+
     return {
       lotsCreated:   result.lotsCreated,
       lotsUpdated:   result.lotsUpdated,

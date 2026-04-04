@@ -1072,7 +1072,10 @@ export async function syncBrickLinkToBrickOwl(
 
     // Item-type filter: if syncItemTypes is non-empty and this type is explicitly excluded,
     // deactivate any existing BO listing (for_sale=0) and skip creation of new ones.
-    if (Object.keys(fields.syncItemTypes).length > 0 && fields.syncItemTypes[item.itemType ?? ''] === false) {
+    // BL inventory stores full names (PART, SET, MINIFIG, GEAR); UI config uses short codes (P, S, M, G).
+    const BL_BO_TYPE_CODE: Record<string, string> = { PART: 'P', SET: 'S', MINIFIG: 'M', GEAR: 'G', BOOK: 'B', INSTRUCTION: 'I', ORIGINAL_BOX: 'O' };
+    const itemTypeCode = BL_BO_TYPE_CODE[item.itemType ?? ''] ?? item.itemType ?? '';
+    if (Object.keys(fields.syncItemTypes).length > 0 && fields.syncItemTypes[itemTypeCode] === false) {
       const existingTaggedLot = taggedLotMap.get(item.id.toString());
       if (existingTaggedLot) {
         const boForSaleVal = parseInt(String(existingTaggedLot.for_sale ?? '1'));

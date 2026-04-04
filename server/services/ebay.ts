@@ -700,13 +700,20 @@ export async function syncBrickLinkToEbay(
     return result;
   }
 
+  // BL inventory stores full type names; the UI config uses short codes
+  const BL_TYPE_TO_CODE: Record<string, string> = {
+    PART: 'P', SET: 'S', MINIFIG: 'M', GEAR: 'G',
+    BOOK: 'B', INSTRUCTION: 'I', ORIGINAL_BOX: 'O',
+  };
+
   // Filter by syncItemTypes, syncPriceFloor, and syncStockroomModes
   const hasItemTypeFilter = Object.keys(config.syncItemTypes).length > 0;
   const priceFloor = config.syncPriceFloor ?? null;
   const blLots = rawBl.filter(lot => {
     if (!lot.itemType) return false;
-    // Item-type filter: skip types explicitly set to false
-    if (hasItemTypeFilter && config.syncItemTypes[lot.itemType] === false) return false;
+    // Item-type filter: map full name → short code, then check config
+    const typeCode = BL_TYPE_TO_CODE[lot.itemType] ?? lot.itemType;
+    if (hasItemTypeFilter && config.syncItemTypes[typeCode] === false) return false;
     // Price floor: skip lots priced below the floor
     if (priceFloor && priceFloor > 0) {
       const lotPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
@@ -719,6 +726,12 @@ export async function syncBrickLinkToEbay(
     }
     return true;
   });
+
+  console.log(`[eBay] BL inventory loaded: ${rawBl.length} total → ${blLots.length} after filters (itemType/priceFloor/stockroom)`);
+  if (blLots.length === 0) {
+    console.warn('[eBay] All BL lots filtered out — nothing to sync. Check syncItemTypes/syncPriceFloor/syncStockroomModes config.');
+    return result;
+  }
 
   // ── Step 2: Load catalog info (names + colors) ────────────────────────────
   const itemNos = [...new Set(blLots.map(l => l.itemNo))];
