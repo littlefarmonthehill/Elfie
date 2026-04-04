@@ -859,7 +859,9 @@ export async function syncBrickLinkToEbay(
       continue;
     }
 
-    const categoryId = EBAY_LEGO_CATEGORIES[lot.itemType ?? 'P'] ?? EBAY_LEGO_CATEGORIES['P'];
+    // Normalize full DB name → short code used throughout eBay builder functions
+    const lotTypeCode = BL_TYPE_TO_CODE[lot.itemType ?? ''] ?? lot.itemType ?? 'P';
+    const categoryId = EBAY_LEGO_CATEGORIES[lotTypeCode] ?? EBAY_LEGO_CATEGORIES['P'];
     const itemName   = catalogMap.get(`${lot.itemType}:${lot.itemNo}`) ?? null;
     const colorName  = lot.colorId != null ? colorMap.get(lot.colorId) ?? null : null;
 
@@ -874,8 +876,9 @@ export async function syncBrickLinkToEbay(
       syncImages:   config.syncImages,
     }) : [];
 
-    // Build inventory item body
-    const itemBody = buildInventoryItemBody({ blLot: lot, itemName, colorName, imageUrls, config });
+    // Build inventory item body — use normalized type code so all short-code checks inside work
+    const blLotNormalized = { ...lot, itemType: lotTypeCode };
+    const itemBody = buildInventoryItemBody({ blLot: blLotNormalized, itemName, colorName, imageUrls, config });
 
     // ── PUT inventory item ──────────────────────────────────────────────────
     try {
@@ -884,6 +887,8 @@ export async function syncBrickLinkToEbay(
 
       if (!putResult.ok && putResult.status !== 204) {
         const errMsg = putResult.data?.errors?.[0]?.message ?? JSON.stringify(putResult.data);
+        const errDetails = putResult.data?.errors?.map((e: any) => `[${e.errorId}] ${e.message}${e.parameters ? ' ' + JSON.stringify(e.parameters) : ''}`).join('; ') ?? '';
+        console.error(`[eBay] PUT inventory_item failed (${putResult.status}) for ${sku}: ${errDetails || errMsg}`);
         result.errors.push(`SKU ${sku}: inventory update failed — ${errMsg}`);
         result.lotsSkipped++;
         continue;
@@ -900,7 +905,7 @@ export async function syncBrickLinkToEbay(
       result.totalApiCalls++;
 
       const offerBody = buildOfferBody({
-        sku, blLot: lot, categoryId, config,
+        sku, blLot: blLotNormalized, categoryId, config,
         isUpdate: !!existingOffer,
         existingPrice: existingOffer?.price,
       });
