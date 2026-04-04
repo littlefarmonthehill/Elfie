@@ -397,13 +397,20 @@ async function processBrickLinkOrder(
         ...(existingOrder.weight == null && orderData.weight
           ? { weight: orderData.weight, weightUnits: orderData.weightUnits }
           : {}),
-        // Auto-promote: if payment just arrived and workflow is still 'unpaid', advance to 'new'
-        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid ? { workflowStatus: 'new' } : {}),
+        // Auto-promote: payment arrived and workflow still 'unpaid' → advance to 'new'
+        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid
+          ? { workflowStatus: 'new' }
+          // Auto-demote: still unpaid and workflow is at default 'new' → flag as 'unpaid'
+          : existingOrder.workflowStatus === 'new' && isUnpaid
+          ? { workflowStatus: 'unpaid' }
+          : {}),
       })
       .where(eq(orders.id, existingOrder.id));
 
     if (existingOrder.workflowStatus === 'unpaid' && !isUnpaid) {
       console.log(`💳 BrickLink order ${orderId}: payment received — auto-promoting workflowStatus 'unpaid' → 'new'`);
+    } else if (existingOrder.workflowStatus === 'new' && isUnpaid) {
+      console.log(`💳 BrickLink order ${orderId}: payment not received — auto-setting workflowStatus 'new' → 'unpaid'`);
     }
 
     result.ordersUpdated++;

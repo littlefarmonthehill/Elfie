@@ -321,13 +321,20 @@ async function processBrickOwlOrder(
         previousStatus: existingOrder.orderStatus,
         // Preserve existing note if the sync returns null (wrong field name, blank API response, etc.)
         customerNotes: orderData.customerNotes ?? existingOrder.customerNotes ?? null,
-        // Auto-promote: if payment just arrived and workflow is still 'unpaid', advance to 'new'
-        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid ? { workflowStatus: 'new' } : {}),
+        // Auto-promote: payment arrived and workflow still 'unpaid' → advance to 'new'
+        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid
+          ? { workflowStatus: 'new' }
+          // Auto-demote: still unpaid and workflow is at default 'new' → flag as 'unpaid'
+          : existingOrder.workflowStatus === 'new' && isUnpaid
+          ? { workflowStatus: 'unpaid' }
+          : {}),
       })
       .where(eq(orders.id, effectiveOrderId));
 
     if (existingOrder.workflowStatus === 'unpaid' && !isUnpaid) {
       console.log(`💳 BrickOwl order ${effectiveOrderId}: payment confirmed — auto-promoting workflowStatus 'unpaid' → 'new'`);
+    } else if (existingOrder.workflowStatus === 'new' && isUnpaid) {
+      console.log(`💳 BrickOwl order ${effectiveOrderId}: payment not received — auto-setting workflowStatus 'new' → 'unpaid'`);
     }
 
     result.ordersUpdated++;
