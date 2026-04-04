@@ -415,16 +415,34 @@ async function getAllEbayInventoryItems(orgId: string): Promise<Map<string, Ebay
 }
 
 /**
- * Fetch all eBay offers (price, listing status).
- * Returns a map of SKU → partial offer info.
+ * Fetch all eBay offers (price, listing status) via paginated bulk endpoint.
+ * Returns a map of SKU → offer info including status (PUBLISHED / UNPUBLISHED).
  */
-async function getAllEbayOffers(orgId: string): Promise<Map<string, { offerId: string; price: string; listingId?: string }>> {
-  // We fetch offers by listing them; eBay doesn't provide a single "get all" but we can
-  // iterate through items and get their offers. For efficiency, we'll fetch in bulk.
-  // eBay offers endpoint supports filtering by sku (one at a time) which is slow.
-  // Instead, we rely on the inventory items list above and fetch offer data separately
-  // only for items that exist. For analysis mode this is fine; for sync mode we fetch lazily.
-  return new Map();
+async function getAllEbayOffers(orgId: string): Promise<Map<string, { offerId: string; price: string; listingId?: string; status?: string }>> {
+  const result: Map<string, { offerId: string; price: string; listingId?: string; status?: string }> = new Map();
+  const limit = 100;
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { ok, data } = await ebayFetch(orgId, 'GET', `/sell/inventory/v1/offer?limit=${limit}&offset=${offset}`);
+    if (!ok || !data?.offers) break;
+
+    for (const offer of data.offers ?? []) {
+      result.set(offer.sku, {
+        offerId:   offer.offerId,
+        price:     offer.pricingSummary?.price?.value ?? '0',
+        listingId: offer.listing?.listingId,
+        status:    offer.status,  // 'PUBLISHED' | 'UNPUBLISHED'
+      });
+    }
+
+    const total: number = data.total ?? 0;
+    offset += limit;
+    hasMore = offset < total;
+  }
+
+  return result;
 }
 
 /**
@@ -946,6 +964,48 @@ export async function syncBrickLinkToEbay(
     // Avoid hammering: small delay between each lot
     if (processed % 20 === 0) {
       await new Promise(r => setTimeout(r, 200));
+    }
+  }
+
+  // ── Cleanup Phase: withdraw eBay offers for filtered-out BL lots ───────────
+  // Any BL lot that exists but didn't pass the filters (item type / price floor /
+  // stockroom) should have its eBay offer withdrawn so it becomes inactive —
+  // matching the BrickOwl behaviour of setting for_sale=0 for excluded items.
+  if (mode === 'full_control') {
+    try {
+      const filteredInIds = new Set(blLots.map(l => l.id));
+      const filteredOutLots = rawBl.filter(l => !filteredInIds.has(l.id));
+
+      const lotsWithEbayItems = filteredOutLots.filter(l => ebayByBlInvId.has(l.id));
+      if (lotsWithEbayItems.length > 0) {
+        console.log(`[eBay] Cleanup: ${lotsWithEbayItems.length} filtered-out lot(s) have eBay items — checking for published offers to withdraw`);
+
+        // Bulk-fetch all offers once, then look up per SKU
+        const allOffers = await getAllEbayOffers(orgId);
+        result.totalApiCalls += Math.ceil(allOffers.size / 100) + 1;
+
+        for (const lot of lotsWithEbayItems) {
+          if (isEbayAbortRequested()) break;
+          const sku    = makeSku(lot.id);
+          const offer  = allOffers.get(sku);
+          if (!offer || offer.status !== 'PUBLISHED') continue;
+
+          console.log(`[eBay] Cleanup: withdrawing offer ${offer.offerId} for SKU ${sku} (filtered out by config)`);
+          const withdrawResult = await ebayFetch(orgId, 'POST', `/sell/inventory/v1/offer/${offer.offerId}/withdraw`, {});
+          result.totalApiCalls++;
+
+          if (!withdrawResult.ok && withdrawResult.status !== 204) {
+            const errMsg = withdrawResult.data?.errors?.[0]?.message ?? JSON.stringify(withdrawResult.data);
+            console.error(`[eBay] Cleanup: withdraw failed for SKU ${sku} — ${errMsg}`);
+            result.errors.push(`SKU ${sku}: withdraw failed — ${errMsg}`);
+          } else {
+            console.log(`[eBay] Cleanup: ✓ withdrawn offer ${offer.offerId} for SKU ${sku}`);
+            result.lotsUpdated++;
+          }
+        }
+      }
+    } catch (cleanupErr: any) {
+      console.error('[eBay] Cleanup phase error (non-fatal):', cleanupErr.message);
     }
   }
 
