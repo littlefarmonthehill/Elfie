@@ -176,6 +176,7 @@ export default function Home() {
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null>(null);
   const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
   const [planCollapsed, setPlanCollapsed] = useState(false);
+  const [tvFlash, setTvFlash] = useState(false);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
   const [billingOpen, setBillingOpen] = useState(false);
@@ -449,6 +450,20 @@ export default function Home() {
   const switchDashboardDesktop = (dashboard: DashboardType) => {
     setActiveDashboard(dashboard);
     applyDefaultDesktopDrawer(dashboard);
+  };
+
+  const tuneChannel = (dashboard: DashboardType) => {
+    if (tvFlash || dashboard === activeDashboard) return;
+    setTvFlash(true);
+    setTimeout(() => {
+      if (dashboard === 'dashboard') {
+        setActiveDashboard('dashboard');
+        closeActiveDrawer();
+      } else {
+        switchDashboardDesktop(dashboard);
+      }
+      setTvFlash(false);
+    }, 180);
   };
 
   useEffect(() => {
@@ -1184,35 +1199,80 @@ export default function Home() {
               </div>
             </div>
 
-            {/* DESKTOP layout (lg+): TV-style three-column cockpit */}
+            {/* DESKTOP layout (lg+): Full TV with 1/3 | 2/3 split screen */}
             {(() => {
-              const TV_DIALS = [
-                { id: 'inventory' as DashboardType, num: '01', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229' },
-                { id: 'orders'    as DashboardType, num: '02', label: 'ORDERS',    hex: '#E8611C', rgb: '232,97,28' },
-                { id: 'marketing' as DashboardType, num: '03', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0' },
-                { id: 'sales'     as DashboardType, num: '04', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60' },
+              const TV_CHANNELS = [
+                { id: 'dashboard' as DashboardType, num: '01', label: 'BRIDGE',    hex: '#DC2626', rgb: '220,38,38'  },
+                { id: 'inventory' as DashboardType, num: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229' },
+                { id: 'orders'    as DashboardType, num: '03', label: 'ORDERS',    hex: '#E8611C', rgb: '232,97,28'  },
+                { id: 'marketing' as DashboardType, num: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0'  },
+                { id: 'sales'     as DashboardType, num: '05', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60'   },
               ];
-              const activeDial = TV_DIALS.find(d => d.id === activeDashboard) ?? TV_DIALS[0];
-              const activeScreenRgb = activeDial.rgb;
-              const hasRightContent = (
-                !!activeInventoryDrawer || !!activeOrdersDrawer || !!rightPanelBrowse ||
-                activeMarketingDrawer || activeSalesDrawer ||
-                billingOpen || detailModal.open
-              );
+              const activeCh  = TV_CHANNELS.find(c => c.id === activeDashboard) ?? TV_CHANNELS[1];
+              const screenRgb = activeCh.rgb;
+              const screenHex = activeCh.hex;
+
+              const renderRightPanel = () => {
+                if (detailModal.open) {
+                  return (
+                    <DetailModal
+                      open={detailModal.open}
+                      onClose={() => setDetailModal({ open: false, data: null })}
+                      detail={detailModal.data}
+                      onOrderSelect={handleOrderSelect}
+                      onBrickLinkClick={setBrickLinkUrl}
+                      onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
+                      onItemClick={handleDashboardItemClick}
+                      inline
+                    />
+                  );
+                }
+                const drawer = renderActiveDrawer();
+                if (drawer) return <div className="flex flex-col h-full overflow-hidden">{drawer}</div>;
+                if (activeDashboard === 'dashboard') {
+                  return (
+                    <div style={{ height: '100%', overflowY: 'auto' }}>
+                      <GeneralDashboard
+                        onItemClick={handleDashboardItemClick}
+                        onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
+                        onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
+                        onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
+                        onOpenBilling={() => setBillingOpen(true)}
+                        onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                        onNavigate={(tab) => tuneChannel(tab as DashboardType)}
+                        section="ops"
+                        activeSection={activeDashboard as any}
+                      />
+                    </div>
+                  );
+                }
+                const gradient =
+                  activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
+                  activeDashboard === 'orders'    ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
+                  activeDashboard === 'sales'     ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
+                                                    'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4';
+                return (
+                  <div className={gradient} style={{ height: '100%', overflowY: 'auto' }}>
+                    {renderDynamicDashboard(true)}
+                  </div>
+                );
+              };
+
               return (
                 <div className="hidden lg:flex h-full p-3">
                   <style>{`
-                    @keyframes tv-scan { 0%{top:-2px;opacity:0} 4%{opacity:0.55} 96%{opacity:0.25} 100%{top:100%;opacity:0} }
-                    @keyframes tv-ledpulse { 0%,100%{text-shadow:0 0 8px #00FFEE} 50%{text-shadow:0 0 18px #00FFEE,0 0 36px rgba(0,255,238,0.4)} }
-                    @keyframes tv-bgring { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
-                    @keyframes tv-chglow { 0%,100%{box-shadow:0 0 10px var(--tv-ch-hex,#1B7CE5),inset 0 0 6px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 20px var(--tv-ch-hex,#1B7CE5),inset 0 0 10px rgba(0,0,0,0.3)} }
-                    @keyframes tv-idle-pulse { 0%,100%{opacity:0.06} 50%{opacity:0.12} }
+                    @keyframes tv-scan     { 0%{top:-2px;opacity:0} 4%{opacity:0.55} 96%{opacity:0.25} 100%{top:100%;opacity:0} }
+                    @keyframes tv-bgring   { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+                    @keyframes tv-bgring-r { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(-360deg)} }
+                    @keyframes tv-ledpulse { 0%,100%{text-shadow:0 0 8px var(--tv-led-hex,#00FFEE)} 50%{text-shadow:0 0 18px var(--tv-led-hex,#00FFEE),0 0 36px var(--tv-led-hex,#00FFEE)} }
+                    @keyframes tv-chglow   { 0%,100%{box-shadow:0 0 10px var(--tv-ch-hex,#1B7CE5),inset 0 0 6px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 20px var(--tv-ch-hex,#1B7CE5),inset 0 0 10px rgba(0,0,0,0.3)} }
+                    @keyframes tv-dot-pulse{ 0%,100%{opacity:1} 50%{opacity:0.35} }
                   `}</style>
 
                   {/* TV body */}
                   <div className="flex h-full w-full flex-col relative" style={{
                     background: 'linear-gradient(165deg, #1C1C32 0%, #151525 35%, #101020 70%, #0C0C1A 100%)',
-                    borderRadius: 'clamp(16px, 2.5vw, 28px)',
+                    borderRadius: 'clamp(16px,2.5vw,28px)',
                     border: '2px solid rgba(255,255,255,0.16)',
                     boxShadow: '0 0 0 1px rgba(80,100,200,0.30) inset, 0 0 0 2px rgba(40,60,140,0.18) inset, 0 20px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,255,238,0.10)',
                     padding: 'clamp(10px,1.2vw,14px)',
@@ -1220,134 +1280,156 @@ export default function Home() {
                     gap: 'clamp(8px,0.9vw,10px)',
                     overflow: 'hidden',
                   }}>
-
                     {/* Top highlight edge */}
-                    <div style={{ position: 'absolute', top: 0, left: '6%', right: '6%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,255,238,0.3), transparent)', pointerEvents: 'none' }} />
-
+                    <div style={{ position: 'absolute', top: 0, left: '6%', right: '6%', height: '1px', background: 'linear-gradient(90deg,transparent,rgba(0,255,238,0.3),transparent)', pointerEvents: 'none' }} />
                     {/* Corner accent squares */}
-                    {([{ top: '11px', left: '16px' }, { top: '11px', right: '16px' }, { bottom: '11px', left: '16px' }, { bottom: '11px', right: '16px' }] as const).map((pos, i) => (
-                      <div key={i} style={{ position: 'absolute', ...pos, width: '11px', height: '11px', border: '1px solid rgba(0,255,238,0.18)', borderRadius: '3px', pointerEvents: 'none', zIndex: 10 }} />
+                    {([{ top:'11px',left:'16px' },{ top:'11px',right:'16px' },{ bottom:'11px',left:'16px' },{ bottom:'11px',right:'16px' }] as const).map((pos,i) => (
+                      <div key={i} style={{ position:'absolute',...pos, width:'11px', height:'11px', border:'1px solid rgba(0,255,238,0.18)', borderRadius:'3px', pointerEvents:'none', zIndex:10 }} />
                     ))}
 
-                    {/* 3-panel content row */}
-                    <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 'clamp(8px,0.9vw,12px)' }}>
-
-                      {/* LEFT PANEL (~22%): Plan stacked above The Bridge */}
-                      <div style={{ flex: '0 0 clamp(200px,22%,270px)', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid rgba(90,110,255,0.28)', background: 'rgba(10,12,32,0.92)', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5), 0 0 18px rgba(60,80,200,0.12)' }}>
-
-                        {/* Your Plan — top section, collapsible; auto-sized to content */}
-                        {!planCollapsed && (
-                          <div style={{ flex: '0 0 auto', maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.22)' }}>
-                            <GeneralDashboard
-                              onItemClick={handleDashboardItemClick}
-                              onOpenFulfillment={() => { switchDashboardDesktop('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                              onOpenBrickanalyzer={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                              onOpenPriceomatic={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                              onOpenBilling={() => setBillingOpen(true)}
-                              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                              onNavigate={(tab) => switchDashboardDesktop(tab as DashboardType)}
-                              section="plan"
-                            />
-                          </div>
-                        )}
-
-                        {/* Divider label with collapse toggle */}
-                        <div style={{ flexShrink: 0, padding: '3px 6px 3px 10px', background: 'rgba(0,255,238,0.08)', borderBottom: '1px solid rgba(0,255,238,0.22)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#00FFEE', boxShadow: '0 0 4px #00FFEE', flexShrink: 0 }} />
-                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase', flex: 1 }}>The Bridge</span>
-                          <button
-                            onClick={() => setPlanCollapsed(c => !c)}
-                            data-testid="button-plan-toggle"
-                            title={planCollapsed ? 'Show My Plan' : 'Hide My Plan'}
-                            style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.45)', letterSpacing: '0.1em', background: 'none', border: '1px solid rgba(0,255,238,0.18)', borderRadius: '3px', padding: '1px 4px', cursor: 'pointer', flexShrink: 0 }}
-                          >
-                            {planCollapsed ? 'PLAN ▲' : 'PLAN ▼'}
-                          </button>
-                        </div>
-
-                        {/* The Bridge — bottom section fills remaining height */}
-                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                          <GeneralDashboard
-                            onItemClick={handleDashboardItemClick}
-                            onOpenFulfillment={() => { switchDashboardDesktop('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                            onOpenBrickanalyzer={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                            onOpenPriceomatic={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                            onOpenBilling={() => setBillingOpen(true)}
-                            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                            onNavigate={(tab) => switchDashboardDesktop(tab as DashboardType)}
-                            section="ops"
-                            activeSection={activeDashboard as 'inventory' | 'orders' | 'marketing' | 'sales'}
-                          />
-                        </div>
-                      </div>
-
-                      {/* CENTER PANEL (~30%): TV chrome bezel + glass screen */}
-                      <div style={{ flex: '0 0 clamp(260px,30%,420px)', display: 'flex', flexDirection: 'column', borderRadius: '14px', background: 'linear-gradient(145deg, #38385A 0%, #484870 18%, #282844 55%, #383860 80%, #1E1E3A 100%)', padding: '5px', boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,238,0.1)' }}>
+                    {/* Chrome bezel + full-face glass screen */}
+                    <div style={{ flex:1, display:'flex', flexDirection:'column', minHeight:0 }}>
+                      <div style={{
+                        flex:1, display:'flex', flexDirection:'column', minHeight:0,
+                        background:'linear-gradient(145deg,#38385A 0%,#484870 18%,#282844 55%,#383860 80%,#1E1E3A 100%)',
+                        borderRadius:'14px', padding:'5px',
+                        boxShadow:'inset 0 3px 8px rgba(0,0,0,0.8),0 2px 6px rgba(0,0,0,0.5),0 0 0 1px rgba(0,255,238,0.1)',
+                      }}>
                         {/* Glass screen */}
-                        <div style={{ flex: 1, position: 'relative', background: '#04060F', borderRadius: '10px', overflow: 'hidden' }}>
-                          {/* Scanlines overlay */}
-                          <div style={{ position: 'absolute', inset: 0, zIndex: 15, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 4px)' }} />
+                        <div style={{ flex:1, position:'relative', background:'#04060F', borderRadius:'10px', overflow:'hidden', minHeight:0 }}>
+                          {/* Scanlines */}
+                          <div style={{ position:'absolute',inset:0,zIndex:15,pointerEvents:'none',backgroundImage:'repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.09) 2px,rgba(0,0,0,0.09) 4px)' }} />
                           {/* Phosphor glow */}
-                          <div style={{ position: 'absolute', inset: 0, zIndex: 14, pointerEvents: 'none', background: `radial-gradient(ellipse 70% 55% at 50% 38%, rgba(${activeScreenRgb},0.07) 0%, transparent 70%)` }} />
-                          {/* Glass top reflection */}
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '11%', zIndex: 16, pointerEvents: 'none', background: 'linear-gradient(to bottom, rgba(255,255,255,0.022), transparent)', borderRadius: '10px 10px 0 0' }} />
-                          {/* Animated scan sweep */}
-                          <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent 0%, rgba(${activeScreenRgb},0.28) 30%, rgba(${activeScreenRgb},0.65) 50%, rgba(${activeScreenRgb},0.28) 70%, transparent 100%)`, animation: 'tv-scan 10s ease-in-out 2s infinite', pointerEvents: 'none', zIndex: 17 }} />
-                          {/* Orbital ring */}
-                          <div style={{ position: 'absolute', left: '50%', top: '50%', width: '180%', height: '180%', border: '1px solid rgba(0,255,238,0.035)', borderRadius: '50%', animation: 'tv-bgring 90s linear infinite', pointerEvents: 'none', zIndex: 3 }} />
-                          {/* Dashboard content */}
-                          <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', zIndex: 5 }}>
-                            <div className={
-                              activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
-                              activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
-                              activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
-                              'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
-                            } style={{ minHeight: '100%' }}>
-                              {renderDynamicDashboard(true)}
+                          <div style={{ position:'absolute',inset:0,zIndex:14,pointerEvents:'none',background:`radial-gradient(ellipse 70% 55% at 50% 38%,rgba(${screenRgb},0.07) 0%,transparent 70%)` }} />
+                          {/* Glass reflection */}
+                          <div style={{ position:'absolute',top:0,left:0,right:0,height:'11%',zIndex:16,pointerEvents:'none',background:'linear-gradient(to bottom,rgba(255,255,255,0.022),transparent)',borderRadius:'10px 10px 0 0' }} />
+                          {/* Scan sweep */}
+                          <div style={{ position:'absolute',left:0,right:0,height:'2px',background:`linear-gradient(90deg,transparent 0%,rgba(${screenRgb},0.28) 30%,rgba(${screenRgb},0.65) 50%,rgba(${screenRgb},0.28) 70%,transparent 100%)`,animation:'tv-scan 10s ease-in-out 2s infinite',pointerEvents:'none',zIndex:17 }} />
+                          {/* Orbital rings */}
+                          <div style={{ position:'absolute',left:'50%',top:'50%',width:'180%',height:'180%',border:'1px solid rgba(0,255,238,0.03)',borderRadius:'50%',animation:'tv-bgring 90s linear infinite',pointerEvents:'none',zIndex:3 }} />
+                          <div style={{ position:'absolute',left:'50%',top:'50%',width:'140%',height:'140%',border:'1px solid rgba(168,85,247,0.025)',borderRadius:'50%',transform:'translate(-50%,-50%) rotate(30deg)',animation:'tv-bgring-r 55s linear infinite',pointerEvents:'none',zIndex:3 }} />
+                          {/* Channel flash static */}
+                          {tvFlash && (
+                            <div style={{ position:'absolute',inset:0,zIndex:20,backgroundImage:`repeating-linear-gradient(0deg,rgba(0,255,238,0.1) 0px,transparent 1px,rgba(0,0,0,0.5) 3px,rgba(255,255,255,0.08) 5px),repeating-linear-gradient(90deg,rgba(255,255,255,0.03) 0px,transparent 2px)`,opacity:0.9 }} />
+                          )}
+
+                          {/* ── 1/3 | 2/3 screen split ── */}
+                          <div style={{ position:'absolute',inset:0,display:'flex',zIndex:5,opacity:tvFlash?0:1,transition:'opacity 0.1s ease' }}>
+
+                            {/* LEFT 1/3 — Plan + station ID */}
+                            <div style={{ flex:'0 0 33.333%',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.12)',background:'rgba(8,10,28,0.80)',overflow:'hidden' }}>
+                              {!planCollapsed && (
+                                <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
+                                  <GeneralDashboard
+                                    onItemClick={handleDashboardItemClick}
+                                    onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
+                                    onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
+                                    onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
+                                    onOpenBilling={() => setBillingOpen(true)}
+                                    onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                                    onNavigate={(tab) => tuneChannel(tab as DashboardType)}
+                                    section="plan"
+                                  />
+                                </div>
+                              )}
+                              {/* Station ID / collapse bar */}
+                              <div style={{ flexShrink:0,padding:'3px 6px 3px 10px',background:'rgba(0,255,238,0.06)',borderTop:planCollapsed?'none':'1px solid rgba(0,255,238,0.16)',borderBottom:'1px solid rgba(0,255,238,0.16)',display:'flex',alignItems:'center',gap:'5px' }}>
+                                <div style={{ width:'4px',height:'4px',borderRadius:'50%',background:'#00FFEE',boxShadow:'0 0 4px #00FFEE',flexShrink:0 }} />
+                                <span style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.6)',letterSpacing:'0.22em',textTransform:'uppercase',flex:1 }}>Station ID</span>
+                                <button onClick={() => setPlanCollapsed(c => !c)} data-testid="button-plan-toggle" title={planCollapsed ? 'Show My Plan' : 'Hide My Plan'} style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.45)',letterSpacing:'0.1em',background:'none',border:'1px solid rgba(0,255,238,0.18)',borderRadius:'3px',padding:'1px 4px',cursor:'pointer',flexShrink:0 }}>
+                                  {planCollapsed ? 'PLAN ▲' : 'PLAN ▼'}
+                                </button>
+                              </div>
+                              {/* Now-viewing indicator */}
+                              <div style={{ flexShrink:0,padding:'8px 12px',display:'flex',flexDirection:'column',gap:'5px' }}>
+                                <div style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.3)',letterSpacing:'0.2em',textTransform:'uppercase' }}>Now Viewing</div>
+                                <div style={{ display:'flex',alignItems:'center',gap:'7px' }}>
+                                  <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:screenHex,boxShadow:`0 0 6px ${screenHex}`,flexShrink:0,animation:'tv-dot-pulse 2s ease-in-out infinite' }} />
+                                  <span style={{ fontSize:'11px',fontFamily:'monospace',color:screenHex,fontWeight:700,letterSpacing:'0.12em',textShadow:`0 0 8px ${screenHex}66` }}>{activeCh.label}</span>
+                                  <span style={{ fontSize:'8px',fontFamily:'monospace',color:'rgba(180,200,255,0.28)',letterSpacing:'0.1em' }}>CH {activeCh.num}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* RIGHT 2/3 — Active channel content */}
+                            <div style={{ flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0 }}>
+                              {renderRightPanel()}
                             </div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* RIGHT PANEL (~34%): Persistent detail / drawer panel */}
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: `1.5px solid ${hasRightContent ? 'rgba(90,110,255,0.30)' : 'rgba(90,110,255,0.12)'}`, background: hasRightContent ? 'rgba(10,12,32,0.92)' : 'rgba(8,10,26,0.70)', transition: 'border-color 0.3s, background 0.3s', minWidth: 0 }}>
-                        {hasRightContent ? (
-                          detailModal.open ? (
-                            <DetailModal
-                              open={detailModal.open}
-                              onClose={() => setDetailModal({ open: false, data: null })}
-                              detail={detailModal.data}
-                              onOrderSelect={handleOrderSelect}
-                              onBrickLinkClick={setBrickLinkUrl}
-                              onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
-                              onItemClick={handleDashboardItemClick}
-                              inline
-                            />
-                          ) : (
-                            <div className="flex flex-col h-full overflow-hidden">
-                              {renderActiveDrawer()}
-                            </div>
-                          )
-                        ) : (
-                          /* Idle state — dimmed TV screen with static grid */
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
-                            {/* Subtle static grid background */}
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,255,238,0.025) 0px, rgba(0,255,238,0.025) 1px, transparent 1px, transparent 28px), repeating-linear-gradient(90deg, rgba(0,255,238,0.025) 0px, rgba(0,255,238,0.025) 1px, transparent 1px, transparent 28px)', animation: 'tv-idle-pulse 4s ease-in-out infinite', pointerEvents: 'none' }} />
-                            {/* Scanlines on idle */}
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)', pointerEvents: 'none' }} />
-                            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-                              <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid rgba(0,255,238,0.2)', background: 'rgba(0,255,238,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', boxShadow: '0 0 12px rgba(0,255,238,0.08)' }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(0,255,238,0.25)', boxShadow: '0 0 6px rgba(0,255,238,0.3)' }} />
-                              </div>
-                              <div style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.3)', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '4px' }}>Channel Ready</div>
-                              <div style={{ fontSize: '10px', color: 'rgba(180,200,255,0.2)', fontFamily: 'monospace', letterSpacing: '0.08em' }}>Select an item to view details</div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
+                    {/* Bottom controls strip */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'clamp(8px,1.2vw,16px)',flexShrink:0,flexWrap:'nowrap',padding:'clamp(6px,0.9vw,10px) 0',borderTop:'1px solid rgba(0,255,238,0.12)' }}>
+                      {/* LED channel display */}
+                      <div style={{ '--tv-led-hex': screenHex } as React.CSSProperties}>
+                        <div style={{ background:'#060612',border:`1px solid ${screenHex}55`,borderRadius:'10px',padding:'clamp(4px,0.6vw,7px) clamp(8px,1vw,14px)',textAlign:'center',fontFamily:'monospace',color:screenHex,fontWeight:900,lineHeight:1,fontSize:'clamp(15px,1.8vw,22px)',boxShadow:`0 0 14px ${screenHex}33,inset 0 0 12px rgba(0,0,0,0.95)`,animation:'tv-ledpulse 2.5s ease-in-out infinite',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',gap:'2px' }}>
+                          {activeCh.num}
+                          <div style={{ fontSize:'clamp(5px,0.5vw,7px)',letterSpacing:'0.2em',color:`${screenHex}BB` }}>CH</div>
+                        </div>
+                      </div>
 
+                      {/* Channel buttons */}
+                      <div style={{ display:'flex',gap:'clamp(4px,0.7vw,9px)',flex:1,justifyContent:'center',minWidth:0 }}>
+                        {TV_CHANNELS.map(ch => {
+                          const isActive = ch.id === activeDashboard;
+                          return (
+                            <button
+                              key={ch.id}
+                              onClick={() => tuneChannel(ch.id)}
+                              data-testid={`button-channel-${ch.id}`}
+                              style={{
+                                '--tv-ch-hex': ch.hex,
+                                background: isActive ? `${ch.hex}18` : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${isActive ? ch.hex : 'rgba(200,220,255,0.2)'}`,
+                                borderRadius: '8px',
+                                padding: 'clamp(5px,0.7vw,9px) clamp(8px,1.2vw,16px)',
+                                cursor: 'pointer',
+                                color: isActive ? ch.hex : 'rgba(215,230,255,0.82)',
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                animation: isActive ? 'tv-chglow 2s ease-in-out infinite' : 'none',
+                                transition: 'all 0.15s',
+                                textAlign: 'center' as const,
+                                lineHeight: 1.3,
+                                textShadow: isActive ? `0 0 8px ${ch.hex}` : 'none',
+                                display: 'flex',
+                                flexDirection: 'column' as const,
+                                alignItems: 'center',
+                                gap: '2px',
+                                flex: 1,
+                                minWidth: 0,
+                                outline: 'none',
+                              } as React.CSSProperties}
+                            >
+                              <div style={{ fontSize:'clamp(9px,1.1vw,14px)' }}>{ch.num}</div>
+                              <div style={{ fontSize:'clamp(6px,0.6vw,9px)',opacity:0.85,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%' }}>{ch.label}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Decorative knobs */}
+                      <div style={{ display:'flex',gap:'clamp(6px,0.9vw,12px)',flexShrink:0,alignItems:'center' }}>
+                        {([{ label:'PWR',color:'#00FFEE' },{ label:'HUE',color:'#A855F7' }] as const).map(k => (
+                          <div key={k.label} style={{ textAlign:'center' }}>
+                            <div style={{ width:'clamp(22px,2.4vw,32px)',height:'clamp(22px,2.4vw,32px)',borderRadius:'50%',background:'radial-gradient(circle at 35% 30%,rgba(100,100,180,0.3),rgba(10,10,40,0.95))',border:`1px solid ${k.color}44`,boxShadow:`0 0 10px ${k.color}33,inset 0 0 8px rgba(0,0,0,0.9)`,margin:'0 auto',position:'relative' }}>
+                              <div style={{ position:'absolute',width:'2px',height:'36%',background:k.color,top:'14%',left:'50%',transform:'translateX(-50%)',borderRadius:'2px',boxShadow:`0 0 4px ${k.color}` }} />
+                            </div>
+                            <div style={{ fontSize:'clamp(4px,0.45vw,6px)',color:`${k.color}88`,letterSpacing:'0.15em',marginTop:'2px' }}>{k.label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Signal bars */}
+                      <div style={{ display:'flex',alignItems:'flex-end',gap:'2px',flexShrink:0 }}>
+                        {[3,5,7,9,11].map((h,i) => (
+                          <div key={i} style={{ width:'clamp(2px,0.28vw,4px)',height:`${h}px`,borderRadius:'1px',background:i<3?'#00FFEE':'rgba(0,255,238,0.18)',boxShadow:i<3?'0 0 4px #00FFEE':'none' }} />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
