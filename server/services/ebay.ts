@@ -536,46 +536,34 @@ function buildInventoryItemBody(opts: {
     condition: blLot.newOrUsed ?? 'U',
   });
 
-  // eBay item type label for the Type aspect
-  const typeAspectValue: Record<string, string> = {
-    P: 'Parts', M: 'Minifigure', S: 'Complete Set', G: 'Gear', B: 'Instruction Booklet',
-  };
-
   const aspects: Record<string, string[]> = {
     Brand: ['LEGO'],
   };
 
-  // Type aspect
-  const typeLabel = typeAspectValue[blLot.itemType ?? 'P'];
-  if (typeLabel) aspects['Type'] = [typeLabel];
-
-  // Color aspect — use official LEGO color name
+  // Color aspect — only for non-set types, use official LEGO color name
   const legoColorName = toLegoColorName(colorName);
   if (legoColorName && blLot.itemType !== 'S') aspects['Color'] = [legoColorName];
 
-  // Condition aspect
-  if (blLot.newOrUsed) aspects['Condition'] = [isNew ? 'New' : 'Used'];
-
-  // Part number / Design ID (MPN) for non-set types
+  // Part Number / MPN — only for parts/minifigs/gear (not sets or books)
   if (blLot.itemType !== 'S' && blLot.itemType !== 'B') {
     aspects['Part Number'] = [blLot.itemNo];
-    aspects['MPN'] = [blLot.itemNo]; // eBay MPN field
+    aspects['MPN'] = [blLot.itemNo];
   }
 
-  // For sets: LEGO Set Number
+  // Set Number — only for sets
   if (blLot.itemType === 'S') {
     aspects['Set Number'] = [blLot.itemNo];
-  }
-
-  // Quantity in lot
-  if ((blLot.quantity ?? 0) > 0) {
-    aspects['Quantity'] = [String(blLot.quantity)];
   }
 
   // Store BrickLink lot ID in item specifics if configured
   if (config.ebayBlIdField === 'item_specifics') {
     aspects['BrickLink Lot ID'] = [String(blLot.id)];
   }
+
+  // conditionDescription is required by eBay when condition is not New (1000)
+  const conditionDescription = isNew
+    ? undefined
+    : (blLot.description?.trim() || `Used LEGO ${blLot.itemType === 'S' ? 'set' : 'item'} ${blLot.itemNo} — see photos for details`);
 
   const body: Record<string, unknown> = {
     product: {
@@ -584,8 +572,8 @@ function buildInventoryItemBody(opts: {
       aspects,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     },
-    condition:           conditionId,
-    conditionDescription: isNew ? undefined : (blLot.description || undefined),
+    condition:            conditionId,
+    conditionDescription,
     availability: {
       shipToLocationAvailability: {
         quantity: Math.max(0, blLot.quantity ?? 0),
