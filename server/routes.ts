@@ -4672,6 +4672,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Workflow status breakdown for the Orders DIRECTIVE focus panel.
+  // Returns counts per workflowStatus for active (non-done, non-test) orders only.
+  app.get("/api/orders/workflow-summary", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db.execute(sql`
+        SELECT
+          COALESCE(workflow_status, 'new') AS status,
+          COUNT(*) AS count
+        FROM orders
+        WHERE org_id = ${orgId}
+          AND is_test = false
+          AND order_status NOT IN ('cancelled', 'Cancelled', 'purged', 'completed', 'shipped', 'returned')
+          AND COALESCE(workflow_status, 'new') <> 'done'
+        GROUP BY COALESCE(workflow_status, 'new')
+      `);
+      const byStatus: Record<string, number> = {};
+      for (const row of rows.rows as any[]) {
+        byStatus[row.status] = Number(row.count);
+      }
+      res.json({ byStatus });
+    } catch (err: any) {
+      console.error("Error fetching workflow summary:", err);
+      res.status(500).json({ error: "Failed to fetch workflow summary" });
+    }
+  });
+
   // Customer stats aggregated server-side for Marketing Dashboard
   // Returns one row per customer with order_count, total_revenue, last/first order date, most recent order id & ship_to
   app.get("/api/orders/customer-stats", isApproved, async (req: any, res) => {

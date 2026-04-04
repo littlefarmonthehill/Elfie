@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
-  Loader2, RefreshCw, X, ArrowRight,
+  Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -330,6 +330,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
     id => ['error', 'failed'].includes(syncStatuses?.[id]?.lastSyncStatus)
   );
 
+  const { data: workflowSummary } = useQuery<{ byStatus: Record<string, number> }>({
+    queryKey: ['/api/orders/workflow-summary'],
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
   const { data: adjustments } = useQuery<{
     totalRefunds: number;
     refundedOrderCount: number;
@@ -403,6 +409,47 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" data-testid="metric-avg-lots" />
             <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" data-testid="metric-fulfillment-rate" />
             <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} data-testid="metric-return-rate" />
+          </div>
+        </div>
+
+        {/* ── DIRECTIVE ─ Focus panel ── */}
+        <div className="relative rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-950/25 to-gray-900/70 overflow-hidden" data-testid="section-directive-orders">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/55 to-transparent" />
+          <div className="px-3 pt-2.5 pb-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <Crosshair className="w-2.5 h-2.5 text-amber-400/70 flex-shrink-0" />
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Directive</span>
+              <div className="flex-1 h-px bg-amber-500/20" />
+            </div>
+            <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
+              {([
+                { key: 'unpaid',     label: 'Unpaid',  badge: 'bg-orange-900/50 text-orange-300 border-orange-700/40', dot: 'bg-orange-500' },
+                { key: 'new',        label: 'New',     badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',       dot: 'bg-gray-500' },
+                { key: 'processing', label: 'In Prog', badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',       dot: 'bg-blue-500' },
+                { key: 'bump',       label: 'Bump',    badge: 'bg-amber-900/50 text-amber-300 border-amber-700/40',    dot: 'bg-amber-400' },
+                { key: 'issue',      label: 'Issue',   badge: 'bg-red-900/50 text-red-300 border-red-700/40',          dot: 'bg-red-500' },
+                { key: 'on_hold',    label: 'Hold',    badge: 'bg-purple-900/50 text-purple-300 border-purple-700/40', dot: 'bg-purple-500' },
+              ] as const).map(({ key, label, badge, dot }) => {
+                const count = workflowSummary?.byStatus?.[key] ?? 0;
+                const isActive = count > 0;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onDrawerChange('fulfillment')}
+                    data-testid={`directive-status-${key}`}
+                    className={cn(
+                      "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 border transition-all hover-elevate",
+                      isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                    )}
+                  >
+                    <span className={cn("text-sm font-bold font-mono leading-none", isActive ? "" : "text-gray-700")}>
+                      {workflowSummary ? count : '·'}
+                    </span>
+                    <span className="text-[7px] uppercase tracking-wide leading-none text-center opacity-80">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

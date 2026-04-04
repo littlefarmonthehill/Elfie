@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import InventoryHealthPanel from "./InventoryHealthPanel";
@@ -272,6 +272,71 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <div className="text-sm md:text-base font-bold font-mono text-lego-green leading-none truncate">
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── DIRECTIVE ─ Focus panel ── */}
+        <div className="relative rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-950/25 to-gray-900/70 overflow-hidden" data-testid="section-directive-inventory">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/55 to-transparent" />
+          <div className="px-3 pt-2.5 pb-2.5 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Crosshair className="w-2.5 h-2.5 text-amber-400/70 flex-shrink-0" />
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Directive</span>
+              <div className="flex-1 h-px bg-amber-500/20" />
+            </div>
+
+            {/* Pricing signal */}
+            <div className="flex items-center gap-2 min-h-[1.5rem]">
+              <span className="text-[9px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
+              {pomInsights ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(pomInsights.data?.summary?.tooLow ?? 0) > 0 && (
+                    <button
+                      onClick={() => onDrawerChange('priceomatic')}
+                      data-testid="directive-underpriced"
+                      className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 hover-elevate"
+                    >
+                      <TrendingDown className="w-2.5 h-2.5" />
+                      {pomInsights.data.summary.tooLow} underpriced
+                    </button>
+                  )}
+                  {(pomInsights.data?.summary?.tooHigh ?? 0) > 0 && (
+                    <button
+                      onClick={() => onDrawerChange('priceomatic')}
+                      data-testid="directive-overpriced"
+                      className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
+                    >
+                      <TrendingUp className="w-2.5 h-2.5" />
+                      {pomInsights.data.summary.tooHigh} overpriced
+                    </button>
+                  )}
+                  {!(pomInsights.data?.summary?.tooLow > 0) && !(pomInsights.data?.summary?.tooHigh > 0) && (
+                    <span className="text-[9px] text-green-400/60">All well-priced</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[9px] text-gray-700">—</span>
+              )}
+            </div>
+
+            {/* Channel sync signal */}
+            <div className="flex items-center gap-2 min-h-[1.5rem]">
+              <span className="text-[9px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
+              {hasChannelErrors ? (
+                <button
+                  onClick={() => setPanelTab('uplink')}
+                  data-testid="directive-channel-error"
+                  className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                  Sync issues detected
+                </button>
+              ) : syncStatuses ? (
+                <span className="text-[9px] text-green-400/60">All channels nominal</span>
+              ) : (
+                <span className="text-[9px] text-gray-700">—</span>
+              )}
             </div>
           </div>
         </div>
