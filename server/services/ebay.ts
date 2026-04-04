@@ -967,30 +967,50 @@ export async function syncBrickLinkToEbay(
     }
   }
 
-  // ── Cleanup Phase: withdraw eBay offers for filtered-out BL lots ───────────
-  // Any BL lot that exists but didn't pass the filters (item type / price floor /
-  // stockroom) should have its eBay offer withdrawn so it becomes inactive —
-  // matching the BrickOwl behaviour of setting for_sale=0 for excluded items.
+  // ── Cleanup Phase: withdraw eBay offers for excluded BL lots ──────────────
+  // Covers two cases (mirrors BrickOwl's Phase 3 + item-type deactivation):
+  //   1. Filter-excluded: BL lots that exist but don't pass config filters
+  //   2. Soft-deleted:    BL lots with deletedAt set (excluded from rawBl entirely)
+  // In both cases the eBay offer is withdrawn → listing becomes inactive.
   if (mode === 'full_control') {
     try {
-      const filteredInIds = new Set(blLots.map(l => l.id));
-      const filteredOutLots = rawBl.filter(l => !filteredInIds.has(l.id));
+      // Collect SKUs to withdraw from both sources
+      const skusToWithdraw: Array<{ sku: string; reason: string }> = [];
 
-      const lotsWithEbayItems = filteredOutLots.filter(l => ebayByBlInvId.has(l.id));
-      if (lotsWithEbayItems.length > 0) {
-        console.log(`[eBay] Cleanup: ${lotsWithEbayItems.length} filtered-out lot(s) have eBay items — checking for published offers to withdraw`);
+      // Case 1: lots that exist but were filtered out by current config
+      const filteredInIds  = new Set(blLots.map(l => l.id));
+      const filteredOutLots = rawBl.filter(l => !filteredInIds.has(l.id) && ebayByBlInvId.has(l.id));
+      for (const lot of filteredOutLots) {
+        skusToWithdraw.push({ sku: makeSku(lot.id), reason: 'filtered out by config' });
+      }
 
-        // Bulk-fetch all offers once, then look up per SKU
+      // Case 2: soft-deleted BL lots that still have eBay inventory items
+      const softDeleted = await db
+        .select({ id: blInventory.id })
+        .from(blInventory)
+        .where(and(
+          eq(blInventory.orgId, orgId),
+          isNotNull(blInventory.deletedAt),
+        ));
+      for (const lot of softDeleted) {
+        if (ebayByBlInvId.has(lot.id)) {
+          skusToWithdraw.push({ sku: makeSku(lot.id), reason: 'BL lot soft-deleted' });
+        }
+      }
+
+      if (skusToWithdraw.length > 0) {
+        console.log(`[eBay] Cleanup: ${skusToWithdraw.length} SKU(s) to potentially withdraw (filter-excluded + soft-deleted)`);
+
+        // Bulk-fetch all current eBay offers once
         const allOffers = await getAllEbayOffers(orgId);
         result.totalApiCalls += Math.ceil(allOffers.size / 100) + 1;
 
-        for (const lot of lotsWithEbayItems) {
+        for (const { sku, reason } of skusToWithdraw) {
           if (isEbayAbortRequested()) break;
-          const sku    = makeSku(lot.id);
-          const offer  = allOffers.get(sku);
+          const offer = allOffers.get(sku);
           if (!offer || offer.status !== 'PUBLISHED') continue;
 
-          console.log(`[eBay] Cleanup: withdrawing offer ${offer.offerId} for SKU ${sku} (filtered out by config)`);
+          console.log(`[eBay] Cleanup: withdrawing offer ${offer.offerId} for SKU ${sku} (${reason})`);
           const withdrawResult = await ebayFetch(orgId, 'POST', `/sell/inventory/v1/offer/${offer.offerId}/withdraw`, {});
           result.totalApiCalls++;
 
@@ -999,7 +1019,7 @@ export async function syncBrickLinkToEbay(
             console.error(`[eBay] Cleanup: withdraw failed for SKU ${sku} — ${errMsg}`);
             result.errors.push(`SKU ${sku}: withdraw failed — ${errMsg}`);
           } else {
-            console.log(`[eBay] Cleanup: ✓ withdrawn offer ${offer.offerId} for SKU ${sku}`);
+            console.log(`[eBay] Cleanup: ✓ withdrawn offer ${offer.offerId} for SKU ${sku} (${reason})`);
             result.lotsUpdated++;
           }
         }
