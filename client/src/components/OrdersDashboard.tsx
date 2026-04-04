@@ -412,13 +412,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </div>
         </div>
 
-        {/* ── DIRECTIVE ─ Focus panel ── */}
-        <div className="relative rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-950/25 to-gray-900/70 overflow-hidden" data-testid="section-directive-orders">
+        {/* ── COMMAND CENTRAL ─ Focus panel ── */}
+        <div className="relative rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-950/25 to-gray-900/70 overflow-hidden" data-testid="section-command-central-orders">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/55 to-transparent" />
           <div className="px-3 pt-2.5 pb-2.5 space-y-2">
             <div className="flex items-center gap-2">
               <Crosshair className="w-2.5 h-2.5 text-amber-400/70 flex-shrink-0" />
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Directive</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Command Central</span>
               <div className="flex-1 h-px bg-amber-500/20" />
             </div>
             <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
