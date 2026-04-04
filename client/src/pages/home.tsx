@@ -1335,7 +1335,10 @@ export default function Home() {
               };
 
               return (
-                <div className="hidden lg:flex h-full p-3">
+                <div className="hidden lg:flex h-full p-3" style={{
+                  background: `radial-gradient(ellipse 80% 70% at 50% 40%, rgba(${screenRgb},0.10) 0%, rgba(${screenRgb},0.03) 50%, transparent 75%)`,
+                  transition: 'background 0.6s ease',
+                }}>
                   <style>{`
                     @keyframes tv-scan     { 0%{top:-2px;opacity:0} 4%{opacity:0.55} 96%{opacity:0.25} 100%{top:100%;opacity:0} }
                     @keyframes tv-bgring   { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
@@ -1347,14 +1350,15 @@ export default function Home() {
 
                   {/* TV body */}
                   <div className="flex h-full w-full flex-col relative" style={{
-                    background: 'linear-gradient(165deg, #1C1C32 0%, #151525 35%, #101020 70%, #0C0C1A 100%)',
+                    background: 'linear-gradient(165deg, #20204A 0%, #1A1A3C 35%, #141432 70%, #101028 100%)',
                     borderRadius: 'clamp(16px,2.5vw,28px)',
-                    border: '2px solid rgba(255,255,255,0.16)',
-                    boxShadow: '0 0 0 1px rgba(80,100,200,0.30) inset, 0 0 0 2px rgba(40,60,140,0.18) inset, 0 20px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,255,238,0.10)',
+                    border: '2px solid rgba(255,255,255,0.18)',
+                    boxShadow: `0 0 0 1px rgba(80,100,200,0.35) inset, 0 0 0 2px rgba(40,60,140,0.20) inset, 0 20px 80px rgba(0,0,0,0.85), 0 0 100px rgba(${screenRgb},0.14)`,
                     padding: 'clamp(10px,1.2vw,14px)',
                     paddingBottom: 0,
                     gap: 'clamp(8px,0.9vw,10px)',
                     overflow: 'hidden',
+                    transition: 'box-shadow 0.6s ease',
                   }}>
                     {/* Top highlight edge */}
                     <div style={{ position: 'absolute', top: 0, left: '6%', right: '6%', height: '1px', background: 'linear-gradient(90deg,transparent,rgba(0,255,238,0.3),transparent)', pointerEvents: 'none' }} />
@@ -1372,13 +1376,13 @@ export default function Home() {
                         boxShadow:'inset 0 3px 8px rgba(0,0,0,0.8),0 2px 6px rgba(0,0,0,0.5),0 0 0 1px rgba(0,255,238,0.1)',
                       }}>
                         {/* Glass screen */}
-                        <div style={{ flex:1, position:'relative', background:'#04060F', borderRadius:'10px', overflow:'hidden', minHeight:0 }}>
+                        <div style={{ flex:1, position:'relative', background:'#090E22', borderRadius:'10px', overflow:'hidden', minHeight:0 }}>
                           {/* Scanlines */}
-                          <div style={{ position:'absolute',inset:0,zIndex:15,pointerEvents:'none',backgroundImage:'repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.09) 2px,rgba(0,0,0,0.09) 4px)' }} />
-                          {/* Phosphor glow */}
-                          <div style={{ position:'absolute',inset:0,zIndex:14,pointerEvents:'none',background:`radial-gradient(ellipse 70% 55% at 50% 38%,rgba(${screenRgb},0.07) 0%,transparent 70%)` }} />
+                          <div style={{ position:'absolute',inset:0,zIndex:15,pointerEvents:'none',backgroundImage:'repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px)' }} />
+                          {/* Phosphor glow — channel-colored center bloom */}
+                          <div style={{ position:'absolute',inset:0,zIndex:14,pointerEvents:'none',background:`radial-gradient(ellipse 75% 60% at 50% 40%,rgba(${screenRgb},0.20) 0%,rgba(${screenRgb},0.06) 50%,transparent 72%)`,transition:'background 0.6s ease' }} />
                           {/* Glass reflection */}
-                          <div style={{ position:'absolute',top:0,left:0,right:0,height:'11%',zIndex:16,pointerEvents:'none',background:'linear-gradient(to bottom,rgba(255,255,255,0.022),transparent)',borderRadius:'10px 10px 0 0' }} />
+                          <div style={{ position:'absolute',top:0,left:0,right:0,height:'11%',zIndex:16,pointerEvents:'none',background:'linear-gradient(to bottom,rgba(255,255,255,0.040),transparent)',borderRadius:'10px 10px 0 0' }} />
                           {/* Scan sweep */}
                           <div style={{ position:'absolute',left:0,right:0,height:'2px',background:`linear-gradient(90deg,transparent 0%,rgba(${screenRgb},0.28) 30%,rgba(${screenRgb},0.65) 50%,rgba(${screenRgb},0.28) 70%,transparent 100%)`,animation:'tv-scan 10s ease-in-out 2s infinite',pointerEvents:'none',zIndex:17 }} />
                           {/* Orbital rings */}
@@ -1393,7 +1397,7 @@ export default function Home() {
                           <div style={{ position:'absolute',inset:0,display:'flex',zIndex:5,opacity:tvFlash?0:1,transition:'opacity 0.1s ease' }}>
 
                             {/* LEFT 1/3 — Plan (Bridge) or channel metrics (other channels) */}
-                            <div style={{ flex:'0 0 33.333%',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.12)',background:'rgba(8,10,28,0.80)',overflow:'hidden' }}>
+                            <div style={{ flex:'0 0 33.333%',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.15)',background:'rgba(12,16,40,0.75)',overflow:'hidden' }}>
                               {activeDashboard === 'dashboard' ? (
                                 <>
                                   {!planCollapsed && (
