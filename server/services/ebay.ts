@@ -331,9 +331,10 @@ async function ebayFetch(
       response = await fetch(url, {
         method,
         headers: {
-          Authorization:  `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          Accept:         'application/json',
+          Authorization:   `Bearer ${accessToken}`,
+          'Content-Type':  'application/json',
+          Accept:          'application/json',
+          'Accept-Language': 'en-US',
           ...extraHeaders,
         },
         body:   body ? JSON.stringify(body) : undefined,
