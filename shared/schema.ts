@@ -808,7 +808,7 @@ export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;
 export const insertChannelSyncConfigSchema = createInsertSchema(channelSyncConfig).omit({ id: true, updatedAt: true });
 
 // ── Bulk Lots ──────────────────────────────────────────────────────────────────
-// A bulk lot is a virtual multi-item listing created by the Bulkinator tool.
+// A bulk lot is a virtual multi-item listing created by the BundleTron tool.
 // It collects one or more bl_inventory lots into a named bundle for sale on
 // channels that support multi-item listings (e.g. BrickOwl).  BrickLink is
 // intentionally excluded — it has no native bundle concept.

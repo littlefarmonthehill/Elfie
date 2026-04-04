@@ -11533,7 +11533,7 @@ Format search_web URLs as markdown links.`;
     }
   });
 
-  // ── Bulkinator API ──────────────────────────────────────────────────────────
+  // ── BundleTron API ──────────────────────────────────────────────────────────
   // IMPORTANT: Static sub-routes (/suggestions, /inventory-search) must be
   // registered BEFORE the parameterised /:id route so Express matches them first.
 

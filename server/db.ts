@@ -2316,7 +2316,7 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-95 (sync_price_floor on channel_sync_config) complete.');
 
-    // Phase-96: Bulk lots tables for the Bulkinator tool
+    // Phase-96: Bulk lots tables for the BundleTron tool
     await client.query(`
       CREATE TABLE IF NOT EXISTS bulk_lots (
         id          serial PRIMARY KEY,

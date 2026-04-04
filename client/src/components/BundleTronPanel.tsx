@@ -270,7 +270,7 @@ function AISuggestionsPanel({ onApply }: { onApply: (s: AISuggestion) => void })
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-        data-testid="button-bulkinator-ai-suggestions"
+        data-testid="button-bundletron-ai-suggestions"
       >
         <div className="p-1 rounded bg-amber-900/60 ring-1 ring-amber-500/40">
           <Wand2 className="w-3 h-3 text-amber-300" />
@@ -635,7 +635,7 @@ function LotDetail({ lotId, onBack }: { lotId: number; onBack: () => void }) {
 }
 
 // ── Main Panel ─────────────────────────────────────────────────────────────────
-export default function BulkinatorPanel() {
+export default function BundleTronPanel() {
   const { toast } = useToast();
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -677,7 +677,7 @@ export default function BulkinatorPanel() {
           <Package className="w-3.5 h-3.5 text-orange-300" />
         </div>
         <div className="flex-1">
-          <p className="text-xs font-bold text-orange-100">Bulkinator</p>
+          <p className="text-xs font-bold text-orange-100">BundleTron</p>
           <p className="text-[10px] text-gray-500">Bundle lots for BrickOwl</p>
         </div>
         {(lots?.length ?? 0) > 0 && (

@@ -26,8 +26,8 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bulkinator' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bulkinator' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
   onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
@@ -356,10 +356,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
             </button>
 
-            {/* Bulkinator */}
+            {/* BundleTron */}
             <button
-              onClick={() => onDrawerChange('bulkinator')}
-              data-testid="tool-bulkinator"
+              onClick={() => onDrawerChange('bundletron')}
+              data-testid="tool-bundletron"
               className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
@@ -367,9 +367,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-lg bg-orange-800/75 p-1.5 ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
                   <Layers className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Bulkinator</span>
+                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>BundleTron</span>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="bulkinator-action-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="bundletron-action-stats">
                 <span className="text-[9px] text-orange-400/70">Bundle lots for BO</span>
               </div>
             </button>
