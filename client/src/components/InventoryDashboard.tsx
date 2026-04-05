@@ -278,13 +278,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
-        <div className="relative rounded-lg border border-gray-400/60 bg-gradient-to-b from-gray-800/75 to-gray-900/95 shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden" data-testid="section-command-central-inventory">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
+        <div className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden" style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-command-central-inventory">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
           <div className="px-3 pt-2.5 pb-2.5 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Crosshair className="w-2.5 h-2.5 text-gray-400/70 flex-shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white">Command Central</span>
-              <div className="flex-1 h-px bg-gray-500/20" />
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="p-1.5 rounded-lg bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
+                <Crosshair className="w-4 h-4 text-blue-100" />
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Command Central</h3>
             </div>
 
             {/* Pricing signal */}

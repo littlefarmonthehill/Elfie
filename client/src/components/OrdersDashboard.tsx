@@ -414,13 +414,14 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
-        <div className="relative rounded-lg border border-gray-400/60 bg-gradient-to-b from-gray-800/75 to-gray-900/95 shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden" data-testid="section-command-central-orders">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
+        <div className="relative rounded-lg border border-orange-400/65 shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden bg-gradient-to-b from-orange-900/40 to-gray-900/88" data-testid="section-command-central-orders">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className="px-3 pt-2.5 pb-2.5 space-y-2">
-            <div className="flex items-center gap-2">
-              <Crosshair className="w-2.5 h-2.5 text-gray-400/70 flex-shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white">Command Central</span>
-              <div className="flex-1 h-px bg-gray-500/20" />
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
+                <Crosshair className="w-4 h-4 text-orange-200" />
+              </div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Command Central</h3>
             </div>
             <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
               {([
