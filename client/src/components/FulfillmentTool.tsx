@@ -40,10 +40,13 @@ type PicklistBinItem = {
   sku: string;
   partNumber: string | null;
   colorName: string | null;
+  colorId: number | null;
   condition: string | null;
   pulled: boolean;
   inventoryId: number | null;
   remarks: string | null;
+  comment: string | null;
+  imageUrl: string | null;
   inventoryQty: number | null;
 };
 type PicklistBinLocation = {

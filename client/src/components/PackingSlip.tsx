@@ -477,6 +477,8 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
 }
 
 // ─── Lot labels (thermal, 2" × 3") ───────────────────────────────────────────
+// Layout mirrors the picklist per-item row: image + part# + name, then
+// ×qty · color · condition (prominent), then lot/bin ref (subdued), then comment.
 
 export interface LotLabelItem {
   partNumber?: string | null;
@@ -489,6 +491,10 @@ export interface LotLabelItem {
   inventoryId?: number | null;
   binLocation?: string | null;
   imageUrl?: string | null;
+  /** Seller note / lot remark — shown with yellow highlight, same as picklist. */
+  comment?: string | null;
+  /** Passed through from PicklistBinItem.remarks when building from a picklist. */
+  remarks?: string | null;
 }
 
 const LBL_W  = 50.8;   // 2" in mm
@@ -536,6 +542,12 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
     format: [LBL_W, LBL_H],
   });
 
+  const divider = (y: number) => {
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.15);
+    doc.line(LM, y, LM + LBL_CW, y);
+  };
+
   for (let i = 0; i < items.length; i++) {
     if (i > 0) doc.addPage([LBL_W, LBL_H], 'portrait');
 
@@ -544,47 +556,55 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
     const imgData = imgDataUrls[i];
     const partStr = item.partNumber || item.sku || '';
     const condStr = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
+    // comment comes from either `comment` or `remarks` (PicklistBinItem field name)
+    const noteText = (item.comment || item.remarks || '').trim();
 
     let y = TM;
 
     // ── Row 1: org name (left) + small logo (right) ───────────────────────────
-    if (orgName) {
-      doc.setFontSize(5.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(160, 160, 160);
-      doc.text(orgName.toUpperCase(), LM, y + 2.2);
+    if (orgName || (logo && logo.w > 0)) {
+      if (orgName) {
+        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(160, 160, 160);
+        doc.text(orgName.toUpperCase(), LM, y + 2.2);
+      }
+      if (logo && logo.w > 0 && logo.h > 0) {
+        const lh = 5;
+        const lw = (logo.w / logo.h) * lh;
+        doc.addImage(logo.dataUrl, 'PNG', LBL_W - RM - lw, y, lw, lh);
+      }
+      y += 5.5;
+      divider(y);
+      y += 1.5;
     }
-    if (logo && logo.w > 0 && logo.h > 0) {
-      const lh = 5;
-      const lw = (logo.w / logo.h) * lh;
-      doc.addImage(logo.dataUrl, 'PNG', LBL_W - RM - lw, y, lw, lh);
-    }
-    y += 6;
 
-    // ── Row 2: part image (left) + part number (right) ────────────────────────
+    // ── Row 2: image (left) + part# bold (right top) + name gray (right below) ─
+    //   Mirrors picklist Line 1: "PartNo (bold) · Name (gray)"
     const THUMB = 13;
+    const imgY  = y;
     if (imgData) {
-      try { doc.addImage(imgData, 'PNG', LM, y, THUMB, THUMB); } catch { /* skip */ }
+      try { doc.addImage(imgData, 'PNG', LM, imgY, THUMB, THUMB); } catch { /* skip */ }
     } else {
       doc.setDrawColor(210, 210, 210);
-      doc.setFillColor(245, 245, 245);
-      doc.roundedRect(LM, y, THUMB, THUMB, 1, 1, 'FD');
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(LM, imgY, THUMB, THUMB, 1, 1, 'FD');
     }
     const textX = LM + THUMB + 2;
     const textW = LBL_CW - THUMB - 2;
 
-    doc.setFontSize(14);
+    // Part# — bold, shrink-to-fit
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(10, 10, 10);
-    // Shrink part# to fit if needed
-    let pSize = 14;
-    while (pSize > 8 && doc.getTextWidth(partStr) > textW) {
+    doc.setTextColor(15, 15, 15);
+    let pSize = 12;
+    while (pSize > 7 && doc.getTextWidth(partStr) > textW) {
       pSize -= 0.5;
       doc.setFontSize(pSize);
     }
-    doc.text(partStr, textX, y + 5);
+    doc.text(partStr, textX, imgY + 4.5);
 
-    // Item name below part# (within thumbnail column)
+    // Name — gray, truncated to fit in remaining right-column height
     if (item.itemName) {
       const shortName = cleanItemName(item.itemName, partStr);
       doc.setFontSize(6.5);
@@ -593,53 +613,82 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       const nameLines = doc.splitTextToSize(shortName, textW) as string[];
       const displayLines = nameLines.slice(0, 2);
       if (nameLines.length > 2) displayLines[1] = displayLines[1].slice(0, -1) + '\u2026';
-      displayLines.forEach((line, li) => doc.text(line, textX, y + 9.5 + li * 4));
+      displayLines.forEach((line, li) => doc.text(line, textX, imgY + 9 + li * 3.8));
     }
 
-    y += THUMB + 2.5;
-
-    // ── Row 3: color · condition ──────────────────────────────────────────────
-    doc.setDrawColor(210, 210, 210);
-    doc.setLineWidth(0.15);
-    doc.line(LM, y, LM + LBL_CW, y);
-    y += 3;
-
-    const colorCondParts = [item.colorName, condStr].filter(Boolean).join('  ·  ');
-    if (colorCondParts) {
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(20, 20, 20);
-      doc.text(colorCondParts, LM, y + 3.2);
-    }
-    y += 7;
-
-    // ── Row 4: quantity ───────────────────────────────────────────────────────
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(10, 10, 10);
-    doc.text(`\u00d7${item.quantity}`, LM, y + 5.5);
-    y += 9;
-
-    // ── Row 5: divider ────────────────────────────────────────────────────────
-    doc.setDrawColor(210, 210, 210);
-    doc.setLineWidth(0.15);
-    doc.line(LM, y, LM + LBL_CW, y);
+    y += THUMB + 2;
+    divider(y);
     y += 2.5;
 
-    // ── Row 6: bin location (left) + QR code (right) ─────────────────────────
-    const qrX = LBL_W - RM - QR_SZ;
+    // ── Row 3: ×Qty · Color · Condition (prominent bold) ─────────────────────
+    //   Mirrors picklist Line 2: "×Qty · Color · Condition"
+    const prominentParts = [
+      `\u00d7${item.quantity}`,
+      item.colorName,
+      condStr || null,
+    ].filter(Boolean).join('  \u00b7  ');
+
+    if (prominentParts) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      // Shrink if the whole string doesn't fit on one line
+      let qSize = 9;
+      while (qSize > 6.5 && doc.getTextWidth(prominentParts) > LBL_CW) {
+        qSize -= 0.25;
+        doc.setFontSize(qSize);
+      }
+      doc.text(prominentParts, LM, y + 3);
+    }
+    y += 6;
+
+    // ── Row 4: Lot ID · Bin location (subdued ref line) ──────────────────────
+    //   Mirrors picklist Line 2 tail: "· BL.OrderRef · Lot N"
+    const refParts = [
+      item.inventoryId != null ? `Lot ${item.inventoryId}` : null,
+      item.binLocation ? `Bin ${item.binLocation}` : null,
+    ].filter(Boolean).join('  \u00b7  ');
+
+    if (refParts) {
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text(refParts, LM, y + 2.5);
+    }
+    y += 5;
+
+    // ── Row 5: comment / remark — only if present (yellow highlight) ──────────
+    //   Mirrors picklist Line 3: italic comment on yellow background
+    if (noteText) {
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'oblique');
+      doc.setTextColor(40, 40, 40);
+      const noteLines = doc.splitTextToSize(noteText, LBL_CW) as string[];
+      const hlH = noteLines.length * 4 + 1;
+      doc.setFillColor(255, 245, 100);
+      doc.rect(LM - 0.5, y - 0.5, LBL_CW + 1, hlH, 'F');
+      noteLines.forEach((line, li) => doc.text(line, LM, y + 3 + li * 4));
+      y += hlH + 1.5;
+    }
+
+    divider(y);
+    y += 2;
+
+    // ── Row 6: bin location (large, left) + QR code (right) ──────────────────
+    //   QR encodes BIN: or LOT: for scan-to-pick
+    const qrX     = LBL_W - RM - QR_SZ;
     const binTextW = qrX - LM - 2;
 
     if (item.binLocation) {
-      doc.setFontSize(6);
+      doc.setFontSize(5.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(140, 140, 140);
-      doc.text('LOCATION', LM, y + 2.5);
+      doc.text('LOCATION', LM, y + 2.2);
 
-      doc.setFontSize(13);
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(10, 10, 10);
-      let bSize = 13;
+      let bSize = 12;
       while (bSize > 7 && doc.getTextWidth(item.binLocation) > binTextW) {
         bSize -= 0.5;
         doc.setFontSize(bSize);
@@ -649,16 +698,6 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
 
     if (qrData) {
       try { doc.addImage(qrData, 'PNG', qrX, y, QR_SZ, QR_SZ); } catch { /* skip */ }
-    }
-
-    y += QR_SZ + 2;
-
-    // ── Row 7: lot ID ─────────────────────────────────────────────────────────
-    if (item.inventoryId) {
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Lot ${item.inventoryId}`, LM, y + 2.5);
     }
   }
 
