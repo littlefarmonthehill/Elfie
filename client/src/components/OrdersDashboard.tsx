@@ -419,7 +419,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="px-3 pt-2.5 pb-2.5 space-y-2">
             <div className="flex items-center gap-2">
               <Crosshair className="w-2.5 h-2.5 text-gray-400/70 flex-shrink-0" />
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400/80">Command Central</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-white">Command Central</span>
               <div className="flex-1 h-px bg-gray-500/20" />
             </div>
             <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
