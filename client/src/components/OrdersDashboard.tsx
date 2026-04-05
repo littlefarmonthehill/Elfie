@@ -418,8 +418,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className="px-3 pt-2.5 pb-2.5 space-y-2">
             <div className="flex items-center gap-2.5 mb-1">
-              <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
-                <Crosshair className="w-4 h-4 text-orange-200" />
+              <div className="p-1.5 rounded-lg bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
+                <Crosshair className="w-4 h-4 text-orange-100" />
               </div>
               <h3 className="text-sm font-bold text-white uppercase tracking-widest">Command Central</h3>
             </div>
