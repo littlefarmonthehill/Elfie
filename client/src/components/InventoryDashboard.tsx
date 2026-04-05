@@ -233,7 +233,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
 
           {/* Top row: Lots, Parts, Categories */}
-          <div className="grid grid-cols-3 gap-2 mb-2" data-testid="section-inventory-info">
+          <div className="grid grid-cols-3 gap-1.5 mb-1.5" data-testid="section-inventory-info">
             {([
               { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '—' },
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
@@ -243,34 +243,34 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-lg border border-blue-500/55 bg-[#0e2245]/88 p-2.5 md:p-3"
+                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70 p-1.5 md:p-2.5"
               >
-                <span className="text-[9px] md:text-[10px] text-gray-400 mb-1 leading-tight">{label}</span>
-                <span className="text-base md:text-xl font-bold font-mono text-lego-blue leading-none">{value}</span>
-                <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
-                  <ChevronRight className="w-3 h-3 text-white" />
+                <span className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">{label}</span>
+                <span className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none">{value}</span>
+                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
+                  <ChevronRight className="w-2.5 h-2.5 text-white" />
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Bottom row: My Cost, Listed, Profit Potential */}
-          <div className="grid grid-cols-3 gap-2" data-testid="section-values">
-            <div className="rounded-lg border border-red-400/65 bg-[#1a0e14]/90 p-2.5 md:p-3" data-testid="metric-cost">
-              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">My Cost</div>
-              <div className="text-sm md:text-base font-bold font-mono text-lego-red leading-none truncate">
+          {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
+          <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
+            <div className="rounded-md border border-lego-red/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-cost">
+              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">My Cost</div>
+              <div className="font-semibold font-mono text-xs md:text-base text-lego-red leading-none truncate">
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-lg border border-blue-400/55 bg-[#0e2245]/88 p-2.5 md:p-3" data-testid="metric-listed">
-              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Listed</div>
-              <div className="text-sm md:text-base font-bold font-mono text-lego-blue leading-none truncate">
+            <div className="rounded-md border border-lego-blue/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-listed">
+              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Listed</div>
+              <div className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none truncate">
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-lg border border-green-400/65 bg-[#0a1e12]/90 p-2.5 md:p-3" data-testid="metric-sold-avg">
-              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Mkt Sold Avg</div>
-              <div className="text-sm md:text-base font-bold font-mono text-lego-green leading-none truncate">
+            <div className="rounded-md border border-lego-green/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-sold-avg">
+              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Mkt Sold Avg</div>
+              <div className="font-semibold font-mono text-xs md:text-base text-lego-green leading-none truncate">
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
             </div>
