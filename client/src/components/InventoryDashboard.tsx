@@ -209,11 +209,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="p-1.5 rounded-lg bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)]">
-              <Package className="w-4 h-4 md:w-5 md:h-5 lg:w-4 lg:h-4 text-blue-100" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
+              <Package className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
             </div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Inventory</h3>
+            <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide md:text-sm">Inventory</h3>
             <div className="ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -281,11 +281,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         <div className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden" style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-command-central-inventory">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
           <div className="px-3 pt-2.5 pb-2.5 space-y-1.5">
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="p-1.5 rounded-lg bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
-                <Crosshair className="w-4 h-4 text-blue-100" />
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
+                <Crosshair className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
               </div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Command Central</h3>
+              <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide md:text-sm">Command Central</h3>
             </div>
 
             {/* Pricing signal */}

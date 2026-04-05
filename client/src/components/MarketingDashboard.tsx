@@ -466,11 +466,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", "p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="p-1.5 rounded-lg bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0">
-              <Users className="w-4 h-4 text-yellow-100" />
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0">
+              <Users className="w-3 h-3 md:w-4 md:h-4 text-yellow-200" />
             </div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Customers</h3>
+            <h3 className="text-xs font-semibold text-yellow-200 uppercase tracking-wide min-w-0 md:text-sm">Customers</h3>
             <CollapsibleDatePicker
               value={localDateRange}
               onChange={setLocalDateRange}
@@ -494,11 +494,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
         {/* ── Tools ── */}
         <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
-          <div className={cn("flex items-center gap-2.5", "mb-2")}>
-            <div className="p-1.5 rounded-lg bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0">
-              <Sparkles className="w-4 h-4 text-gray-100" />
+          <div className={cn("flex items-center gap-2", "mb-2")}>
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
             </div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Systems</h3>
+            <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide md:text-sm">Systems</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2")}>
 

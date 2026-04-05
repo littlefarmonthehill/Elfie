@@ -1405,11 +1405,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       {/* ── Top Metrics ── */}
       <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", "p-2.5")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className="p-1.5 rounded-lg bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0">
-            <TrendingUp className="w-4 h-4 text-green-100" />
+        <div className="flex items-center gap-2 mb-2">
+          <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0">
+            <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-200" />
           </div>
-          <h3 className="text-sm font-bold text-white uppercase tracking-widest">Insights</h3>
+          <h3 className="text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0 md:text-sm">Insights</h3>
           <CollapsibleDatePicker
             value={localDateRange}
             onChange={setLocalDateRange}
@@ -1436,11 +1436,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       {/* ── Tools Section ── */}
       <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")}>
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
-          <div className={cn("flex items-center gap-2.5", "mb-2")}>
-            <div className="p-1.5 rounded-lg bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0">
-              <BarChart2 className="w-4 h-4 text-gray-100" />
+          <div className={cn("flex items-center gap-2", "mb-2")}>
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0">
+              <BarChart2 className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
             </div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Systems</h3>
+            <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide md:text-sm">Systems</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
