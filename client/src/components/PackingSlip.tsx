@@ -521,13 +521,6 @@ const IMG_GAP = 3;     // gap between image and text
 const TEXT_X = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;  // text block left edge
 const TEXT_W = LBL_W - RM - TEXT_X;                    // text block width (~39mm)
 const LBL_CH = LBL_H - TM - BM;                        // content height (44.8mm)
-// Vertical text baselines — centre the 3-line block in the content height.
-// Block height ≈ cap12pt(4.6) + gap(5.5) + cap11pt(4.0) + gap(5) + cap8pt(3) = 22.1mm
-const BLOCK_H = 22;
-const L1_OFF  = (LBL_CH - BLOCK_H) / 2 + 4.6;  // part# baseline from TM
-const L2_OFF  = L1_OFF + 5.5;                    // ×qty·color·cond baseline
-const L3_OFF  = L2_OFF + 5;                      // order ref · lot ID baseline
-const L4_OFF  = L3_OFF + 5;                      // comment first line baseline
 
 export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): Promise<void> {
   if (items.length === 0) return;
@@ -565,15 +558,14 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       ? (codeMap.get(item.orderNumber) ?? shortCode(item.orderNumber))
       : '';
 
-    // ── Shortcode column — vertically centred, large bold ─────────────────────
-    // Mirrors the left shortcode column on the picklist sheet exactly.
+    // ── Shortcode column — vertically centred, 14pt bold (matches picklist) ────
     if (sc) {
-      doc.setFontSize(18);
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
       const scW = doc.getTextWidth(sc);
       const scX = LM + (SC_W - scW) / 2;
-      const scY = TM + LBL_CH / 2 + 3;   // vertically centred (3 ≈ half cap-height)
+      const scY = TM + LBL_CH / 2 + 2.5;  // 2.5 ≈ half cap-height of 14pt
       doc.text(sc, scX, scY);
     }
 
@@ -594,7 +586,10 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       doc.roundedRect(imgX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
     }
 
-    // ── Line 1: Part# (bold) · Name (gray, truncated) — matches picklist L1 ───
+    // Text block — flowing Y cursor, starts 4mm below top margin
+    let ty = TM + 4;
+
+    // ── Part# — 12pt bold, matches picklist L1 ────────────────────────────────
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
@@ -603,31 +598,29 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       pSize -= 0.5;
       doc.setFontSize(pSize);
     }
-    const L1_Y = TM + L1_OFF;
-    doc.text(partStr, TEXT_X, L1_Y);
-    const partStrW = doc.getTextWidth(partStr);
+    doc.text(partStr, TEXT_X, ty + 4.6);
+    ty += 4.6 + 1.5;
 
+    // ── Name — 9pt gray, word-wrapped, matches picklist L1 ────────────────────
     if (item.itemName) {
-      const maxNameW = TEXT_W - partStrW - 3;
+      const name = cleanItemName(item.itemName, partStr);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 100, 100);
-      let name = cleanItemName(item.itemName, partStr);
-      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
-        name = name.slice(0, -1);
-      if (name.length < cleanItemName(item.itemName, partStr).length)
-        name = name.slice(0, -1) + '\u2026';
-      doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, L1_Y);
+      const nameLines = doc.splitTextToSize(name, TEXT_W) as string[];
+      nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + 3.2 + li * 3.8));
+      ty += nameLines.length * 3.8 + 2;
     }
 
-    // ── Line 2: ×Qty · Color · Condition — prominent bold, matches picklist L2 ─
+    ty += 2;  // gap before ×qty line
+
+    // ── ×Qty · Color · Condition — 11pt bold, matches picklist L2 ─────────────
     const prominentParts = [
       `\u00d7${item.quantity}`,
       item.colorName,
       condStr || null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    const L2_Y = TM + L2_OFF;
     if (prominentParts) {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -637,35 +630,37 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
         qSize -= 0.25;
         doc.setFontSize(qSize);
       }
-      doc.text(prominentParts, TEXT_X, L2_Y);
+      doc.text(prominentParts, TEXT_X, ty + 4.0);
+      ty += 4.0 + 1.5;
     }
 
-    // ── Line 3: Order ref · Lot ID — subdued, matches picklist L2 tail ────────
+    // ── Order ref · Lot ID — 8pt gray, matches picklist L2 tail ──────────────
     const refLineParts = [
       orderRef || null,
       item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    const L3_Y = TM + L3_OFF;
     if (refLineParts) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(60, 60, 60);
-      doc.text(refLineParts, TEXT_X, L3_Y);
+      doc.text(refLineParts, TEXT_X, ty + 3.0);
+      ty += 3.0 + 2;
     }
 
-    // ── Line 4+: Comment — yellow highlight, matches picklist L3 ──────────────
-    const L4_Y = TM + L4_OFF;
+    ty += 2;  // gap before comment
+
+    // ── Comment — 9pt italic, yellow highlight, word-wrapped, matches picklist L3
     if (noteText) {
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'oblique');
       doc.setTextColor(40, 40, 40);
-      const CMT_LINE_H = 4.5;
+      const CMT_LINE_H = 4.0;
       const noteLines = doc.splitTextToSize(noteText, TEXT_W) as string[];
-      const hlH = noteLines.length * CMT_LINE_H + 1;
+      const hlH = noteLines.length * CMT_LINE_H + 1.5;
       doc.setFillColor(255, 245, 100);
-      doc.rect(TEXT_X - 1, L4_Y - 3.5, TEXT_W + 2, hlH, 'F');
-      noteLines.forEach((line, li) => doc.text(line, TEXT_X, L4_Y + li * CMT_LINE_H));
+      doc.rect(TEXT_X - 1, ty - 0.5, TEXT_W + 2, hlH, 'F');
+      noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + 3.2 + li * CMT_LINE_H));
     }
 
     // ── Org name — tiny, bottom-right ─────────────────────────────────────────
