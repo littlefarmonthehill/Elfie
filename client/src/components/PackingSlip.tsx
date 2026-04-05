@@ -476,9 +476,12 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
 
-// ─── Lot labels (thermal, 2" × 3") ───────────────────────────────────────────
-// Layout mirrors the picklist per-item row: image + part# + name, then
-// ×qty · color · condition (prominent), then lot/bin ref (subdued), then comment.
+// ─── Per-order bag labels (thermal, 2" × 3") ─────────────────────────────────
+// Each label is a bag slip for one lot in a customer's order — the thermal
+// equivalent of cutting a single row off the picklist sheet.
+// Layout: shortcode header → image + part# + name → ×qty·color·condition →
+//         order ref + lot ID → comment (yellow).  No bin/QR — this is for
+//         packing, not warehouse picking.
 
 export interface LotLabelItem {
   partNumber?: string | null;
@@ -489,46 +492,32 @@ export interface LotLabelItem {
   condition?: string | null;
   quantity: number;
   inventoryId?: number | null;
-  binLocation?: string | null;
   imageUrl?: string | null;
+  /** Order number this lot belongs to — used for order ref + shortcode. */
+  orderNumber?: string | null;
+  /** Channel marketplace ('BrickLink' | 'BrickOwl') — for ref prefix. */
+  marketplace?: string | null;
   /** Seller note / lot remark — shown with yellow highlight, same as picklist. */
   comment?: string | null;
-  /** Passed through from PicklistBinItem.remarks when building from a picklist. */
+  /** Alias for `comment` — field name on PicklistBinItem. */
   remarks?: string | null;
+  // kept for API compat but unused in bag-slip layout:
+  binLocation?: string | null;
 }
 
 const LBL_W  = 50.8;   // 2" in mm
 const LBL_H  = 76.2;   // 3" in mm
 const LM     = 2.5;    // left margin
 const RM     = 2.5;    // right margin
-const TM     = 2.5;    // top margin
+const TM     = 3;      // top margin
 const LBL_CW = LBL_W - LM - RM;  // 45.8mm content width
-const QR_SZ  = 16;     // QR code square size mm
-
-async function generateQR(text: string): Promise<string | null> {
-  try {
-    return await QRCode.toDataURL(text, { width: 200, margin: 1 });
-  } catch {
-    return null;
-  }
-}
 
 export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): Promise<void> {
   if (items.length === 0) return;
 
-  const logo = await loadLogoInfo(org?.logoUrl);
-  const orgName = org?.name || '';
-
-  const qrDataUrls = await Promise.all(
-    items.map(item => {
-      const qrText = item.binLocation
-        ? `BIN:${item.binLocation}`
-        : item.inventoryId
-          ? `LOT:${item.inventoryId}`
-          : null;
-      return qrText ? generateQR(qrText) : Promise.resolve(null);
-    })
-  );
+  // Build collision-free short codes for all orders in this label batch
+  const orderNumbers = items.map(i => i.orderNumber).filter(Boolean) as string[];
+  const codeMap = buildShortCodeMap(orderNumbers);
 
   const imgDataUrls = await Promise.all(
     items.map(item =>
@@ -552,36 +541,46 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
     if (i > 0) doc.addPage([LBL_W, LBL_H], 'portrait');
 
     const item    = items[i];
-    const qrData  = qrDataUrls[i];
     const imgData = imgDataUrls[i];
     const partStr = item.partNumber || item.sku || '';
     const condStr = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
-    // comment comes from either `comment` or `remarks` (PicklistBinItem field name)
     const noteText = (item.comment || item.remarks || '').trim();
+
+    // Order ref helpers — same logic as picklist
+    const chanPfx = item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
+    const orderRef = rawOrder ? `${chanPfx}.${rawOrder}` : '';
+    const sc = item.orderNumber
+      ? (codeMap.get(item.orderNumber) ?? shortCode(item.orderNumber))
+      : '';
 
     let y = TM;
 
-    // ── Row 1: org name (left) + small logo (right) ───────────────────────────
-    if (orgName || (logo && logo.w > 0)) {
-      if (orgName) {
-        doc.setFontSize(5.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(160, 160, 160);
-        doc.text(orgName.toUpperCase(), LM, y + 2.2);
-      }
-      if (logo && logo.w > 0 && logo.h > 0) {
-        const lh = 5;
-        const lw = (logo.w / logo.h) * lh;
-        doc.addImage(logo.dataUrl, 'PNG', LBL_W - RM - lw, y, lw, lh);
-      }
-      y += 5.5;
-      divider(y);
-      y += 1.5;
+    // ── Shortcode header — large, bold, centered ───────────────────────────────
+    // Matches the big shortcode on the left column of the picklist so pickers
+    // can cross-reference by code rather than reading the full order number.
+    if (sc) {
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 15, 15);
+      const scW = doc.getTextWidth(sc);
+      doc.text(sc, LM + (LBL_CW - scW) / 2, y + 7);
     }
+    // Order ref — small gray, right-aligned, same row as shortcode
+    if (orderRef) {
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 150, 150);
+      const refW = doc.getTextWidth(orderRef);
+      doc.text(orderRef, LM + LBL_CW - refW, y + 2.5);
+    }
+    y += 10;
+    divider(y);
+    y += 2;
 
-    // ── Row 2: image (left) + part# bold (right top) + name gray (right below) ─
+    // ── Image (left) + Part# bold (right top) + Name gray (right below) ───────
     //   Mirrors picklist Line 1: "PartNo (bold) · Name (gray)"
-    const THUMB = 13;
+    const THUMB = 14;
     const imgY  = y;
     if (imgData) {
       try { doc.addImage(imgData, 'PNG', LM, imgY, THUMB, THUMB); } catch { /* skip */ }
@@ -602,26 +601,25 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       pSize -= 0.5;
       doc.setFontSize(pSize);
     }
-    doc.text(partStr, textX, imgY + 4.5);
+    doc.text(partStr, textX, imgY + 5);
 
-    // Name — gray, truncated to fit in remaining right-column height
+    // Name — gray, up to 3 lines to fill the thumbnail height
     if (item.itemName) {
       const shortName = cleanItemName(item.itemName, partStr);
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(110, 110, 110);
       const nameLines = doc.splitTextToSize(shortName, textW) as string[];
-      const displayLines = nameLines.slice(0, 2);
-      if (nameLines.length > 2) displayLines[1] = displayLines[1].slice(0, -1) + '\u2026';
-      displayLines.forEach((line, li) => doc.text(line, textX, imgY + 9 + li * 3.8));
+      const displayLines = nameLines.slice(0, 3);
+      if (nameLines.length > 3) displayLines[2] = displayLines[2].slice(0, -1) + '\u2026';
+      displayLines.forEach((line, li) => doc.text(line, textX, imgY + 10 + li * 3.8));
     }
 
     y += THUMB + 2;
     divider(y);
-    y += 2.5;
+    y += 3;
 
-    // ── Row 3: ×Qty · Color · Condition (prominent bold) ─────────────────────
-    //   Mirrors picklist Line 2: "×Qty · Color · Condition"
+    // ── ×Qty · Color · Condition — prominent, matches picklist Line 2 ─────────
     const prominentParts = [
       `\u00d7${item.quantity}`,
       item.colorName,
@@ -629,75 +627,52 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
     ].filter(Boolean).join('  \u00b7  ');
 
     if (prominentParts) {
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(20, 20, 20);
-      // Shrink if the whole string doesn't fit on one line
-      let qSize = 9;
-      while (qSize > 6.5 && doc.getTextWidth(prominentParts) > LBL_CW) {
+      doc.setTextColor(15, 15, 15);
+      let qSize = 11;
+      while (qSize > 7 && doc.getTextWidth(prominentParts) > LBL_CW) {
         qSize -= 0.25;
         doc.setFontSize(qSize);
       }
-      doc.text(prominentParts, LM, y + 3);
+      doc.text(prominentParts, LM, y + 4);
+    }
+    y += 7;
+
+    // ── Order ref · Lot ID — subdued, matches picklist Line 2 tail ────────────
+    const refLineParts = [
+      orderRef || null,
+      item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
+    ].filter(Boolean).join('  \u00b7  ');
+
+    if (refLineParts) {
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text(refLineParts, LM, y + 3);
     }
     y += 6;
 
-    // ── Row 4: Lot ID · Bin location (subdued ref line) ──────────────────────
-    //   Mirrors picklist Line 2 tail: "· BL.OrderRef · Lot N"
-    const refParts = [
-      item.inventoryId != null ? `Lot ${item.inventoryId}` : null,
-      item.binLocation ? `Bin ${item.binLocation}` : null,
-    ].filter(Boolean).join('  \u00b7  ');
-
-    if (refParts) {
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(80, 80, 80);
-      doc.text(refParts, LM, y + 2.5);
-    }
-    y += 5;
-
-    // ── Row 5: comment / remark — only if present (yellow highlight) ──────────
-    //   Mirrors picklist Line 3: italic comment on yellow background
+    // ── Comment / remark — yellow highlight, matches picklist Line 3 ──────────
     if (noteText) {
-      doc.setFontSize(7.5);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'oblique');
       doc.setTextColor(40, 40, 40);
       const noteLines = doc.splitTextToSize(noteText, LBL_CW) as string[];
-      const hlH = noteLines.length * 4 + 1;
+      const hlH = noteLines.length * 4.5 + 1;
       doc.setFillColor(255, 245, 100);
       doc.rect(LM - 0.5, y - 0.5, LBL_CW + 1, hlH, 'F');
-      noteLines.forEach((line, li) => doc.text(line, LM, y + 3 + li * 4));
-      y += hlH + 1.5;
+      noteLines.forEach((line, li) => doc.text(line, LM, y + 3.5 + li * 4.5));
+      y += hlH + 1;
     }
 
-    divider(y);
-    y += 2;
-
-    // ── Row 6: bin location (large, left) + QR code (right) ──────────────────
-    //   QR encodes BIN: or LOT: for scan-to-pick
-    const qrX     = LBL_W - RM - QR_SZ;
-    const binTextW = qrX - LM - 2;
-
-    if (item.binLocation) {
+    // ── Org name — small, bottom of label ─────────────────────────────────────
+    const orgName = (org?.name || '').trim();
+    if (orgName) {
       doc.setFontSize(5.5);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(140, 140, 140);
-      doc.text('LOCATION', LM, y + 2.2);
-
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(10, 10, 10);
-      let bSize = 12;
-      while (bSize > 7 && doc.getTextWidth(item.binLocation) > binTextW) {
-        bSize -= 0.5;
-        doc.setFontSize(bSize);
-      }
-      doc.text(item.binLocation, LM, y + 9);
-    }
-
-    if (qrData) {
-      try { doc.addImage(qrData, 'PNG', qrX, y, QR_SZ, QR_SZ); } catch { /* skip */ }
+      doc.setTextColor(180, 180, 180);
+      doc.text(orgName.toUpperCase(), LM, LBL_H - 2);
     }
   }
 
