@@ -6,7 +6,7 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
   ChevronDown, ChevronUp, X,
-  Sparkles, Globe, Megaphone,
+  Sparkles, Globe, Megaphone, Star, MessageSquare,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { cn } from "@/lib/utils";
@@ -655,8 +655,19 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/orders/dashboard'],
   });
 
-  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
+  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number; feedbackPending: number }>({
     queryKey: ['/api/fulfillment/stats'],
+  });
+
+  const { data: bridgeSignals } = useQuery<{
+    agingOrders: number;
+    repeatBuyers: number;
+    thisWeekRevenue: number;
+    lastWeekRevenue: number;
+  }>({
+    queryKey: ['/api/bridge/signals'],
+    refetchInterval: 60000,
+    staleTime: 30000,
   });
 
   const { data: pricingInsights } = useQuery<{ success: boolean; data: any }>({
@@ -854,6 +865,23 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     ([key, g]) => g.totalQty > 0 && g.maxScore >= underpricedThreshold && !(deepSpaceKeySet as Set<string>)?.has(key) && !(futureMissionsKeySet as Set<string>)?.has(key)
   ).length;
 
+  const overpricedCount = (() => {
+    const tooHighItems: any[] = pricingInsights?.data?.tooHigh ?? [];
+    const seen = new Set<string>();
+    let count = 0;
+    for (const item of tooHighItems) {
+      const key = `${item.itemNo}_${item.colorId ?? 'null'}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if ((item.quantity ?? 0) > 0 && !(deepSpaceKeySet as Set<string>)?.has(key) && !(futureMissionsKeySet as Set<string>)?.has(key)) count++;
+    }
+    return count;
+  })();
+
+  const highValuePendingOrder = (dashboardOrders?.pending ?? []).find(
+    (o: any) => Number(o.orderTotal) >= 50
+  ) ?? null;
+
   const targets: any[] = syncStatus?.targets ?? [];
   const channelIssues = targets.map((t: any) => {
     const name = t.name ?? t.platform ?? 'Unknown channel';
@@ -898,6 +926,39 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     if (c.disc > 0) {
       urgentAlerts.push({ id: `ch-${c.name}-issues`, icon: AlertTriangle, iconColor: 'text-yellow-400', label: `${c.name}: ${c.disc} discrepanc${c.disc !== 1 ? 'ies' : 'y'}`, severity: 'warn', kind: 'warn' });
     }
+  }
+
+  // ── Orders signals ──────────────────────────────────────────────────────────
+  const agingOrders = bridgeSignals?.agingOrders ?? 0;
+  if (agingOrders > 0) {
+    urgentAlerts.push({ id: 'aging-orders', icon: Clock, iconColor: 'text-red-400', label: `${agingOrders} order${agingOrders !== 1 ? 's' : ''} aging past 24h`, sub: 'Buyer satisfaction at risk — fulfill now', severity: 'error', kind: 'critical', onClick: onOpenFulfillment });
+  }
+  if (highValuePendingOrder) {
+    const hvTotal = Number(highValuePendingOrder.orderTotal ?? 0).toFixed(2);
+    urgentAlerts.push({ id: 'high-value-pending', icon: Star, iconColor: 'text-yellow-300', label: `$${hvTotal} order ready to ship`, sub: `From ${highValuePendingOrder.customerUsername ?? 'buyer'} — prioritize packing`, severity: 'info', kind: 'opportunity', onClick: onOpenFulfillment });
+  }
+
+  // ── Marketing signals ───────────────────────────────────────────────────────
+  const repeatBuyers = bridgeSignals?.repeatBuyers ?? 0;
+  if (repeatBuyers > 0) {
+    urgentAlerts.push({ id: 'repeat-buyers', icon: Users, iconColor: 'text-teal-400', label: `${repeatBuyers} loyal buyer${repeatBuyers !== 1 ? 's' : ''} in your store`, sub: 'Great candidates for outreach', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('marketing') });
+  }
+  const feedbackPending = fulfillmentStats?.feedbackPending ?? 0;
+  if (feedbackPending > 0) {
+    urgentAlerts.push({ id: 'feedback-pending', icon: MessageSquare, iconColor: 'text-teal-400', label: `${feedbackPending} order${feedbackPending !== 1 ? 's' : ''} need${feedbackPending === 1 ? 's' : ''} feedback`, sub: 'Leave feedback to build your reputation', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('orders') });
+  }
+
+  // ── Insights signals ────────────────────────────────────────────────────────
+  if (overpricedCount > 0) {
+    urgentAlerts.push({ id: 'overpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${overpricedCount} item${overpricedCount !== 1 ? 's' : ''} priced above market`, sub: 'Buyers may be going elsewhere', severity: 'warn', kind: 'warn', onClick: onOpenPriceomatic });
+  }
+  const thisWeek = bridgeSignals?.thisWeekRevenue ?? 0;
+  const lastWeek = bridgeSignals?.lastWeekRevenue ?? 0;
+  const revenueChangePct = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
+  if (revenueChangePct !== null && revenueChangePct >= 10) {
+    urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, sub: 'Momentum is building — keep going', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('sales') });
+  } else if (revenueChangePct !== null && revenueChangePct <= -10) {
+    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, sub: 'Check Insights for what changed', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
 
   const invEmbedPct = embedStats && embedStats.inventory.total > 0
@@ -970,7 +1031,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={ShoppingCart}
           color="orange"
           stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
-          alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail' || a.id === 'qty-sync-fail')}
+          alerts={urgentAlerts.filter(a => ['pending', 'order-fail', 'qty-sync-fail', 'aging-orders', 'high-value-pending'].includes(a.id))}
           onClick={() => onNavigate?.('orders')}
           isActive={activeSection === 'orders'}
           channelNum="02"
@@ -1005,7 +1066,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={Megaphone}
           color="yellow"
           stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
-          alerts={[]}
+          alerts={urgentAlerts.filter(a => ['repeat-buyers', 'feedback-pending'].includes(a.id))}
           onClick={() => onNavigate?.('marketing')}
           isActive={activeSection === 'marketing'}
           channelNum="03"
@@ -1020,7 +1081,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={TrendingUp}
           color="green"
           stat={formatCurrency(totalRevenue)}
-          alerts={urgentAlerts.filter(a => a.id === 'pom-fail')}
+          alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down'].includes(a.id))}
           onClick={() => onNavigate?.('sales')}
           isActive={activeSection === 'sales'}
           channelNum="04"

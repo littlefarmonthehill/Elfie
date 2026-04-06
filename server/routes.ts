@@ -4821,6 +4821,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/bridge/signals — lightweight counts the Bridge uses that aren't covered by other endpoints
+  app.get("/api/bridge/signals", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [agingResult, repeatResult, thisWeekResult, lastWeekResult] = await Promise.all([
+        // Orders still pending and older than 24 hours — fulfillment SLA risk
+        db.execute(sql`
+          SELECT COUNT(*) AS count FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status IN ('awaiting_payment', 'awaiting_shipment')
+            AND order_date < NOW() - INTERVAL '24 hours'
+        `),
+        // Unique buyers with 2+ non-cancelled orders — loyalty base
+        db.execute(sql`
+          SELECT COUNT(*) AS count FROM (
+            SELECT customer_username FROM orders
+            WHERE org_id = ${orgId} AND is_test = false
+              AND order_status NOT IN ('cancelled', 'Cancelled')
+            GROUP BY customer_username HAVING COUNT(*) >= 2
+          ) t
+        `),
+        // Revenue this calendar week
+        db.execute(sql`
+          SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status NOT IN ('cancelled', 'Cancelled', 'returned')
+            AND order_date >= DATE_TRUNC('week', NOW())
+        `),
+        // Revenue the prior calendar week (same 7-day span one week back)
+        db.execute(sql`
+          SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders
+          WHERE org_id = ${orgId} AND is_test = false
+            AND order_status NOT IN ('cancelled', 'Cancelled', 'returned')
+            AND order_date >= DATE_TRUNC('week', NOW()) - INTERVAL '7 days'
+            AND order_date <  DATE_TRUNC('week', NOW())
+        `),
+      ]);
+      res.json({
+        agingOrders:     Number(agingResult.rows[0]?.count   ?? 0),
+        repeatBuyers:    Number(repeatResult.rows[0]?.count   ?? 0),
+        thisWeekRevenue: Number(thisWeekResult.rows[0]?.revenue ?? 0),
+        lastWeekRevenue: Number(lastWeekResult.rows[0]?.revenue ?? 0),
+      });
+    } catch (error) {
+      console.error("Error fetching bridge signals:", error);
+      res.status(500).json({ error: "Failed to fetch bridge signals" });
+    }
+  });
+
   // Get shipped orders with search functionality
   app.get("/api/orders/shipped", isApproved, async (req: any, res) => {
     try {
