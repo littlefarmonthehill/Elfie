@@ -280,6 +280,7 @@ interface SalesDashboardProps {
   onDrawerChange?: (drawer: SalesDrawer) => void;
   renderDrawerOnly?: boolean;
   tvSplit?: 'left' | 'right';
+  compact?: boolean;
 }
 
 interface Order {
@@ -292,7 +293,8 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit, compact }: SalesDashboardProps) {
+  const isCompact = !!(tvSplit || compact);
   const [chartDateRange, setChartDateRange] = useState<DateRangeValue>('mtd');
   const [perfDateRange, setPerfDateRange] = useState<DateRangeValue>('mtd');
   const [localDateRange, setLocalDateRange] = useState<DateRangeValue>(parentDateRange);
@@ -1387,7 +1389,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   }
 
   return (
-        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
+        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (

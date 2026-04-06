@@ -44,6 +44,7 @@ interface OrdersDashboardProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
   tvSplit?: 'left' | 'right';
+  compact?: boolean;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -302,7 +303,8 @@ function QtySyncQueuePanel() {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact }: OrdersDashboardProps) {
+  const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>('systems');
 
@@ -382,7 +384,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
+        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Orders Info ── */}

@@ -46,6 +46,7 @@ interface MarketingDashboardProps {
   onDrawerChange: (drawer: MarketingDrawer) => void;
   renderDrawerOnly?: boolean;
   tvSplit?: 'left' | 'right';
+  compact?: boolean;
 }
 
 function parseShipTo(raw: string | null | undefined): { name: string; city: string; state: string; country: string } {
@@ -313,7 +314,8 @@ function CustomerListPanel({
   );
 }
 
-export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit, compact }: MarketingDashboardProps) {
+  const isCompact = !!(tvSplit || compact);
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
@@ -460,7 +462,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   }
 
   return (
-        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
+        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}

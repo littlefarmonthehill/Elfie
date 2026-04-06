@@ -501,16 +501,16 @@ export default function Home() {
     return true;
   };
 
-  const renderDynamicDashboard = (isDesktopMode?: boolean, tvSplit?: 'left' | 'right') => {
+  const renderDynamicDashboard = (isDesktopMode?: boolean, tvSplit?: 'left' | 'right', compact?: boolean) => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} compact={compact} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} compact={compact} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} tvSplit={tvSplit} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} tvSplit={tvSplit} compact={compact} />;
       default:
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
     }
@@ -1445,7 +1445,7 @@ export default function Home() {
                                 </>
                               ) : (
                                 <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
-                                  {renderDynamicDashboard(true)}
+                                  {renderDynamicDashboard(true, undefined, true)}
                                 </div>
                               )}
                               {/* Now-viewing indicator — always visible */}
