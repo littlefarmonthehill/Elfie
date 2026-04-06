@@ -165,7 +165,7 @@ export default function Home() {
     queryKey: ['/api/billing/status'],
   });
   const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly;
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && (window.innerWidth >= 1024 || (window.innerWidth >= 960 && window.matchMedia('(orientation: landscape)').matches)));
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
@@ -257,14 +257,18 @@ export default function Home() {
 
   useEffect(() => {
     const check = () => {
-      const nowDesktop = window.innerWidth >= 1024;
+      const nowDesktop = window.innerWidth >= 1024 || (window.innerWidth >= 960 && window.matchMedia('(orientation: landscape)').matches);
       setIsDesktop(nowDesktop);
       if (nowDesktop && activeDashboard === 'dashboard') {
         setActiveDashboard('inventory');
       }
     };
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      window.removeEventListener('orientationchange', check);
+    };
   }, [activeDashboard]);
 
   const [marketIntel, setMarketIntel] = useState<{
@@ -1258,8 +1262,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* TABLET layout (md to lg): vertical rail nav + active dashboard */}
-            <div className="hidden md:flex lg:hidden h-full p-2 gap-2">
+            {/* TABLET layout (md to lg, portrait only): vertical rail nav + active dashboard */}
+            <div className="hidden md:flex lg:hidden tablet-ls:hidden h-full p-2 gap-2">
               {/* Control panel outer frame */}
               <div className="flex h-full w-full rounded-xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden relative">
                 {/* Corner accent brackets — cockpit chrome */}
@@ -1351,7 +1355,7 @@ export default function Home() {
               };
 
               return (
-                <div className="hidden lg:flex h-full p-3" style={{
+                <div className="hidden tablet-ls:flex lg:flex h-full p-3" style={{
                   background: `radial-gradient(ellipse 80% 70% at 50% 40%, rgba(${screenRgb},0.10) 0%, rgba(${screenRgb},0.03) 50%, transparent 75%)`,
                   transition: 'background 0.6s ease',
                 }}>

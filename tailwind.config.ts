@@ -14,6 +14,7 @@ export default {
         '2xl': '1536px',
         'landscape': { 'raw': '(orientation: landscape)' },
         'portrait': { 'raw': '(orientation: portrait)' },
+        'tablet-ls': { 'raw': '(min-width: 960px) and (orientation: landscape)' },
       },
       borderRadius: {
         lg: ".5625rem", /* 9px */
