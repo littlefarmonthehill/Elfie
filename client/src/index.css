@@ -421,18 +421,18 @@ html.admin-mode {
  *
  * Because Tailwind uses rem for all text and spacing, reducing the html
  * font-size here proportionally shrinks every text-*, p-*, gap-* etc. class
- * without touching a single component. Result: a step between mobile (compact)
- * and full desktop (16px base).
+ * without touching a single component. The TV chrome uses vw/px directly so
+ * it already scales with viewport; this targets the dashboard content inside.
  *
  * Scaling range (960 → 1279px landscape):
- *   960px  → ~13.5px  (84% of default)
- *   1024px → ~14.6px
- *   1279px → ~15.9px  (smoothly approaches desktop size)
+ *   960px  → ~11.2px  (70% of default — clearly tablet-scaled)
+ *   1024px → ~11.5px  (72% — iPad mini landscape target)
+ *   1180px → ~12.3px  (77% — iPad Air landscape)
  *   ≥ 1280px → reverts to browser default (16px)
  */
 @media (min-width: 960px) and (max-width: 1279px) and (orientation: landscape) {
   html {
-    font-size: clamp(13.5px, 0.5vw + 9.5px, 16px);
+    font-size: clamp(11px, 0.5vw + 6.4px, 12.5px);
   }
 }
 
