@@ -640,6 +640,12 @@ export const appSettings = pgTable("app_settings", {
   elfieMode: text("elfie_mode").default('search').notNull(),
   // Buyer Feedback generation
   feedbackPrompt: text("feedback_prompt"),
+  // Printing configuration
+  printMethod: text("print_method").default('browser'),       // 'browser' | 'direct_zpl' | 'pdf_download'
+  labelPrinterIp: text("label_printer_ip"),                   // Printer IP (for direct_zpl)
+  labelPrinterPort: integer("label_printer_port").default(9100), // Raw print port (default 9100)
+  labelSize: text("label_size").default('4x6'),               // '4x6' | '2x7'
+  printSetupDone: boolean("print_setup_done").default(false), // Has user been through first-time prompt
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

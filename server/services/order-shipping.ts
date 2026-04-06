@@ -425,6 +425,14 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       })()
     : undefined;
 
+  // Determine label format based on org's print settings
+  let labelFormat: 'PDF' | 'ZPL' = 'PDF';
+  try {
+    const [printCfg] = await db.select({ printMethod: appSettings.printMethod })
+      .from(appSettings).where(eq(appSettings.orgId, order.orgId)).limit(1);
+    if (printCfg?.printMethod === 'direct_zpl') labelFormat = 'ZPL';
+  } catch {}
+
   const createRequest: CreateShipmentRequest = {
     toAddress: shipTo,
     fromAddress: request.fromAddress,
@@ -432,6 +440,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     reference: orderRef,
     customsInfo,
     taxIdentifiers,
+    labelFormat,
   };
 
   const result = await vendor.createShipment(createRequest);

@@ -992,6 +992,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           const label: PurchasedLabelResult = {
             trackingNumber: result.shipment?.trackingNumber || result.trackingNumber || "",
             labelUrl: result.shipment?.labelUrl || result.labelUrl,
+            labelFormat: result.shipment?.labelFormat || result.labelFormat,
             carrier: ready.selectedRate.carrier,
             service: ready.selectedRate.service,
             rate: ready.selectedRate.rate,

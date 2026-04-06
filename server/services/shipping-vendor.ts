@@ -83,6 +83,7 @@ export interface CreateShipmentRequest {
   reference?: string; // Order number or reference
   customsInfo?: CustomsInfo;
   taxIdentifiers?: TaxIdentifier[];
+  labelFormat?: 'PDF' | 'ZPL'; // Label file format (default: PDF)
 }
 
 export interface BuyLabelRequest {

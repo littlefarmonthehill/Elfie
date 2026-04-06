@@ -2476,6 +2476,17 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-107 (ebay_notification_token on platform_settings) complete.');
 
+    // Phase-108: Add print configuration columns to app_settings.
+    await client.query(`
+      ALTER TABLE app_settings
+        ADD COLUMN IF NOT EXISTS print_method        text    DEFAULT 'browser',
+        ADD COLUMN IF NOT EXISTS label_printer_ip    text,
+        ADD COLUMN IF NOT EXISTS label_printer_port  integer DEFAULT 9100,
+        ADD COLUMN IF NOT EXISTS label_size          text    DEFAULT '4x6',
+        ADD COLUMN IF NOT EXISTS print_setup_done    boolean DEFAULT false
+    `);
+    console.log('[Migration] Phase-108 (print configuration on app_settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -18780,6 +18780,53 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // ── Label Printing ──────────────────────────────────────────────────────────
+  // POST /api/print/label — send a purchased label directly to a configured ZPL printer
+  app.post("/api/print/label", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { labelUrl } = req.body as { labelUrl: string };
+      if (!labelUrl) return res.status(400).json({ error: 'labelUrl required' });
+
+      // Basic domain check — only allow fetching from known label providers
+      const allowedHosts = ['easypost.com', 'assets.easypost.com', 'cargo.easypost.com'];
+      const parsedUrl = new URL(labelUrl);
+      if (!allowedHosts.some(h => parsedUrl.hostname.endsWith(h))) {
+        return res.status(400).json({ error: 'Label URL is not from a trusted provider' });
+      }
+
+      const { appSettings: appSettingsTable } = await import('@shared/schema');
+      const [cfg] = await db.select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.orgId, orgId))
+        .limit(1);
+      if (!cfg?.labelPrinterIp) return res.status(400).json({ error: 'No printer IP configured. Set it in Settings → Printing.' });
+
+      const { sendZplToPrinter, fetchZplFromUrl } = await import('./services/print-service');
+      const zpl = await fetchZplFromUrl(labelUrl);
+      await sendZplToPrinter(cfg.labelPrinterIp, cfg.labelPrinterPort ?? 9100, zpl);
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[Print] label error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/print/test — send a test ZPL page to a specific printer
+  app.post("/api/print/test", isApproved, async (req: any, res) => {
+    try {
+      const { ip, port, labelSize } = req.body as { ip: string; port?: number; labelSize?: string };
+      if (!ip) return res.status(400).json({ error: 'ip required' });
+      const { sendZplToPrinter, buildTestZpl } = await import('./services/print-service');
+      const zpl = buildTestZpl((labelSize as '4x6' | '2x7') || '4x6');
+      await sendZplToPrinter(ip, port ?? 9100, zpl);
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[Print] test error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Customer Feedback Tracking ────────────────────────────────────────────
   // POST /api/orders/:orderId/feedback-generate — use E.L.F.I.E. to draft a feedback comment
   app.post("/api/orders/:orderId/feedback-generate", isApproved, async (req: any, res) => {

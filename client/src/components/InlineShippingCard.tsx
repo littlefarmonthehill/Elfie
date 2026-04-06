@@ -11,6 +11,7 @@ import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
   Scissors, Link2, Package, StickyNote, MoreHorizontal,
+  Printer, Download, MonitorCheck, Wifi,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -19,6 +20,7 @@ import {
 import { shortCode } from "@/components/PackingSlip";
 import { shippingTier } from "@/lib/item-utils";
 import type { AppSettings } from "@shared/schema";
+import PrintMethodSetup from "@/components/PrintMethodSetup";
 
 const EU_COUNTRIES = new Set([
   'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI',
@@ -139,6 +141,7 @@ export type ShippingReadyState = {
 export type PurchasedLabelResult = {
   trackingNumber: string;
   labelUrl?: string;
+  labelFormat?: string;
   carrier?: string;
   service?: string;
   rate?: number;
@@ -235,6 +238,8 @@ export default function InlineShippingCard({
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
+  const [printLabelPending, setPrintLabelPending] = useState(false);
+  const [showPrintSetup, setShowPrintSetup] = useState(false);
   const hasUserChangedWeight = useRef(false);
   const hasUserChangedPackage = useRef(false);
   const isInitialLoad = useRef(true);
@@ -513,6 +518,12 @@ export default function InlineShippingCard({
   // ── Purchased state ──
   if (purchasedLabel) {
     return (
+      <>
+      <PrintMethodSetup
+        open={showPrintSetup}
+        onClose={() => setShowPrintSetup(false)}
+        labelUrl={purchasedLabel.labelUrl}
+      />
       <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 flex items-center gap-3 flex-wrap">
         <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
         <div className="flex-1 min-w-0">
@@ -524,14 +535,67 @@ export default function InlineShippingCard({
           </span>
           <p className="text-[10px] font-mono text-gray-300 mt-0.5">{purchasedLabel.trackingNumber}</p>
         </div>
-        {purchasedLabel.labelUrl && (
-          <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
-            <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Label
-            </a>
-          </Button>
-        )}
+        {purchasedLabel.labelUrl && (() => {
+          const printMethod = (appSettings as any)?.printMethod || 'browser';
+          const printSetupDone = (appSettings as any)?.printSetupDone;
+          const isZpl = purchasedLabel.labelFormat === 'ZPL';
+
+          // First-time setup: prompt user to choose print method
+          if (!printSetupDone) {
+            return (
+              <Button variant="outline" size="sm" data-testid={`button-print-label-${orderId}`}
+                onClick={() => setShowPrintSetup(true)}>
+                <Printer className="w-3.5 h-3.5 mr-1.5" />Print Label
+              </Button>
+            );
+          }
+
+          // Direct ZPL: one-tap to printer
+          if (printMethod === 'direct_zpl' && isZpl) {
+            return (
+              <Button variant="outline" size="sm" disabled={printLabelPending}
+                data-testid={`button-print-label-${orderId}`}
+                onClick={async () => {
+                  setPrintLabelPending(true);
+                  try {
+                    await apiRequest('POST', '/api/print/label', { labelUrl: purchasedLabel.labelUrl });
+                    toast({ title: 'Label sent to printer' });
+                  } catch (err: any) {
+                    toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+                  } finally {
+                    setPrintLabelPending(false);
+                  }
+                }}>
+                {printLabelPending
+                  ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  : <Printer className="w-3.5 h-3.5 mr-1.5" />}
+                Print
+              </Button>
+            );
+          }
+
+          // PDF download
+          if (printMethod === 'pdf_download') {
+            return (
+              <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
+                <a href={purchasedLabel.labelUrl} download>
+                  <Download className="w-3.5 h-3.5 mr-1.5" />Download
+                </a>
+              </Button>
+            );
+          }
+
+          // Browser / default: open in new tab
+          return (
+            <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
+              <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Label
+              </a>
+            </Button>
+          );
+        })()}
       </div>
+      </>
     );
   }
 

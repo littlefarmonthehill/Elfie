@@ -5,7 +5,7 @@ import type { AppSettings, User, Organization, OrgIntegration } from "@shared/sc
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ShieldAlert, Activity, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse, Bell, BellRing, BellOff } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ShieldAlert, Activity, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse, Bell, BellRing, BellOff, Printer, Wifi, MonitorCheck } from "lucide-react";
 import WarehouseManagement from "@/components/WarehouseManagement";
 import NotificationsSection from "@/components/NotificationsSection";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
@@ -48,7 +48,7 @@ interface SettingsModalProps {
   forcePlatformAdmin?: boolean;
 }
 
-type ActiveSection = 'general' | 'team' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
+type ActiveSection = 'general' | 'team' | 'platforms' | 'printing' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2577,6 +2577,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [editIntApiKey, setEditIntApiKey] = useState('');
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
   const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
+  // Printing configuration
+  const [printMethod, setPrintMethod] = useState<'browser' | 'direct_zpl' | 'pdf_download'>('browser');
+  const [labelPrinterIp, setLabelPrinterIp] = useState("");
+  const [labelPrinterPort, setLabelPrinterPort] = useState(9100);
+  const [labelSize, setLabelSize] = useState<'4x6' | '2x7'>('4x6');
+  const [testPrintPending, setTestPrintPending] = useState(false);
   // International Shipping / Customs
   const [customsSigner, setCustomsSigner] = useState("");
   const [blIossNumber, setBlIossNumber] = useState("");
@@ -3648,6 +3654,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setEasypostApiKey(unmask(settings.easypostApiKey));
       setEasypostTestApiKey(unmask(settings.easypostTestApiKey));
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
+      setPrintMethod((settings.printMethod as any) || 'browser');
+      setLabelPrinterIp(settings.labelPrinterIp || "");
+      setLabelPrinterPort(settings.labelPrinterPort ?? 9100);
+      setLabelSize((settings.labelSize as any) || '4x6');
       setCustomsSigner(settings.customsSigner || "");
       setBlIossNumber(settings.blIossNumber || "");
       setBoIossNumber(settings.boIossNumber || "");
@@ -4303,6 +4313,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'general' as const, label: 'Company Information', icon: Settings, bsVisible: true },
     { id: 'team' as const, label: 'Team', icon: Users, bsVisible: false },
     { id: 'platforms' as const, label: 'Services', icon: Layers, bsVisible: false },
+    { id: 'printing' as const, label: 'Printing', icon: Printer, bsVisible: false },
     { id: 'autoSync' as const, label: 'Auto-Sync Schedule', icon: RefreshCw, bsVisible: false },
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
@@ -12360,6 +12371,159 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             )}
 
             {/* Warehouse Management */}
+            {activeSection === 'printing' && (
+              <div className="p-4 space-y-5">
+
+                {/* Print Method */}
+                <div>
+                  <p className="sm-group-label mb-2 px-1">Print Method</p>
+                  <div className="sm-card divide-y divide-gray-700/60">
+
+                    {/* Browser / AirPrint */}
+                    <button
+                      onClick={() => updateSettingsMutation.mutate({ printMethod: 'browser', printSetupDone: true })}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="print-method-browser"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${printMethod === 'browser' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`}>
+                        {printMethod === 'browser' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100 flex items-center gap-1.5">
+                          <MonitorCheck className="w-3.5 h-3.5 text-blue-300" />
+                          Use device printer <span className="text-[10px] text-blue-300 font-normal">(recommended)</span>
+                        </p>
+                        <p className="sm-description mt-0.5">Opens your OS print dialog — works with any AirPrint, home printer, or office printer. No setup required.</p>
+                      </div>
+                    </button>
+
+                    {/* Direct ZPL */}
+                    <button
+                      onClick={() => { setPrintMethod('direct_zpl'); updateSettingsMutation.mutate({ printMethod: 'direct_zpl', printSetupDone: true }); }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="print-method-direct-zpl"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${printMethod === 'direct_zpl' ? 'border-green-400 bg-green-400' : 'border-gray-500'}`}>
+                        {printMethod === 'direct_zpl' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100 flex items-center gap-1.5">
+                          <Wifi className="w-3.5 h-3.5 text-green-300" />
+                          Direct label printer
+                        </p>
+                        <p className="sm-description mt-0.5">Sends ZPL directly to a Zebra, Rollo, or compatible label printer via your network. Fastest option for high-volume shipping.</p>
+                      </div>
+                    </button>
+
+                    {/* PDF Download */}
+                    <button
+                      onClick={() => updateSettingsMutation.mutate({ printMethod: 'pdf_download', printSetupDone: true })}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="print-method-pdf"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${printMethod === 'pdf_download' ? 'border-amber-400 bg-amber-400' : 'border-gray-500'}`}>
+                        {printMethod === 'pdf_download' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100 flex items-center gap-1.5">
+                          <Download className="w-3.5 h-3.5 text-amber-300" />
+                          Download PDF
+                        </p>
+                        <p className="sm-description mt-0.5">Downloads the label as a PDF for manual printing or saving.</p>
+                      </div>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Label Printer Config — only shown when direct_zpl is selected */}
+                {printMethod === 'direct_zpl' && (
+                  <div>
+                    <p className="sm-group-label mb-2 px-1">Label Printer Configuration</p>
+                    <div className="sm-card divide-y divide-gray-700/60">
+
+                      <div className="px-4 py-3 flex items-center gap-3">
+                        <Label className="text-xs text-gray-200 w-24 shrink-0">Printer IP</Label>
+                        <Input
+                          className="text-xs h-8 font-mono"
+                          placeholder="e.g. 192.168.1.45"
+                          value={labelPrinterIp}
+                          onChange={(e) => setLabelPrinterIp(e.target.value)}
+                          onBlur={() => updateSettingsMutation.mutate({ labelPrinterIp: labelPrinterIp || null })}
+                          data-testid="input-label-printer-ip"
+                        />
+                      </div>
+
+                      <div className="px-4 py-3 flex items-center gap-3">
+                        <Label className="text-xs text-gray-200 w-24 shrink-0">Port</Label>
+                        <Input
+                          className="text-xs h-8 font-mono w-24"
+                          placeholder="9100"
+                          value={labelPrinterPort}
+                          onChange={(e) => setLabelPrinterPort(Number(e.target.value) || 9100)}
+                          onBlur={() => updateSettingsMutation.mutate({ labelPrinterPort: labelPrinterPort })}
+                          data-testid="input-label-printer-port"
+                        />
+                        <p className="text-[11px] text-gray-500">Default 9100 for most label printers</p>
+                      </div>
+
+                      <div className="px-4 py-3 flex items-center gap-3">
+                        <Label className="text-xs text-gray-200 w-24 shrink-0">Label Size</Label>
+                        <select
+                          className="text-xs h-8 bg-gray-800 border border-gray-600 rounded px-2 text-gray-200"
+                          value={labelSize}
+                          onChange={(e) => { setLabelSize(e.target.value as any); updateSettingsMutation.mutate({ labelSize: e.target.value }); }}
+                          data-testid="select-label-size"
+                        >
+                          <option value="4x6">4&quot; × 6&quot; (standard shipping label)</option>
+                          <option value="2x7">2&quot; × 7&quot; (long label)</option>
+                        </select>
+                      </div>
+
+                    </div>
+
+                    {/* Test print button */}
+                    <div className="mt-3 px-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!labelPrinterIp || testPrintPending}
+                        data-testid="button-test-print"
+                        onClick={async () => {
+                          if (!labelPrinterIp) return;
+                          setTestPrintPending(true);
+                          try {
+                            await apiRequest('POST', '/api/print/test', { ip: labelPrinterIp, port: labelPrinterPort, labelSize });
+                            toast({ title: 'Test print sent', description: 'Check your printer for the test label.' });
+                          } catch (err: any) {
+                            toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+                          } finally {
+                            setTestPrintPending(false);
+                          }
+                        }}
+                      >
+                        {testPrintPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Printer className="w-3 h-3 mr-1.5" />}
+                        Send test print
+                      </Button>
+                      {!labelPrinterIp && (
+                        <p className="text-[11px] text-gray-500 mt-1.5">Enter a printer IP address above to enable test print.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Note about ZPL labels */}
+                {printMethod === 'direct_zpl' && (
+                  <div className="sm-card px-4 py-3">
+                    <p className="text-xs font-medium text-gray-200 mb-1">How it works</p>
+                    <p className="sm-description">When direct printing is active, new shipping labels are requested in ZPL format from EasyPost. When you tap "Print Label" on a shipped order, the app sends the label directly to your printer — no browser dialog needed.</p>
+                    <p className="sm-description mt-1.5 text-amber-400/80">Labels purchased before enabling this setting are in PDF format and will open in the browser instead.</p>
+                  </div>
+                )}
+
+              </div>
+            )}
+
             {activeSection === 'warehouse' && (
               <div className="p-4">
                 <WarehouseManagement />
