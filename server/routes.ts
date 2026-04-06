@@ -17825,13 +17825,15 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
       const auth = Buffer.from(`${apiKey}:`).toString('base64');
 
-      // Submit to EasyPost, with one automatic retry if any shipment IDs are reported
-      // as not found (e.g. voided or already manifested on EasyPost's side).
+      // Submit to EasyPost, retrying automatically each time EasyPost reports shipment IDs
+      // as not found or already manifested (strips bad IDs and retries until clean or empty).
       let activeVendorIds = [...vendorIds];
       let scanForm: any = null;
       let skippedIds: string[] = [];
+      let hadAlreadyManifested = false;
 
-      for (let attempt = 0; attempt < 2; attempt++) {
+      const MAX_EOD_ATTEMPTS = 10; // one per potentially-bad shipment batch
+      for (let attempt = 0; attempt < MAX_EOD_ATTEMPTS; attempt++) {
         const epRes = await fetch('https://api.easypost.com/v2/scan_forms', {
           method: 'POST',
           headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
@@ -17844,22 +17846,24 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         }
 
         const err = await epRes.json().catch(() => ({}));
-        const errMsg: string = err.error?.message || '';
+        const errMsg: string = (typeof err.error === 'string' ? err.error : err.error?.message) || '';
 
-        // EasyPost reports unusable IDs in the error message — extract and retry once without them.
+        // EasyPost reports unusable IDs in the error message — extract and keep retrying.
         // Handles two known patterns:
         //   "N of the specified shipments were not found: shp_abc, shp_def"
         //   "N of the specified shipments have already been manifested: shp_abc, shp_def"
         const badIdsMatch = errMsg.match(/(?:not found|already been manifested):\s*(shp_[a-f0-9]+(?:[,\s]+shp_[a-f0-9]+)*)/i);
-        const alreadyManifested = /already been manifested/i.test(errMsg);
-        if (badIdsMatch && attempt === 0) {
+        const roundManifested = /already been manifested/i.test(errMsg);
+
+        if (badIdsMatch) {
           const badIds = badIdsMatch[1].split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
-          console.warn(`[EOD] EasyPost rejected ${badIds.length} shipment ID(s) (${alreadyManifested ? 'already manifested' : 'not found'}), retrying without them`);
+          console.warn(`[EOD] attempt ${attempt + 1}: EasyPost rejected ${badIds.length} ID(s) (${roundManifested ? 'already manifested' : 'not found'}), retrying without them`);
           skippedIds = [...skippedIds, ...badIds];
+          if (roundManifested) hadAlreadyManifested = true;
           activeVendorIds = activeVendorIds.filter(id => !badIds.includes(id));
 
           // Mark "already manifested" shipments in our DB so they stop appearing as eligible
-          if (alreadyManifested && badIds.length > 0) {
+          if (roundManifested && badIds.length > 0) {
             const alreadyManifShipments = eligibleShipments.filter(s => s.vendorShipmentId && badIds.includes(s.vendorShipmentId));
             if (alreadyManifShipments.length > 0) {
               await db.update(shipments)
@@ -17878,8 +17882,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
               .orderBy(desc(eodForms.createdAt))
               .limit(1);
             return res.json({
-              alreadyManifested: alreadyManifested,
-              allVoided: !alreadyManifested,
+              alreadyManifested: hadAlreadyManifested,
+              allVoided: !hadAlreadyManifested,
               shipmentCount: 0,
               skippedCount: skippedIds.length,
               formUrl: lastForm?.formUrl ?? null,
