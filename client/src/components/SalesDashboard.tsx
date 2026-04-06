@@ -1389,7 +1389,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   }
 
   return (
-        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
+        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
@@ -1405,13 +1405,13 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       )}
       
       {/* ── Top Metrics ── */}
-      <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", "p-2.5")} data-testid="section-sales-overview">
+      <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", isCompact ? "p-1" : "p-2.5")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className="flex items-center gap-2 mb-2">
-          <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0">
-            <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-200" />
+        <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
+          <div className={cn("rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+            <TrendingUp className={cn("text-green-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
           </div>
-          <h3 className="text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0 md:text-sm">Insights</h3>
+          <h3 className={cn("font-semibold text-green-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Insights</h3>
           <CollapsibleDatePicker
             value={localDateRange}
             onChange={setLocalDateRange}
@@ -1419,16 +1419,16 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             testId="button-insights-date-picker"
           />
         </div>
-        <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-sales-metrics">
-          <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />
-          <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" data-testid="metric-sales-gross" />
-          <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" data-testid="metric-sales-avg" />
+        <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-2")} data-testid="section-sales-metrics">
+          <MetricCard label="Orders" value={filteredOrders.length} color="green" compact={isCompact} data-testid="metric-sales-orders" />
+          <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" compact={isCompact} data-testid="metric-sales-gross" />
+          <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" compact={isCompact} data-testid="metric-sales-avg" />
         </div>
         {adjustmentSummary && (
-          <div className="grid grid-cols-3 gap-1.5">
-            <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" data-testid="metric-sales-net" />
-            <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" data-testid="metric-sales-refunds" />
-            <MetricCard label="Shipping" value={adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" data-testid="metric-sales-shipping" />
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1" : "gap-1.5")}>
+            <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" compact={isCompact} data-testid="metric-sales-net" />
+            <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" compact={isCompact} data-testid="metric-sales-refunds" />
+            <MetricCard label="Shipping" value={adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" compact={isCompact} data-testid="metric-sales-shipping" />
           </div>
         )}
       </div>

@@ -462,17 +462,17 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   }
 
   return (
-        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
+        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}
-        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", "p-2.5")} data-testid="section-customer-overview">
+        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-1" : "p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0">
-              <Users className="w-3 h-3 md:w-4 md:h-4 text-yellow-200" />
+          <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
+            <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+              <Users className={cn("text-yellow-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <h3 className="text-xs font-semibold text-yellow-200 uppercase tracking-wide min-w-0 md:text-sm">Customers</h3>
+            <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Customers</h3>
             <CollapsibleDatePicker
               value={localDateRange}
               onChange={setLocalDateRange}
@@ -480,14 +480,14 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               testId="button-customers-date-picker"
             />
           </div>
-          <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-customer-counts">
-            <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />
-            <MetricCard label="Repeat" value={String(repeatCustomerCount)} color="green" data-testid="metric-repeat-customers" />
-            <MetricCard label="New (30d)" value={String(newLast30)} color="blue" data-testid="metric-new-customers" />
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-2")} data-testid="section-customer-counts">
+            <MetricCard label="Total" value={String(totalCustomers)} color="yellow" compact={isCompact} data-testid="metric-total-customers" />
+            <MetricCard label="Repeat" value={String(repeatCustomerCount)} color="green" compact={isCompact} data-testid="metric-repeat-customers" />
+            <MetricCard label="New (30d)" value={String(newLast30)} color="blue" compact={isCompact} data-testid="metric-new-customers" />
           </div>
-          <div className="grid grid-cols-2 gap-1.5" data-testid="section-customer-rates">
-            <MetricCard label="Repeat Rate" value={`${repeatRate}%`} color="green" data-testid="metric-repeat-rate" />
-            <MetricCard label="Avg Orders" value={avgOrders} color="yellow" data-testid="metric-avg-orders" />
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-customer-rates">
+            <MetricCard label="Repeat Rate" value={`${repeatRate}%`} color="green" compact={isCompact} data-testid="metric-repeat-rate" />
+            <MetricCard label="Avg Orders" value={avgOrders} color="yellow" compact={isCompact} data-testid="metric-avg-orders" />
           </div>
         </div>
       </>}

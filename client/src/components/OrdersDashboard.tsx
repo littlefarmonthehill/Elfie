@@ -384,17 +384,17 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className={isCompact ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
+        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-1" : "p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
-              <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 text-orange-200" />
+          <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
+            <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+              <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <h3 className="text-xs font-semibold text-orange-200 uppercase tracking-wide min-w-0 md:text-sm">Orders</h3>
+            <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Orders</h3>
             <CollapsibleDatePicker
               value={dateRange}
               onChange={setDateRange}
@@ -402,28 +402,28 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               testId="button-orders-date-picker"
             />
           </div>
-          <div className={cn("grid grid-cols-3 gap-1.5", "mb-1.5")} data-testid="section-orders-counts">
-            <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
-            <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
-            <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")} data-testid="section-orders-counts">
+            <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
+            <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-pending-orders" />
+            <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" compact={isCompact} data-testid="metric-shipped-orders" />
           </div>
-          <div className="grid grid-cols-4 gap-1.5" data-testid="section-orders-kpis">
-            <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" data-testid="metric-aov" />
-            <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" data-testid="metric-avg-lots" />
-            <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" data-testid="metric-fulfillment-rate" />
-            <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} data-testid="metric-return-rate" />
+          <div className={cn("grid grid-cols-4", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-orders-kpis">
+            <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" compact={isCompact} data-testid="metric-aov" />
+            <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" compact={isCompact} data-testid="metric-avg-lots" />
+            <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" compact={isCompact} data-testid="metric-fulfillment-rate" />
+            <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} compact={isCompact} data-testid="metric-return-rate" />
           </div>
         </div>
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
         <div className="relative rounded-lg border border-orange-400/65 shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden bg-gradient-to-b from-orange-900/40 to-gray-900/88" data-testid="section-command-central-orders">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className="px-3 pt-2.5 pb-2.5 space-y-2">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
-                <Crosshair className="w-3 h-3 md:w-4 md:h-4 text-orange-200" />
+          <div className={cn("space-y-2", isCompact ? "px-1.5 pt-1.5 pb-1.5" : "px-3 pt-2.5 pb-2.5")}>
+            <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-1")}>
+              <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+                <Crosshair className={cn("text-orange-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
               </div>
-              <h3 className="text-xs font-semibold text-orange-200 uppercase tracking-wide md:text-sm">Command Central</h3>
+              <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide", isCompact ? "text-xs" : "text-xs md:text-sm")}>Command Central</h3>
             </div>
             <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
               {([
@@ -442,11 +442,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                     onClick={() => onDrawerChange('fulfillment')}
                     data-testid={`directive-status-${key}`}
                     className={cn(
-                      "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 border transition-all hover-elevate",
+                      "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
+                      isCompact ? "px-0.5 py-1" : "px-1 py-1.5",
                       isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
                     )}
                   >
-                    <span className={cn("text-sm font-bold font-mono leading-none", isActive ? "" : "text-gray-700")}>
+                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "" : "text-gray-700")}>
                       {workflowSummary ? count : '·'}
                     </span>
                     <span className="text-[7px] uppercase tracking-wide leading-none text-center opacity-80">{label}</span>

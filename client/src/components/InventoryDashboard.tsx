@@ -247,8 +247,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 data-testid={`metric-${key}`}
                 className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")}
               >
-                <span className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">{label}</span>
-                <span className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none">{value}</span>
+                <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>{label}</span>
+                <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-xs" : "text-xs md:text-base")}>{value}</span>
                 <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
                   <ChevronRight className="w-2.5 h-2.5 text-white" />
                 </span>
@@ -259,20 +259,20 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-values">
             <div className={cn("rounded-md border border-lego-red/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-cost">
-              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">My Cost</div>
-              <div className="font-semibold font-mono text-xs md:text-base text-lego-red leading-none truncate">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>My Cost</div>
+              <div className={cn("font-semibold font-mono text-lego-red leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
             <div className={cn("rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-listed">
-              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Listed</div>
-              <div className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none truncate">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>Listed</div>
+              <div className={cn("font-semibold font-mono text-lego-blue leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
             <div className={cn("rounded-md border border-lego-green/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-sold-avg">
-              <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Mkt Sold Avg</div>
-              <div className="font-semibold font-mono text-xs md:text-base text-lego-green leading-none truncate">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>Mkt Sold Avg</div>
+              <div className={cn("font-semibold font-mono text-lego-green leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
             </div>
