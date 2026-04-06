@@ -415,6 +415,27 @@ html.admin-mode {
   font-size: clamp(14px, 0.5vw + 9.5px, 16px);
 }
 
+/*
+ * Tablet-landscape fluid scaling — fires when a tablet (or small laptop) is
+ * held in landscape at widths between 960px and 1279px.
+ *
+ * Because Tailwind uses rem for all text and spacing, reducing the html
+ * font-size here proportionally shrinks every text-*, p-*, gap-* etc. class
+ * without touching a single component. Result: a step between mobile (compact)
+ * and full desktop (16px base).
+ *
+ * Scaling range (960 → 1279px landscape):
+ *   960px  → ~13.5px  (84% of default)
+ *   1024px → ~14.6px
+ *   1279px → ~15.9px  (smoothly approaches desktop size)
+ *   ≥ 1280px → reverts to browser default (16px)
+ */
+@media (min-width: 960px) and (max-width: 1279px) and (orientation: landscape) {
+  html {
+    font-size: clamp(13.5px, 0.5vw + 9.5px, 16px);
+  }
+}
+
 /* ── Settings Modal design tokens ──────────────────────────────────────────
  *
  * Single source of truth for the dark-panel design system used inside

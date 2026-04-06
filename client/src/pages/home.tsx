@@ -1355,7 +1355,7 @@ export default function Home() {
               };
 
               return (
-                <div className="hidden tablet-ls:flex lg:flex h-full p-3" style={{
+                <div className="hidden tablet-ls:flex lg:flex h-full p-1.5 lg:p-3" style={{
                   background: `radial-gradient(ellipse 80% 70% at 50% 40%, rgba(${screenRgb},0.10) 0%, rgba(${screenRgb},0.03) 50%, transparent 75%)`,
                   transition: 'background 0.6s ease',
                 }}>
