@@ -12454,6 +12454,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         />
                       </div>
 
+                      {/* LAN IP warning — only shown when user enters a private IP */}
+                      {labelPrinterIp && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(labelPrinterIp.trim()) && (
+                        <div className="mx-4 mb-1 px-3 py-2.5 rounded-md bg-amber-900/30 border border-amber-500/40 text-amber-200 text-[11px] leading-relaxed">
+                          <span className="font-semibold">Cloud limitation:</span> This is a local network IP. The published app runs on a remote server that can't reach your LAN. Direct ZPL will not work from the cloud — use <span className="font-semibold">Browser print</span> above instead. Direct ZPL works if you run E.L.F.I.E. locally on your own machine.
+                        </div>
+                      )}
+
                       <div className="px-4 py-3 flex items-center gap-3">
                         <Label className="text-xs text-gray-200 w-24 shrink-0">Port</Label>
                         <Input
@@ -12496,7 +12503,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             await apiRequest('POST', '/api/print/test', { ip: labelPrinterIp, port: labelPrinterPort, labelSize });
                             toast({ title: 'Test print sent', description: 'Check your printer for the test label.' });
                           } catch (err: any) {
-                            toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+                            const isLan = err.message?.includes('LAN_PRINTER') || err.message?.includes('private network');
+                            if (isLan) {
+                              toast({
+                                title: 'Printer not reachable from the cloud',
+                                description: 'Your printer\'s IP is on your local network. The cloud server can\'t reach it directly. Use "Browser" print instead — it uses your device\'s own print dialog.',
+                                variant: 'destructive',
+                              });
+                            } else {
+                              toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+                            }
                           } finally {
                             setTestPrintPending(false);
                           }

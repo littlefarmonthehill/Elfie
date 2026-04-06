@@ -18781,6 +18781,17 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   });
 
   // ── Label Printing ──────────────────────────────────────────────────────────
+  // Returns true for RFC-1918 / loopback addresses that are only reachable on a LAN.
+  // The cloud server can never reach these — only the user's local browser can.
+  const isLanIp = (ip: string) =>
+    /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|::1$|localhost)/i.test(ip.trim());
+
+  const LAN_PRINT_ERROR =
+    'Direct ZPL printing from the cloud server cannot reach your local printer. ' +
+    'Your printer IP is a private network address that is only accessible from your own device. ' +
+    'To print labels: open Settings → Printing and switch to "Use my device\'s printer" (browser print), ' +
+    'or point the IP to a printer that is publicly accessible on the internet.';
+
   // POST /api/print/label — send a purchased label directly to a configured ZPL printer
   app.post("/api/print/label", isApproved, async (req: any, res) => {
     try {
@@ -18802,6 +18813,10 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .limit(1);
       if (!cfg?.labelPrinterIp) return res.status(400).json({ error: 'No printer IP configured. Set it in Settings → Printing.' });
 
+      if (isLanIp(cfg.labelPrinterIp)) {
+        return res.status(400).json({ error: LAN_PRINT_ERROR, code: 'LAN_PRINTER' });
+      }
+
       const { sendZplToPrinter, fetchZplFromUrl } = await import('./services/print-service');
       const zpl = await fetchZplFromUrl(labelUrl);
       await sendZplToPrinter(cfg.labelPrinterIp, cfg.labelPrinterPort ?? 9100, zpl);
@@ -18817,6 +18832,11 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     try {
       const { ip, port, labelSize } = req.body as { ip: string; port?: number; labelSize?: string };
       if (!ip) return res.status(400).json({ error: 'ip required' });
+
+      if (isLanIp(ip)) {
+        return res.status(400).json({ error: LAN_PRINT_ERROR, code: 'LAN_PRINTER' });
+      }
+
       const { sendZplToPrinter, buildTestZpl } = await import('./services/print-service');
       const zpl = buildTestZpl((labelSize as '4x6' | '2x7') || '4x6');
       await sendZplToPrinter(ip, port ?? 9100, zpl);

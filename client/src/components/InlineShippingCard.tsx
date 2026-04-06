@@ -561,7 +561,14 @@ export default function InlineShippingCard({
                     await apiRequest('POST', '/api/print/label', { labelUrl: purchasedLabel.labelUrl });
                     toast({ title: 'Label sent to printer' });
                   } catch (err: any) {
-                    toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+                    const isLan = err.message?.includes('LAN_PRINTER') || err.message?.includes('private network');
+                    toast({
+                      title: isLan ? 'Printer not reachable from the cloud' : 'Print failed',
+                      description: isLan
+                        ? 'Your printer is on your local network. Open Settings → Printing and switch to "Browser" print.'
+                        : err.message,
+                      variant: 'destructive',
+                    });
                   } finally {
                     setPrintLabelPending(false);
                   }
