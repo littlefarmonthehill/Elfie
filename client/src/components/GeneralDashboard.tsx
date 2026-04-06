@@ -664,6 +664,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     repeatBuyers: number;
     thisWeekRevenue: number;
     lastWeekRevenue: number;
+    marketNewsFreshDays: number | null;
+    businessIntelFreshDays: number | null;
   }>({
     queryKey: ['/api/bridge/signals'],
     refetchInterval: 60000,
@@ -738,7 +740,14 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/org'],
   });
 
-  const { data: ieData } = useQuery<{ visionMission: string | null; pricingStrategy: string | null } | null>({
+  const { data: ieData } = useQuery<{
+    visionMission: string | null;
+    pricingStrategy: string | null;
+    pricingStrategyPreset: string | null;
+    inventoryStrategy: string | null;
+    customerStrategy: string | null;
+    marketStrategy: string | null;
+  } | null>({
     queryKey: ['/api/ie-strategies'],
   });
 
@@ -916,8 +925,19 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (channelSyncFailed) {
     urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', sub: lastChannelSync?.errorMessage ?? 'Check channel connections', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
+  // ── Pricing strategy helpers for sub-text enrichment ───────────────────────
+  const pricingPreset = ieData?.pricingStrategyPreset ?? null;
+  const strategyConfigured = !!(ieData?.pricingStrategyPreset || ieData?.visionMission);
+
+  const underpricedSub = (() => {
+    if (pricingPreset === 'clear_inventory') return 'Repricing aligns with your Clear Inventory goal — act fast';
+    if (pricingPreset === 'premium')         return 'Review: may conflict with your Premium hold-price approach';
+    if (pricingPreset === 'market_rate')     return 'Market data shows room to move — matches your Market Rate strategy';
+    return 'Open Price-o-Matic to review';
+  })();
+
   if (highOpportunityCount > 0) {
-    urgentAlerts.push({ id: 'underpriced', icon: TrendingUp, iconColor: 'text-teal-400', label: `${highOpportunityCount} items ready to reprice`, sub: 'Open Price-o-Matic to review', severity: 'warn', kind: 'opportunity', onClick: onOpenPriceomatic });
+    urgentAlerts.push({ id: 'underpriced', icon: TrendingUp, iconColor: 'text-teal-400', label: `${highOpportunityCount} items ready to reprice`, sub: underpricedSub, severity: 'warn', kind: 'opportunity', onClick: onOpenPriceomatic });
   }
   for (const c of channelIssues) {
     if (!c.connected) {
@@ -926,6 +946,13 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     if (c.disc > 0) {
       urgentAlerts.push({ id: `ch-${c.name}-issues`, icon: AlertTriangle, iconColor: 'text-yellow-400', label: `${c.name}: ${c.disc} discrepanc${c.disc !== 1 ? 'ies' : 'y'}`, severity: 'warn', kind: 'warn' });
     }
+  }
+
+  // ── Inventory data freshness ─────────────────────────────────────────────────
+  const invLastSyncMs = lastInvSync?.lastSyncTime ? new Date(lastInvSync.lastSyncTime).getTime() : null;
+  const invSyncAgeDays = invLastSyncMs !== null ? (Date.now() - invLastSyncMs) / (1000 * 60 * 60 * 24) : null;
+  if (!invSyncFailed && !isInvSyncing && invSyncAgeDays !== null && invSyncAgeDays > 2) {
+    urgentAlerts.push({ id: 'inv-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Inventory not refreshed in 2+ days', sub: 'Signals may not reflect current stock — run a sync', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('platforms') });
   }
 
   // ── Orders signals ──────────────────────────────────────────────────────────
@@ -949,16 +976,40 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }
 
   // ── Insights signals ────────────────────────────────────────────────────────
+  const overpricedSub = (() => {
+    if (pricingPreset === 'premium')         return 'These may be intentionally high — verify sales velocity first';
+    if (pricingPreset === 'clear_inventory') return 'Conflicts with your Clear Inventory goal — consider reducing';
+    if (pricingPreset === 'market_rate')     return 'Diverging from market averages — check your Market Rate strategy';
+    return 'Buyers may be going elsewhere';
+  })();
+
   if (overpricedCount > 0) {
-    urgentAlerts.push({ id: 'overpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${overpricedCount} item${overpricedCount !== 1 ? 's' : ''} priced above market`, sub: 'Buyers may be going elsewhere', severity: 'warn', kind: 'warn', onClick: onOpenPriceomatic });
+    urgentAlerts.push({ id: 'overpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${overpricedCount} item${overpricedCount !== 1 ? 's' : ''} priced above market`, sub: overpricedSub, severity: 'warn', kind: 'warn', onClick: onOpenPriceomatic });
   }
   const thisWeek = bridgeSignals?.thisWeekRevenue ?? 0;
   const lastWeek = bridgeSignals?.lastWeekRevenue ?? 0;
   const revenueChangePct = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
+  const marketDataStale = (bridgeSignals?.marketNewsFreshDays ?? 0) > 7;
   if (revenueChangePct !== null && revenueChangePct >= 10) {
     urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, sub: 'Momentum is building — keep going', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('sales') });
   } else if (revenueChangePct !== null && revenueChangePct <= -10) {
-    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, sub: 'Check Insights for what changed', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    const revDownSub = marketDataStale ? 'Market data may be out of date — investigate manually' : 'Check Insights for what changed';
+    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, sub: revDownSub, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+  }
+
+  // ── Data intelligence health signals ────────────────────────────────────────
+  // Market news freshness (platform-level feed)
+  if (marketDataStale) {
+    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', sub: `News feed last updated ${bridgeSignals?.marketNewsFreshDays}d ago — pricing trends may be stale`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
+  }
+  // Business intel freshness
+  const biStale = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
+  if (biStale && !marketDataStale) {
+    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', sub: `Last updated ${bridgeSignals?.businessIntelFreshDays}d ago — Insights may be incomplete`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
+  }
+  // Seller strategy unconfigured
+  if (ieData !== undefined && ieData !== null && !strategyConfigured) {
+    urgentAlerts.push({ id: 'no-strategy', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Seller strategy not configured', sub: 'Bridge signals have no strategic context — set up in Settings', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ieStrategies') });
   }
 
   const invEmbedPct = embedStats && embedStats.inventory.total > 0
@@ -986,7 +1037,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={Package}
           color="blue"
           stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
-          alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced', 'channel-fail'].includes(a.id) || a.id.startsWith('ch-'))}
+          alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced', 'channel-fail', 'inv-stale'].includes(a.id) || a.id.startsWith('ch-'))}
           onClick={() => onNavigate?.('inventory')}
           isActive={activeSection === 'inventory'}
           channelNum="01"
@@ -1081,7 +1132,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={TrendingUp}
           color="green"
           stat={formatCurrency(totalRevenue)}
-          alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down'].includes(a.id))}
+          alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down', 'market-stale', 'bi-stale', 'no-strategy'].includes(a.id))}
           onClick={() => onNavigate?.('sales')}
           isActive={activeSection === 'sales'}
           channelNum="04"

@@ -4825,7 +4825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bridge/signals", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const [agingResult, repeatResult, thisWeekResult, lastWeekResult] = await Promise.all([
+      const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult] = await Promise.all([
         // Orders still pending and older than 24 hours — fulfillment SLA risk
         db.execute(sql`
           SELECT COUNT(*) AS count FROM orders
@@ -4857,12 +4857,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             AND order_date >= DATE_TRUNC('week', NOW()) - INTERVAL '7 days'
             AND order_date <  DATE_TRUNC('week', NOW())
         `),
+        // Platform-level: when did market news last sync?
+        db.execute(sql`
+          SELECT last_sync_time FROM sync_metadata
+          WHERE id = 'market_news_sync' AND org_id = ${PLATFORM_ORG_ID}
+          LIMIT 1
+        `),
+        // Platform-level: when did business intelligence last sync?
+        db.execute(sql`
+          SELECT last_sync_time FROM sync_metadata
+          WHERE id = 'business_intel_sync' AND org_id = ${PLATFORM_ORG_ID}
+          LIMIT 1
+        `),
       ]);
+
+      const nowMs = Date.now();
+      const msDays = (ms: number | null) => ms !== null ? Math.floor((nowMs - ms) / (1000 * 60 * 60 * 24)) : null;
+      const marketNewsTime = marketNewsResult.rows[0]?.last_sync_time ? new Date(marketNewsResult.rows[0].last_sync_time).getTime() : null;
+      const businessIntelTime = businessIntelResult.rows[0]?.last_sync_time ? new Date(businessIntelResult.rows[0].last_sync_time).getTime() : null;
+
       res.json({
-        agingOrders:     Number(agingResult.rows[0]?.count   ?? 0),
-        repeatBuyers:    Number(repeatResult.rows[0]?.count   ?? 0),
-        thisWeekRevenue: Number(thisWeekResult.rows[0]?.revenue ?? 0),
-        lastWeekRevenue: Number(lastWeekResult.rows[0]?.revenue ?? 0),
+        agingOrders:          Number(agingResult.rows[0]?.count   ?? 0),
+        repeatBuyers:         Number(repeatResult.rows[0]?.count   ?? 0),
+        thisWeekRevenue:      Number(thisWeekResult.rows[0]?.revenue ?? 0),
+        lastWeekRevenue:      Number(lastWeekResult.rows[0]?.revenue ?? 0),
+        marketNewsFreshDays:  msDays(marketNewsTime),
+        businessIntelFreshDays: msDays(businessIntelTime),
       });
     } catch (error) {
       console.error("Error fetching bridge signals:", error);
