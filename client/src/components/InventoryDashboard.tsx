@@ -196,12 +196,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={tvSplit ? "p-2 xl:p-3 space-y-3 h-full overflow-y-auto" : cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
+        <div className={tvSplit ? "p-1.5 space-y-1.5 h-full overflow-y-auto" : cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* Combined Inventory Info + Values */}
         <div
-          className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden p-3"
+          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", tvSplit ? "p-1.5" : "p-3")}
           style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
           data-testid="section-inventory-overview"
         >
@@ -209,7 +209,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className={cn("flex items-center gap-2", tvSplit ? "mb-1" : "mb-3")}>
             <div className="p-1.5 rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
               <Package className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
             </div>
@@ -243,7 +243,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70 p-1.5 md:p-2.5"
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", tvSplit ? "p-1.5" : "p-1.5 md:p-2.5")}
               >
                 <span className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">{label}</span>
                 <span className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none">{value}</span>
@@ -256,19 +256,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
           <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
-            <div className="rounded-md border border-lego-red/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-cost">
+            <div className={cn("rounded-md border border-lego-red/50 bg-gray-800/70", tvSplit ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-cost">
               <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">My Cost</div>
               <div className="font-semibold font-mono text-xs md:text-base text-lego-red leading-none truncate">
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-md border border-lego-blue/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-listed">
+            <div className={cn("rounded-md border border-lego-blue/50 bg-gray-800/70", tvSplit ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-listed">
               <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Listed</div>
               <div className="font-semibold font-mono text-xs md:text-base text-lego-blue leading-none truncate">
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-md border border-lego-green/50 bg-gray-800/70 p-1.5 md:p-2.5" data-testid="metric-sold-avg">
+            <div className={cn("rounded-md border border-lego-green/50 bg-gray-800/70", tvSplit ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-sold-avg">
               <div className="text-[9px] md:text-xs text-gray-300 mb-0.5 leading-tight">Mkt Sold Avg</div>
               <div className="font-semibold font-mono text-xs md:text-base text-lego-green leading-none truncate">
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
@@ -280,7 +280,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
         <div className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden" style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-command-central-inventory">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
-          <div className="px-3 pt-2.5 pb-2.5 space-y-1.5">
+          <div className={cn(tvSplit ? "px-2 pt-1.5 pb-1.5 space-y-1" : "px-3 pt-2.5 pb-2.5 space-y-1.5")}>
             <div className="flex items-center gap-2 mb-1">
               <div className="p-1.5 rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0">
                 <Crosshair className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
@@ -346,11 +346,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
-        <div className="relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden p-2.5 xl:p-3" data-testid="section-panel-tabs">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", tvSplit ? "p-1.5" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
 
           {/* Retro control panel tab strip */}
-          <div className="flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 mb-3 shadow-inner" data-testid="control-panel-tabs">
+          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", tvSplit ? "mb-1.5" : "mb-3")} data-testid="control-panel-tabs">
             <button
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
@@ -390,13 +390,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", "gap-2")} data-testid="section-tools">
+          <div className={cn("grid grid-cols-2", tvSplit ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", tvSplit ? "p-2" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -420,7 +420,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", tvSplit ? "p-2" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", tvSplit ? "p-2" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -462,7 +462,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('inventoryhealth')}
               data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", tvSplit ? "p-2" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -480,7 +480,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('bundletron')}
               data-testid="tool-bundletron"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", tvSplit ? "p-2" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
