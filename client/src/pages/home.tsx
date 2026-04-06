@@ -1449,7 +1449,7 @@ export default function Home() {
                                 </div>
                               )}
                               {/* Now-viewing indicator — always visible */}
-                              <div style={{ flexShrink:0,padding:'8px 12px',borderTop:'1px solid rgba(0,255,238,0.08)',display:'flex',flexDirection:'column',gap:'5px' }}>
+                              <div style={{ flexShrink:0,padding:'4px 10px',borderTop:'1px solid rgba(0,255,238,0.08)',display:'flex',flexDirection:'column',gap:'2px' }}>
                                 <div style={{ fontSize:'7px',fontFamily:'monospace',color:'rgba(0,255,238,0.3)',letterSpacing:'0.2em',textTransform:'uppercase' }}>Now Viewing</div>
                                 <div style={{ display:'flex',alignItems:'center',gap:'7px' }}>
                                   <div style={{ width:'6px',height:'6px',borderRadius:'50%',background:screenHex,boxShadow:`0 0 6px ${screenHex}`,flexShrink:0,animation:'tv-dot-pulse 2s ease-in-out infinite' }} />
