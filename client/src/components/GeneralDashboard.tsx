@@ -137,7 +137,7 @@ function relTimeUntil(isoDate: string | null): string {
 
 function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport, schedulerNextRunAt, schedulerEnabled }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
-  alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
+  alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind?: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
@@ -154,13 +154,15 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   };
   const iconColor = iconColorMap[color] ?? iconColorMap.blue;
 
-  const sevDotColor: Record<string, string> = { error: '#f87171', warn: '#fb923c', info: '#4ade80' };
-  const sevTextColor: Record<string, string> = { error: 'text-red-400', warn: 'text-orange-400', info: 'text-green-400' };
+  const kindDot  = (k?: string) => k === 'critical' ? '#f87171' : k === 'warn' ? '#fb923c' : k === 'opportunity' ? '#2dd4bf' : '#4ade80';
+  const kindText = (k?: string) => k === 'critical' ? 'text-red-400'  : k === 'warn' ? 'text-orange-400' : k === 'opportunity' ? 'text-teal-300' : 'text-green-400';
 
   const sortedAlerts = [...alerts].sort((a, b) =>
-    ({ error: 0, warn: 1, info: 2 }[a.severity] ?? 9) - ({ error: 0, warn: 1, info: 2 }[b.severity] ?? 9)
+    ({ critical: 0, warn: 1, opportunity: 2 }[a.kind ?? 'warn'] ?? 9) - ({ critical: 0, warn: 1, opportunity: 2 }[b.kind ?? 'warn'] ?? 9)
   );
-  const errorCount = sortedAlerts.filter(a => a.severity === 'error').length;
+  const hasCritical    = sortedAlerts.some(a => a.kind === 'critical');
+  const hasWarn        = sortedAlerts.some(a => a.kind === 'warn');
+  const hasOpportunity = sortedAlerts.some(a => a.kind === 'opportunity');
   const hasAlerts = sortedAlerts.length > 0;
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
@@ -169,7 +171,6 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
       onClick={onClick}
       className="rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2 cursor-pointer"
       style={{
-        minHeight: '186px',
         background: `linear-gradient(135deg, color-mix(in srgb, ${hex} 18%, #0a0c14) 0%, #0d0f1a 55%, color-mix(in srgb, ${hex} 8%, #0a0c14) 100%)`,
         borderColor: isActive ? `${hex}cc` : `${hex}66`,
         boxShadow: isActive
@@ -206,10 +207,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           <span className="text-[10px] font-mono shrink-0 truncate max-w-[110px]" style={{ color: `color-mix(in srgb, ${hex} 70%, #8899aa)` }}>{stat}</span>
         )}
         {/* Status dot */}
-        {errorCount > 0 ? (
+        {hasCritical ? (
           <div className="w-2 h-2 rounded-full bg-red-400 shrink-0 shadow-[0_0_6px_#f87171]" />
-        ) : hasAlerts ? (
+        ) : hasWarn ? (
           <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0 shadow-[0_0_6px_#fb923c]" />
+        ) : hasOpportunity ? (
+          <div className="w-2 h-2 rounded-full bg-teal-400 shrink-0 shadow-[0_0_6px_#2dd4bf]" />
         ) : isRunning ? (
           <div className="relative w-2 h-2 shrink-0">
             <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-75" />
@@ -221,12 +224,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 px-3 py-2 flex flex-col gap-1.5 min-h-0">
+      <div className="px-3 py-2 flex flex-col gap-1.5">
 
-        {/* Flash Report — agent situation brief, shown before alerts */}
+        {/* Flash Report — hidden on mobile, visible md+ */}
         {flashReport?.summary && (
           <div
-            className="flex flex-col gap-1 rounded px-2 py-1.5"
+            className="hidden md:flex flex-col gap-1 rounded px-2 py-1.5"
             style={{ background: `color-mix(in srgb, ${hex} 10%, #080a14)`, border: `1px solid ${hex}25` }}
             data-testid={`flash-report-${label.toLowerCase()}`}
           >
@@ -251,48 +254,55 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
-        {/* Alerts */}
+        {/* Alerts — mobile shows max 2 with "+N more" chip, desktop shows up to 3 */}
         {hasAlerts && (
           <div className="space-y-1">
-            {sortedAlerts.slice(0, 3).map(a => (
+            {sortedAlerts.map((a, i) => (
               <button
                 key={a.id}
                 onClick={(e) => { e.stopPropagation(); a.onClick?.(); }}
-                className={cn('flex items-start gap-2 w-full text-left min-w-0', a.onClick && 'cursor-pointer')}
+                className={cn(
+                  'flex items-start gap-2 w-full text-left min-w-0',
+                  a.onClick ? 'cursor-pointer' : 'cursor-default',
+                  i >= 2 && 'hidden md:flex',
+                )}
                 data-testid={`alert-${a.id}`}
               >
                 <div
                   className="shrink-0 mt-[4px] rounded-full"
-                  style={{ width: 5, height: 5, background: sevDotColor[a.severity] ?? '#fb923c', boxShadow: `0 0 5px ${sevDotColor[a.severity] ?? '#fb923c'}` }}
+                  style={{ width: 5, height: 5, background: kindDot(a.kind), boxShadow: `0 0 5px ${kindDot(a.kind)}` }}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className={cn('text-[10px] leading-tight truncate font-medium', sevTextColor[a.severity] ?? 'text-orange-400')}>{a.label}</p>
-                  {a.sub && <p className="text-[9px] text-muted-foreground/50 truncate leading-tight">{a.sub}</p>}
+                  <p className={cn('text-[10px] leading-tight truncate font-medium', kindText(a.kind))}>{a.label}</p>
+                  {a.sub && <p className="text-[9px] text-muted-foreground/50 truncate leading-tight hidden md:block">{a.sub}</p>}
                 </div>
                 {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/40 mt-0.5" />}
               </button>
             ))}
+            {sortedAlerts.length > 2 && (
+              <p className="text-[9px] font-mono text-muted-foreground/35 md:hidden">+{sortedAlerts.length - 2} more</p>
+            )}
           </div>
         )}
 
         {isRunning && (
           <div className="space-y-1">
-            {(hasAlerts || flashReport?.summary) && <div className="h-px my-0.5" style={{ background: `${hex}20` }} />}
+            {hasAlerts && <div className="h-px my-0.5" style={{ background: `${hex}20` }} />}
             {runningJobs}
           </div>
         )}
 
         {!hasAlerts && !isRunning && !flashReport?.summary && (
-          <div className="flex items-center gap-1.5 h-full justify-center">
+          <div className="flex items-center gap-1.5 py-1 justify-center">
             <CheckCircle className="w-3 h-3 text-green-400/60" />
             <span className="text-[10px] text-muted-foreground/40">All clear</span>
           </div>
         )}
       </div>
 
-      {/* ── Last Actions footer ── */}
+      {/* ── Last Actions footer — hidden on mobile ── */}
       {validActions.length > 0 && (
-        <div className="flex-shrink-0" style={{ borderTop: `1px solid ${hex}18` }}>
+        <div className="hidden md:block flex-shrink-0" style={{ borderTop: `1px solid ${hex}18` }}>
           <button
             onClick={(e) => { e.stopPropagation(); setLastActionsOpen(o => !o); }}
             className="flex items-center justify-between w-full px-3 py-1.5 hover-elevate"
@@ -855,38 +865,38 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     return { name, connected, disc, missingLots, priceDiffs, qtyDiffs };
   }).filter(c => !c.connected || c.disc > 0);
 
-  const urgentAlerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }> = [];
+  const urgentAlerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }> = [];
 
   if (pendingOrders > 0) {
-    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} to fulfill`, sub: 'Ready for packing & shipping', severity: 'warn', onClick: onOpenFulfillment });
+    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} to fulfill`, sub: 'Ready for packing & shipping', severity: 'warn', kind: 'warn', onClick: onOpenFulfillment });
   }
   if (isScanComplete && (latestScan?.totalPieces ?? 0) > 0) {
-    urgentAlerts.push({ id: 'scan', icon: Zap, iconColor: 'text-purple-400', label: 'Scan results ready to view', sub: 'View before they expire', severity: 'info', onClick: onOpenBrickanalyzer });
+    urgentAlerts.push({ id: 'scan', icon: Zap, iconColor: 'text-teal-400', label: 'Scan results ready to view', sub: 'View before they expire', severity: 'info', kind: 'opportunity', onClick: onOpenBrickanalyzer });
   }
   if (invSyncFailed) {
-    urgentAlerts.push({ id: 'inv-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Inventory sync failed', sub: lastInvSync?.errorMessage ?? 'Check BrickLink connection', severity: 'error', onClick: () => onOpenSettings?.('platforms') });
+    urgentAlerts.push({ id: 'inv-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Inventory sync failed', sub: lastInvSync?.errorMessage ?? 'Check BrickLink connection', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
   if (pomFailed) {
-    urgentAlerts.push({ id: 'pom-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Price-o-Matic failed', sub: lastPom?.errorMessage ?? 'Run manually from Settings', severity: 'error', onClick: () => onOpenSettings?.('automation') });
+    urgentAlerts.push({ id: 'pom-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Price-o-Matic failed', sub: lastPom?.errorMessage ?? 'Run manually from Settings', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('automation') });
   }
   if (orderSyncFailed) {
-    urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', sub: lastOrderSync?.errorMessage ?? 'Check connection', severity: 'error' });
+    urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', sub: lastOrderSync?.errorMessage ?? 'Check connection', severity: 'error', kind: 'critical' });
   }
   if (abandonedQtyUpdates > 0) {
-    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, sub: 'Open Orders to review and retry', severity: 'error', onClick: () => onNavigate?.('orders') });
+    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, sub: 'Open Orders to review and retry', severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders') });
   }
   if (channelSyncFailed) {
-    urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', sub: lastChannelSync?.errorMessage ?? 'Check channel connections', severity: 'error', onClick: () => onOpenSettings?.('platforms') });
+    urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', sub: lastChannelSync?.errorMessage ?? 'Check channel connections', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
   if (highOpportunityCount > 0) {
-    urgentAlerts.push({ id: 'underpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${highOpportunityCount} items underpriced`, sub: 'Open Price-o-Matic to review', severity: 'warn', onClick: onOpenPriceomatic });
+    urgentAlerts.push({ id: 'underpriced', icon: TrendingUp, iconColor: 'text-teal-400', label: `${highOpportunityCount} items ready to reprice`, sub: 'Open Price-o-Matic to review', severity: 'warn', kind: 'opportunity', onClick: onOpenPriceomatic });
   }
   for (const c of channelIssues) {
     if (!c.connected) {
-      urgentAlerts.push({ id: `ch-${c.name}-disc`, icon: XCircle, iconColor: 'text-red-400', label: `${c.name} disconnected`, sub: 'Tap to reconnect', severity: 'error', onClick: () => onOpenSettings?.('platforms') });
+      urgentAlerts.push({ id: `ch-${c.name}-disc`, icon: XCircle, iconColor: 'text-red-400', label: `${c.name} disconnected`, sub: 'Tap to reconnect', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
     }
     if (c.disc > 0) {
-      urgentAlerts.push({ id: `ch-${c.name}-issues`, icon: AlertTriangle, iconColor: 'text-yellow-400', label: `${c.name}: ${c.disc} discrepanc${c.disc !== 1 ? 'ies' : 'y'}`, severity: 'warn' });
+      urgentAlerts.push({ id: `ch-${c.name}-issues`, icon: AlertTriangle, iconColor: 'text-yellow-400', label: `${c.name}: ${c.disc} discrepanc${c.disc !== 1 ? 'ies' : 'y'}`, severity: 'warn', kind: 'warn' });
     }
   }
 
