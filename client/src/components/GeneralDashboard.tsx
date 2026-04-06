@@ -6,7 +6,7 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
   ChevronDown, ChevronUp, X,
-  Sparkles, Globe, Megaphone, Star, MessageSquare,
+  Sparkles, Globe, Megaphone, Star, MessageSquare, Newspaper,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { cn } from "@/lib/utils";
@@ -135,7 +135,7 @@ function relTimeUntil(isoDate: string | null): string {
   return rem > 0 ? `in ${hrs}h ${rem}m` : `in ${hrs}h`;
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport, schedulerNextRunAt, schedulerEnabled }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport, schedulerNextRunAt, schedulerEnabled, forumPosts, newsArticles }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind?: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
@@ -144,9 +144,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   flashReport?: { summary: string; urgency: string; updatedAt?: string } | null;
   schedulerNextRunAt?: string | null;
   schedulerEnabled?: boolean;
+  forumPosts?: Array<{ title: string; threadUrl?: string; excerpt?: string; postedAt?: string }>;
+  newsArticles?: Array<{ title: string; url?: string; snippet?: string; source?: string }>;
 }) {
-  const [lastActionsOpen, setLastActionsOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
+  const MOBILE_LIMIT = 5;
 
   const iconColorMap: Record<string, string> = {
     blue: 'text-blue-300', orange: 'text-orange-300', green: 'text-green-300',
@@ -164,6 +167,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   const hasWarn        = sortedAlerts.some(a => a.kind === 'warn');
   const hasOpportunity = sortedAlerts.some(a => a.kind === 'opportunity');
   const hasAlerts = sortedAlerts.length > 0;
+  const overflowCount = Math.max(0, sortedAlerts.length - MOBILE_LIMIT);
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
@@ -254,7 +258,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
-        {/* Alerts — mobile shows max 2 with "+N more" chip, desktop shows up to 3 */}
+        {/* Alerts — mobile shows up to 5, with expand chip if more */}
         {hasAlerts && (
           <div className="space-y-1">
             {sortedAlerts.map((a, i) => (
@@ -264,7 +268,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 className={cn(
                   'flex items-start gap-2 w-full text-left min-w-0',
                   a.onClick ? 'cursor-pointer' : 'cursor-default',
-                  i >= 2 && 'hidden md:flex',
+                  !expanded && i >= MOBILE_LIMIT && 'hidden',
                 )}
                 data-testid={`alert-${a.id}`}
               >
@@ -274,13 +278,19 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 />
                 <div className="min-w-0 flex-1">
                   <p className={cn('text-[10px] leading-tight truncate font-medium', kindText(a.kind))}>{a.label}</p>
-                  {a.sub && <p className="text-[9px] text-muted-foreground/50 truncate leading-tight hidden md:block">{a.sub}</p>}
+                  {a.sub && <p className="text-[9px] text-muted-foreground/50 truncate leading-tight">{a.sub}</p>}
                 </div>
                 {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/40 mt-0.5" />}
               </button>
             ))}
-            {sortedAlerts.length > 2 && (
-              <p className="text-[9px] font-mono text-muted-foreground/35 md:hidden">+{sortedAlerts.length - 2} more</p>
+            {!expanded && overflowCount > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+                className="text-[9px] font-mono text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors text-left"
+                data-testid={`alert-expand-${label.toLowerCase()}`}
+              >
+                +{overflowCount} more
+              </button>
             )}
           </div>
         )}
@@ -292,39 +302,74 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
-        {!hasAlerts && !isRunning && !flashReport?.summary && (
+        {/* All clear */}
+        {!hasAlerts && !isRunning && !flashReport?.summary && !forumPosts?.length && !newsArticles?.length && (
           <div className="flex items-center gap-1.5 py-1 justify-center">
             <CheckCircle className="w-3 h-3 text-green-400/60" />
             <span className="text-[10px] text-muted-foreground/40">All clear</span>
           </div>
         )}
-      </div>
 
-      {/* ── Last Actions footer — hidden on mobile ── */}
-      {validActions.length > 0 && (
-        <div className="hidden md:block flex-shrink-0" style={{ borderTop: `1px solid ${hex}18` }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); setLastActionsOpen(o => !o); }}
-            className="flex items-center justify-between w-full px-3 py-1.5 hover-elevate"
+        {/* ── Last sync results — always visible ── */}
+        {validActions.length > 0 && (
+          <div
+            className="flex items-center gap-x-3 gap-y-0.5 flex-wrap pt-0.5"
+            style={{ borderTop: hasAlerts || isRunning ? `1px solid ${hex}18` : undefined }}
           >
-            <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-              <Clock className="w-2.5 h-2.5" />
-              Last Actions
-            </span>
-            {lastActionsOpen ? <ChevronUp className="w-2.5 h-2.5 text-muted-foreground/30" /> : <ChevronDown className="w-2.5 h-2.5 text-muted-foreground/30" />}
-          </button>
-          {lastActionsOpen && (
-            <div className="px-3 pb-2 space-y-0.5">
-              {validActions.map((a, i) => (
-                <div key={i} className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] text-muted-foreground/50 truncate">{a.label}</span>
-                  <span className={cn('text-[9px] font-mono shrink-0', a.ok ? 'text-green-500/60' : 'text-red-400/70')}>{a.time}</span>
+            {validActions.map((a, i) => (
+              <div key={i} className="flex items-center gap-1 min-w-0">
+                <Clock className="w-2 h-2 shrink-0 text-muted-foreground/25" />
+                <span className="text-[9px] text-muted-foreground/35 truncate">{a.label}</span>
+                <span className={cn('text-[9px] font-mono shrink-0', a.ok ? 'text-green-500/50' : 'text-red-400/60')}>{a.time}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Forum discussions (Marketing card) ── */}
+        {forumPosts && forumPosts.length > 0 && (
+          <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
+            <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground/30">Community Buzz</span>
+            {forumPosts.slice(0, 3).map((p, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); if (p.threadUrl) window.open(p.threadUrl, '_blank'); }}
+                className={cn('flex items-start gap-1.5 w-full text-left min-w-0', p.threadUrl ? 'cursor-pointer' : 'cursor-default')}
+                data-testid={`forum-post-${i}`}
+              >
+                <MessageSquare className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/30" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] text-muted-foreground/55 truncate leading-tight">{p.title}</p>
+                  {p.postedAt && <p className="text-[8px] text-muted-foreground/30 leading-tight">{relTime(p.postedAt)}</p>}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                {p.threadUrl && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/25 mt-0.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── News articles (Insights card) ── */}
+        {newsArticles && newsArticles.length > 0 && (
+          <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
+            <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground/30">Market News</span>
+            {newsArticles.slice(0, 3).map((n, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); if (n.url) window.open(n.url, '_blank'); }}
+                className={cn('flex items-start gap-1.5 w-full text-left min-w-0', n.url ? 'cursor-pointer' : 'cursor-default')}
+                data-testid={`news-article-${i}`}
+              >
+                <Newspaper className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/30" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] text-muted-foreground/55 truncate leading-tight">{n.title}</p>
+                  {n.source && <p className="text-[8px] text-muted-foreground/30 leading-tight truncate">{n.source}</p>}
+                </div>
+                {n.url && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/25 mt-0.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -672,6 +717,16 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 30000,
   });
 
+  const { data: marketIntel } = useQuery<{
+    success: boolean;
+    forum: { count: number; posts: Array<{ title: string; excerpt?: string; username?: string; postedAt?: string; threadUrl?: string }> };
+    news:  { count: number; articles: Array<{ title: string; snippet?: string; url?: string; source?: string; fetchedAt?: string }> };
+  }>({
+    queryKey: ['/api/market-intel/recent'],
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
   const { data: pricingInsights } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/priceomatic/insights'],
   });
@@ -1000,12 +1055,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   // ── Data intelligence health signals ────────────────────────────────────────
   // Market news freshness (platform-level feed)
   if (marketDataStale) {
-    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', sub: `News feed last updated ${bridgeSignals?.marketNewsFreshDays}d ago — pricing trends may be stale`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
+    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', sub: `News feed last updated ${bridgeSignals?.marketNewsFreshDays}d ago — pricing trends may be stale`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
   // Business intel freshness
   const biStale = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
   if (biStale && !marketDataStale) {
-    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', sub: `Last updated ${bridgeSignals?.businessIntelFreshDays}d ago — Insights may be incomplete`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
+    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', sub: `Last updated ${bridgeSignals?.businessIntelFreshDays}d ago — Insights may be incomplete`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
   // Seller strategy unconfigured
   if (ieData !== undefined && ieData !== null && !strategyConfigured) {
@@ -1125,6 +1180,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           flashReport={flashReports?.market ?? null}
           schedulerNextRunAt={schedulerNextRunAt}
           schedulerEnabled={schedulerEnabled}
+          forumPosts={marketIntel?.forum?.posts ?? []}
         />
 
         <OpAreaCard
@@ -1147,6 +1203,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           })()}
           schedulerNextRunAt={schedulerNextRunAt}
           schedulerEnabled={schedulerEnabled}
+          newsArticles={marketIntel?.news?.articles ?? []}
         />
       </div>)}
 

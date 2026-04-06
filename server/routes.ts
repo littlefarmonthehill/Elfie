@@ -19500,7 +19500,7 @@ Write a 1–2 sentence feedback comment for this order.`;
           threadUrl: blForumPosts.threadUrl,
         })
         .from(blForumPosts)
-        .where(and(eq(blForumPosts.orgId, orgId), sql`${blForumPosts.postedAt} >= ${cutoffDate}`))
+        .where(sql`${blForumPosts.postedAt} >= ${cutoffDate}`)
         .orderBy(sql`${blForumPosts.postedAt} DESC`)
         .limit(10);
 
