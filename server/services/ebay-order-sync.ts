@@ -122,8 +122,8 @@ async function fetchEbayOrders(
     });
 
     if (sinceIso) {
-      // eBay date-range filter format: lastmodifieddate:[{ISO}..]
-      params.set('filter', `lastmodifieddate:[{${sinceIso}}..]`);
+      // eBay date-range filter format: lastmodifieddate:[ISO..]
+      params.set('filter', `lastmodifieddate:[${sinceIso}..]`);
     }
 
     const resp = await fetch(`${baseUrl}/sell/fulfillment/v1/order?${params}`, {

@@ -1,0 +1,129 @@
+ChannelSync] Skipping 41342 (BOID 547029-38): BrickOwl item is scheduled for deletion
+2m ago
+WARN
+[ChannelSync] Skipping 13392pb01 (BOID 217531-85): BrickOwl item is scheduled for deletion
+2m ago
+WARN
+[ChannelSync] Skipping 853912 (BOID 459342-93): BOID not found on BrickOwl (permanent catalog gap)
+2m ago
+ERROR
+❌ Scheduled eBay order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+24m ago
+ERROR
+[CatalogDetail] Scheduler check error: Connection terminated due to connection timeout
+×2
+45m ago
+ERROR
+[CatalogScan] Scheduler check error: Connection terminated due to connection timeout
+×2
+45m ago
+ERROR
+[Rebrickable Scheduler] Error: Connection terminated due to connection timeout
+×2
+1h ago
+ERROR
+[DB] Keepalive query failed (will retry next cycle): Connection terminated due to connection timeout
+1h ago
+ERROR
+[MarketNews] Scheduler error: Connection terminated due to connection timeout
+2h ago
+ERROR
+❌ Error in forum sync scheduler: Authentication timed out
+2h ago
+ERROR
+❌ Error in eBay order sync scheduler: Authentication timed out
+2h ago
+ERROR
+❌ BrickLink sync failed for org org_planetbrick: Connection terminated due to connection timeout
+2h ago
+ERROR
+✗ BrickLink order sync failed: Connection terminated due to connection timeout
+2h ago
+ERROR
+❌ Error in BrickOwl order sync scheduler: Authentication timed out
+×2
+2h ago
+ERROR
+[DB] Keepalive query failed (will retry next cycle): Authentication timed out
+3h ago
+ERROR
+[MarketNews] Scheduler error: Authentication timed out
+3h ago
+ERROR
+[Rebrickable Scheduler] Error: Connection terminated due to connection timeout
+3h ago
+ERROR
+Error processing embedding job: Connection terminated due to connection timeout
+4h ago
+ERROR
+[CatalogDetail] Scheduler check error: Connection terminated due to connection timeout
+4h ago
+ERROR
+[DB] Keepalive query failed (will retry next cycle): Connection terminated due to connection timeout
+×2
+3h ago
+ERROR
+[CatalogScan] Scheduler check error: Connection terminated due to connection timeout
+×2
+4h ago
+ERROR
+[CatalogDetail] Scheduler check error: Authentication timed out
+5h ago
+ERROR
+[CatalogDetail] Scheduler check error: Connection terminated due to connection timeout
+5h ago
+ERROR
+Error processing embedding job: Connection terminated due to connection timeout
+6h ago
+ERROR
+[eBay Sync] error[2]: SKU BL-531751689: offer creation failed — A user error has occurred. Offer entity already exists.
+9h ago
+ERROR
+[eBay Sync] error[1]: SKU BL-531749530: offer creation failed — A user error has occurred. Offer entity already exists.
+9h ago
+ERROR
+[eBay Sync] error[0]: SKU BL-532178998: offer creation failed — A user error has occurred. Offer entity already exists.
+9h ago
+ERROR
+[eBay Sync] 3 error(s) for org org_planetbrick:
+9h ago
+ERROR
+[Channel] ✗ brickowl stack: Error: timeout exceeded when trying to connect at /home/runner/workspace/node_modules/pg-pool/index.js:45:11 at runNextTicks (node:internal/process/task_queues:60:5) at listOnTimeout (node:internal/timers:545:9) at process.processTimers (node:internal/timers:519:7) at async Promise.all (index 37) at async syncBrickLinkToBrickOwl (file:///home/runner/workspace/dist/index.js:8434:7) at async BrickOwlChannelAdapter.syncFromBrickLink (file:///home/runner/workspace/dist/index.js:13367:24) at async runScheduledChannelSync (file:///home/runner/workspace/dist/index.js:14917:24) at async checkAndRunChannelSync (file:///home/runner/workspace/dist/index.js:14815:5) at async Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:14755:5)
+9h ago
+ERROR
+[Channel] ✗ brickowl sync failed: timeout exceeded when trying to connect
+9h ago
+ERROR
+Error processing embedding job: timeout exceeded when trying to connect
+9h ago
+ERROR
+Failed to prune sessions: Connection terminated unexpectedly
+×2
+8h ago
+ERROR
+[Rebrickable Scheduler] Error: Connection terminated due to connection timeout
+×2
+9h ago
+ERROR
+[DB] Keepalive query failed (will retry next cycle): Connection terminated due to connection timeout
+9h ago
+ERROR
+Error processing embedding job: Connection terminated due to connection timeout
+×2
+9h ago
+ERROR
+❌ eBay sync failed for org org_planetbrick: [eBay Fulfillment API] 400: {"errors":[{"errorId":30810,"domain":"API_FULFILLMENT","category":"REQUEST","message":"Invalid date format.","parameters":[{"name":"filterName","value":"lastmodifieddate"},{"name":"filterValue","value":"[{2026-04-05T14:26:01.167Z}..]"}]}]}
+×37
+24s ago
+ERROR
+[BusinessIntel] Scheduler error: Authentication timed out
+10h ago
+WARN
+[Startup] No Stripe secret key found in platform settings — billing features unavailable.
+10h ago
+ERROR
+[Startup] Background initialization error (non-fatal): Authentication timed out
+10h ago
+ERROR
+[Migration] Error during startup migration: Authentication timed out
+10h ago

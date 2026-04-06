@@ -954,8 +954,33 @@ async function syncPartVariationGroups(opts: {
           result.totalApiCalls++;
           if (!createRes.ok) {
             const errMsg = createRes.data?.errors?.[0]?.message ?? JSON.stringify(createRes.data);
-            result.errors.push(`Variant ${variant.variantSku} offer creation failed — ${errMsg}`);
-            result.lotsSkipped += variant.lots.length;
+            // Recover: eBay has the offer but it wasn't in our paginated fetch — GET by SKU then PUT
+            if (errMsg.toLowerCase().includes('already exists')) {
+              const getRes = await ebayFetch(orgId, 'GET', `/sell/inventory/v1/offer?sku=${encodeURIComponent(variant.variantSku)}`);
+              result.totalApiCalls++;
+              const recovered = getRes.data?.offers?.[0];
+              if (recovered) {
+                const updateBody = buildVariantOfferBody({ variant, categoryId, config, isUpdate: true, existingPrice: recovered.pricingSummary?.price?.value });
+                const updateRes = await ebayFetch(orgId, 'PUT', `/sell/inventory/v1/offer/${recovered.offerId}`, updateBody);
+                result.totalApiCalls++;
+                if (!updateRes.ok) {
+                  const upErrMsg = updateRes.data?.errors?.[0]?.message ?? JSON.stringify(updateRes.data);
+                  result.errors.push(`Variant ${variant.variantSku} offer recovery update failed — ${upErrMsg}`);
+                  result.lotsSkipped += variant.lots.length;
+                } else {
+                  for (const lot of variant.lots) {
+                    await upsertChannelLink(orgId, lot.id, recovered.listing?.listingId ?? recovered.offerId);
+                  }
+                  result.lotsUpdated += variant.lots.length;
+                }
+              } else {
+                result.errors.push(`Variant ${variant.variantSku} offer creation failed — ${errMsg}`);
+                result.lotsSkipped += variant.lots.length;
+              }
+            } else {
+              result.errors.push(`Variant ${variant.variantSku} offer creation failed — ${errMsg}`);
+              result.lotsSkipped += variant.lots.length;
+            }
           } else {
             // Don't publish yet — will publish via publishOfferByInventoryItemGroup
             result.lotsCreated += variant.lots.length;
@@ -1282,8 +1307,31 @@ export async function syncBrickLinkToEbay(
         result.totalApiCalls++;
         if (!createResult.ok) {
           const errMsg = createResult.data?.errors?.[0]?.message ?? JSON.stringify(createResult.data);
-          result.errors.push(`SKU ${sku}: offer creation failed — ${errMsg}`);
-          result.lotsSkipped++;
+          // Recover: eBay has the offer but it wasn't in our paginated fetch — GET by SKU then PUT
+          if (errMsg.toLowerCase().includes('already exists')) {
+            const getRes = await ebayFetch(orgId, 'GET', `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`);
+            result.totalApiCalls++;
+            const recovered = getRes.data?.offers?.[0];
+            if (recovered) {
+              const updateBody = buildOfferBody({ sku, blLot: blLotNormalized, categoryId, config, isUpdate: true, existingPrice: recovered.pricingSummary?.price?.value });
+              const updateRes = await ebayFetch(orgId, 'PUT', `/sell/inventory/v1/offer/${recovered.offerId}`, updateBody);
+              result.totalApiCalls++;
+              if (!updateRes.ok) {
+                const upErrMsg = updateRes.data?.errors?.[0]?.message ?? JSON.stringify(updateRes.data);
+                result.errors.push(`SKU ${sku}: offer recovery update failed — ${upErrMsg}`);
+                result.lotsSkipped++;
+              } else {
+                await upsertChannelLink(orgId, lot.id, recovered.listing?.listingId ?? recovered.offerId);
+                result.lotsUpdated++;
+              }
+            } else {
+              result.errors.push(`SKU ${sku}: offer creation failed — ${errMsg}`);
+              result.lotsSkipped++;
+            }
+          } else {
+            result.errors.push(`SKU ${sku}: offer creation failed — ${errMsg}`);
+            result.lotsSkipped++;
+          }
           continue;
         }
         const offerId = createResult.data?.offerId;
