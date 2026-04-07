@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
+import DashboardNotifications from "./DashboardNotifications";
 import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
 import {
@@ -507,6 +508,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
             </div>
           )}
+
+          <DashboardNotifications groupKeys={['product']} />
         </div>
       </>}
 

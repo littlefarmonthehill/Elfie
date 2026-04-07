@@ -138,11 +138,11 @@ export async function syncBrickLinkOrders(
       // Incremental: only process orders that are new, have changed status, or have
       // an incomplete address (e.g. blank state from a prior partial sync).
       const existingOrders = await db
-        .select({ id: orders.id, orderStatus: orders.orderStatus, shipTo: orders.shipTo, customerNotes: orders.customerNotes })
+        .select({ id: orders.id, orderStatus: orders.orderStatus, workflowStatus: orders.workflowStatus, shipTo: orders.shipTo, customerNotes: orders.customerNotes })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), sql`${orders.id} LIKE 'bl-%'`));
 
-      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, shipTo: o.shipTo, customerNotes: o.customerNotes }]));
+      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, workflowStatus: o.workflowStatus, shipTo: o.shipTo, customerNotes: o.customerNotes }]));
 
       const CLOSED_STATUSES = new Set(['shipped', 'returned', 'cancelled', 'Cancelled', 'purged', 'completed', 'Completed']);
 
@@ -171,6 +171,11 @@ export async function syncBrickLinkOrders(
 
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
+
+        // Always re-check orders stuck in unpaid workflow — BrickLink payment.status
+        // changes do NOT update date_status_changed, so incremental sync would otherwise
+        // miss the payment arrival and leave the order perpetually in 'unpaid'.
+        if (existing.workflowStatus === 'unpaid') return true;
 
         // Re-process active orders that need enrichment — but NOT closed ones
         // (shipped/completed/etc) to keep incremental syncs fast.

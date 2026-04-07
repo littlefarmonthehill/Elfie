@@ -221,7 +221,12 @@ function GroupSheet({
   );
 }
 
-export default function DashboardNotifications() {
+interface DashboardNotificationsProps {
+  /** Only render groups whose key appears in this list. Omit to show all groups. */
+  groupKeys?: string[];
+}
+
+export default function DashboardNotifications({ groupKeys }: DashboardNotificationsProps = {}) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const { data } = useQuery<SyncIssuesResponse>({
@@ -236,19 +241,14 @@ export default function DashboardNotifications() {
 
   const issues = data?.issues ?? [];
 
-  const groupsWithIssues = GROUPS.map(group => ({
+  const visibleGroups = groupKeys ? GROUPS.filter(g => groupKeys.includes(g.key)) : GROUPS;
+
+  const groupsWithIssues = visibleGroups.map(group => ({
     group,
     issues: issues.filter(i => group.syncTypes.includes(i.syncType)),
   })).filter(({ issues }) => issues.length > 0);
 
-  if (groupsWithIssues.length === 0) {
-    return (
-      <div className="flex items-center gap-1.5 px-1.5 py-0.5">
-        <Check className="w-3 h-3 text-green-500" />
-        <span className="text-[10px] text-muted-foreground">No new notifications</span>
-      </div>
-    );
-  }
+  if (groupsWithIssues.length === 0) return null;
 
   const activeGroup = GROUPS.find(g => g.key === openGroup);
   const activeIssues = activeGroup

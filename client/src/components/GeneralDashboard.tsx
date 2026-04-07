@@ -8,7 +8,6 @@ import {
   ChevronDown, ChevronUp, X,
   Globe, Megaphone, Star, MessageSquare, Newspaper,
 } from "lucide-react";
-import DashboardNotifications from "./DashboardNotifications";
 import { cn } from "@/lib/utils";
 
 interface GeneralDashboardProps {
@@ -633,11 +632,11 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
             )}
 
             <div className="px-3 py-2.5">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sync Alerts</h4>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Communications</h4>
               {children ?? (
                 <div className="flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                  <span className="text-xs text-muted-foreground">No new notifications</span>
+                  <span className="text-xs text-muted-foreground">No new messages</span>
                 </div>
               )}
             </div>
@@ -1006,9 +1005,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       {/* System Pulse (plan info, setup items) */}
       {showPlan && (
-        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} onDismissSetupItem={dismissSetupItem}>
-          <DashboardNotifications />
-        </SystemPulse>
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} onDismissSetupItem={dismissSetupItem} />
       )}
 
       {/* Operational areas */}

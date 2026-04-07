@@ -17,6 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
+import DashboardNotifications from "./DashboardNotifications";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 
@@ -606,6 +607,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <QtySyncQueuePanel />
             </div>
           )}
+
+          <DashboardNotifications groupKeys={['orders']} />
         </div>
       </>}
 
