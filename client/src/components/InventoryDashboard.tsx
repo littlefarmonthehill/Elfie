@@ -198,12 +198,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
+        <div className={isCompact ? "p-2 space-y-2 h-full overflow-y-auto" : cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* Combined Inventory Info + Values */}
         <div
-          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-1" : "p-3")}
+          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-2" : "p-3")}
           style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
           data-testid="section-inventory-overview"
         >
@@ -211,8 +211,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2", isCompact ? "mb-0.5" : "mb-3")}>
-            <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-3")}>
+            <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Package className="w-3 h-3 text-blue-200" />
             </div>
             <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
@@ -235,7 +235,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
 
           {/* Top row: Lots, Parts, Categories */}
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">
             {([
               { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '—' },
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
@@ -245,10 +245,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")}
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
               >
-                <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>{label}</span>
-                <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-xs" : "text-xs md:text-base")}>{value}</span>
+                <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>{label}</span>
+                <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-sm" : "text-xs md:text-base")}>{value}</span>
                 <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
                   <ChevronRight className="w-2.5 h-2.5 text-white" />
                 </span>
@@ -257,22 +257,22 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
 
           {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-values">
-            <div className={cn("rounded-md border border-lego-red/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-cost">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>My Cost</div>
-              <div className={cn("font-semibold font-mono text-lego-red leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-values">
+            <div className={cn("rounded-md border border-lego-red/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-cost">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>My Cost</div>
+              <div className={cn("font-semibold font-mono text-lego-red leading-none truncate", isCompact ? "text-sm" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
-            <div className={cn("rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-listed">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>Listed</div>
-              <div className={cn("font-semibold font-mono text-lego-blue leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
+            <div className={cn("rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-listed">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>Listed</div>
+              <div className={cn("font-semibold font-mono text-lego-blue leading-none truncate", isCompact ? "text-sm" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
-            <div className={cn("rounded-md border border-lego-green/50 bg-gray-800/70", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="metric-sold-avg">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>Mkt Sold Avg</div>
-              <div className={cn("font-semibold font-mono text-lego-green leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
+            <div className={cn("rounded-md border border-lego-green/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")} data-testid="metric-sold-avg">
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>Mkt Sold Avg</div>
+              <div className={cn("font-semibold font-mono text-lego-green leading-none truncate", isCompact ? "text-sm" : "text-xs md:text-base")}>
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
             </div>
@@ -282,9 +282,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
         <div className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden" style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-command-central-inventory">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
-          <div className={cn(isCompact ? "px-1.5 pt-1 pb-1 space-y-0.5" : "px-3 pt-2.5 pb-2.5 space-y-1.5")}>
-            <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-1")}>
-              <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
+          <div className={cn(isCompact ? "px-2.5 pt-2 pb-2 space-y-1.5" : "px-3 pt-2.5 pb-2.5 space-y-1.5")}>
+            <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
+              <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
                 <Crosshair className="w-3 h-3 text-blue-200" />
               </div>
               <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Command Central</h3>
@@ -348,11 +348,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
 
           {/* Retro control panel tab strip */}
-          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-1" : "mb-3")} data-testid="control-panel-tabs">
+          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-2" : "mb-3")} data-testid="control-panel-tabs">
             <button
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
@@ -392,22 +392,22 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-2")} data-testid="section-tools">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-purple-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]")}>
-                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-purple-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]")}>
+                  <Sparkles className={cn("text-purple-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Price-O-Matic</span>
+                <span className={cn("font-bold text-purple-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Price-O-Matic</span>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="pom-action-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="pom-action-stats">
                 {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
                     {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)} to review
@@ -422,16 +422,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
-                  <Globe className={cn("w-3.5 h-3.5 text-green-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+                  <Globe className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>List-O-Matic</span>
+                <span className={cn("font-bold text-green-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>List-O-Matic</span>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="listomatic-action-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="listomatic-action-stats">
                 <span className="text-[11px] text-green-400/70">Sync across channels</span>
               </div>
             </button>
@@ -440,16 +440,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
-                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
+                  <ScanSearch className={cn("text-amber-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Brick Spotter</span>
+                <span className={cn("font-bold text-amber-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Brick Spotter</span>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="brickspotter-action-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="brickspotter-action-stats">
                 {(toolStats?.pendingScans ?? 0) > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {toolStats!.pendingScans} pending scans
@@ -464,16 +464,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('inventoryhealth')}
               data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
-                  <Activity className={cn("w-3.5 h-3.5 text-cyan-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
+                  <Activity className={cn("text-cyan-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Inventory Health</span>
+                <span className={cn("font-bold text-cyan-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Inventory Health</span>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="inventoryhealth-action-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="inventoryhealth-action-stats">
                 <span className="text-[11px] text-cyan-400/70">Audit your stock</span>
               </div>
             </button>
@@ -482,16 +482,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('bundletron')}
               data-testid="tool-bundletron"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                  <Layers className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+                  <Layers className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>BundleTron</span>
+                <span className={cn("font-bold text-orange-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>BundleTron</span>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="bundletron-action-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="bundletron-action-stats">
                 <span className="text-[11px] text-orange-400/70">Bundle lots for BO</span>
               </div>
             </button>

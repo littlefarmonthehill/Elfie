@@ -1412,8 +1412,8 @@ export default function Home() {
                           {/* ── 1/3 | 2/3 screen split ── */}
                           <div style={{ position:'absolute',inset:0,display:'flex',zIndex:5,opacity:tvFlash?0:1,transition:'opacity 0.1s ease' }}>
 
-                            {/* LEFT 1/3 — Plan (Bridge) or channel metrics (other channels) */}
-                            <div style={{ flex:'0 0 33.333%',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.15)',background:'rgba(12,16,40,0.75)',overflow:'hidden' }}>
+                            {/* LEFT panel — Plan (Bridge) or channel metrics (other channels) */}
+                            <div style={{ flex:'0 0 clamp(360px, 40%, 460px)',display:'flex',flexDirection:'column',borderRight:'1px solid rgba(0,255,238,0.15)',background:'rgba(12,16,40,0.75)',overflow:'hidden' }}>
                               {activeDashboard === 'dashboard' ? (
                                 <>
                                   {!planCollapsed && (
