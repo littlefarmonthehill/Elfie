@@ -384,15 +384,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
+        <div className={isCompact ? "p-2 space-y-2 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
-            <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
-              <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+            <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+              <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Orders</h3>
             <CollapsibleDatePicker
@@ -402,12 +402,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               testId="button-orders-date-picker"
             />
           </div>
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")} data-testid="section-orders-counts">
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" compact={isCompact} data-testid="metric-shipped-orders" />
           </div>
-          <div className={cn("grid grid-cols-4", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-orders-kpis">
+          <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-orders-kpis">
             <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" compact={isCompact} data-testid="metric-aov" />
             <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" compact={isCompact} data-testid="metric-avg-lots" />
             <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" compact={isCompact} data-testid="metric-fulfillment-rate" />
@@ -418,14 +418,14 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
         <div className="relative rounded-lg border border-orange-400/65 shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden bg-gradient-to-b from-orange-900/40 to-gray-900/88" data-testid="section-command-central-orders">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className={cn("space-y-2", isCompact ? "px-1.5 pt-1.5 pb-1.5" : "px-3 pt-2.5 pb-2.5")}>
-            <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-1")}>
-              <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
-                <Crosshair className={cn("text-orange-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+          <div className={cn("space-y-2", isCompact ? "px-2.5 pt-2 pb-2" : "px-3 pt-2.5 pb-2.5")}>
+            <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
+              <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+                <Crosshair className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
               </div>
               <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide", isCompact ? "text-xs" : "text-xs md:text-sm")}>Command Central</h3>
             </div>
-            <div className="grid grid-cols-6 gap-1" data-testid="directive-workflow-grid">
+            <div className="grid grid-cols-6 gap-1.5" data-testid="directive-workflow-grid">
               {([
                 { key: 'unpaid',     label: 'Unpaid',  badge: 'bg-orange-900/50 text-orange-300 border-orange-700/40', dot: 'bg-orange-500' },
                 { key: 'new',        label: 'New',     badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',       dot: 'bg-gray-500' },
@@ -443,7 +443,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                     data-testid={`directive-status-${key}`}
                     className={cn(
                       "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
-                      isCompact ? "px-0.5 py-1" : "px-1 py-2.5",
+                      isCompact ? "px-1 py-1.5" : "px-1 py-2.5",
                       isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
                     )}
                   >
@@ -461,11 +461,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
 
           {/* Retro control panel tab strip */}
-          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-1" : "mb-3")} data-testid="control-panel-tabs">
+          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-2" : "mb-3")} data-testid="control-panel-tabs">
             <button
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
@@ -507,18 +507,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-2")} data-testid="section-order-tools">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
             {/* Fulfillment & Shipping */}
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+                  <Truck className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Fulfillment</span>
                 <Popover>
@@ -537,7 +537,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="fulfillment-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="fulfillment-stats">
                 {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
                     {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
@@ -558,12 +558,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
-                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+                  <PackageCheck className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Shipped Orders</span>
                 <Popover>
@@ -582,7 +582,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="shipped-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="shipped-stats">
                 {(stats?.shippedOrders ?? 0) > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
                     {formatNumber(stats!.shippedOrders)} shipped

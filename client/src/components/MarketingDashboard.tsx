@@ -462,15 +462,15 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   }
 
   return (
-        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
+        <div className={isCompact ? "p-2 space-y-2 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-yellow/12 to-lego-yellow/3 rounded-lg border border-lego-yellow/38 shadow-[0_0_22px_rgba(234,179,8,0.20)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}
-        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-customer-overview">
+        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
-            <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
-              <Users className={cn("text-yellow-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+            <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+              <Users className={cn("text-yellow-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Customers</h3>
             <CollapsibleDatePicker
@@ -480,12 +480,12 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               testId="button-customers-date-picker"
             />
           </div>
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-2")} data-testid="section-customer-counts">
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" compact={isCompact} data-testid="metric-total-customers" />
             <MetricCard label="Repeat" value={String(repeatCustomerCount)} color="green" compact={isCompact} data-testid="metric-repeat-customers" />
             <MetricCard label="New (30d)" value={String(newLast30)} color="blue" compact={isCompact} data-testid="metric-new-customers" />
           </div>
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-customer-rates">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-customer-rates">
             <MetricCard label="Repeat Rate" value={`${repeatRate}%`} color="green" compact={isCompact} data-testid="metric-repeat-rate" />
             <MetricCard label="Avg Orders" value={avgOrders} color="yellow" compact={isCompact} data-testid="metric-avg-orders" />
           </div>
@@ -494,25 +494,25 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-marketing-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2", "mb-2")}>
-            <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1" : "p-1.5")}>
-              <Sparkles className={cn("text-gray-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", "mb-2")}>
+            <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+              <Sparkles className={cn("text-gray-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide">Systems</h3>
           </div>
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-2")}>
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
             {/* Attract */}
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(99,102,241,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-indigo-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-indigo-400/65 shadow-[0_0_10px_rgba(99,102,241,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-indigo-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-indigo-400/65 shadow-[0_0_10px_rgba(99,102,241,0.22)]")}>
                   <Megaphone className={cn("w-3.5 h-3.5 text-indigo-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-indigo-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Attract New Customers</span>
@@ -532,7 +532,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
                 <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
                   Coming soon
                 </span>
@@ -543,11 +543,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-new')}
               data-testid="tool-engage-new"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
                   <UserPlus className={cn("w-3.5 h-3.5 text-cyan-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>New Customers</span>
@@ -567,7 +567,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
                 {newCustomers.length > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
                     {newCustomers.length} new buyers
@@ -584,11 +584,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-repeat')}
               data-testid="tool-engage-repeat"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(59,130,246,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-blue-900/70", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-blue-900/70", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]")}>
                   <RefreshCcw className={cn("w-3.5 h-3.5 text-blue-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-blue-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Repeat Customers</span>
@@ -608,7 +608,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
                 {repeatCustomerCount > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
                     {repeatCustomerCount} repeat buyers
@@ -625,11 +625,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-top')}
               data-testid="tool-engage-top"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
                   <Trophy className={cn("w-3.5 h-3.5 text-amber-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Top Spenders</span>
@@ -649,7 +649,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
                 {topSpenders.length > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {topSpenders.length} customers ranked

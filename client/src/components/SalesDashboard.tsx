@@ -1389,7 +1389,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   }
 
   return (
-        <div className={isCompact ? "p-1 space-y-1 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
+        <div className={isCompact ? "p-2 space-y-2 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
@@ -1405,11 +1405,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       )}
       
       {/* ── Top Metrics ── */}
-      <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-sales-overview">
+      <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
-          <div className={cn("rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
-            <TrendingUp className={cn("text-green-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+        <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+          <div className={cn("rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+            <TrendingUp className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
           </div>
           <h3 className={cn("font-semibold text-green-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Insights</h3>
           <CollapsibleDatePicker
@@ -1419,13 +1419,13 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             testId="button-insights-date-picker"
           />
         </div>
-        <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-2")} data-testid="section-sales-metrics">
+        <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" compact={isCompact} data-testid="metric-sales-orders" />
           <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" compact={isCompact} data-testid="metric-sales-gross" />
           <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" compact={isCompact} data-testid="metric-sales-avg" />
         </div>
         {adjustmentSummary && (
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1" : "gap-1.5")}>
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-1.5")}>
             <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" compact={isCompact} data-testid="metric-sales-net" />
             <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" compact={isCompact} data-testid="metric-sales-refunds" />
             <MetricCard label="Shipping" value={adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" compact={isCompact} data-testid="metric-sales-shipping" />
@@ -1436,23 +1436,23 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       {(!tvSplit || tvSplit === 'right') && <>
 
       {/* ── Tools Section ── */}
-      <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")}>
+      <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")}>
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2", "mb-2")}>
-            <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1" : "p-1.5")}>
-              <BarChart2 className={cn("text-gray-200", isCompact ? "w-3 h-3" : "w-3 h-3 md:w-4 md:h-4")} />
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", "mb-2")}>
+            <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
+              <BarChart2 className={cn("text-gray-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide">Systems</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
             <button
               onClick={() => onDrawerChange?.('business-intel')}
               data-testid="tool-business-intel"
-              className={cn("col-span-2 group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("col-span-2 group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
                   <Radar className={cn("w-3.5 h-3.5 text-cyan-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Business Intel</span>
@@ -1463,11 +1463,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             <button
               onClick={() => onDrawerChange?.('chart')}
               data-testid="tool-sales-chart"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
                   <Activity className={cn("w-3.5 h-3.5 text-green-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Sales Chart</span>
@@ -1478,11 +1478,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             <button
               onClick={() => onDrawerChange?.('platform-perf')}
               data-testid="tool-platform-performance"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
                   <BarChart2 className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Platform Performance</span>
@@ -1498,7 +1498,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 </Popover>
               </div>
               {(
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
                 {availablePlatforms.length > 0 ? (
                   <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
                     {availablePlatforms.length} active {availablePlatforms.length === 1 ? 'platform' : 'platforms'}
@@ -1520,11 +1520,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             <button
               onClick={() => onDrawerChange?.('acquisition-evaluator')}
               data-testid="tool-acquisition-evaluator"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-violet-400/72 bg-gradient-to-br from-violet-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-violet-400/72 bg-gradient-to-br from-violet-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(139,92,246,0.35)' } as React.CSSProperties}
             >
-              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-violet-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-violet-400/65 shadow-[0_0_10px_rgba(139,92,246,0.22)]")}>
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-violet-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-violet-400/65 shadow-[0_0_10px_rgba(139,92,246,0.22)]")}>
                   <Package className={cn("w-3.5 h-3.5 text-violet-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-violet-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Acquisition Evaluator</span>
