@@ -380,7 +380,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               )}
             >
               <Globe className="w-3 h-3 flex-shrink-0" />
-              Uplink
+              Channels
               {hasChannelErrors && panelTab !== 'uplink' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
               )}
