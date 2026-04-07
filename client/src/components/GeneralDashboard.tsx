@@ -902,46 +902,38 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     return { name, connected, disc, missingLots, priceDiffs, qtyDiffs };
   }).filter(c => !c.connected || c.disc > 0);
 
-  const urgentAlerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }> = [];
+  const urgentAlerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; severity: 'warn' | 'error' | 'info'; kind: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }> = [];
 
   if (pendingOrders > 0) {
-    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} to fulfill`, sub: 'Ready for packing & shipping', severity: 'warn', kind: 'warn', onClick: onOpenFulfillment });
+    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} to fulfill`, severity: 'warn', kind: 'warn', onClick: onOpenFulfillment });
   }
   if (isScanComplete && (latestScan?.totalPieces ?? 0) > 0) {
-    urgentAlerts.push({ id: 'scan', icon: Zap, iconColor: 'text-teal-400', label: 'Scan results ready to view', sub: 'View before they expire', severity: 'info', kind: 'opportunity', onClick: onOpenBrickanalyzer });
+    urgentAlerts.push({ id: 'scan', icon: Zap, iconColor: 'text-teal-400', label: 'Scan results ready to view', severity: 'info', kind: 'opportunity', onClick: onOpenBrickanalyzer });
   }
   if (invSyncFailed) {
-    urgentAlerts.push({ id: 'inv-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Inventory sync failed', sub: lastInvSync?.errorMessage ?? 'Check BrickLink connection', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
+    urgentAlerts.push({ id: 'inv-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Inventory sync failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
   if (pomFailed) {
-    urgentAlerts.push({ id: 'pom-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Price-o-Matic failed', sub: lastPom?.errorMessage ?? 'Run manually from Settings', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('automation') });
+    urgentAlerts.push({ id: 'pom-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Price-o-Matic failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('automation') });
   }
   if (orderSyncFailed) {
-    urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', sub: lastOrderSync?.errorMessage ?? 'Check connection', severity: 'error', kind: 'critical' });
+    urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', severity: 'error', kind: 'critical' });
   }
   if (abandonedQtyUpdates > 0) {
-    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, sub: 'Open Orders to review and retry', severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders') });
+    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders') });
   }
   if (channelSyncFailed) {
-    urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', sub: lastChannelSync?.errorMessage ?? 'Check channel connections', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
+    urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
-  // ── Pricing strategy helpers for sub-text enrichment ───────────────────────
-  const pricingPreset = ieData?.pricingStrategyPreset ?? null;
+
   const strategyConfigured = !!(ieData?.pricingStrategyPreset || ieData?.visionMission);
 
-  const underpricedSub = (() => {
-    if (pricingPreset === 'clear_inventory') return 'Repricing aligns with your Clear Inventory goal — act fast';
-    if (pricingPreset === 'premium')         return 'Review: may conflict with your Premium hold-price approach';
-    if (pricingPreset === 'market_rate')     return 'Market data shows room to move — matches your Market Rate strategy';
-    return 'Open Price-o-Matic to review';
-  })();
-
   if (highOpportunityCount > 0) {
-    urgentAlerts.push({ id: 'underpriced', icon: TrendingUp, iconColor: 'text-teal-400', label: `${highOpportunityCount} items ready to reprice`, sub: underpricedSub, severity: 'warn', kind: 'opportunity', onClick: onOpenPriceomatic });
+    urgentAlerts.push({ id: 'underpriced', icon: TrendingUp, iconColor: 'text-teal-400', label: `${highOpportunityCount} items ready to reprice`, severity: 'warn', kind: 'opportunity', onClick: onOpenPriceomatic });
   }
   for (const c of channelIssues) {
     if (!c.connected) {
-      urgentAlerts.push({ id: `ch-${c.name}-disc`, icon: XCircle, iconColor: 'text-red-400', label: `${c.name} disconnected`, sub: 'Tap to reconnect', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
+      urgentAlerts.push({ id: `ch-${c.name}-disc`, icon: XCircle, iconColor: 'text-red-400', label: `${c.name} disconnected`, severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
     }
     if (c.disc > 0) {
       urgentAlerts.push({ id: `ch-${c.name}-issues`, icon: AlertTriangle, iconColor: 'text-yellow-400', label: `${c.name}: ${c.disc} discrepanc${c.disc !== 1 ? 'ies' : 'y'}`, severity: 'warn', kind: 'warn' });
@@ -952,64 +944,53 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const invLastSyncMs = lastInvSync?.lastSyncTime ? new Date(lastInvSync.lastSyncTime).getTime() : null;
   const invSyncAgeDays = invLastSyncMs !== null ? (Date.now() - invLastSyncMs) / (1000 * 60 * 60 * 24) : null;
   if (!invSyncFailed && !isInvSyncing && invSyncAgeDays !== null && invSyncAgeDays > 2) {
-    urgentAlerts.push({ id: 'inv-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Inventory not refreshed in 2+ days', sub: 'Signals may not reflect current stock — run a sync', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('platforms') });
+    urgentAlerts.push({ id: 'inv-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Inventory not refreshed in 2+ days', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('platforms') });
   }
 
   // ── Orders signals ──────────────────────────────────────────────────────────
   const agingOrders = bridgeSignals?.agingOrders ?? 0;
   if (agingOrders > 0) {
-    urgentAlerts.push({ id: 'aging-orders', icon: Clock, iconColor: 'text-red-400', label: `${agingOrders} order${agingOrders !== 1 ? 's' : ''} aging past 24h`, sub: 'Buyer satisfaction at risk — fulfill now', severity: 'error', kind: 'critical', onClick: onOpenFulfillment });
+    urgentAlerts.push({ id: 'aging-orders', icon: Clock, iconColor: 'text-red-400', label: `${agingOrders} order${agingOrders !== 1 ? 's' : ''} aging past 24h`, severity: 'error', kind: 'critical', onClick: onOpenFulfillment });
   }
   if (highValuePendingOrder) {
     const hvTotal = Number(highValuePendingOrder.orderTotal ?? 0).toFixed(2);
-    urgentAlerts.push({ id: 'high-value-pending', icon: Star, iconColor: 'text-yellow-300', label: `$${hvTotal} order ready to ship`, sub: `From ${highValuePendingOrder.customerUsername ?? 'buyer'} — prioritize packing`, severity: 'info', kind: 'opportunity', onClick: onOpenFulfillment });
+    urgentAlerts.push({ id: 'high-value-pending', icon: Star, iconColor: 'text-yellow-300', label: `$${hvTotal} order ready to ship`, severity: 'info', kind: 'opportunity', onClick: onOpenFulfillment });
   }
 
   // ── Marketing signals ───────────────────────────────────────────────────────
   const repeatBuyers = bridgeSignals?.repeatBuyers ?? 0;
   if (repeatBuyers > 0) {
-    urgentAlerts.push({ id: 'repeat-buyers', icon: Users, iconColor: 'text-teal-400', label: `${repeatBuyers} loyal buyer${repeatBuyers !== 1 ? 's' : ''} in your store`, sub: 'Great candidates for outreach', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('marketing') });
+    urgentAlerts.push({ id: 'repeat-buyers', icon: Users, iconColor: 'text-teal-400', label: `${repeatBuyers} loyal buyer${repeatBuyers !== 1 ? 's' : ''} in your store`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('marketing') });
   }
   const feedbackPending = fulfillmentStats?.feedbackPending ?? 0;
   if (feedbackPending > 0) {
-    urgentAlerts.push({ id: 'feedback-pending', icon: MessageSquare, iconColor: 'text-teal-400', label: `${feedbackPending} order${feedbackPending !== 1 ? 's' : ''} need${feedbackPending === 1 ? 's' : ''} feedback`, sub: 'Leave feedback to build your reputation', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('orders') });
+    urgentAlerts.push({ id: 'feedback-pending', icon: MessageSquare, iconColor: 'text-teal-400', label: `${feedbackPending} order${feedbackPending !== 1 ? 's' : ''} need${feedbackPending === 1 ? 's' : ''} feedback`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('orders') });
   }
 
   // ── Insights signals ────────────────────────────────────────────────────────
-  const overpricedSub = (() => {
-    if (pricingPreset === 'premium')         return 'These may be intentionally high — verify sales velocity first';
-    if (pricingPreset === 'clear_inventory') return 'Conflicts with your Clear Inventory goal — consider reducing';
-    if (pricingPreset === 'market_rate')     return 'Diverging from market averages — check your Market Rate strategy';
-    return 'Buyers may be going elsewhere';
-  })();
-
   if (overpricedCount > 0) {
-    urgentAlerts.push({ id: 'overpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${overpricedCount} item${overpricedCount !== 1 ? 's' : ''} priced above market`, sub: overpricedSub, severity: 'warn', kind: 'warn', onClick: onOpenPriceomatic });
+    urgentAlerts.push({ id: 'overpriced', icon: TrendingDown, iconColor: 'text-orange-400', label: `${overpricedCount} item${overpricedCount !== 1 ? 's' : ''} priced above market`, severity: 'warn', kind: 'warn', onClick: onOpenPriceomatic });
   }
   const thisWeek = bridgeSignals?.thisWeekRevenue ?? 0;
   const lastWeek = bridgeSignals?.lastWeekRevenue ?? 0;
   const revenueChangePct = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
   const marketDataStale = (bridgeSignals?.marketNewsFreshDays ?? 0) > 7;
   if (revenueChangePct !== null && revenueChangePct >= 10) {
-    urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, sub: 'Momentum is building — keep going', severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('sales') });
   } else if (revenueChangePct !== null && revenueChangePct <= -10) {
-    const revDownSub = marketDataStale ? 'Market data may be out of date — investigate manually' : 'Check Insights for what changed';
-    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, sub: revDownSub, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
 
   // ── Data intelligence health signals ────────────────────────────────────────
-  // Market news freshness (platform-level feed)
   if (marketDataStale) {
-    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', sub: `News feed last updated ${bridgeSignals?.marketNewsFreshDays}d ago — pricing trends may be stale`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
-  // Business intel freshness
   const biStale = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
   if (biStale && !marketDataStale) {
-    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', sub: `Last updated ${bridgeSignals?.businessIntelFreshDays}d ago — Insights may be incomplete`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
-  // Seller strategy unconfigured
   if (ieData !== undefined && ieData !== null && !strategyConfigured) {
-    urgentAlerts.push({ id: 'no-strategy', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Seller strategy not configured', sub: 'Bridge signals have no strategic context — set up in Settings', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ieStrategies') });
+    urgentAlerts.push({ id: 'no-strategy', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Seller strategy not configured', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ieStrategies') });
   }
 
   const invEmbedPct = embedStats && embedStats.inventory.total > 0
