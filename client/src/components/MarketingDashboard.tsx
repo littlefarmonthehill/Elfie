@@ -146,25 +146,25 @@ function CustomerRow({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-semibold text-gray-100 truncate">{customer.customerUsername}</span>
           {badge && (
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${accentClass} bg-transparent border-current/30`}>
+            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${accentClass} bg-transparent border-current/30`}>
               {badge}
             </span>
           )}
         </div>
         <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
-          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
             <Calendar className="h-2.5 w-2.5 shrink-0" />
             {fmtDaysSince(customer.lastOrderDate)}
           </span>
           {customer.customerEmail && (
-            <span className="flex items-center gap-1 text-[10px] text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               <Mail className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate max-w-[160px]">{customer.customerEmail}</span>
             </span>
           )}
           {hasLocation && (
-            <span className="flex items-center gap-1 text-[10px] text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-gray-600">
               <MapPin className="h-2.5 w-2.5 shrink-0" />
               {[customer.shipCity, customer.shipState, customer.shipCountry].filter(Boolean).join(', ')}
             </span>
@@ -533,7 +533,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                 </Popover>
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
-                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
                   Coming soon
                 </span>
               </div>
@@ -569,11 +569,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
                 {newCustomers.length > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
                     {newCustomers.length} new buyers
                   </span>
                 ) : (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-600/25">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-600/25">
                     No data yet
                   </span>
                 )}
@@ -610,11 +610,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
                 {repeatCustomerCount > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
                     {repeatCustomerCount} repeat buyers
                   </span>
                 ) : (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-600/25">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-600/25">
                     No data yet
                   </span>
                 )}
@@ -651,11 +651,11 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
                 {topSpenders.length > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {topSpenders.length} customers ranked
                   </span>
                 ) : (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-600/25">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-600/25">
                     No data yet
                   </span>
                 )}

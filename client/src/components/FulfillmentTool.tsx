@@ -192,7 +192,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                 </div>
               </div>
               {variants.length > 1 && (
-                <span className="shrink-0 text-[10px] font-bold text-gray-400 tabular-nums">
+                <span className="shrink-0 text-xs font-bold text-gray-400 tabular-nums">
                   {variants.length} lots
                 </span>
               )}
@@ -216,7 +216,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                       className="shrink-0 touch-auto"
                       data-testid={`checkbox-fulfill-item-${item.picklistItemId}`}
                     />
-                    <div className={`flex-1 min-w-0 text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
+                    <div className={`flex-1 min-w-0 text-xs ${checked ? 'line-through text-gray-500' : ''}`}>
                       <div className="flex items-center gap-2 flex-wrap text-gray-400">
                         <span className="tabular-nums">{item.quantity}×</span>
                         {item.inventoryQty != null && !checked && (() => {
@@ -1175,7 +1175,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 <div className="flex gap-1.5 px-4 pb-2.5 flex-wrap">
                   <button
                     onClick={() => setActiveWorkflowFilter(null)}
-                    className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${
+                    className={`text-[11px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${
                       activeWorkflowFilter === null
                         ? 'bg-gray-700 text-gray-100 border-gray-500'
                         : 'bg-gray-800/40 text-gray-500 border-gray-700/40 opacity-70 hover:opacity-100'
@@ -1190,7 +1190,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                       <button
                         key={g.status}
                         onClick={() => setActiveWorkflowFilter(activeWorkflowFilter === g.status ? null : g.status)}
-                        className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${m.badge} ${
+                        className={`text-[11px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${m.badge} ${
                           activeWorkflowFilter === g.status ? 'opacity-100' : 'opacity-50 hover:opacity-80'
                         }`}
                         data-testid={`filter-workflow-${g.status}`}
@@ -1207,7 +1207,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 <div className="flex items-center justify-between px-4 pb-2.5">
                   <button
                     onClick={handleSelectAll}
-                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                     data-testid="button-select-all"
                   >
                     {selectedOrders.size === 0
@@ -1218,7 +1218,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                          className="text-[9px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none transition-colors"
+                          className="text-[11px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none transition-colors"
                           data-testid="button-bulk-status"
                           disabled={updateWorkflowStatusBulk.isPending}
                         >
@@ -1234,7 +1234,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                               onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
                               data-testid={`bulk-workflow-${s}`}
                             >
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none ${sm.badge}`}>
+                              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded border leading-none ${sm.badge}`}>
                                 {sm.label}
                               </span>
                             </DropdownMenuItem>
@@ -1265,11 +1265,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                         {/* Group header */}
                         <div className={`flex items-center gap-2 pt-${gi === 0 ? '1' : '3'} pb-1`}>
                           <div className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${meta.header}`}>{meta.label}</span>
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 tabular-nums">{group.orders.length}</span>
+                          <span className={`text-xs font-bold uppercase tracking-wider ${meta.header}`}>{meta.label}</span>
+                          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 tabular-nums">{group.orders.length}</span>
                           <button
                             onClick={() => handleGroupSelectAll(group.orders)}
-                            className="ml-1 text-[9px] font-bold text-gray-500 hover:text-gray-300 leading-none"
+                            className="ml-1 text-[11px] font-bold text-gray-500 hover:text-gray-300 leading-none"
                             data-testid={`group-select-all-${group.status}`}
                           >
                             {group.orders.every(o => selectedOrders.has(o.id)) ? 'Deselect' : 'Select all'}
@@ -1305,7 +1305,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                       {/* 2-char shortcode — circle color encodes shipping tier */}
                                       <span
-                                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
+                                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold font-mono shrink-0 tabular-nums ${
                                           tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
                                           tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
                                           'bg-gray-800 text-amber-400'
@@ -1328,7 +1328,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                       </span>
                                       {/* Lot count */}
                                       {lotCount > 0 && (
-                                        <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
+                                        <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[11px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
                                           {lotCount}
                                         </span>
                                       )}
@@ -1349,7 +1349,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                       )}
                                       {/* Order total */}
                                       {order.orderTotal && Number(order.orderTotal) > 0 && (
-                                        <span className="text-[10px] font-mono text-gray-500 shrink-0 tabular-nums" data-testid={`text-total-${order.id}`}>
+                                        <span className="text-xs font-mono text-gray-500 shrink-0 tabular-nums" data-testid={`text-total-${order.id}`}>
                                           ${Number(order.orderTotal).toFixed(2)}
                                         </span>
                                       )}
@@ -1357,7 +1357,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                     {/* Workflow status badge */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setStatusPickerOrderId(statusPickerOrderId === order.id ? null : order.id); }}
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-opacity shrink-0 ${wfMeta.badge}`}
+                                      className={`text-[11px] font-bold px-1.5 py-0.5 rounded border leading-none transition-opacity shrink-0 ${wfMeta.badge}`}
                                       data-testid={`button-workflow-status-${order.id}`}
                                       title="Change workflow status"
                                     >
@@ -1380,11 +1380,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                       {country && country !== 'US' && (
                                         <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
                                       )}
-                                      {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
+                                      {formattedDate && <span className="text-xs text-gray-500">{formattedDate}</span>}
                                       {onOrderDetail && (
                                         <button
                                           onClick={(e) => { e.stopPropagation(); onOrderDetail(String(order.id)); }}
-                                          className="text-[10px] text-sky-500/70 hover:text-sky-400 transition-colors"
+                                          className="text-xs text-sky-500/70 hover:text-sky-400 transition-colors"
                                           data-testid={`button-order-detail-${order.id}`}
                                         >
                                           view order
@@ -1399,7 +1399,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                         if (!linkedCode) return null;
                                         return (
                                           <span
-                                            className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0"
+                                            className="flex items-center gap-0.5 text-xs text-amber-400/80 font-mono shrink-0"
                                             data-testid={`text-merge-group-${order.id}`}
                                             title={`Merged with ${linkedCode} — buy a label on one, then mark the other as shipped with same tracking`}
                                           >
@@ -1434,7 +1434,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                             setStatusPickerOrderId(null);
                                           }}
                                           disabled={isActive || updateWorkflowStatus.isPending}
-                                          className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${sm.badge} ${isActive ? 'opacity-100 ring-1 ring-offset-1 ring-offset-gray-900 ring-current' : 'opacity-60 hover:opacity-100'}`}
+                                          className={`text-[11px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${sm.badge} ${isActive ? 'opacity-100 ring-1 ring-offset-1 ring-offset-gray-900 ring-current' : 'opacity-60 hover:opacity-100'}`}
                                           data-testid={`workflow-option-${order.id}-${s}`}
                                         >
                                           {sm.label}
@@ -1510,7 +1510,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             <Star className="w-3.5 h-3.5" />
             Feedback
             {feedbackPending.length > 0 && (
-              <span className="ml-1 text-[9px] font-bold bg-teal-500/20 text-teal-300 rounded-full px-1.5 py-0.5 tabular-nums">
+              <span className="ml-1 text-[11px] font-bold bg-teal-500/20 text-teal-300 rounded-full px-1.5 py-0.5 tabular-nums">
                 {feedbackPending.length}
               </span>
             )}
@@ -1522,7 +1522,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
           >
             {sortedOrders.length > 0 && (
-              <span className="text-[10px] font-bold tabular-nums text-gray-400">{selectedOrders.size}/{sortedOrders.length}</span>
+              <span className="text-xs font-bold tabular-nums text-gray-400">{selectedOrders.size}/{sortedOrders.length}</span>
             )}
             <PanelRight className="w-4 h-4" />
           </button>
@@ -1532,7 +1532,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         {activeTab === 'picklist' && (
           <div className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
             {/* Picking group */}
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 shrink-0">Picking</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0">Picking</span>
             <Button
               size="sm"
               variant="outline"
@@ -1573,7 +1573,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         )}
         {!isSplitMode && activeTab === 'shipping' && (
           <div ref={actionRowRef} className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
             <Button
               ref={shipBtnRef}
               size="sm"
@@ -1645,7 +1645,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                     onClick={toggleFbSelectAll}
                     title={fbAllSelected ? 'Deselect all' : 'Select all'}
                     data-testid="button-fb-select-all"
-                    className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-teal-300 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-teal-300 transition-colors"
                   >
                     <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${fbAllSelected ? 'bg-teal-500 border-teal-500' : fbSomeSelected ? 'bg-teal-500/30 border-teal-500/60' : 'border-white/20'}`}>
                       {(fbAllSelected || fbSomeSelected) && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
@@ -1711,13 +1711,13 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                     <div key={i} className="px-3 py-2 flex items-start gap-2" data-testid={`feedback-warning-${w.orderId}`}>
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold text-amber-200">
+                          <span className="text-xs font-semibold text-amber-200">
                             {w.customerUsername ?? 'Unknown Buyer'}
                           </span>
-                          <span className="text-[9px] text-amber-500/60 font-mono">#{shortCode(w.orderNumber)}</span>
+                          <span className="text-[11px] text-amber-500/60 font-mono">#{shortCode(w.orderNumber)}</span>
                         </div>
                         {w.warnings.map((msg, j) => (
-                          <p key={j} className="text-[10px] text-amber-400/80 leading-snug">{msg}</p>
+                          <p key={j} className="text-xs text-amber-400/80 leading-snug">{msg}</p>
                         ))}
                       </div>
                       <button
@@ -1771,7 +1771,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                           </button>
                           <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                           <span className="text-xs font-bold text-teal-300 uppercase tracking-wide">{marketplace}</span>
-                          <span className="ml-auto text-[10px] text-gray-500 tabular-nums">{orders.length}</span>
+                          <span className="ml-auto text-xs text-gray-500 tabular-nums">{orders.length}</span>
                         </div>
                       );
                     })()}
@@ -1815,7 +1815,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                     {displayName}
                                   </span>
                                   {o.totalOrderCount > 1 && (
-                                    <span className="shrink-0 text-[9px] font-medium px-1.5 py-px rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 tabular-nums whitespace-nowrap" data-testid={`text-order-count-${o.id}`}>
+                                    <span className="shrink-0 text-[11px] font-medium px-1.5 py-px rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30 tabular-nums whitespace-nowrap" data-testid={`text-order-count-${o.id}`}>
                                       {o.totalOrderCount} orders
                                     </span>
                                   )}
@@ -1823,15 +1823,15 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   {showUsername && (
                                     <>
-                                      <span className="text-[10px] text-gray-500 font-mono">{o.customerUsername}</span>
-                                      <span className="text-[9px] text-gray-600">·</span>
+                                      <span className="text-xs text-gray-500 font-mono">{o.customerUsername}</span>
+                                      <span className="text-[11px] text-gray-600">·</span>
                                     </>
                                   )}
-                                  <span className="text-[10px] text-gray-500 font-mono">#{shortCode(o.orderNumber)}</span>
-                                  <span className="text-[9px] text-gray-600">·</span>
-                                  <span className="text-[10px] text-gray-500">Shipped {shipped}</span>
-                                  <span className="text-[9px] text-gray-600">·</span>
-                                  <span className="text-[10px] text-gray-400 font-mono tabular-nums">{total}</span>
+                                  <span className="text-xs text-gray-500 font-mono">#{shortCode(o.orderNumber)}</span>
+                                  <span className="text-[11px] text-gray-600">·</span>
+                                  <span className="text-xs text-gray-500">Shipped {shipped}</span>
+                                  <span className="text-[11px] text-gray-600">·</span>
+                                  <span className="text-xs text-gray-400 font-mono tabular-nums">{total}</span>
                                 </div>
                               </div>
                             </div>
@@ -1856,7 +1856,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                   );
                                 })}
                               </div>
-                              <span className={`text-[10px] font-medium ml-1 ${currentRating.activeClass.split(' ')[0]}`}>
+                              <span className={`text-xs font-medium ml-1 ${currentRating.activeClass.split(' ')[0]}`}>
                                 {currentRating.label}
                               </span>
                             </div>
@@ -1875,7 +1875,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
 
                             {/* Hard submit error (full mutation failure — nothing was stamped) */}
                             {fbRowError && (
-                              <div className="flex items-center gap-1.5 text-[10px] text-red-400" data-testid={`text-fb-error-${o.id}`}>
+                              <div className="flex items-center gap-1.5 text-xs text-red-400" data-testid={`text-fb-error-${o.id}`}>
                                 <AlertTriangle className="w-3 h-3 shrink-0" />
                                 {fbRowError}
                               </div>

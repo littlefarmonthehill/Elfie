@@ -533,7 +533,7 @@ export default function InlineShippingCard({
           <span className="text-[11px] text-gray-400 ml-2">
             {purchasedLabel.service}
           </span>
-          <p className="text-[10px] font-mono text-gray-300 mt-0.5">{purchasedLabel.trackingNumber}</p>
+          <p className="text-xs font-mono text-gray-300 mt-0.5">{purchasedLabel.trackingNumber}</p>
         </div>
         {purchasedLabel.labelUrl && (() => {
           const printMethod = (appSettings as any)?.printMethod || 'browser';
@@ -637,7 +637,7 @@ export default function InlineShippingCard({
               const code = shortCode(summary.orderNumber || summary.orderId);
               return (
                 <span
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold font-mono shrink-0 tabular-nums ${
                     tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
                     tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
                     'bg-gray-800 text-amber-400'
@@ -652,18 +652,18 @@ export default function InlineShippingCard({
               {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
             </span>
             {(summary.linkedOrderNumber || summary.linkedOrderRef) && (
-              <span className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0" title="Merged order">
+              <span className="flex items-center gap-0.5 text-xs text-amber-400/80 font-mono shrink-0" title="Merged order">
                 <Plus className="w-2.5 h-2.5" />
                 {summary.linkedOrderNumber ? shortCode(summary.linkedOrderNumber) : summary.linkedOrderRef}
               </span>
             )}
             {isReady && (
-              <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+              <span className="text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
                 Ready
               </span>
             )}
             {isTestMode && (
-              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+              <span className="text-[11px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
                 Test Rates
               </span>
             )}
@@ -708,7 +708,7 @@ export default function InlineShippingCard({
         </div>
         {/* ── Row 2: Requested shipping service (buyer's preference) ── */}
         {summary.requestedService && (
-          <div className="text-[10px] text-blue-300 font-medium -mt-1">
+          <div className="text-xs text-blue-300 font-medium -mt-1">
             {summary.requestedService}
           </div>
         )}
@@ -740,12 +740,12 @@ export default function InlineShippingCard({
                   {isUK && ' (UK)'}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-400 leading-snug">
+              <p className="text-xs text-gray-400 leading-snug">
                 Customs declaration auto-generated: HS 9503.00 · Merchandise · Non-delivery: return
                 {(isEU || isUK) && ' · Tax ID will be included if configured'}
               </p>
               {missingFlags.length > 0 && (
-                <div className="text-[10px] text-amber-400 space-y-0.5">
+                <div className="text-xs text-amber-400 space-y-0.5">
                   <span className="font-semibold">Missing settings (configure in EasyPost settings):</span>
                   {missingFlags.map(f => (
                     <div key={f} className="flex items-center gap-1 ml-1">
@@ -800,12 +800,12 @@ export default function InlineShippingCard({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">Standard</SelectLabel>
+                    <SelectLabel className="text-xs text-gray-500 px-2 py-1">Standard</SelectLabel>
                     {stdPkgs.map(p => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="text-xs">{p.label}</span>
                         {p.dims && !p.customDims && (
-                          <span className="text-gray-500 text-[10px] ml-1">
+                          <span className="text-gray-500 text-xs ml-1">
                             {p.dims.length}×{p.dims.width}×{p.dims.height}"
                           </span>
                         )}
@@ -813,12 +813,12 @@ export default function InlineShippingCard({
                     ))}
                   </SelectGroup>
                   <SelectGroup>
-                    <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">USPS Priority Mail</SelectLabel>
+                    <SelectLabel className="text-xs text-gray-500 px-2 py-1">USPS Priority Mail</SelectLabel>
                     {priorityPkgs.map(p => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="text-xs">{p.label}</span>
                         {p.dims && (
-                          <span className="text-gray-500 text-[10px] ml-1">
+                          <span className="text-gray-500 text-xs ml-1">
                             {p.dims.length}×{p.dims.width}×{p.dims.height}"
                           </span>
                         )}
@@ -827,11 +827,11 @@ export default function InlineShippingCard({
                   </SelectGroup>
                   {epTemplates.length > 0 && (
                     <SelectGroup>
-                      <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">Saved in EasyPost</SelectLabel>
+                      <SelectLabel className="text-xs text-gray-500 px-2 py-1">Saved in EasyPost</SelectLabel>
                       {epTemplates.map(t => (
                         <SelectItem key={t.id} value={t.id}>
                           <span className="text-xs">{t.name}</span>
-                          <span className="text-gray-500 text-[10px] ml-1">
+                          <span className="text-gray-500 text-xs ml-1">
                             {t.length}×{t.width}×{t.height}"
                           </span>
                         </SelectItem>
@@ -844,7 +844,7 @@ export default function InlineShippingCard({
               {/* Dimensions row — only for custom box */}
               {selectedPkg?.customDims && (
                 <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-gray-500 shrink-0">L×W×H"</span>
+                  <span className="text-xs text-gray-500 shrink-0">L×W×H"</span>
                   {[
                     { val: dimL, set: setDimL, placeholder: "L" },
                     { val: dimW, set: setDimW, placeholder: "W" },
@@ -861,13 +861,13 @@ export default function InlineShippingCard({
                       data-testid={`input-dim-${placeholder.toLowerCase()}-${orderId}`}
                     />
                   ))}
-                  <span className="text-[10px] text-gray-500 shrink-0">in</span>
+                  <span className="text-xs text-gray-500 shrink-0">in</span>
                 </div>
               )}
 
               {/* Show fixed dims for non-custom packages */}
               {selectedPkg && !selectedPkg.customDims && selectedPkg.dims && (
-                <p className="text-[10px] text-gray-600">
+                <p className="text-xs text-gray-600">
                   {selectedPkg.dims.length}×{selectedPkg.dims.width}×{selectedPkg.dims.height}"
                   {selectedPkg.predefined && <span className="ml-1 text-blue-900">· Flat rate</span>}
                 </p>
@@ -906,7 +906,7 @@ export default function InlineShippingCard({
           return warn ? (
             <div className="flex items-center gap-1.5 text-amber-400">
               <AlertTriangle className="w-3 h-3 shrink-0" />
-              <span className="text-[10px]">{warn}</span>
+              <span className="text-xs">{warn}</span>
             </div>
           ) : null;
         })()}
@@ -966,7 +966,7 @@ export default function InlineShippingCard({
                       <SelectContent className="max-w-[min(320px,90vw)]">
                         {uspsRates.length > 0 && (
                           <SelectGroup>
-                            <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">USPS</SelectLabel>
+                            <SelectLabel className="text-xs text-gray-500 px-2 py-1">USPS</SelectLabel>
                             {uspsRates.map((rate, idx) => {
                               const cPick = isCustomerPick(rate);
                               return (
@@ -974,8 +974,8 @@ export default function InlineShippingCard({
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-medium text-xs">{uspsLabel(rate.service)}</span>
                                     <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
-                                    {cPick && <span className="text-blue-400 text-[10px]">★</span>}
-                                    {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
+                                    {cPick && <span className="text-blue-400 text-xs">★</span>}
+                                    {idx === 0 && !cPick && <span className="text-green-400 text-xs">Low</span>}
                                   </div>
                                 </SelectItem>
                               );
@@ -984,7 +984,7 @@ export default function InlineShippingCard({
                         )}
                         {carriersExpanded && otherCarriers.map(carrier => (
                           <SelectGroup key={carrier}>
-                            <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">{carrier}</SelectLabel>
+                            <SelectLabel className="text-xs text-gray-500 px-2 py-1">{carrier}</SelectLabel>
                             {otherRates.filter(r => r.carrier === carrier).map((rate, idx) => {
                               const cPick = isCustomerPick(rate);
                               return (
@@ -992,8 +992,8 @@ export default function InlineShippingCard({
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-medium text-xs">{rate.service}</span>
                                     <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
-                                    {cPick && <span className="text-blue-400 text-[10px]">★</span>}
-                                    {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
+                                    {cPick && <span className="text-blue-400 text-xs">★</span>}
+                                    {idx === 0 && !cPick && <span className="text-green-400 text-xs">Low</span>}
                                   </div>
                                 </SelectItem>
                               );
@@ -1006,7 +1006,7 @@ export default function InlineShippingCard({
                 </div>
                 {otherRates.length > 0 && (
                   <button
-                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                     onClick={() => setCarriersExpanded(v => !v)}
                     data-testid={`button-expand-carriers-${orderId}`}
                   >
@@ -1016,7 +1016,7 @@ export default function InlineShippingCard({
                   </button>
                 )}
                 {isTestMode && (
-                  <p className="text-[9px] text-yellow-600/80 mt-0.5">
+                  <p className="text-[11px] text-yellow-600/80 mt-0.5">
                     Test rates are simulated — switch to Live key in Settings for real pricing.
                   </p>
                 )}
@@ -1049,9 +1049,9 @@ export default function InlineShippingCard({
           {/* Address section */}
           <div className="px-3 py-2.5 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Ship To</span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Ship To</span>
               {!editingAddress && (
-                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]"
+                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs"
                   onClick={() => { setEditAddress(currentAddress!); setEditingAddress(true); }}
                   data-testid={`button-edit-address-${orderId}`}
                 >
@@ -1067,7 +1067,7 @@ export default function InlineShippingCard({
                 {currentAddress?.street2 && <div>{currentAddress.street2}</div>}
                 <div>{[currentAddress?.city, currentAddress?.state, currentAddress?.zip].filter(Boolean).join(", ")}</div>
                 {addressStatus === "invalid" && addressErrors.length > 0 && (
-                  <div className="mt-1 text-[10px] text-yellow-400">{addressErrors[0]}</div>
+                  <div className="mt-1 text-xs text-yellow-400">{addressErrors[0]}</div>
                 )}
               </div>
             ) : (
@@ -1083,7 +1083,7 @@ export default function InlineShippingCard({
                     { label: "Country", field: "country", span: 1 },
                   ].map(({ label, field, span }) => (
                     <div key={field} className={span === 2 ? "col-span-2" : ""}>
-                      <Label className="text-[10px] text-gray-500">{label}</Label>
+                      <Label className="text-xs text-gray-500">{label}</Label>
                       <Input
                         value={(editAddress as any)[field] || ""}
                         onChange={e => setEditAddress(prev => ({ ...prev, [field]: e.target.value }))}
@@ -1112,26 +1112,26 @@ export default function InlineShippingCard({
               {orderItems.length > 0 && (
                 <div className="space-y-1">
                   {siblingItems.length > 0 && (
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       This Order ({orderItems.length})
                     </span>
                   )}
                   {!siblingItems.length && (
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       Order Items ({orderItems.length})
                     </span>
                   )}
                   <div className="space-y-1 mt-1">
                     {orderItems.map(item => (
                       <div key={item.id} className="flex items-start gap-2 py-0.5">
-                        <span className="text-[10px] font-bold text-gray-400 shrink-0 mt-0.5">×{item.quantity}</span>
+                        <span className="text-xs font-bold text-gray-400 shrink-0 mt-0.5">×{item.quantity}</span>
                         <div className="min-w-0">
                           <p className="text-[11px] text-gray-200 leading-tight truncate">
                             {item.bricklinkPartNumber && <span className="text-gray-400">{item.bricklinkPartNumber} · </span>}
                             {item.name}
                           </p>
                           {(item.colorName || item.condition || item.binName) && (
-                            <p className="text-[10px] text-gray-500 leading-tight">
+                            <p className="text-xs text-gray-500 leading-tight">
                               {[item.colorName, item.condition, item.binName && `Bin: ${item.binName}`].filter(Boolean).join(" · ")}
                             </p>
                           )}
@@ -1147,21 +1147,21 @@ export default function InlineShippingCard({
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
                     <Plus className="w-2.5 h-2.5 text-amber-400/70" />
-                    <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">
+                    <span className="text-xs font-bold text-amber-400/70 uppercase tracking-wide">
                       {siblingOrderRef ? fmtRef(siblingOrderRef) : "Merged Order"} ({siblingItems.length})
                     </span>
                   </div>
                   <div className="space-y-1">
                     {siblingItems.map(item => (
                       <div key={item.id} className="flex items-start gap-2 py-0.5">
-                        <span className="text-[10px] font-bold text-gray-500 shrink-0 mt-0.5">×{item.quantity}</span>
+                        <span className="text-xs font-bold text-gray-500 shrink-0 mt-0.5">×{item.quantity}</span>
                         <div className="min-w-0">
                           <p className="text-[11px] text-gray-400 leading-tight truncate">
                             {item.bricklinkPartNumber && <span className="text-gray-500">{item.bricklinkPartNumber} · </span>}
                             {item.name}
                           </p>
                           {(item.colorName || item.condition || item.binName) && (
-                            <p className="text-[10px] text-gray-600 leading-tight">
+                            <p className="text-xs text-gray-600 leading-tight">
                               {[item.colorName, item.condition, item.binName && `Bin: ${item.binName}`].filter(Boolean).join(" · ")}
                             </p>
                           )}
@@ -1177,7 +1177,7 @@ export default function InlineShippingCard({
           {/* Internal notes section */}
           {internalNotes && (
             <div className="px-3 py-2.5 space-y-1">
-              <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+              <div className="flex items-center gap-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
                 <StickyNote className="w-3 h-3" />
                 <span>Internal Notes</span>
               </div>

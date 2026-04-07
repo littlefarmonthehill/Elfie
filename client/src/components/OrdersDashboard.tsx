@@ -141,7 +141,7 @@ function QtySyncQueuePanel() {
             <p className={cn("text-xs font-semibold", hasAbandoned ? "text-red-300" : "text-amber-300")}>
               Qty Sync Queue
             </p>
-            <p className="text-[10px] text-gray-400 leading-tight">
+            <p className="text-xs text-gray-400 leading-tight">
               {hasPending && `${stats!.pending} pending retry${stats!.pending !== 1 ? 's' : ''}`}
               {hasPending && hasAbandoned && ' · '}
               {hasAbandoned && `${stats!.abandoned} need${stats!.abandoned === 1 ? 's' : ''} manual fix`}
@@ -149,12 +149,12 @@ function QtySyncQueuePanel() {
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {hasAbandoned && (
-              <Badge variant="outline" className="text-[9px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
+              <Badge variant="outline" className="text-[11px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
                 Action Required
               </Badge>
             )}
             {hasPending && !hasAbandoned && (
-              <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
+              <Badge variant="outline" className="text-[11px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
                 Retrying
               </Badge>
             )}
@@ -190,7 +190,7 @@ function QtySyncQueuePanel() {
             {/* Active items */}
             {activeItems.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Pending / Needs Action</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Pending / Needs Action</p>
                 {activeItems.map(item => (
                   <div
                     key={item.id}
@@ -212,7 +212,7 @@ function QtySyncQueuePanel() {
                           {item.itemNo ?? `inv#${item.blInventoryId}`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
                         <span className="text-gray-500">{item.sourcePlatform}</span>
                         <ArrowRight className="w-2.5 h-2.5" />
                         <span className={cn("font-medium", item.targetPlatform === 'BrickOwl' ? "text-blue-300" : "text-orange-300")}>
@@ -221,25 +221,25 @@ function QtySyncQueuePanel() {
                       </div>
                       <div className="ml-auto flex items-center gap-1.5">
                         {item.status === 'abandoned' ? (
-                          <Badge variant="outline" className="text-[9px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
+                          <Badge variant="outline" className="text-[11px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
                             Manual Fix Needed
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
+                          <Badge variant="outline" className="text-[11px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
                             Attempt {item.retryCount + 1}/10
                           </Badge>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
                       <span>Qty: <span className={cn("font-mono font-medium", item.quantityDelta < 0 ? "text-red-300" : "text-green-300")}>{fmtDelta(item.quantityDelta)}</span></span>
                       {item.sourceOrderId && <span>Order: <span className="text-gray-300">{item.sourceOrderId}</span></span>}
                       {item.lastAttemptAt && <span>Last tried: {fmtTime(item.lastAttemptAt)}</span>}
                     </div>
 
                     {item.lastError && (
-                      <p className="text-[10px] text-red-400/80 bg-red-500/10 rounded px-2 py-1 font-mono break-all leading-tight">
+                      <p className="text-xs text-red-400/80 bg-red-500/10 rounded px-2 py-1 font-mono break-all leading-tight">
                         {item.lastError}
                       </p>
                     )}
@@ -249,7 +249,7 @@ function QtySyncQueuePanel() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-[10px] h-6 px-2 border-amber-500/40 text-amber-300"
+                          className="text-xs h-6 px-2 border-amber-500/40 text-amber-300"
                           onClick={() => retryMutation.mutate(item.id)}
                           disabled={retryMutation.isPending}
                           data-testid={`button-retry-${item.id}`}
@@ -261,7 +261,7 @@ function QtySyncQueuePanel() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-[10px] h-6 px-2 border-gray-600 text-gray-400"
+                        className="text-xs h-6 px-2 border-gray-600 text-gray-400"
                         onClick={() => resolveMutation.mutate({ id: item.id, status: 'done' })}
                         disabled={resolveMutation.isPending}
                         data-testid={`button-resolve-${item.id}`}
@@ -278,14 +278,14 @@ function QtySyncQueuePanel() {
             {/* Recently completed */}
             {doneItems.length > 0 && (
               <div className="space-y-1.5">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Recently Healed</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Recently Healed</p>
                 {doneItems.slice(0, 10).map(item => (
                   <div key={item.id} className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg bg-green-500/8 border border-green-500/20" data-testid={`sync-queue-done-${item.id}`}>
                     <CheckCircle2 className="w-3 h-3 text-green-400 flex-shrink-0" />
-                    <span className="text-[10px] font-mono text-gray-300">{item.itemNo ?? `inv#${item.blInventoryId}`}</span>
+                    <span className="text-xs font-mono text-gray-300">{item.itemNo ?? `inv#${item.blInventoryId}`}</span>
                     <ArrowRight className="w-2 h-2 text-gray-600 flex-shrink-0" />
-                    <span className="text-[10px] text-gray-400">{item.targetPlatform}</span>
-                    <span className="ml-auto text-[10px] text-green-400">Synced</span>
+                    <span className="text-xs text-gray-400">{item.targetPlatform}</span>
+                    <span className="ml-auto text-xs text-green-400">Synced</span>
                   </div>
                 ))}
               </div>
@@ -470,7 +470,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
               className={cn(
-                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'systems'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
@@ -487,7 +487,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               onClick={() => setPanelTab('uplink')}
               data-testid="tab-uplink"
               className={cn(
-                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'uplink'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
@@ -539,17 +539,17 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="fulfillment-stats">
                 {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
                     {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
                   </span>
                 )}
                 {(fulfillmentStats?.feedbackPending ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="feedback-count">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="feedback-count">
                     {formatNumber(fulfillmentStats!.feedbackPending)} feedback
                   </span>
                 )}
                 {fulfillmentStats && fulfillmentStats.unfulfilled === 0 && fulfillmentStats.feedbackPending === 0 && (
-                  <span className="text-[9px] text-green-400/70">All caught up</span>
+                  <span className="text-[11px] text-green-400/70">All caught up</span>
                 )}
               </div>
             </button>
@@ -584,11 +584,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="shipped-stats">
                 {(stats?.shippedOrders ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
                     {formatNumber(stats!.shippedOrders)} shipped
                   </span>
                 ) : stats ? (
-                  <span className="text-[9px] text-gray-500/70">No shipments yet</span>
+                  <span className="text-[11px] text-gray-500/70">No shipments yet</span>
                 ) : null}
               </div>
             </button>

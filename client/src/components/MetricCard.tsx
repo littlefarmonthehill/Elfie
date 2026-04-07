@@ -36,7 +36,7 @@ export default function MetricCard({ label, value, color = 'blue', className, co
       )}
       data-testid={testId || `metric-${label.toLowerCase().replace(/\s/g, '-')}`}
     >
-      <div className={cn("text-gray-300 mb-0.5 leading-tight", compact ? "text-[9px]" : "text-[9px] md:text-xs")}>{label}</div>
+      <div className={cn("text-gray-300 mb-0.5 leading-tight", compact ? "text-[11px]" : "text-[11px] md:text-xs")}>{label}</div>
       <div className={cn(
         "font-semibold font-mono leading-none",
         compact ? "text-xs" : "text-xs md:text-base",

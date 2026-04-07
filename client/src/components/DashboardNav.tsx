@@ -97,7 +97,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
           data-testid="pull-tab-menu"
         >
           <div className="w-10 h-[3px] rounded-full bg-amber-500/70" />
-          <span className="text-[9px] text-amber-500/50 mt-1 font-medium tracking-wider uppercase">Menu</span>
+          <span className="text-[11px] text-amber-500/50 mt-1 font-medium tracking-wider uppercase">Menu</span>
         </div>
       )}
 
@@ -154,7 +154,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
                   )}
                 </div>
                 <span className={cn(
-                  "text-[10px] font-medium truncate max-w-full",
+                  "text-xs font-medium truncate max-w-full",
                   isActive && "font-semibold"
                 )}>
                   {dashboard.label}
@@ -245,7 +245,7 @@ export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact, or
 
             {!compact && (
               <span className={cn(
-                "text-[9px] font-medium leading-tight text-center px-0.5 w-full",
+                "text-[11px] font-medium leading-tight text-center px-0.5 w-full",
                 isActive && "font-semibold"
               )}>
                 {dashboard.label}

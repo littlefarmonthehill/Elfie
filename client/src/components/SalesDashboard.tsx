@@ -103,7 +103,7 @@ function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending 
         <div className="flex-1 min-w-0 space-y-0.5">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-medium text-gray-200 leading-tight">{insight.title}</span>
-            <Badge variant={urgCfg.variant} className="text-[9px] px-1.5 py-0 h-4 shrink-0">{urgCfg.label}</Badge>
+            <Badge variant={urgCfg.variant} className="text-[11px] px-1.5 py-0 h-4 shrink-0">{urgCfg.label}</Badge>
           </div>
           <p className={cn("text-[11px] text-gray-400 leading-snug", !isExpanded && "line-clamp-2")}>{insight.summary}</p>
         </div>
@@ -115,58 +115,58 @@ function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending 
         <div className="px-3 pb-2.5 space-y-2 border-t border-gray-700/40">
           {details?.affectedItems && details.affectedItems.length > 0 && (
             <div className="pt-2">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Items</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Items</p>
               <div className="flex flex-wrap gap-1">
                 {details.affectedItems.slice(0, 12).map((item, idx) => (
-                  <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/40">{item}</span>
+                  <span key={idx} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/40">{item}</span>
                 ))}
                 {details.affectedItems.length > 12 && (
-                  <span className="text-[10px] text-gray-500">+{details.affectedItems.length - 12} more</span>
+                  <span className="text-xs text-gray-500">+{details.affectedItems.length - 12} more</span>
                 )}
               </div>
             </div>
           )}
           {details?.customers && details.customers.length > 0 && (
             <div className="pt-1">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Customers</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Customers</p>
               <div className="flex flex-wrap gap-1">
                 {details.customers.slice(0, 8).map((name, idx) => (
-                  <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-cyan-300 border border-cyan-700/30">{name}</span>
+                  <span key={idx} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/60 text-cyan-300 border border-cyan-700/30">{name}</span>
                 ))}
                 {details.customers.length > 8 && (
-                  <span className="text-[10px] text-gray-500">+{details.customers.length - 8} more</span>
+                  <span className="text-xs text-gray-500">+{details.customers.length - 8} more</span>
                 )}
               </div>
             </div>
           )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
             {details?.currentPrice != null && details?.recommendedPrice != null && Number.isFinite(Number(details.currentPrice)) && Number.isFinite(Number(details.recommendedPrice)) && (
-              <p className="text-[10px] text-gray-400">
+              <p className="text-xs text-gray-400">
                 <span className="text-gray-500">Price:</span> <span className="text-red-400/80">${Number(details.currentPrice).toFixed(2)}</span>
                 <span className="text-gray-600 mx-0.5">&rarr;</span>
                 <span className="text-green-400">${Number(details.recommendedPrice).toFixed(2)}</span>
               </p>
             )}
             {details?.priceGap != null && Number.isFinite(Number(details.priceGap)) && (
-              <p className="text-[10px] text-gray-400">
+              <p className="text-xs text-gray-400">
                 <span className="text-gray-500">Gap:</span> <span className={Number(details.priceGap) > 0 ? 'text-green-400' : 'text-red-400'}>{Number(details.priceGap) > 0 ? '+' : ''}{Number(details.priceGap).toFixed(1)}%</span>
               </p>
             )}
             {details?.potentialRevenue != null && Number.isFinite(Number(details.potentialRevenue)) && (
-              <p className="text-[10px] text-gray-400">
+              <p className="text-xs text-gray-400">
                 <span className="text-gray-500">Revenue Potential:</span> <span className="text-green-400">${Number(details.potentialRevenue).toFixed(2)}</span>
               </p>
             )}
           </div>
           <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-gray-700/30">
             <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-              <span className={cn("text-[9px] capitalize", catCfg.color)}>{catCfg.label}</span>
-              <span className="text-[9px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
+              <span className={cn("text-[11px] capitalize", catCfg.color)}>{catCfg.label}</span>
+              <span className="text-[11px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
             </div>
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 text-[10px] text-gray-500"
+              className="h-6 text-xs text-gray-500"
               onClick={(e) => { e.stopPropagation(); onDismiss(); }}
               disabled={dismissPending}
               data-testid={`dismiss-insight-${insight.id}`}
@@ -243,9 +243,9 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
                 >
                   <AreaIcon className={cn("w-4 h-4 shrink-0", cfg.color)} />
                   <span className={cn("text-xs font-semibold flex-1", cfg.color)}>{cfg.label}</span>
-                  <span className="text-[10px] text-gray-500">{areaInsights.length}</span>
+                  <span className="text-xs text-gray-500">{areaInsights.length}</span>
                   {highCount > 0 && (
-                    <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">{highCount} urgent</Badge>
+                    <Badge variant="destructive" className="text-[11px] px-1.5 py-0 h-4">{highCount} urgent</Badge>
                   )}
                   {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-600 shrink-0" />}
                 </button>
@@ -1144,7 +1144,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
               <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
                 <button
                   onClick={() => setCompareMode(!compareMode)}
-                  className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
+                  className={`flex items-center gap-1.5 text-xs md:text-sm font-bold py-1 px-2 rounded transition-all ${
                     compareMode
                       ? 'bg-green-600/30 text-green-200 border border-green-500/40'
                       : 'text-gray-400 border border-gray-600/30 hover:border-green-500/30 hover:text-green-300'
@@ -1158,7 +1158,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setComparisonType('year')}
-                      className={`text-[10px] md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
+                      className={`text-xs md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
                         comparisonType === 'year'
                           ? 'bg-green-600/30 text-green-200 border border-green-500/40'
                           : 'text-gray-400 border border-gray-600/30 hover:text-green-300'
@@ -1170,7 +1170,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                     {availablePlatforms.length > 1 && (
                       <button
                         onClick={() => setComparisonType('platform')}
-                        className={`text-[10px] md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
+                        className={`text-xs md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
                           comparisonType === 'platform'
                             ? 'bg-green-600/30 text-green-200 border border-green-500/40'
                             : 'text-gray-400 border border-gray-600/30 hover:text-green-300'
@@ -1185,7 +1185,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
 
                 {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
                   <div className="flex items-center gap-2 overflow-x-auto w-full">
-                    <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
+                    <span className="text-[11px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
                     <div className="flex gap-1.5 flex-nowrap">
                       {(() => {
                         const nonCurrentYears = availableYears.filter(y => y !== currentYear);
@@ -1203,7 +1203,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                                 else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
                               }}
                               aria-pressed={isSelected}
-                              className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                              className={`text-[11px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
                               data-testid={`year-toggle-drawer-${year}`}
                             >
                               {year}
@@ -1217,7 +1217,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
 
                 {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
                   <div className="flex items-center gap-2 overflow-x-auto w-full">
-                    <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
+                    <span className="text-[11px] md:text-xs text-gray-500 flex-shrink-0">select</span>
                     <div className="flex gap-1.5 flex-nowrap">
                       {(() => {
                         const sorted = [
@@ -1234,7 +1234,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                                 else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
                               }}
                               aria-pressed={isSelected}
-                              className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                              className={`text-[11px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
                               data-testid={`platform-toggle-drawer-${platform.toLowerCase().replace(/\s+/g, '-')}`}
                             >
                               {platform}
@@ -1253,7 +1253,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                     <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
                       <TrendingUp className="w-3 h-3 text-purple-300" />
                     </div>
-                    <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
+                    <h3 className="text-xs md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
                   </div>
                   <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     {(() => {
@@ -1265,9 +1265,9 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                         const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
                         return (
                           <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                            <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
+                            <div className="text-[11px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
                             <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
-                            <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
+                            <div className="text-[11px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
                           </div>
                         );
                       });
@@ -1282,7 +1282,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                     <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
                       <TrendingUp className="w-3 h-3 text-purple-300" />
                     </div>
-                    <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
+                    <h3 className="text-xs md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
                   </div>
                   <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     {(() => {
@@ -1292,10 +1292,10 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                         <div key={platform} className="bg-gray-800/50 rounded p-2">
                           <div className="flex items-center gap-1 mb-1">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
-                            <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
+                            <div className="text-[11px] md:text-xs text-gray-500">{platform}</div>
                           </div>
                           <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
-                          <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
+                          <div className="text-[11px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
                         </div>
                       ));
                     })()}
@@ -1335,7 +1335,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                           <td className="px-2 py-1.5 text-gray-300">{order.customerUsername}</td>
                           <td className="px-2 py-1.5 text-gray-400">{order.marketplace || '—'}</td>
                           <td className="px-2 py-1.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${
                               order.orderStatus === 'Shipped' ? 'bg-green-500/20 text-green-300' :
                               order.orderStatus === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' :
                               'bg-gray-500/20 text-gray-300'
@@ -1458,7 +1458,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Business Intel</span>
                 <ArrowRight className="w-3 h-3 text-cyan-500/60 group-hover:text-cyan-400 transition-colors" />
               </div>
-              <p className="text-[10px] md:text-xs text-cyan-300/60 leading-snug">Market-driven insights for your business</p>
+              <p className="text-xs md:text-xs text-cyan-300/60 leading-snug">Market-driven insights for your business</p>
             </button>
             <button
               onClick={() => onDrawerChange?.('chart')}
@@ -1473,7 +1473,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Sales Chart</span>
                 <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
               </div>
-              {<p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>}
+              {<p className="text-xs md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>}
             </button>
             <button
               onClick={() => onDrawerChange?.('platform-perf')}
@@ -1500,11 +1500,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
               {(
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")}>
                 {availablePlatforms.length > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
                     {availablePlatforms.length} active {availablePlatforms.length === 1 ? 'platform' : 'platforms'}
                   </span>
                 ) : (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-600/25">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-600/25">
                     No data
                   </span>
                 )}
@@ -1512,7 +1512,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
               )}
               {(
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-orange-300 font-medium">Open tool</span>
+                <span className="text-xs md:text-xs text-orange-300 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
               </div>
               )}
@@ -1530,7 +1530,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <span className={cn("text-xs font-bold text-violet-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Acquisition Evaluator</span>
                 <ArrowRight className="w-3 h-3 text-violet-500/60 group-hover:text-violet-400 transition-colors" />
               </div>
-              <p className="text-[10px] md:text-xs text-violet-300/60 leading-snug">Analyze a seller's inventory against your stock</p>
+              <p className="text-xs md:text-xs text-violet-300/60 leading-snug">Analyze a seller's inventory against your stock</p>
             </button>
           </div>
         </div>

@@ -247,7 +247,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 data-testid={`metric-${key}`}
                 className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1 md:p-2.5")}
               >
-                <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>{label}</span>
+                <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>{label}</span>
                 <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-xs" : "text-xs md:text-base")}>{value}</span>
                 <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
                   <ChevronRight className="w-2.5 h-2.5 text-white" />
@@ -259,19 +259,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1" : "gap-1.5")} data-testid="section-values">
             <div className={cn("rounded-md border border-lego-red/50 bg-gray-800/70", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="metric-cost">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>My Cost</div>
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>My Cost</div>
               <div className={cn("font-semibold font-mono text-lego-red leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
             <div className={cn("rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="metric-listed">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>Listed</div>
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>Listed</div>
               <div className={cn("font-semibold font-mono text-lego-blue leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
             <div className={cn("rounded-md border border-lego-green/50 bg-gray-800/70", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="metric-sold-avg">
-              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[9px]" : "text-[9px] md:text-xs")}>Mkt Sold Avg</div>
+              <div className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-[11px]" : "text-[11px] md:text-xs")}>Mkt Sold Avg</div>
               <div className={cn("font-semibold font-mono text-lego-green leading-none truncate", isCompact ? "text-xs" : "text-xs md:text-base")}>
                 {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
@@ -292,14 +292,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
             {/* Pricing signal */}
             <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[9px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
+              <span className="text-[11px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
               {pomInsights ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(pomInsights.data?.summary?.tooLow ?? 0) > 0 && (
                     <button
                       onClick={() => onDrawerChange('priceomatic')}
                       data-testid="directive-underpriced"
-                      className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 hover-elevate"
+                      className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 hover-elevate"
                     >
                       <TrendingDown className="w-2.5 h-2.5" />
                       {pomInsights.data.summary.tooLow} underpriced
@@ -309,37 +309,37 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     <button
                       onClick={() => onDrawerChange('priceomatic')}
                       data-testid="directive-overpriced"
-                      className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
+                      className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
                     >
                       <TrendingUp className="w-2.5 h-2.5" />
                       {pomInsights.data.summary.tooHigh} overpriced
                     </button>
                   )}
                   {!(pomInsights.data?.summary?.tooLow > 0) && !(pomInsights.data?.summary?.tooHigh > 0) && (
-                    <span className="text-[9px] text-green-400/60">All well-priced</span>
+                    <span className="text-[11px] text-green-400/60">All well-priced</span>
                   )}
                 </div>
               ) : (
-                <span className="text-[9px] text-gray-700">—</span>
+                <span className="text-[11px] text-gray-700">—</span>
               )}
             </div>
 
             {/* Channel sync signal */}
             <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[9px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
+              <span className="text-[11px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
               {hasChannelErrors ? (
                 <button
                   onClick={() => setPanelTab('uplink')}
                   data-testid="directive-channel-error"
-                  className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
+                  className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
                   Sync issues detected
                 </button>
               ) : syncStatuses ? (
-                <span className="text-[9px] text-green-400/60">All channels nominal</span>
+                <span className="text-[11px] text-green-400/60">All channels nominal</span>
               ) : (
-                <span className="text-[9px] text-gray-700">—</span>
+                <span className="text-[11px] text-gray-700">—</span>
               )}
             </div>
           </div>
@@ -357,7 +357,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
               className={cn(
-                "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 panelTab === 'systems'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
                   : "text-gray-600 hover:text-gray-400"
@@ -373,7 +373,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => setPanelTab('uplink')}
               data-testid="tab-uplink"
               className={cn(
-                "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 panelTab === 'uplink'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
                   : "text-gray-600 hover:text-gray-400"
@@ -409,11 +409,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="pom-action-stats">
                 {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
                     {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)} to review
                   </span>
                 ) : pomInsights ? (
-                  <span className="text-[9px] text-green-400/70">All well-priced</span>
+                  <span className="text-[11px] text-green-400/70">All well-priced</span>
                 ) : null}
               </div>
             </button>
@@ -432,7 +432,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>List-O-Matic</span>
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="listomatic-action-stats">
-                <span className="text-[9px] text-green-400/70">Sync across channels</span>
+                <span className="text-[11px] text-green-400/70">Sync across channels</span>
               </div>
             </button>
 
@@ -451,11 +451,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="brickspotter-action-stats">
                 {(toolStats?.pendingScans ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {toolStats!.pendingScans} pending scans
                   </span>
                 ) : toolStats ? (
-                  <span className="text-[9px] text-green-400/70">Ready to scan</span>
+                  <span className="text-[11px] text-green-400/70">Ready to scan</span>
                 ) : null}
               </div>
             </button>
@@ -474,7 +474,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Inventory Health</span>
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="inventoryhealth-action-stats">
-                <span className="text-[9px] text-cyan-400/70">Audit your stock</span>
+                <span className="text-[11px] text-cyan-400/70">Audit your stock</span>
               </div>
             </button>
 
@@ -492,7 +492,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>BundleTron</span>
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="bundletron-action-stats">
-                <span className="text-[9px] text-orange-400/70">Bundle lots for BO</span>
+                <span className="text-[11px] text-orange-400/70">Bundle lots for BO</span>
               </div>
             </button>
 
@@ -594,7 +594,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     <div key={row.categoryId ?? i} className="flex items-center justify-between py-2.5" data-testid={`row-category-${row.categoryId}`}>
                       <span className="text-xs text-gray-200">{row.categoryName ?? 'Uncategorized'}</span>
                       <div className="flex items-center gap-3 text-right">
-                        <span className="text-[10px] text-gray-500">{Number(row.lotCount).toLocaleString()} lots</span>
+                        <span className="text-xs text-gray-500">{Number(row.lotCount).toLocaleString()} lots</span>
                         <span className="text-xs font-mono text-blue-300 min-w-[3rem] text-right">{Number(row.totalQty).toLocaleString()} pcs</span>
                       </div>
                     </div>
@@ -618,14 +618,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-mono text-gray-300">{row.itemNo}</span>
-                          {row.newOrUsed === 'U' && <span className="text-[9px] px-1 py-0 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>}
-                          <span className="text-[9px] font-mono text-gray-600">#{row.id}</span>
+                          {row.newOrUsed === 'U' && <span className="text-[11px] px-1 py-0 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>}
+                          <span className="text-[11px] font-mono text-gray-600">#{row.id}</span>
                         </div>
-                        <div className="text-[10px] text-gray-500 truncate">{row.itemName ?? row.colorName ?? ''}{row.itemName && row.colorName ? ` · ${row.colorName}` : ''}</div>
+                        <div className="text-xs text-gray-500 truncate">{row.itemName ?? row.colorName ?? ''}{row.itemName && row.colorName ? ` · ${row.colorName}` : ''}</div>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="text-xs font-mono text-blue-300">{Number(row.quantity).toLocaleString()}</div>
-                        {row.unitPrice && <div className="text-[10px] text-gray-500">${Number(row.unitPrice).toFixed(3)}</div>}
+                        {row.unitPrice && <div className="text-xs text-gray-500">${Number(row.unitPrice).toFixed(3)}</div>}
                       </div>
                     </div>
                   ))}

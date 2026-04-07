@@ -419,7 +419,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
           <div className="flex items-center gap-2">
             <ScanLine className="h-4 w-4 text-yellow-400 shrink-0" />
             <span className="text-xs font-semibold text-yellow-300">Scan Mode Active</span>
-            <span className="text-[10px] text-gray-500 ml-1">Point scanner at a bin label or type a bin name</span>
+            <span className="text-xs text-gray-500 ml-1">Point scanner at a bin label or type a bin name</span>
             <button
               className="ml-auto text-gray-500 hover:text-gray-300 transition-colors"
               onClick={() => setScanMode(false)}
@@ -467,7 +467,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
             >
               <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${autoPull ? 'translate-x-4' : 'translate-x-0.5'}`} />
             </div>
-            <span className="text-[10px] text-gray-400">Auto-mark bin as pulled on scan</span>
+            <span className="text-xs text-gray-400">Auto-mark bin as pulled on scan</span>
           </label>
 
           {/* Camera view */}
@@ -490,7 +490,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-40 h-40 border-2 border-yellow-400/60 rounded-md" />
                   </div>
-                  <p className="absolute bottom-1 left-0 right-0 text-center text-[10px] text-yellow-400/80">
+                  <p className="absolute bottom-1 left-0 right-0 text-center text-xs text-yellow-400/80">
                     Point at a QR code
                   </p>
                 </>
@@ -637,7 +637,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
 
                     {/* Summary: lot count + chevron (chevron toggles expand) */}
                     <div
-                      className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums"
+                      className="shrink-0 flex items-center gap-2 text-xs text-gray-400 tabular-nums"
                       onClick={e => { e.stopPropagation(); toggleGroup(key); }}
                     >
                       {variants.length > 1 && (
@@ -679,7 +679,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                           />
 
                           {/* Variant details */}
-                          <div className="flex-1 min-w-0 text-[10px]">
+                          <div className="flex-1 min-w-0 text-xs">
                             <div className="flex items-center gap-2 flex-wrap text-gray-400">
                               <span className="tabular-nums">Qty {item.quantity}</span>
                               {item.colorName && (
@@ -696,7 +696,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                               )}
                             </div>
                             {(item.comment || item.remarks || item.inventoryId != null) && (
-                              <div className="mt-0.5 text-[10px] text-blue-400/80">
+                              <div className="mt-0.5 text-xs text-blue-400/80">
                                 {item.comment && <span className="italic bg-yellow-300/70 text-yellow-900 px-0.5 rounded-sm">{item.comment}</span>}
                                 {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
                                 {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
@@ -751,7 +751,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                   )}
                 </div>
                 {bin.items.length > 0 && (
-                  <span className="shrink-0 text-[10px] font-bold text-blue-300 bg-blue-900/40 border border-blue-700/40 rounded-full px-1.5 py-0.5 tabular-nums">
+                  <span className="shrink-0 text-xs font-bold text-blue-300 bg-blue-900/40 border border-blue-700/40 rounded-full px-1.5 py-0.5 tabular-nums">
                     {bin.items.length} {bin.items.length === 1 ? 'Lot' : 'Lots'}
                   </span>
                 )}
@@ -809,13 +809,13 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                             />
                           )}
                           {(item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)) && (
-                            <span className="font-mono text-[10px] text-purple-400 shrink-0">
+                            <span className="font-mono text-xs text-purple-400 shrink-0">
                               {item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)}
                             </span>
                           )}
                           <span className="text-xs text-white leading-snug">{item.itemName}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
                           <span className="tabular-nums">Qty {item.quantity}</span>
                           {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
                           {item.condition && (
@@ -827,7 +827,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                           {item.inventoryQty != null && <span>Stock: {item.inventoryQty}</span>}
                         </div>
                         {(item.comment || item.remarks || item.inventoryId != null) && (
-                          <div className="mt-0.5 text-[10px] text-blue-400/80">
+                          <div className="mt-0.5 text-xs text-blue-400/80">
                             {item.comment && <span className="italic bg-yellow-300/70 text-yellow-900 px-0.5 rounded-sm">{item.comment}</span>}
                             {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
                             {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
