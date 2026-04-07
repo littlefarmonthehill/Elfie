@@ -18021,6 +18021,19 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             }
           }
 
+          // Mark "not found" shipments as voided — EasyPost can't find them, meaning they were
+          // voided/refunded directly on the EasyPost dashboard outside of our system.
+          // Without this, they'd stay 'purchased' in the DB and reappear in the EOD count forever.
+          if (!roundManifested && badIds.length > 0) {
+            const notFoundShipments = eligibleShipments.filter(s => s.vendorShipmentId && badIds.includes(s.vendorShipmentId));
+            if (notFoundShipments.length > 0) {
+              await db.update(shipments)
+                .set({ status: 'voided', updatedAt: new Date() })
+                .where(inArray(shipments.id, notFoundShipments.map(s => s.id)));
+              console.log(`[EOD] Marked ${notFoundShipments.length} 'not found' shipment(s) as voided in DB`);
+            }
+          }
+
           if (activeVendorIds.length === 0) {
             // All shipments were already handled by EasyPost — not an error, just nothing new to do.
             // Look up the most recent EOD form for this org so the user can still reopen/print it.
