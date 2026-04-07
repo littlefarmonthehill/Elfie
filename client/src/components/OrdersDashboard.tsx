@@ -430,21 +430,50 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
+        {(() => {
+          const totalActive = (workflowSummary?.byStatus?.new ?? 0)
+            + (workflowSummary?.byStatus?.processing ?? 0)
+            + (workflowSummary?.byStatus?.unpaid ?? 0)
+            + (workflowSummary?.byStatus?.bump ?? 0)
+            + (workflowSummary?.byStatus?.issue ?? 0)
+            + (workflowSummary?.byStatus?.on_hold ?? 0);
+          const hasAction = totalActive > 0;
+          return (
         <div
-          className="relative rounded-lg border border-orange-400/65 shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden bg-gradient-to-b from-orange-900/40 to-gray-900/88 cursor-pointer hover-elevate active-elevate-2"
+          className={cn(
+            "relative rounded-lg border overflow-hidden cursor-pointer hover-elevate active-elevate-2 transition-all",
+            hasAction
+              ? "border-orange-400/90 bg-gradient-to-b from-orange-800/55 to-gray-900/92 shadow-[0_0_40px_rgba(249,115,22,0.55),0_0_14px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(249,115,22,0.25)]"
+              : "border-orange-400/50 bg-gradient-to-b from-orange-900/30 to-gray-900/88 shadow-[0_0_22px_rgba(249,115,22,0.2)]"
+          )}
           data-testid="section-command-central-orders"
           onClick={() => onDrawerChange('fulfillment')}
         >
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
+          {/* Bold solid top accent bar */}
+          <div className={cn("absolute top-0 left-0 right-0", hasAction ? "h-[2px] bg-orange-400/90" : "h-px bg-gradient-to-r from-transparent via-orange-300/60 to-transparent")} />
           <div className={cn("space-y-2", isCompact ? "px-2.5 pt-2 pb-2" : "px-3 pt-2.5 pb-2.5")}>
             <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
-              <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
-                <Crosshair className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
+              <div className={cn(
+                "rounded-md ring-1 shrink-0",
+                isCompact ? "p-1.5" : "p-1.5",
+                hasAction
+                  ? "bg-orange-700/80 ring-orange-400/80 shadow-[0_0_14px_rgba(249,115,22,0.55)]"
+                  : "bg-orange-900/60 ring-orange-500/40 shadow-[0_0_8px_rgba(249,115,22,0.2)]"
+              )}>
+                <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-100" : "text-orange-300")} />
               </div>
-              <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Command Central</h3>
-              <span className="flex items-center gap-1 text-[10px] text-orange-300/60 font-medium shrink-0">
-                Fulfillment <ArrowRight className="w-3 h-3" />
-              </span>
+              <h3 className={cn("font-bold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-100" : "text-orange-300")}>Command Central</h3>
+              {hasAction ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="relative flex items-center">
+                    <div className="absolute inset-0 rounded-full bg-orange-400/40 animate-ping" />
+                    <div className="relative w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_6px_rgba(249,115,22,0.9)]" />
+                  </div>
+                  <span className="text-[11px] font-bold text-orange-200 font-mono">{totalActive} to act on</span>
+                </div>
+              ) : (
+                <span className="text-[10px] text-orange-400/50 font-medium shrink-0 flex items-center gap-1">Open <ArrowRight className="w-3 h-3" /></span>
+              )}
             </div>
             {/* Happy path: New → In Prog → Feedback */}
             <div className="grid grid-cols-3 gap-1.5" data-testid="directive-workflow-grid">
@@ -515,6 +544,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
           </div>
         </div>
+          );
+        })()}
       </>}
       {(!tvSplit || tvSplit === 'right') && <>
 
