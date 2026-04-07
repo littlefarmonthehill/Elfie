@@ -218,27 +218,27 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
         {/* Alerts — mobile shows up to 5, with expand chip if more */}
         {hasAlerts && (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {sortedAlerts.map((a, i) => (
               <button
                 key={a.id}
                 onClick={(e) => { e.stopPropagation(); a.onClick?.(); }}
                 className={cn(
-                  'flex items-start gap-2 w-full text-left min-w-0',
-                  a.onClick ? 'cursor-pointer' : 'cursor-default',
+                  'flex items-center gap-2.5 w-full text-left min-w-0 min-h-[38px] px-1.5 -mx-1.5 rounded-md',
+                  a.onClick ? 'cursor-pointer hover-elevate' : 'cursor-default',
                   !expanded && i >= MOBILE_LIMIT && 'hidden',
                 )}
                 data-testid={`alert-${a.id}`}
               >
                 <div
-                  className="shrink-0 mt-[4px] rounded-full"
-                  style={{ width: 5, height: 5, background: kindDot(a.kind), boxShadow: `0 0 5px ${kindDot(a.kind)}` }}
+                  className="shrink-0 rounded-full"
+                  style={{ width: 6, height: 6, background: kindDot(a.kind), boxShadow: `0 0 6px ${kindDot(a.kind)}` }}
                 />
                 <div className="min-w-0 flex-1">
                   <p className={cn('text-xs leading-tight truncate font-medium', kindText(a.kind))}>{a.label}</p>
                   {a.sub && <p className="text-[11px] text-muted-foreground/50 truncate leading-tight">{a.sub}</p>}
                 </div>
-                {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/55 mt-0.5" />}
+                {a.onClick && <ArrowRight className="w-3 h-3 shrink-0 text-muted-foreground/55" />}
               </button>
             ))}
             {!expanded && overflowCount > 0 && (
@@ -292,15 +292,15 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
               <button
                 key={i}
                 onClick={(e) => { e.stopPropagation(); if (p.threadUrl) window.open(p.threadUrl, '_blank'); }}
-                className={cn('flex items-start gap-1.5 w-full text-left min-w-0', p.threadUrl ? 'cursor-pointer' : 'cursor-default')}
+                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[34px] px-1 -mx-1 rounded', p.threadUrl ? 'cursor-pointer hover-elevate' : 'cursor-default')}
                 data-testid={`forum-post-${i}`}
               >
-                <MessageSquare className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/50" />
+                <MessageSquare className="w-3 h-3 shrink-0 text-muted-foreground/50" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{p.title}</p>
                   {p.postedAt && <p className="text-[10px] text-muted-foreground/45 leading-tight">{relTime(p.postedAt)}</p>}
                 </div>
-                {p.threadUrl && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/45 mt-0.5" />}
+                {p.threadUrl && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/45" />}
               </button>
             ))}
           </div>
@@ -314,15 +314,15 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
               <button
                 key={i}
                 onClick={(e) => { e.stopPropagation(); if (n.url) window.open(n.url, '_blank'); }}
-                className={cn('flex items-start gap-1.5 w-full text-left min-w-0', n.url ? 'cursor-pointer' : 'cursor-default')}
+                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[34px] px-1 -mx-1 rounded', n.url ? 'cursor-pointer hover-elevate' : 'cursor-default')}
                 data-testid={`news-article-${i}`}
               >
-                <Newspaper className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/50" />
+                <Newspaper className="w-3 h-3 shrink-0 text-muted-foreground/50" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{n.title}</p>
                   {n.source && <p className="text-[10px] text-muted-foreground/45 leading-tight truncate">{n.source}</p>}
                 </div>
-                {n.url && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/45 mt-0.5" />}
+                {n.url && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/45" />}
               </button>
             ))}
           </div>

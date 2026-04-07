@@ -24,11 +24,11 @@ interface DashboardNavProps {
 }
 
 export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
-  { id: 'dashboard', label: 'The Bridge', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-lego-red/75', icon: Rocket },
-  { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-lego-blue/75', icon: ToyBrick },
-  { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-lego-orange/75', icon: Orbit },
-  { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-lego-yellow/75', icon: Sparkles },
-  { id: 'sales', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-lego-green/75', icon: InsightsIcon },
+  { id: 'dashboard', label: 'Bridge', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-gray-500', icon: Rocket },
+  { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-gray-500', icon: ToyBrick },
+  { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-gray-500', icon: Orbit },
+  { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-gray-500', icon: Sparkles },
+  { id: 'sales', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-gray-500', icon: InsightsIcon },
 ];
 
 export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersCount = 0 }: DashboardNavProps) {

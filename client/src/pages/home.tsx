@@ -1656,7 +1656,7 @@ export default function Home() {
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
             <DrawerHeader className="p-0 flex-shrink-0">
               <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-600" />
+                <div className="w-14 h-1.5 rounded-full bg-gray-500" />
               </div>
               <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
                 <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-gray-100 flex-1">

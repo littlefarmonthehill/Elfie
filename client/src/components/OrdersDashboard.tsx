@@ -443,7 +443,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                     data-testid={`directive-status-${key}`}
                     className={cn(
                       "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
-                      isCompact ? "px-0.5 py-1" : "px-1 py-1.5",
+                      isCompact ? "px-0.5 py-1" : "px-1 py-2.5",
                       isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
                     )}
                   >
