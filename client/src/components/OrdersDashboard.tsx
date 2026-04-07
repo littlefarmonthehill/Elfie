@@ -580,7 +580,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
 
             {/* Tool cards row */}
-            <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-2")}>
+            <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
               {/* Platform Performance */}
               <button

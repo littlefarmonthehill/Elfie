@@ -27,8 +27,8 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | 'acquisition-evaluator' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | 'acquisition-evaluator' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
   onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
@@ -502,6 +502,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
               <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="bundletron-action-stats">
                 <span className="text-[11px] text-orange-400/70">Bundle lots for BO</span>
+              </div>
+            </button>
+
+            {/* Acquisition Evaluator */}
+            <button
+              onClick={() => onDrawerChange('acquisition-evaluator')}
+              data-testid="tool-acquisition-evaluator"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-violet-400/72 bg-gradient-to-br from-violet-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
+              style={{ '--tool-glow-color': 'rgba(139,92,246,0.35)' } as React.CSSProperties}
+            >
+              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                <div className={cn("rounded-lg bg-violet-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-violet-400/65 shadow-[0_0_10px_rgba(139,92,246,0.22)]")}>
+                  <Package className={cn("text-violet-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+                </div>
+                <span className={cn("font-bold text-violet-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Acquisition Evaluator</span>
+              </div>
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="acquisition-evaluator-action-stats">
+                <span className="text-[11px] text-violet-400/70">Analyze seller inventory</span>
               </div>
             </button>
 
