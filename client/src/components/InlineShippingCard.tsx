@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Loader2, CheckCircle2, AlertTriangle, ExternalLink,
+  Loader2, CheckCircle2, AlertTriangle,
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
   Scissors, Link2, Package, StickyNote, MoreHorizontal,
   Printer, Download, MonitorCheck, Wifi,
@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { shortCode } from "@/components/PackingSlip";
+import { shortCode, hiddenPrint } from "@/components/PackingSlip";
 import { shippingTier } from "@/lib/item-utils";
 import type { AppSettings } from "@shared/schema";
 import PrintMethodSetup from "@/components/PrintMethodSetup";
@@ -592,12 +592,26 @@ export default function InlineShippingCard({
             );
           }
 
-          // Browser / default: open in new tab
+          // Browser / default: fetch PDF → native print dialog (AirPrint on iOS)
           return (
-            <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
-              <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Label
-              </a>
+            <Button variant="outline" size="sm" disabled={printLabelPending}
+              data-testid={`button-print-label-${orderId}`}
+              onClick={async () => {
+                setPrintLabelPending(true);
+                try {
+                  const res = await fetch(purchasedLabel.labelUrl!);
+                  const blob = await res.blob();
+                  hiddenPrint(blob, `label-${orderId}.pdf`);
+                } catch {
+                  toast({ title: 'Could not load label', variant: 'destructive' });
+                } finally {
+                  setPrintLabelPending(false);
+                }
+              }}>
+              {printLabelPending
+                ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                : <Printer className="w-3.5 h-3.5 mr-1.5" />}
+              Print Label
             </Button>
           );
         })()}

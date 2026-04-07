@@ -56,8 +56,8 @@ export default function PrintMethodSetup({ open, onClose, labelUrl, onOpenSettin
           >
             <MonitorCheck className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-gray-100">Use my device's printer</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">Opens the OS print dialog — works with AirPrint, home printers, and office printers. No setup needed.</p>
+              <p className="text-xs font-medium text-gray-100">Print via AirPrint or device printer</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">Sends the label to your device's print dialog. Works with AirPrint, Silex-connected printers, and any wireless printer on the same network. Recommended.</p>
             </div>
           </button>
 
