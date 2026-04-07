@@ -152,9 +152,20 @@ export class EasyPostShippingVendor implements IShippingVendor {
   }> {
     // Normalize destination address to carrier-safe ASCII before submission.
     // Originals are preserved in the DB / UI; only the normalized copy goes to EasyPost.
-    const { normalized: toNorm, warnings: addrWarnings } = normalizeAddress(request.toAddress);
-    if (addrWarnings.length > 0) {
-      console.warn('⚠️  Address normalization warnings:', addrWarnings);
+    const { normalized: toNorm, changes: addrChanges, warnings: addrWarnings } = normalizeAddress(request.toAddress);
+
+    // Log a structured diff whenever the address was actually modified so operators
+    // can see exactly what was sent to EasyPost versus what the buyer entered.
+    if (addrChanges.length > 0 || addrWarnings.length > 0) {
+      const lines: string[] = [`[AddrNorm] Address auto-normalized for carrier submission (ref: ${request.reference || 'n/a'}):`];
+      for (const c of addrChanges) {
+        const pad = ' '.repeat(Math.max(0, 8 - c.field.length));
+        lines.push(`  ${c.field}:${pad} "${c.original}"  →  "${c.normalized}"`);
+      }
+      for (const w of addrWarnings) {
+        lines.push(`  ⚠️  ${w}`);
+      }
+      console.log(lines.join('\n'));
     }
 
     const payload = {
@@ -256,7 +267,11 @@ export class EasyPostShippingVendor implements IShippingVendor {
     return {
       shipmentId: response.id,
       rates,
-      metadata: response,
+      metadata: {
+        ...response,
+        // Expose normalization details so callers can surface them to the operator
+        addressNormalization: { changes: addrChanges, warnings: addrWarnings },
+      },
     };
   }
 

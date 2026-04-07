@@ -307,6 +307,7 @@ export async function splitOrder(orderId: string, itemIdsToKeep: string[]): Prom
 export async function createShipment(request: ShipOrderRequest): Promise<{
   shipmentId: string;
   rates: any[];
+  addressNormalization: { changes: Array<{ field: string; original: string; normalized: string }>; warnings: string[] };
 }> {
   // Get order first so we have orgId for credential lookup
   const [order] = await db
@@ -448,6 +449,8 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   return {
     shipmentId: result.shipmentId,
     rates: result.rates,
+    addressNormalization: (result.metadata as any)?.addressNormalization
+      ?? { changes: [], warnings: [] },
   };
 }
 

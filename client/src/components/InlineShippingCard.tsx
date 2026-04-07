@@ -236,6 +236,9 @@ export default function InlineShippingCard({
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const [ratesError, setRatesError] = useState<string | null>(null);
 
+  type AddrChange = { field: string; original: string; normalized: string };
+  const [addrChanges, setAddrChanges] = useState<AddrChange[]>([]);
+
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
   const [printLabelPending, setPrintLabelPending] = useState(false);
@@ -426,6 +429,7 @@ export default function InlineShippingCard({
     setRates([]);
     setSelectedRateId(null);
     setShipmentId(null);
+    setAddrChanges([]);
     try {
       const fromAddress = isTestMode ? TEST_FROM_ADDRESS : {
         ...BASE_PROD_FROM_ADDRESS,
@@ -438,6 +442,7 @@ export default function InlineShippingCard({
         overrideToAddress: address,
       });
       setShipmentId(result.shipmentId);
+      setAddrChanges(result.addressNormalization?.changes ?? []);
       const sorted: Rate[] = [...(result.rates || [])].sort((a, b) => a.rate - b.rate);
       setRates(sorted);
       if (sorted.length > 0) {
@@ -1068,6 +1073,21 @@ export default function InlineShippingCard({
                 <div>{[currentAddress?.city, currentAddress?.state, currentAddress?.zip].filter(Boolean).join(", ")}</div>
                 {addressStatus === "invalid" && addressErrors.length > 0 && (
                   <div className="mt-1 text-xs text-yellow-400">{addressErrors[0]}</div>
+                )}
+                {addrChanges.length > 0 && (
+                  <div className="mt-1.5 rounded border border-blue-500/30 bg-blue-950/20 px-2 py-1.5 space-y-0.5" data-testid="banner-addr-normalized">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-blue-300">
+                      <MonitorCheck className="w-3 h-3 shrink-0" />
+                      Address adapted for carrier label
+                    </div>
+                    {addrChanges.map(c => (
+                      <div key={c.field} className="text-[10px] text-gray-400 font-mono pl-4 leading-snug">
+                        <span className="text-gray-500">{c.field}:</span>{" "}
+                        <span className="text-gray-300 line-through opacity-60">{c.original}</span>{" "}
+                        <span className="text-blue-300">→ {c.normalized}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             ) : (

@@ -94,10 +94,19 @@ export interface AddressFields {
   email?:   string | null;
 }
 
+export interface AddressChange {
+  field:    string;
+  original: string;
+  normalized: string;
+}
+
 export interface NormalizeAddressResult {
   original:   AddressFields;
   normalized: AddressFields;
-  warnings:   string[];
+  /** Fields that were actually modified (original !== normalized). */
+  changes:  AddressChange[];
+  /** Anomaly notes: truncations, fields that couldn't be transliterated, etc. */
+  warnings: string[];
 }
 
 /**
@@ -113,6 +122,7 @@ export interface NormalizeAddressResult {
  */
 export function normalizeAddress(address: AddressFields): NormalizeAddressResult {
   const warnings: string[] = [];
+  const changes:  AddressChange[] = [];
   const normalized: AddressFields = {};
 
   const textFields: Array<keyof AddressFields> = [
@@ -120,10 +130,14 @@ export function normalizeAddress(address: AddressFields): NormalizeAddressResult
   ];
 
   for (const field of textFields) {
-    const raw = address[field] ?? '';
-    const { normalized: norm, warnings: fw } = normalizeField(String(raw), field);
+    const raw = String(address[field] ?? '');
+    const { normalized: norm, warnings: fw } = normalizeField(raw, field);
     (normalized as any)[field] = norm || undefined;
     warnings.push(...fw);
+    // Record an explicit change entry whenever the value was actually modified
+    if (raw && norm !== raw) {
+      changes.push({ field, original: raw, normalized: norm });
+    }
   }
 
   // Pass-through fields (not label-printed text that runs through printers)
@@ -134,6 +148,7 @@ export function normalizeAddress(address: AddressFields): NormalizeAddressResult
   return {
     original: { ...address },
     normalized,
+    changes,
     warnings,
   };
 }
