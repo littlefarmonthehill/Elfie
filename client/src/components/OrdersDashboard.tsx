@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, PackageCheck,
+  ShoppingCart, PackageCheck, TrendingUp, BarChart2, Activity,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -20,6 +20,7 @@ import MetricCard from "./MetricCard";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
+import { type SalesDrawer } from "./SalesDashboard";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
 // BrickLink is always present as a fixed button; entries here are additional channel platforms.
@@ -41,6 +42,7 @@ interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   activeDrawer: OrdersDrawerKey;
   onDrawerChange: (drawer: OrdersDrawerKey) => void;
+  onSalesDrawer?: (drawer: SalesDrawer) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
   desktopMode?: boolean;
@@ -306,7 +308,7 @@ function QtySyncQueuePanel() {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact, initialPanelTab }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, onSalesDrawer, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact, initialPanelTab }: OrdersDashboardProps) {
   const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
@@ -555,45 +557,74 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           {panelTab === 'systems' && (
           <div className={cn("flex flex-col", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
-            {/* Shipped Orders */}
-            <button
-              onClick={() => onDrawerChange('shipped')}
-              data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
-                  <PackageCheck className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+            {/* Sales Performance — revenue summary */}
+            <div className={cn("rounded-lg border border-green-500/30 bg-gradient-to-b from-green-900/18 to-gray-900/50 overflow-hidden relative", isCompact ? "p-2" : "p-2.5")} data-testid="section-sales-performance">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/40 to-transparent" />
+              <div className={cn("flex items-center gap-1.5", isCompact ? "mb-1.5" : "mb-2")}>
+                <TrendingUp className="w-3 h-3 text-green-400 flex-shrink-0" />
+                <span className="text-xs font-semibold text-green-300 uppercase tracking-wide">Sales Performance</span>
+                <div className="flex-1" />
+                <CollapsibleDatePicker value={dateRange} onChange={setDateRange} accentClass="text-green-400/70 hover:text-green-300" testId="button-orders-sales-date" />
+              </div>
+              <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")}>
+                <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
+                <MetricCard label="Orders" value={stats ? formatNumber(stats.totalOrders) : '—'} color="green" compact={isCompact} data-testid="metric-orders-count" />
+                <MetricCard label="Avg Order" value={stats ? `$${aov.toFixed(2)}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-aov" />
+              </div>
+              {adjustments && (
+                <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-1.5")}>
+                  <MetricCard label="Net Revenue" value={`$${Math.max(0, (stats?.monthRevenue ?? 0) - adjustments.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" compact={isCompact} data-testid="metric-orders-net" />
+                  <MetricCard label="Refunds" value={adjustments.totalRefunds > 0 ? `-$${adjustments.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" compact={isCompact} data-testid="metric-orders-refunds" />
                 </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Shipped Orders</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-green-600/60 hover:text-green-400 transition-colors"
-                      data-testid="info-shipped"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Review completed shipments, tracking history, and delivery confirmations.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="shipped-stats">
-                {(stats?.shippedOrders ?? 0) > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
-                    {formatNumber(stats!.shippedOrders)} shipped
-                  </span>
-                ) : stats ? (
-                  <span className="text-[11px] text-gray-500/70">No shipments yet</span>
-                ) : null}
-              </div>
-            </button>
+              )}
+            </div>
 
+            {/* Tool cards row */}
+            <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
+
+              {/* Platform Performance */}
+              <button
+                onClick={() => onSalesDrawer?.('platform-perf')}
+                data-testid="tool-platform-performance"
+                className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
+                style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
+              >
+                <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                  <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+                    <BarChart2 className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+                  </div>
+                  <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>By Platform</span>
+                  <ArrowRight className="w-3 h-3 text-orange-500/60 group-hover:text-orange-400 transition-colors" />
+                </div>
+                <p className={cn("text-orange-300/60 leading-snug", isCompact ? "text-[10px]" : "text-xs")}>Sales by marketplace</p>
+              </button>
+
+              {/* Shipped Orders */}
+              <button
+                onClick={() => onDrawerChange('shipped')}
+                data-testid="tool-shipped"
+                className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
+                style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
+              >
+                <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
+                  <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+                    <PackageCheck className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+                  </div>
+                  <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Shipped</span>
+                  <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
+                </div>
+                <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="shipped-stats">
+                  {(stats?.shippedOrders ?? 0) > 0 ? (
+                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
+                      {formatNumber(stats!.shippedOrders)} shipped
+                    </span>
+                  ) : stats ? (
+                    <span className="text-[11px] text-gray-500/70">No shipments yet</span>
+                  ) : null}
+                </div>
+              </button>
+
+            </div>
           </div>
           )}
 

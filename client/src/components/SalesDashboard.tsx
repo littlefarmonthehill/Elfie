@@ -1404,34 +1404,6 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
         </div>
       )}
       
-      {/* ── Top Metrics ── */}
-      <div className={cn("relative bg-gradient-to-b from-green-900/40 to-gray-900/88 border border-green-400/65 rounded-lg shadow-[0_0_28px_rgba(34,197,94,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-sales-overview">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
-          <div className={cn("rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
-            <TrendingUp className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
-          </div>
-          <h3 className={cn("font-semibold text-green-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Insights</h3>
-          <CollapsibleDatePicker
-            value={localDateRange}
-            onChange={setLocalDateRange}
-            accentClass="text-green-400/70 hover:text-green-300"
-            testId="button-insights-date-picker"
-          />
-        </div>
-        <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-sales-metrics">
-          <MetricCard label="Orders" value={filteredOrders.length} color="green" compact={isCompact} data-testid="metric-sales-orders" />
-          <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" compact={isCompact} data-testid="metric-sales-gross" />
-          <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" compact={isCompact} data-testid="metric-sales-avg" />
-        </div>
-        {adjustmentSummary && (
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-1.5")}>
-            <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" compact={isCompact} data-testid="metric-sales-net" />
-            <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" compact={isCompact} data-testid="metric-sales-refunds" />
-            <MetricCard label="Shipping" value={adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" compact={isCompact} data-testid="metric-sales-shipping" />
-          </div>
-        )}
-      </div>
       </>}
       {(!tvSplit || tvSplit === 'right') && <>
 
@@ -1474,48 +1446,6 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
               </div>
               {<p className="text-xs md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>}
-            </button>
-            <button
-              onClick={() => onDrawerChange?.('platform-perf')}
-              data-testid="tool-platform-performance"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                  <BarChart2 className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Platform Performance</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span role="button" onClick={(e) => e.stopPropagation()} className="text-orange-600/60 hover:text-orange-400 transition-colors" data-testid="info-platform-performance">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Breakdown of sales by marketplace — order counts, revenue, and channel share for the selected date range.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              {(
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
-                {availablePlatforms.length > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
-                    {availablePlatforms.length} active {availablePlatforms.length === 1 ? 'platform' : 'platforms'}
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-600/25">
-                    No data
-                  </span>
-                )}
-              </div>
-              )}
-              {(
-              <div className="flex items-center justify-between">
-                <span className="text-xs md:text-xs text-orange-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
-              </div>
-              )}
             </button>
             <button
               onClick={() => onDrawerChange?.('acquisition-evaluator')}
