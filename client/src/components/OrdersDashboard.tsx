@@ -567,7 +567,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <button
                 onClick={() => onSalesDrawer?.('platform-perf')}
                 data-testid="tool-platform-performance"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
+                className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
                 style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
               >
                 <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
@@ -583,7 +583,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <button
                 onClick={() => onSalesDrawer?.('chart')}
                 data-testid="tool-sales-chart"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-400/72 bg-gradient-to-br from-teal-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
+                className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-400/72 bg-gradient-to-br from-teal-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
                 style={{ '--tool-glow-color': 'rgba(20,184,166,0.35)' } as React.CSSProperties}
               >
                 <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
@@ -599,7 +599,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <button
                 onClick={() => onDrawerChange('shipped')}
                 data-testid="tool-shipped"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
+                className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
                 style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
               >
                 <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
