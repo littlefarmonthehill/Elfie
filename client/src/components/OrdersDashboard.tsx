@@ -130,7 +130,7 @@ function QtySyncQueuePanel() {
         data-testid="card-sync-queue"
       >
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/15 to-transparent rounded-t-lg" />
-        <div className="flex items-center gap-2">
+        <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
           <div className={cn("p-1.5 rounded-md ring-1", hasAbandoned ? "bg-red-500/20 ring-red-500/40" : "bg-amber-500/20 ring-amber-500/40")}>
             {hasPending && !hasAbandoned
               ? <Loader2 className="w-3 h-3 text-amber-300 animate-spin" />
@@ -461,16 +461,17 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className="relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden p-2.5" data-testid="section-panel-tabs">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-2.5")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
 
           {/* Retro control panel tab strip */}
-          <div className="flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 mb-3 shadow-inner" data-testid="control-panel-tabs">
+          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-1" : "mb-3")} data-testid="control-panel-tabs">
             <button
               onClick={() => setPanelTab('systems')}
               data-testid="tab-systems"
               className={cn(
-                "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'systems'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
                   : "text-gray-600 hover:text-gray-400"
@@ -486,7 +487,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               onClick={() => setPanelTab('uplink')}
               data-testid="tab-uplink"
               className={cn(
-                "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-[10px] font-bold uppercase tracking-widest",
+                isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'uplink'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
                   : "text-gray-600 hover:text-gray-400"
@@ -505,20 +507,20 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", "gap-2")} data-testid="section-order-tools">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-2")} data-testid="section-order-tools">
 
             {/* Fulfillment & Shipping */}
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-orange-800/75 p-1.5 ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
+                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Fulfillment</span>
+                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Fulfillment</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -535,7 +537,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="fulfillment-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="fulfillment-stats">
                 {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
                     {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
@@ -556,14 +558,14 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-800/75 p-1.5 ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
+              <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
+                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>Shipped Orders</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Shipped Orders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -580,7 +582,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="shipped-stats">
+              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-0" : "min-h-[1.25rem]")} data-testid="shipped-stats">
                 {(stats?.shippedOrders ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
                     {formatNumber(stats!.shippedOrders)} shipped
