@@ -16,24 +16,9 @@ import {
   CustomsInfo,
   TaxIdentifier,
 } from './shipping-vendor';
-import anyAscii from 'any-ascii';
+import { normalizeAddress } from './address-normalizer';
 
 const EASYPOST_API_URL = 'https://api.easypost.com/v2';
-
-/**
- * Convert a string to a carrier-safe ASCII value.
- * USPS / EasyPost label printers are ASCII-only — non-Latin characters
- * (Japanese, Chinese, Arabic, Korean, etc.) print as '?' unless converted
- * before they reach the carrier API.  any-ascii maps Unicode → the nearest
- * printable ASCII equivalent (e.g. 田中 → "Tian Zhong", タナカ → "tanaka").
- * We apply this only to the data sent to EasyPost; the originals are kept
- * in the database and displayed in the UI.
- */
-function toCarrierAscii(value: string | undefined | null): string | undefined {
-  if (!value) return value ?? undefined;
-  if (!/[^\x00-\x7F]/.test(value)) return value; // already ASCII — fast path
-  return anyAscii(value);
-}
 
 // ---------------------------------------------------------------------------
 // Rate limiter — EasyPost test mode is very restrictive.
@@ -165,19 +150,26 @@ export class EasyPostShippingVendor implements IShippingVendor {
     rates: ShippingRate[];
     metadata: any;
   }> {
+    // Normalize destination address to carrier-safe ASCII before submission.
+    // Originals are preserved in the DB / UI; only the normalized copy goes to EasyPost.
+    const { normalized: toNorm, warnings: addrWarnings } = normalizeAddress(request.toAddress);
+    if (addrWarnings.length > 0) {
+      console.warn('⚠️  Address normalization warnings:', addrWarnings);
+    }
+
     const payload = {
       shipment: {
         to_address: {
-          name: toCarrierAscii(request.toAddress.name),
-          company: toCarrierAscii(request.toAddress.company),
-          street1: toCarrierAscii(request.toAddress.street1),
-          street2: toCarrierAscii(request.toAddress.street2),
-          city: toCarrierAscii(request.toAddress.city),
-          state: toCarrierAscii(request.toAddress.state),
-          zip: toCarrierAscii(request.toAddress.zip),
-          country: request.toAddress.country,
-          phone: request.toAddress.phone,
-          email: request.toAddress.email,
+          name:    toNorm.name,
+          company: toNorm.company,
+          street1: toNorm.street1,
+          street2: toNorm.street2,
+          city:    toNorm.city,
+          state:   toNorm.state,
+          zip:     toNorm.zip,
+          country: toNorm.country,
+          phone:   toNorm.phone,
+          email:   toNorm.email,
         },
         from_address: {
           name: request.fromAddress.name,
