@@ -96,7 +96,7 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
       
       {/* Header content */}
-      <div className="h-14 md:h-20 lg:h-24 flex items-center justify-between px-4 md:px-8 lg:px-10 relative">
+      <div className="h-12 md:h-14 lg:h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 relative">
         {/* Elfie Icon - Left */}
         <div className="flex items-center gap-4">
           <button
@@ -108,11 +108,11 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
             <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-lg animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
             
             {/* Robot icon */}
-            <div className="relative w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
+            <div className="relative w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
               <img 
                 src={elfieRobot} 
                 alt="E.L.F.I.E. AI Assistant" 
-                className="w-8 h-8 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
+                className="w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 object-contain"
               />
             </div>
             
@@ -158,10 +158,9 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
               data-testid="button-signout-header"
-              className="md:h-12 md:w-12 lg:h-14 lg:w-14"
               title="Sign out"
             >
-              <LogOut className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+              <LogOut className="h-4 w-4" />
             </Button>
           ) : (
             <div className="relative">
@@ -170,10 +169,9 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
                 variant="ghost"
                 onClick={onSettingsClick}
                 data-testid="button-settings"
-                className="md:h-12 md:w-12 lg:h-14 lg:w-14"
                 title="Settings"
               >
-                <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+                <Settings className="h-4 w-4" />
               </Button>
               {superAdmin && openTicketCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-black text-[10px] font-bold text-white px-1 z-10" data-testid="badge-support-count">

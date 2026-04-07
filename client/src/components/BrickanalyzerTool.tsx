@@ -3341,7 +3341,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
           {/* Results — grouped by part number, list view */}
           {viewMode === 'list' && (groupedResults.length === 0 ? (
-            <div className="text-center py-8 sm:py-16 text-gray-500 text-sm sm:text-2xl">
+            <div className="text-center py-8 text-gray-500 text-sm">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
@@ -3434,7 +3434,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
                     <div
-                      className="flex gap-2.5 sm:gap-8 px-2.5 sm:px-8 py-2 sm:py-6 cursor-pointer hover-elevate"
+                      className="flex gap-3 px-3 py-2.5 cursor-pointer hover-elevate"
                       onClick={() => togglePart(key)}
                       data-testid={`toggle-part-${gi}`}
                     >
@@ -3458,7 +3458,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                         const lightboxSrc = primarySrc || blPlUrl;
                         return (
                           <div
-                            className={`flex-shrink-0 w-12 h-12 sm:w-24 sm:h-24 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${lightboxSrc ? 'cursor-pointer hover-elevate' : ''}`}
+                            className={`flex-shrink-0 w-14 h-14 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${lightboxSrc ? 'cursor-pointer hover-elevate' : ''}`}
                             onClick={lightboxSrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: lightboxSrc, alt: grp.partName || grp.partNo }); } : undefined}
                             data-testid={`thumbnail-part-${gi}`}
                           >
@@ -3483,11 +3483,11 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                       <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
                         {/* Part name + BL link + chevron */}
                         <div className="flex items-center gap-1">
-                          <p className="text-xs sm:text-2xl font-semibold text-white leading-tight flex-1">
+                          <p className="text-sm font-semibold text-white leading-tight flex-1">
                             {grp.partName || "Unknown Part"}
                           </p>
                           {grp.itemType === 'MINIFIG' && (
-                            <span className="text-[9px] sm:text-lg font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
                           )}
                           {grp.entries.some(e => e.detectionSource === 'elfie') && (
                             <Tooltip>
@@ -3511,7 +3511,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               data-testid={`link-bricklink-${gi}`}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <ExternalLink className="w-3 h-3 sm:w-7 sm:h-7" />
+                              <ExternalLink className="w-3.5 h-3.5" />
                             </a>
                           )}
                           {grp.partNo && grp.itemType !== 'MINIFIG' && repEntry.categoryId != null && MINIFIG_PART_CATEGORY_IDS.has(repEntry.categoryId) && (
@@ -3519,7 +3519,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               href={`https://www.bricklink.com/catalogItemIn.asp?P=${grp.partNo}&in=M`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[9px] sm:text-base font-semibold text-amber-400 hover:text-amber-300 flex-shrink-0 whitespace-nowrap"
+                              className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex-shrink-0 whitespace-nowrap"
                               data-testid={`link-appears-in-${gi}`}
                               onClick={(e) => e.stopPropagation()}
                               title="See which minifigures contain this part"
@@ -3528,12 +3528,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                             </a>
                           )}
                           <ChevronRight
-                            className={`w-3.5 h-3.5 sm:w-7 sm:h-7 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                            className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
                           />
                           {/* Calibrated indicator — shown when a verdict has been recorded */}
                           {cardVerdict && (
                             <span
-                              className={`flex-shrink-0 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
+                              className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${
                                 cardVerdict === 'correct' ? 'bg-green-400' :
                                 cardVerdict === 'close'   ? 'bg-yellow-400' :
                                                             'bg-red-400'
@@ -3553,22 +3553,22 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               }}
                               data-testid={`heatmap-btn-${gi}`}
                             >
-                              <Target className="w-3 h-3 sm:w-5 sm:h-5" />
+                              <Target className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
 
                         {/* Part no · qty · confidence · crop count */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {grp.partNo && <span className="font-mono text-[10px] sm:text-xl text-gray-300">{grp.partNo}</span>}
+                          {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
                           {stockLabel && (
-                            <span className="text-[10px] sm:text-xl text-green-400 font-medium">· {stockLabel}</span>
+                            <span className="text-[10px] text-green-400 font-medium">· {stockLabel}</span>
                           )}
-                          <span className={`text-[10px] sm:text-xl font-medium capitalize ${confidenceColor(bestConfidence)}`}>
+                          <span className={`text-[10px] font-medium capitalize ${confidenceColor(bestConfidence)}`}>
                             · {bestConfidence}
                           </span>
                           {grp.entries.length > 1 && (
-                            <span className="text-[10px] sm:text-xl text-gray-500">· {grp.entries.length} crops</span>
+                            <span className="text-[10px] text-gray-500">· {grp.entries.length} crops</span>
                           )}
                         </div>
                       </div>
@@ -3583,12 +3583,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                       const isConfirmed = confirmedClips.has(clipKey);
                       const isConfirming = confirmingClip === clipKey;
                       return (
-                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-2 sm:py-3 flex flex-wrap items-center gap-3 sm:gap-3" onClick={e => e.stopPropagation()}>
+                        <div className="border-t border-amber-500/15 px-3 py-2 flex flex-wrap items-center gap-3" onClick={e => e.stopPropagation()}>
                           {/* CLIP (correct) */}
                           {grp.partNo && repCropIndex != null && (
                             isConfirmed ? (
-                              <span className="flex items-center gap-1 text-[10px] sm:text-base text-purple-400">
-                                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="flex items-center gap-1 text-[10px] text-purple-400">
+                                <Check className="w-3 h-3" />
                                 <span className="text-[10px]">CLIP</span>
                               </span>
                             ) : (
@@ -3656,7 +3656,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                 data-testid={`color-picker-${gi}`}
                                 onClick={e => e.stopPropagation()}
                               >
-                                <p className="text-[9px] sm:text-sm mb-1.5 font-medium">
+                                <p className="text-[10px] mb-1.5 font-medium">
                                   {corrected
                                     ? <span className="flex items-center gap-1 text-green-400"><Check className="w-2.5 h-2.5" />Correct — tap a different color to retrain</span>
                                     : <span className="text-yellow-400/80">Tap the correct color:</span>}
@@ -3737,16 +3737,16 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                         </div>
 
                       {(expandedCardTab[key] ?? 'matches') === 'matches' && (
-                      <div className="px-2 sm:px-8 py-1.5 sm:py-5 space-y-1 sm:space-y-5">
+                      <div className="px-2 py-1.5 space-y-1">
                         {/* Column headers */}
                         <div className="flex items-center gap-1 px-2 pb-0.5">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500">{grp.itemType === 'MINIFIG' ? 'Minifigure' : 'Color'}</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500">{grp.itemType === 'MINIFIG' ? 'Minifigure' : 'Color'}</span>
                           </div>
-                          <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">N Cur</span>
-                          <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">N Score</span>
-                          <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">U Cur</span>
-                          <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">U Score</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">U Score</span>
                         </div>
                         {/* Best Match banners — one per unique detected color */}
                         {detectedColorEntries.map((entry, ei) => {

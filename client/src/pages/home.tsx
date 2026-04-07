@@ -165,7 +165,7 @@ export default function Home() {
     queryKey: ['/api/billing/status'],
   });
   const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly;
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && (window.innerWidth >= 1024 || (window.innerWidth >= 960 && window.matchMedia('(orientation: landscape)').matches)));
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
@@ -256,7 +256,7 @@ export default function Home() {
 
   useEffect(() => {
     const check = () => {
-      const nowDesktop = window.innerWidth >= 1024 || (window.innerWidth >= 960 && window.matchMedia('(orientation: landscape)').matches);
+      const nowDesktop = window.innerWidth >= 768;
       setIsDesktop(nowDesktop);
     };
     window.addEventListener('resize', check);
