@@ -441,106 +441,117 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           return (
         <div
           className={cn(
-            "relative rounded-lg border overflow-hidden cursor-pointer hover-elevate active-elevate-2 transition-all",
+            "relative rounded-lg border cursor-pointer hover-elevate active-elevate-2 transition-all",
+            isCompact ? "p-2" : "p-1 md:p-2.5",
             hasAction
-              ? "border-orange-400/70 bg-gradient-to-b from-orange-900/45 to-gray-900/90 shadow-[0_0_20px_rgba(249,115,22,0.32),inset_0_1px_0_rgba(249,115,22,0.15)]"
-              : "border-orange-400/45 bg-gradient-to-b from-orange-900/25 to-gray-900/88 shadow-[0_0_14px_rgba(249,115,22,0.15)]"
+              ? "border-orange-400/60 bg-gradient-to-b from-gray-700/55 to-gray-900/95 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
+              : "border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
           )}
           data-testid="section-command-central-orders"
           onClick={() => onDrawerChange('fulfillment')}
         >
           {/* Top accent bar */}
-          <div className={cn("absolute top-0 left-0 right-0 h-[2px]", hasAction ? "bg-gradient-to-r from-orange-500/60 via-orange-400/80 to-orange-500/60" : "bg-gradient-to-r from-transparent via-orange-400/35 to-transparent")} />
-          <div className={cn("space-y-2", isCompact ? "px-2.5 pt-2 pb-2" : "px-3 pt-2.5 pb-2.5")}>
-            <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
-              <div className={cn(
-                "rounded-md ring-1 shrink-0 p-1.5",
-                hasAction
-                  ? "bg-orange-800/70 ring-orange-500/60 shadow-[0_0_8px_rgba(249,115,22,0.35)]"
-                  : "bg-orange-900/55 ring-orange-500/35"
-              )}>
-                <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-200" : "text-orange-400/70")} />
-              </div>
-              <h3 className={cn("font-semibold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-200" : "text-orange-400/70")}>Command Central</h3>
-              {hasAction ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="relative w-1.5 h-1.5 shrink-0">
-                    <div className="absolute inset-0 rounded-full bg-orange-400/50 animate-ping" />
-                    <div className="relative w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  </div>
-                  <span className="text-[10px] font-semibold text-orange-300/90 font-mono">{totalActive} need action</span>
+          <div className={cn(
+            "absolute top-0 left-0 right-0 h-[2px] rounded-t-lg",
+            hasAction
+              ? "bg-gradient-to-r from-orange-600/50 via-orange-400/80 to-orange-600/50"
+              : "bg-gradient-to-r from-transparent via-gray-500/30 to-transparent"
+          )} />
+
+          {/* Header */}
+          <div className={cn("flex items-center gap-2 flex-wrap", isCompact ? "mb-1.5" : "mb-2")}>
+            <div className={cn(
+              "rounded-md ring-1 shrink-0 p-1.5",
+              hasAction
+                ? "bg-orange-800/65 ring-orange-500/55 shadow-[0_0_8px_rgba(249,115,22,0.3)]"
+                : "bg-gray-800/70 ring-gray-600/40"
+            )}>
+              <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-300" : "text-gray-500")} />
+            </div>
+            <h3 className={cn("font-semibold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-200" : "text-gray-500")}>Command Central</h3>
+            {hasAction ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="relative w-1.5 h-1.5 shrink-0">
+                  <div className="absolute inset-0 rounded-full bg-orange-400/50 animate-ping" />
+                  <div className="relative w-1.5 h-1.5 rounded-full bg-orange-400" />
                 </div>
-              ) : (
-                <span className="text-[10px] text-orange-400/40 shrink-0 flex items-center gap-0.5">Open <ArrowRight className="w-2.5 h-2.5" /></span>
-              )}
-            </div>
-            {/* Happy path: New → In Prog → Feedback */}
-            <div className="grid grid-cols-3 gap-1.5" data-testid="directive-workflow-grid">
-              {([
-                { key: 'new',        label: 'New',      activeClass: 'bg-gray-800/80 text-gray-200 border-gray-500/60',  isFeedback: false },
-                { key: 'processing', label: 'In Prog',  activeClass: 'bg-blue-900/70 text-blue-200 border-blue-500/60',  isFeedback: false },
-                { key: 'feedback',   label: 'Feedback', activeClass: 'bg-teal-900/70 text-teal-200 border-teal-500/60',  isFeedback: true  },
-              ] as const).map(({ key, label, activeClass, isFeedback }) => {
-                const count = isFeedback
-                  ? (fulfillmentStats?.feedbackPending ?? 0)
-                  : (workflowSummary?.byStatus?.[key] ?? 0);
-                const isActive = count > 0;
-                return (
-                  <button
-                    key={key}
-                    onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
-                    data-testid={`directive-status-${key}`}
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-lg border min-h-[44px] transition-all hover-elevate active-elevate-2 cursor-pointer",
-                      isCompact ? "px-1 py-2" : "px-1 py-2.5",
-                      isActive ? activeClass : "bg-gray-900/50 border-gray-700/50 text-gray-500"
-                    )}
-                  >
-                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-sm" : "text-base")}>
-                      {(workflowSummary || isFeedback) ? count : '—'}
-                    </span>
-                    <span className={cn("text-[9px] uppercase tracking-widest leading-none text-center font-semibold", isActive ? "opacity-75" : "opacity-40")}>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
+                <span className="text-[10px] font-semibold text-orange-300/90 font-mono">{totalActive} need action</span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-gray-600 shrink-0 flex items-center gap-0.5">Open <ArrowRight className="w-2.5 h-2.5" /></span>
+            )}
+          </div>
 
-            {/* Exceptions divider */}
-            <div className="flex items-center gap-1.5 my-0.5">
-              <div className="flex-1 h-px bg-red-900/35" />
-              <span className="text-[7px] font-mono uppercase tracking-widest text-red-400/45">exceptions</span>
-              <div className="flex-1 h-px bg-red-900/35" />
-            </div>
+          {/* Workflow row — New → In Prog → Feedback */}
+          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")} data-testid="directive-workflow-grid">
+            {([
+              { key: 'new',        label: 'New',      lampColor: 'rgba(156,163,175,0.85)', activeClass: 'bg-gray-700/80 border-gray-400/65 text-gray-200',  isFeedback: false },
+              { key: 'processing', label: 'In Prog',  lampColor: 'rgba(96,165,250,0.85)',  activeClass: 'bg-blue-900/85 border-blue-400/65 text-blue-200',  isFeedback: false },
+              { key: 'feedback',   label: 'Feedback', lampColor: 'rgba(45,212,191,0.85)',  activeClass: 'bg-teal-900/85 border-teal-400/65 text-teal-200',  isFeedback: true  },
+            ] as const).map(({ key, label, lampColor, activeClass, isFeedback }) => {
+              const count = isFeedback
+                ? (fulfillmentStats?.feedbackPending ?? 0)
+                : (workflowSummary?.byStatus?.[key] ?? 0);
+              const isActive = count > 0;
+              return (
+                <button
+                  key={key}
+                  onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                  data-testid={`directive-status-${key}`}
+                  style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center rounded-md border transition-all cursor-pointer active:scale-[0.94]",
+                    isCompact ? "py-1.5 min-h-[42px]" : "py-2 min-h-[48px]",
+                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-900/80 border-gray-700/40"
+                  )}
+                >
+                  <div className="absolute top-0 left-0 right-0 h-px bg-white/10 rounded-t-md" />
+                  <span className={cn("font-mono font-bold leading-none", isCompact ? "text-sm" : "text-base", isActive ? "text-white" : "text-gray-700")}>
+                    {(workflowSummary || isFeedback) ? (count > 0 ? count : '0') : '—'}
+                  </span>
+                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 font-semibold text-[8px]", isActive ? "opacity-65" : "opacity-25")}>{label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Non-happy path: Unpaid · Bump · Issue · Hold */}
-            <div className="grid grid-cols-4 gap-1.5">
-              {([
-                { key: 'unpaid',  label: 'Unpaid', activeClass: 'bg-orange-950/80 text-orange-200 border-orange-500/60 shadow-[0_0_8px_rgba(249,115,22,0.2)]'  },
-                { key: 'bump',    label: 'Bump',   activeClass: 'bg-amber-950/80 text-amber-200 border-amber-500/60 shadow-[0_0_8px_rgba(251,191,36,0.2)]'     },
-                { key: 'issue',   label: 'Issue',  activeClass: 'bg-red-950/80 text-red-200 border-red-500/60 shadow-[0_0_8px_rgba(248,113,113,0.22)]'          },
-                { key: 'on_hold', label: 'Hold',   activeClass: 'bg-purple-950/80 text-purple-200 border-purple-500/60 shadow-[0_0_8px_rgba(168,85,247,0.2)]'  },
-              ] as const).map(({ key, label, activeClass }) => {
-                const count = workflowSummary?.byStatus?.[key] ?? 0;
-                const isActive = count > 0;
-                return (
-                  <button
-                    key={key}
-                    onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
-                    data-testid={`directive-status-${key}`}
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1 rounded-lg border min-h-[40px] transition-all hover-elevate active-elevate-2 cursor-pointer",
-                      isCompact ? "px-0.5 py-1.5" : "px-0.5 py-2",
-                      isActive ? activeClass : "bg-gray-900/50 border-gray-700/50 text-gray-500"
-                    )}
-                  >
-                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm")}>
-                      {workflowSummary ? count : '—'}
-                    </span>
-                    <span className={cn("text-[8px] uppercase tracking-widest leading-none text-center font-semibold", isActive ? "opacity-75" : "opacity-40")}>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Exceptions separator */}
+          <div className={cn("flex items-center gap-1.5", isCompact ? "mb-1" : "mb-1.5")}>
+            <div className="flex-1 h-px bg-red-900/30" />
+            <span className="text-[7px] font-mono uppercase tracking-widest text-red-400/40">exceptions</span>
+            <div className="flex-1 h-px bg-red-900/30" />
+          </div>
+
+          {/* Exception row — Unpaid · Bump · Issue · Hold */}
+          <div className={cn("grid grid-cols-4", isCompact ? "gap-1" : "gap-1.5")}>
+            {([
+              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)',  activeClass: 'bg-orange-950/85 border-orange-400/65 text-orange-200'  },
+              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)',  activeClass: 'bg-amber-950/85 border-amber-400/65 text-amber-200'    },
+              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)', activeClass: 'bg-red-950/85 border-red-400/65 text-red-200'           },
+              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)', activeClass: 'bg-purple-950/85 border-purple-400/65 text-purple-200'  },
+            ] as const).map(({ key, label, lampColor, activeClass }) => {
+              const count = workflowSummary?.byStatus?.[key] ?? 0;
+              const isActive = count > 0;
+              return (
+                <button
+                  key={key}
+                  onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                  data-testid={`directive-status-${key}`}
+                  style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center rounded-md border transition-all cursor-pointer active:scale-[0.94]",
+                    isCompact ? "py-1 min-h-[34px]" : "py-1.5 min-h-[38px]",
+                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-900/80 border-gray-700/40"
+                  )}
+                >
+                  <div className="absolute top-0 left-0 right-0 h-px bg-white/10 rounded-t-md" />
+                  <span className={cn("font-mono font-bold leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "text-white" : "text-gray-700")}>
+                    {workflowSummary ? (count > 0 ? count : '0') : '—'}
+                  </span>
+                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 font-semibold text-[8px]", isActive ? "opacity-65" : "opacity-25")}>{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
           );

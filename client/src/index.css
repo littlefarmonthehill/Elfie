@@ -584,6 +584,23 @@ html.admin-mode {
   box-shadow: 0 0 18px var(--tool-glow-color, rgba(120,180,255,0.3)), 0 0 6px var(--tool-glow-color, rgba(120,180,255,0.15));
 }
 
+/* ── #8 Jetsons control-panel lamp pulse ── */
+@keyframes panel-lamp-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px var(--lamp-color, rgba(249,115,22,0.5)),
+                0 0 10px var(--lamp-color, rgba(249,115,22,0.25));
+    opacity: 0.88;
+  }
+  50% {
+    box-shadow: 0 0 11px var(--lamp-color, rgba(249,115,22,0.85)),
+                0 0 26px var(--lamp-color, rgba(249,115,22,0.45));
+    opacity: 1;
+  }
+}
+.panel-lamp-active {
+  animation: panel-lamp-glow 1.8s ease-in-out infinite;
+}
+
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
