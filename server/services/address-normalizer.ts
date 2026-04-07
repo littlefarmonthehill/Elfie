@@ -10,14 +10,28 @@
  * JP (Japan)
  *   1. NFKD + diacritic strip
  *   2. wanakana.toRomaji  — kana (hiragana / katakana) → Hepburn romaji
- *      e.g. タナカ → tanaka, たろう → tarou
+ *      e.g. タナカ → Tanaka, たろう → Tarou
  *      Kanji that have no kana reading are left for step 3.
  *   3. any-ascii           — remaining non-ASCII → closest Latin chars
  *   4–6. Whitelist / collapse / truncate
  *
- * All other countries
+ * KR (South Korea)
+ *   1. NFKD + diacritic strip
+ *   2. hangul-romanize    — Hangul → Revised Romanization of Korean
+ *      e.g. 김민준 → Gimminjun, 강남구 → Gangnamgu
+ *   3. any-ascii mop-up for any residual non-ASCII
+ *   4–6. Whitelist / collapse / truncate
+ *
+ * CN / TW / HK (Chinese)
+ *   1. NFKD + diacritic strip
+ *   2. pinyin             — Chinese characters → Mandarin Pinyin (no tones)
+ *      e.g. 北京市 → Bei Jing Shi, 张伟 → Zhang Wei
+ *   3. any-ascii mop-up for any residual non-ASCII
+ *   4–6. Whitelist / collapse / truncate
+ *
+ * All other countries (European diacritics, Cyrillic, Arabic, Thai, …)
  *   1. NFKD + diacritic strip  (é → e, ü → u, ñ → n, etc.)
- *   2. any-ascii               (CJK, Arabic, Korean, etc.)
+ *   2. any-ascii               — broadest coverage fallback
  *   3–5. Whitelist / collapse / truncate
  *
  * Adding a new country: add a `case 'XX':` branch in `transliterate()`.
@@ -25,6 +39,10 @@
 
 import anyAscii from 'any-ascii';
 import { toRomaji } from 'wanakana';
+import HangulRomanize from 'hangul-romanize';
+import { pinyin } from 'pinyin';
+
+const { Romanize } = HangulRomanize as any;
 
 // USPS Domestic Mail Manual field length limits (also used for intl labels)
 const FIELD_LIMITS: Record<string, number> = {
@@ -77,10 +95,33 @@ function transliterate(text: string, country: string): string {
       return out;
     }
 
-    // Future entries: add 'KR', 'CN', 'TW', etc. here as needed.
+    case 'KR': {
+      // Revised Romanization of Korean via hangul-romanize
+      // e.g. 강남구 테헤란로 → Gangnamgu Tehelanro
+      let out = Romanize.from(text) as string;
+      // any-ascii mop-up for any residual non-ASCII (mixed scripts, etc.)
+      if (hasNonAscii(out)) out = anyAscii(out);
+      return titleCase(out);
+    }
+
+    case 'CN':
+    case 'TW':
+    case 'HK': {
+      // Mandarin Pinyin (no tone marks) via the pinyin library.
+      // pinyin() returns an array-of-arrays: [['bei'],['jing'],['shi']]
+      // Non-Chinese characters are returned as single-element arrays unchanged.
+      const syllables = (pinyin as any)(text, { style: 0, heteronym: false }) as string[][];
+      let out = syllables.map(a => a[0] ?? '').join(' ');
+      // Collapse double-spaces that appear around non-Chinese Latin segments
+      out = out.replace(/\s+/g, ' ').trim();
+      // any-ascii mop-up for any residual non-ASCII
+      if (hasNonAscii(out)) out = anyAscii(out);
+      return titleCase(out);
+    }
 
     default: {
-      // Generic pipeline: any-ascii handles diacritics + non-Latin scripts.
+      // Generic pipeline: any-ascii handles diacritics + non-Latin scripts
+      // (Cyrillic, Arabic, Greek, Thai, Hebrew, …).
       return hasNonAscii(text) ? anyAscii(text) : text;
     }
   }
