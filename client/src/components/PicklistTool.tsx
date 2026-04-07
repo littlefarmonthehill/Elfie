@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ } from "lucide-react";
-import { printPicklist } from "./PackingSlip";
+import { printPicklist, shortCode } from "./PackingSlip";
 import PartImage from "./PartImage";
 
 type WarehouseLocation = {
@@ -625,7 +625,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                           />
                         )}
                         {(rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)) && (
-                          <span className="font-mono text-xs text-purple-300 shrink-0">
+                          <span className="font-mono text-xs font-bold text-white bg-purple-800/80 border border-purple-500/50 px-1.5 py-0.5 rounded shrink-0 tracking-wide">
                             {rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)}
                           </span>
                         )}
@@ -690,7 +690,10 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                                   {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                                 </span>
                               )}
-                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
+                              <span className="font-mono inline-flex items-baseline gap-1">
+                                {item.orderNumber && <span className="font-bold text-gray-200 tracking-wider">{shortCode(item.orderNumber)}</span>}
+                                <span className="text-gray-500">({item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')})</span>
+                              </span>
                               {item.inventoryQty != null && (
                                 <span className="text-gray-500">Stock: {item.inventoryQty}</span>
                               )}
@@ -809,7 +812,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                             />
                           )}
                           {(item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)) && (
-                            <span className="font-mono text-xs text-purple-400 shrink-0">
+                            <span className="font-mono text-xs font-bold text-white bg-purple-800/80 border border-purple-500/50 px-1.5 py-0.5 rounded shrink-0 tracking-wide">
                               {item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)}
                             </span>
                           )}
@@ -823,7 +826,10 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                             </span>
                           )}
-                          <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
+                          <span className="font-mono inline-flex items-baseline gap-1">
+                            {item.orderNumber && <span className="font-bold text-gray-300 tracking-wider">{shortCode(item.orderNumber)}</span>}
+                            <span className="text-gray-500">({item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')})</span>
+                          </span>
                           {item.inventoryQty != null && <span>Stock: {item.inventoryQty}</span>}
                         </div>
                         {(item.comment || item.remarks || item.inventoryId != null) && (
@@ -921,7 +927,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
         >
           <div className="min-w-0">
             {(lightboxItem.partNumber || lightboxItem.sku) && (
-              <span className="font-mono text-xs text-purple-300 mr-2">
+              <span className="font-mono text-xs font-bold text-white bg-purple-800/80 border border-purple-500/50 px-1.5 py-0.5 rounded mr-2 tracking-wide inline-block">
                 {lightboxItem.partNumber || lightboxItem.sku}
               </span>
             )}
