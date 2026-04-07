@@ -39,6 +39,7 @@ import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
 import ChannelSyncPanel from "@/components/ChannelSyncPanel";
 import BundleTronPanel from "@/components/BundleTronPanel";
 import AcquisitionEvaluator from "@/components/AcquisitionEvaluator";
+import InsightsDashboard from "@/components/InsightsDashboard";
 import OrderSyncPanel, { PLATFORM_CONFIG as ORDER_PLATFORM_CONFIG, OrderSyncPlatform } from "@/components/OrderSyncPanel";
 
 function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
@@ -579,7 +580,7 @@ export default function Home() {
       case 'sales':
         return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onSalesDrawer={setActiveSalesDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} initialPanelTab={ordersInitialTab} />;
       case 'insights':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} compact={compact} />;
+        return <InsightsDashboard onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} compact={compact} />;
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} tvSplit={tvSplit} compact={compact} />;
       default:
