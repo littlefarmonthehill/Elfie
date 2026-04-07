@@ -217,13 +217,13 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
         {/* Alerts — mobile shows up to 5, with expand chip if more */}
         {hasAlerts && (
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {sortedAlerts.map((a, i) => (
               <button
                 key={a.id}
                 onClick={(e) => { e.stopPropagation(); a.onClick?.(); }}
                 className={cn(
-                  'flex items-center gap-2.5 w-full text-left min-w-0 min-h-[38px] px-1.5 -mx-1.5 rounded-md',
+                  'flex items-center gap-2.5 w-full text-left min-w-0 min-h-[30px] px-1.5 -mx-1.5 rounded-md',
                   a.onClick ? 'cursor-pointer hover-elevate' : 'cursor-default',
                   !expanded && i >= MOBILE_LIMIT && 'hidden',
                 )}
@@ -285,13 +285,13 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
         {/* ── Forum discussions (Marketing card) ── */}
         {forumPosts && forumPosts.length > 0 && (
-          <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
+          <div className="space-y-0 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Community Buzz</span>
             {forumPosts.slice(0, 3).map((p, i) => (
               <button
                 key={i}
                 onClick={(e) => { e.stopPropagation(); if (p.threadUrl) window.open(p.threadUrl, '_blank'); }}
-                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[34px] px-1 -mx-1 rounded', p.threadUrl ? 'cursor-pointer hover-elevate' : 'cursor-default')}
+                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[28px] px-1 -mx-1 rounded', p.threadUrl ? 'cursor-pointer hover-elevate' : 'cursor-default')}
                 data-testid={`forum-post-${i}`}
               >
                 <MessageSquare className="w-3 h-3 shrink-0 text-muted-foreground/50" />
@@ -307,13 +307,13 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
         {/* ── News articles (Insights card) ── */}
         {newsArticles && newsArticles.length > 0 && (
-          <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
+          <div className="space-y-0 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Market News</span>
             {newsArticles.slice(0, 3).map((n, i) => (
               <button
                 key={i}
                 onClick={(e) => { e.stopPropagation(); if (n.url) window.open(n.url, '_blank'); }}
-                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[34px] px-1 -mx-1 rounded', n.url ? 'cursor-pointer hover-elevate' : 'cursor-default')}
+                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[28px] px-1 -mx-1 rounded', n.url ? 'cursor-pointer hover-elevate' : 'cursor-default')}
                 data-testid={`news-article-${i}`}
               >
                 <Newspaper className="w-3 h-3 shrink-0 text-muted-foreground/50" />
