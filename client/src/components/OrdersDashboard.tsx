@@ -474,7 +474,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'systems'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-600 hover:text-gray-400"
+                  : "text-gray-400 hover:text-gray-200"
               )}
             >
               <Sparkles className="w-3 h-3 flex-shrink-0" />
@@ -491,7 +491,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
                 panelTab === 'uplink'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-600 hover:text-gray-400"
+                  : "text-gray-400 hover:text-gray-200"
               )}
             >
               <Globe className="w-3 h-3 flex-shrink-0" />

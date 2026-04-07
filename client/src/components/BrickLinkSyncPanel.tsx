@@ -76,12 +76,12 @@ function ChangeDiffRows({ changes }: { changes: { field: string; oldValue: strin
         const oldDisplay = fmtChangeVal(c.field, c.oldValue);
         const newDisplay = fmtChangeVal(c.field, c.newValue);
         return (
-          <div key={c.field} className="grid grid-cols-[5.5rem_auto] gap-x-1.5 items-baseline text-[9px] font-mono">
-            <span className="text-gray-600 truncate">{label}</span>
+          <div key={c.field} className="grid grid-cols-[5.5rem_auto] gap-x-1.5 items-baseline text-[10px] font-mono">
+            <span className="text-gray-400 truncate">{label}</span>
             <span className="min-w-0">
-              <span className="text-red-400/70">{oldDisplay}</span>
-              <span className="text-gray-600 mx-1">→</span>
-              <span className="text-green-400/80">{newDisplay}</span>
+              <span className="text-red-400/80">{oldDisplay}</span>
+              <span className="text-gray-500 mx-1">→</span>
+              <span className="text-green-400/90">{newDisplay}</span>
             </span>
           </div>
         );

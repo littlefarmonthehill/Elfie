@@ -238,13 +238,13 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                   <p className={cn('text-xs leading-tight truncate font-medium', kindText(a.kind))}>{a.label}</p>
                   {a.sub && <p className="text-[11px] text-muted-foreground/50 truncate leading-tight">{a.sub}</p>}
                 </div>
-                {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/40 mt-0.5" />}
+                {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/55 mt-0.5" />}
               </button>
             ))}
             {!expanded && overflowCount > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-                className="text-[11px] font-mono text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors text-left"
+                className="text-[11px] font-mono text-muted-foreground/65 hover:text-muted-foreground/85 transition-colors text-left"
                 data-testid={`alert-expand-${label.toLowerCase()}`}
               >
                 +{overflowCount} more
@@ -263,8 +263,8 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         {/* All clear */}
         {!hasAlerts && !isRunning && !forumPosts?.length && !newsArticles?.length && (
           <div className="flex items-center gap-1.5 py-1 justify-center">
-            <CheckCircle className="w-3 h-3 text-green-400/60" />
-            <span className="text-xs text-muted-foreground/40">All clear</span>
+            <CheckCircle className="w-3 h-3 text-green-400/75" />
+            <span className="text-xs text-muted-foreground/60">All clear</span>
           </div>
         )}
 
@@ -276,9 +276,9 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           >
             {validActions.map((a, i) => (
               <div key={i} className="flex items-center gap-1 min-w-0">
-                <Clock className="w-2 h-2 shrink-0 text-muted-foreground/25" />
-                <span className="text-[11px] text-muted-foreground/35 truncate">{a.label}</span>
-                <span className={cn('text-[11px] font-mono shrink-0', a.ok ? 'text-green-500/50' : 'text-red-400/60')}>{a.time}</span>
+                <Clock className="w-2 h-2 shrink-0 text-muted-foreground/45" />
+                <span className="text-[11px] text-muted-foreground/55 truncate">{a.label}</span>
+                <span className={cn('text-[11px] font-mono shrink-0', a.ok ? 'text-green-500/70' : 'text-red-400/75')}>{a.time}</span>
               </div>
             ))}
           </div>
@@ -287,7 +287,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         {/* ── Forum discussions (Marketing card) ── */}
         {forumPosts && forumPosts.length > 0 && (
           <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
-            <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground/30">Community Buzz</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Community Buzz</span>
             {forumPosts.slice(0, 3).map((p, i) => (
               <button
                 key={i}
@@ -295,12 +295,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 className={cn('flex items-start gap-1.5 w-full text-left min-w-0', p.threadUrl ? 'cursor-pointer' : 'cursor-default')}
                 data-testid={`forum-post-${i}`}
               >
-                <MessageSquare className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/30" />
+                <MessageSquare className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/50" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground/55 truncate leading-tight">{p.title}</p>
-                  {p.postedAt && <p className="text-[8px] text-muted-foreground/30 leading-tight">{relTime(p.postedAt)}</p>}
+                  <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{p.title}</p>
+                  {p.postedAt && <p className="text-[10px] text-muted-foreground/45 leading-tight">{relTime(p.postedAt)}</p>}
                 </div>
-                {p.threadUrl && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/25 mt-0.5" />}
+                {p.threadUrl && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/45 mt-0.5" />}
               </button>
             ))}
           </div>
@@ -309,7 +309,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         {/* ── News articles (Insights card) ── */}
         {newsArticles && newsArticles.length > 0 && (
           <div className="space-y-1 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
-            <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground/30">Market News</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Market News</span>
             {newsArticles.slice(0, 3).map((n, i) => (
               <button
                 key={i}
@@ -317,12 +317,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 className={cn('flex items-start gap-1.5 w-full text-left min-w-0', n.url ? 'cursor-pointer' : 'cursor-default')}
                 data-testid={`news-article-${i}`}
               >
-                <Newspaper className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/30" />
+                <Newspaper className="w-2.5 h-2.5 shrink-0 mt-[2px] text-muted-foreground/50" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground/55 truncate leading-tight">{n.title}</p>
-                  {n.source && <p className="text-[8px] text-muted-foreground/30 leading-tight truncate">{n.source}</p>}
+                  <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{n.title}</p>
+                  {n.source && <p className="text-[10px] text-muted-foreground/45 leading-tight truncate">{n.source}</p>}
                 </div>
-                {n.url && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/25 mt-0.5" />}
+                {n.url && <ArrowRight className="w-2 h-2 shrink-0 text-muted-foreground/45 mt-0.5" />}
               </button>
             ))}
           </div>

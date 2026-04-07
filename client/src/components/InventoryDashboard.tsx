@@ -292,7 +292,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
             {/* Pricing signal */}
             <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[11px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
+              <span className="text-[11px] text-gray-400 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
               {pomInsights ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(pomInsights.data?.summary?.tooLow ?? 0) > 0 && (
@@ -326,7 +326,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
             {/* Channel sync signal */}
             <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[11px] text-gray-600 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
+              <span className="text-[11px] text-gray-400 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
               {hasChannelErrors ? (
                 <button
                   onClick={() => setPanelTab('uplink')}
@@ -337,7 +337,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   Sync issues detected
                 </button>
               ) : syncStatuses ? (
-                <span className="text-[11px] text-green-400/60">All channels nominal</span>
+                <span className="text-[11px] text-green-400/80">All channels nominal</span>
               ) : (
                 <span className="text-[11px] text-gray-700">—</span>
               )}
@@ -360,7 +360,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 panelTab === 'systems'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-600 hover:text-gray-400"
+                  : "text-gray-400 hover:text-gray-200"
               )}
             >
               <Sparkles className="w-3 h-3 flex-shrink-0" />
@@ -376,7 +376,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 "relative flex-1 flex items-center justify-center gap-1 py-1 rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
                 panelTab === 'uplink'
                   ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-600 hover:text-gray-400"
+                  : "text-gray-400 hover:text-gray-200"
               )}
             >
               <Globe className="w-3 h-3 flex-shrink-0" />
