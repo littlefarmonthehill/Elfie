@@ -449,10 +449,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             {/* Happy path: New → In Prog → Feedback */}
             <div className="grid grid-cols-3 gap-1.5" data-testid="directive-workflow-grid">
               {([
-                { key: 'new',        label: 'New',      badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',    isFeedback: false },
-                { key: 'processing', label: 'In Prog',  badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',    isFeedback: false },
-                { key: 'feedback',   label: 'Feedback', badge: 'bg-teal-900/50 text-teal-300 border-teal-700/40',    isFeedback: true  },
-              ] as const).map(({ key, label, badge, isFeedback }) => {
+                { key: 'new',        label: 'New',      activeClass: 'bg-gray-800/80 text-gray-200 border-gray-500/60',  isFeedback: false },
+                { key: 'processing', label: 'In Prog',  activeClass: 'bg-blue-900/70 text-blue-200 border-blue-500/60',  isFeedback: false },
+                { key: 'feedback',   label: 'Feedback', activeClass: 'bg-teal-900/70 text-teal-200 border-teal-500/60',  isFeedback: true  },
+              ] as const).map(({ key, label, activeClass, isFeedback }) => {
                 const count = isFeedback
                   ? (fulfillmentStats?.feedbackPending ?? 0)
                   : (workflowSummary?.byStatus?.[key] ?? 0);
@@ -460,18 +460,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 return (
                   <button
                     key={key}
-                    onClick={() => onDrawerChange('fulfillment')}
+                    onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                     data-testid={`directive-status-${key}`}
                     className={cn(
-                      "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
-                      isCompact ? "px-1 py-1.5" : "px-1 py-2",
-                      isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                      "flex flex-col items-center justify-center gap-1 rounded-lg border min-h-[44px] transition-all hover-elevate active-elevate-2 cursor-pointer",
+                      isCompact ? "px-1 py-2" : "px-1 py-2.5",
+                      isActive ? activeClass : "bg-gray-900/50 border-gray-700/50 text-gray-500"
                     )}
                   >
-                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "" : "text-gray-700")}>
-                      {(workflowSummary || isFeedback) ? count : '·'}
+                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-sm" : "text-base")}>
+                      {(workflowSummary || isFeedback) ? count : '—'}
                     </span>
-                    <span className="text-[7px] uppercase tracking-wide leading-none text-center opacity-80">{label}</span>
+                    <span className={cn("text-[9px] uppercase tracking-widest leading-none text-center font-semibold", isActive ? "opacity-75" : "opacity-40")}>{label}</span>
                   </button>
                 );
               })}
@@ -487,28 +487,28 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             {/* Non-happy path: Unpaid · Bump · Issue · Hold */}
             <div className="grid grid-cols-4 gap-1.5">
               {([
-                { key: 'unpaid',  label: 'Unpaid', badge: 'bg-orange-950/70 text-orange-300 border-orange-600/50 shadow-[0_0_8px_rgba(249,115,22,0.18)]' },
-                { key: 'bump',    label: 'Bump',   badge: 'bg-amber-950/70 text-amber-300 border-amber-600/50 shadow-[0_0_8px_rgba(251,191,36,0.15)]'   },
-                { key: 'issue',   label: 'Issue',  badge: 'bg-red-950/70 text-red-300 border-red-600/50 shadow-[0_0_8px_rgba(248,113,113,0.2)]'         },
-                { key: 'on_hold', label: 'Hold',   badge: 'bg-purple-950/70 text-purple-300 border-purple-600/50 shadow-[0_0_8px_rgba(168,85,247,0.15)]' },
-              ] as const).map(({ key, label, badge }) => {
+                { key: 'unpaid',  label: 'Unpaid', activeClass: 'bg-orange-950/80 text-orange-200 border-orange-500/60 shadow-[0_0_8px_rgba(249,115,22,0.2)]'  },
+                { key: 'bump',    label: 'Bump',   activeClass: 'bg-amber-950/80 text-amber-200 border-amber-500/60 shadow-[0_0_8px_rgba(251,191,36,0.2)]'     },
+                { key: 'issue',   label: 'Issue',  activeClass: 'bg-red-950/80 text-red-200 border-red-500/60 shadow-[0_0_8px_rgba(248,113,113,0.22)]'          },
+                { key: 'on_hold', label: 'Hold',   activeClass: 'bg-purple-950/80 text-purple-200 border-purple-500/60 shadow-[0_0_8px_rgba(168,85,247,0.2)]'  },
+              ] as const).map(({ key, label, activeClass }) => {
                 const count = workflowSummary?.byStatus?.[key] ?? 0;
                 const isActive = count > 0;
                 return (
                   <button
                     key={key}
-                    onClick={() => onDrawerChange('fulfillment')}
+                    onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                     data-testid={`directive-status-${key}`}
                     className={cn(
-                      "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
-                      isCompact ? "px-1 py-1.5" : "px-1 py-2",
-                      isActive ? badge : "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                      "flex flex-col items-center justify-center gap-1 rounded-lg border min-h-[40px] transition-all hover-elevate active-elevate-2 cursor-pointer",
+                      isCompact ? "px-0.5 py-1.5" : "px-0.5 py-2",
+                      isActive ? activeClass : "bg-gray-900/50 border-gray-700/50 text-gray-500"
                     )}
                   >
-                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "" : "text-gray-700")}>
-                      {workflowSummary ? count : '·'}
+                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm")}>
+                      {workflowSummary ? count : '—'}
                     </span>
-                    <span className="text-[7px] uppercase tracking-wide leading-none text-center opacity-80">{label}</span>
+                    <span className={cn("text-[8px] uppercase tracking-widest leading-none text-center font-semibold", isActive ? "opacity-75" : "opacity-40")}>{label}</span>
                   </button>
                 );
               })}
