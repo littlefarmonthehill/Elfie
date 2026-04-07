@@ -14,7 +14,7 @@ function InsightsIcon({ className, strokeWidth = 1.5, ...props }: { className?: 
   );
 }
 
-export type DashboardType = 'dashboard' | 'inventory' | 'orders' | 'marketing' | 'sales';
+export type DashboardType = 'dashboard' | 'inventory' | 'sales' | 'marketing' | 'insights';
 
 interface DashboardNavProps {
   active: DashboardType;
@@ -26,9 +26,9 @@ interface DashboardNavProps {
 export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
   { id: 'dashboard', label: 'Bridge', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-gray-500', icon: Rocket },
   { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-gray-500', icon: ToyBrick },
-  { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-gray-500', icon: Orbit },
+  { id: 'sales', label: 'Sales', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-gray-500', icon: Orbit },
   { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-gray-500', icon: Sparkles },
-  { id: 'sales', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-gray-500', icon: InsightsIcon },
+  { id: 'insights', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-gray-500', icon: InsightsIcon },
 ];
 
 export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersCount = 0 }: DashboardNavProps) {
@@ -46,7 +46,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersC
         {filtered.map((dashboard) => {
           const isActive = active === dashboard.id;
           const Icon = dashboard.icon;
-          const showOrdersBadge = dashboard.id === 'orders' && ordersCount > 0 && !isActive;
+          const showOrdersBadge = dashboard.id === 'sales' && ordersCount > 0 && !isActive;
 
           return (
             <button
@@ -118,7 +118,7 @@ export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact, or
       {filtered.map((dashboard) => {
         const isActive = active === dashboard.id;
         const Icon = dashboard.icon;
-        const showOrdersBadge = dashboard.id === 'orders' && ordersCount > 0 && !isActive;
+        const showOrdersBadge = dashboard.id === 'sales' && ordersCount > 0 && !isActive;
 
         return (
           <button

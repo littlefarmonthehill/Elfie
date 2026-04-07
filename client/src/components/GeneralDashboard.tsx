@@ -17,9 +17,9 @@ interface GeneralDashboardProps {
   onOpenPriceomatic?: () => void;
   onOpenBilling?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications') => void;
-  onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing', panelTab?: 'systems' | 'uplink') => void;
+  onNavigate?: (tab: 'inventory' | 'sales' | 'insights' | 'marketing', panelTab?: 'systems' | 'uplink') => void;
   section?: 'all' | 'plan' | 'ops';
-  activeSection?: 'inventory' | 'orders' | 'marketing' | 'sales';
+  activeSection?: 'inventory' | 'sales' | 'marketing' | 'insights';
 }
 
 function relTime(iso: string | null | undefined): string {
@@ -919,7 +919,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', severity: 'error', kind: 'critical' });
   }
   if (abandonedQtyUpdates > 0) {
-    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders', 'uplink') });
+    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('sales', 'uplink') });
   }
   if (channelSyncFailed) {
     urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
@@ -971,18 +971,18 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const revenueChangePct = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
   const marketDataStale = (bridgeSignals?.marketNewsFreshDays ?? 0) > 7;
   if (revenueChangePct !== null && revenueChangePct >= 10) {
-    urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'revenue-up', icon: TrendingUp, iconColor: 'text-teal-400', label: `Revenue up ${revenueChangePct}% this week`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('insights') });
   } else if (revenueChangePct !== null && revenueChangePct <= -10) {
-    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'revenue-down', icon: TrendingDown, iconColor: 'text-orange-400', label: `Revenue down ${Math.abs(revenueChangePct)}% this week`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
   }
 
   // ── Data intelligence health signals ────────────────────────────────────────
   if (marketDataStale) {
-    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'market-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Market intelligence is out of date', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
   }
   const biStale = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
   if (biStale && !marketDataStale) {
-    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+    urgentAlerts.push({ id: 'bi-stale', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Business intelligence not refreshed', severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('insights') });
   }
   if (ieData !== undefined && ieData !== null && !strategyConfigured) {
     urgentAlerts.push({ id: 'no-strategy', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Seller strategy not configured', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ieStrategies') });
@@ -1054,8 +1054,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           color="orange"
           stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
           alerts={urgentAlerts.filter(a => ['pending', 'order-fail', 'qty-sync-fail', 'aging-orders', 'high-value-pending'].includes(a.id))}
-          onClick={() => onNavigate?.('orders')}
-          isActive={activeSection === 'orders'}
+          onClick={() => onNavigate?.('sales')}
+          isActive={activeSection === 'sales'}
           channelNum="02"
           channelHex="#E8611C"
           isRunning={isOrderSyncing || !!activeOrdEmbed}
@@ -1098,8 +1098,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           color="green"
           stat={formatCurrency(totalRevenue)}
           alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down', 'market-stale', 'bi-stale', 'no-strategy'].includes(a.id))}
-          onClick={() => onNavigate?.('sales')}
-          isActive={activeSection === 'sales'}
+          onClick={() => onNavigate?.('insights')}
+          isActive={activeSection === 'insights'}
           channelNum="04"
           channelHex="#00963C"
           newsArticles={marketIntel?.news?.articles ?? []}

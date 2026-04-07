@@ -126,7 +126,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
       alerts: invAlerts,
     },
     {
-      id: 'orders', ch: '03', label: 'ORDERS', hex: '#E8611C', rgb: '232,97,28',
+      id: 'sales', ch: '03', label: 'SALES', hex: '#E8611C', rgb: '232,97,28',
       Icon: ShoppingCart,
       stats: [
         { label: 'PENDING', value: fmt(pendingOrders) },
@@ -146,7 +146,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
       alerts: mktAlerts,
     },
     {
-      id: 'sales', ch: '05', label: 'INSIGHTS', hex: '#00963C', rgb: '0,150,60',
+      id: 'insights', ch: '05', label: 'INSIGHTS', hex: '#00963C', rgb: '0,150,60',
       Icon: TrendingUp,
       stats: [
         { label: 'THIS WK', value: fmtMoney(thisWeek) },
@@ -372,13 +372,13 @@ export default function Home() {
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number }>({
     queryKey: ['/api/picklist/stats'],
-    enabled: activeDashboard === 'orders',
+    enabled: activeDashboard === 'sales',
   });
 
   // Fetch fulfillment stats for indicator
   const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
     queryKey: ['/api/fulfillment/stats'],
-    enabled: activeDashboard === 'orders',
+    enabled: activeDashboard === 'sales',
   });
 
   // Fetch platform sync status for indicator
@@ -575,9 +575,9 @@ export default function Home() {
     switch (activeDashboard) {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} compact={compact} initialPanelTab={inventoryInitialTab} />;
-      case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onSalesDrawer={setActiveSalesDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} initialPanelTab={ordersInitialTab} />;
       case 'sales':
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onSalesDrawer={setActiveSalesDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} initialPanelTab={ordersInitialTab} />;
+      case 'insights':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} compact={compact} />;
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} tvSplit={tvSplit} compact={compact} />;
@@ -588,7 +588,7 @@ export default function Home() {
 
   const renderMobileDashboard = () => {
     if (activeDashboard === 'dashboard') {
-      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'orders') setOrdersInitialTab(panelTab); } }} />;
+      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('sales'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'sales') setOrdersInitialTab(panelTab); } }} />;
     }
     // Pass isDesktop so that when the desktop layout is active, the mobile/tablet
     // copies of this dashboard (CSS-hidden but still in the DOM) also suppress any
@@ -636,7 +636,7 @@ export default function Home() {
   /** Navigate to a dashboard AND open a specific panel tab. */
   const tuneChannelWithTab = (dashboard: DashboardType, panelTab: 'systems' | 'uplink') => {
     if (dashboard === 'inventory') setInventoryInitialTab(panelTab);
-    if (dashboard === 'orders') setOrdersInitialTab(panelTab);
+    if (dashboard === 'sales') setOrdersInitialTab(panelTab);
     tuneChannel(dashboard);
   };
 
@@ -808,9 +808,9 @@ export default function Home() {
     switch (activeDashboard) {
       case 'inventory':
         return 'Inventory';
-      case 'orders':
-        return 'Orders';
       case 'sales':
+        return 'Sales';
+      case 'insights':
         return 'Insights';
       case 'marketing':
         return 'Marketing';
@@ -823,9 +823,9 @@ export default function Home() {
     switch (activeDashboard) {
       case 'inventory':
         return 'blue';
-      case 'orders':
-        return 'orange';
       case 'sales':
+        return 'orange';
+      case 'insights':
         return 'green';
       case 'marketing':
         return 'yellow';
@@ -836,7 +836,7 @@ export default function Home() {
 
 
   const handlePromptAction = (prompt: string) => {
-    if (activeDashboard === 'sales') {
+    if (activeDashboard === 'insights') {
       const periodMap: { [key: string]: 'mtd' | 'ytd' | '1y' | '5y' } = {
         'MTD': 'mtd',
         'YTD': 'ytd',
@@ -1276,7 +1276,7 @@ export default function Home() {
                   onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
                   onOpenBilling={() => setBillingOpen(true)}
                   onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                  onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'orders') setOrdersInitialTab(panelTab); } }}
+                  onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'sales') setOrdersInitialTab(panelTab); } }}
                 />
               </div>
             </div>
@@ -1328,8 +1328,8 @@ export default function Home() {
                 <div className={`h-full rounded-lg border overflow-hidden ${
                   activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
                   activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
-                  activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
-                  activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
+                  activeDashboard === 'sales' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
+                  activeDashboard === 'insights' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
                   'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
                 }`}>
                   <div className="h-full overflow-y-auto">
@@ -1363,8 +1363,8 @@ export default function Home() {
                   <div className={`h-full overflow-y-auto ${
                     activeDashboard === 'dashboard' ? 'bg-gradient-to-br from-lego-red/8 via-transparent to-lego-red/4' :
                     activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
-                    activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
-                    activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
+                    activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
+                    activeDashboard === 'insights' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
                     'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
                   }`}>
                     {renderMobileDashboard()}
@@ -1378,9 +1378,9 @@ export default function Home() {
               const TV_CHANNELS = [
                 { id: 'dashboard' as DashboardType, num: '01', label: 'BRIDGE',    hex: '#DC2626', rgb: '220,38,38'  },
                 { id: 'inventory' as DashboardType, num: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229' },
-                { id: 'orders'    as DashboardType, num: '03', label: 'ORDERS',    hex: '#E8611C', rgb: '232,97,28'  },
+                { id: 'sales'     as DashboardType, num: '03', label: 'SALES',     hex: '#E8611C', rgb: '232,97,28'  },
                 { id: 'marketing' as DashboardType, num: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0'  },
-                { id: 'sales'     as DashboardType, num: '05', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60'   },
+                { id: 'insights'  as DashboardType, num: '05', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60'   },
               ];
               const activeCh  = TV_CHANNELS.find(c => c.id === activeDashboard) ?? TV_CHANNELS[1];
               const screenRgb = activeCh.rgb;
@@ -1501,7 +1501,7 @@ export default function Home() {
                                     <div style={{ flex:1,minHeight:0,overflowY:'auto' }}>
                                       <GeneralDashboard
                                         onItemClick={handleDashboardItemClick}
-                                        onOpenFulfillment={() => { tuneChannel('orders'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
+                                        onOpenFulfillment={() => { tuneChannel('sales'); setTimeout(() => setActiveOrdersDrawer('fulfillment'), 250); }}
                                         onOpenBrickanalyzer={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('brickanalyzer'), 250); }}
                                         onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
                                         onOpenBilling={() => setBillingOpen(true)}
