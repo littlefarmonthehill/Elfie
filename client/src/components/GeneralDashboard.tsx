@@ -633,7 +633,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
             )}
 
             <div className="px-3 py-2.5">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Communications</h4>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sync Alerts</h4>
               {children ?? (
                 <div className="flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />

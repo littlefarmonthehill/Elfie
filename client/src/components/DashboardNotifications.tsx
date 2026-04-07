@@ -35,12 +35,12 @@ const GROUPS: DashboardGroup[] = [
   {
     key: "orders",
     label: "Orders",
-    syncTypes: ["order_sync", "inventory_deduction"],
+    syncTypes: ["order_sync", "cross_platform_sync", "inventory_deduction"],
   },
   {
     key: "product",
     label: "Inventory",
-    syncTypes: ["inventory_sync", "cross_platform_sync", "brickowl_lot", "quantity_health", "channel_sync", "priceomatic_sync"],
+    syncTypes: ["inventory_sync", "brickowl_lot", "quantity_health", "channel_sync", "priceomatic_sync"],
   },
   {
     key: "dashboard",
