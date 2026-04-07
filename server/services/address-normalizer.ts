@@ -9,10 +9,11 @@
  * ─────────────────────────────────────
  * JP (Japan)
  *   1. NFKD + diacritic strip
- *   2. wanakana.toRomaji  — kana (hiragana / katakana) → Hepburn romaji
- *      e.g. タナカ → Tanaka, たろう → Tarou
- *      Kanji that have no kana reading are left for step 3.
- *   3. any-ascii           — remaining non-ASCII → closest Latin chars
+ *   2. kuroshiro + kuromoji  — full Japanese morphological analysis
+ *      Reads kanji with proper Japanese pronunciation via dictionary lookup.
+ *      e.g. 弘晃 → hiroshi akira, 筒尾2丁目14-15 → tsutsuo 2 chome 14-15
+ *      Kana (hiragana/katakana) is handled by the same step.
+ *   3. any-ascii mop-up for any residual non-ASCII
  *   4–6. Whitelist / collapse / truncate
  *
  * KR (South Korea)
@@ -38,13 +39,42 @@
  */
 
 import anyAscii from 'any-ascii';
-import { toRomaji } from 'wanakana';
 import HangulRomanize from 'hangul-romanize';
 import { pinyin } from 'pinyin';
 
 const { Romanize } = HangulRomanize as any;
 
-// USPS Domestic Mail Manual field length limits (also used for intl labels)
+// ── kuroshiro singleton (JP only) ─────────────────────────────────────────────
+// The kuromoji dictionary loads once, asynchronously, on first use.
+// Subsequent calls reuse the same initialized instance.
+
+let _kuroshiro: any = null;
+let _kuroshiroReady: Promise<void> | null = null;
+
+async function getKuroshiro(): Promise<any> {
+  if (_kuroshiro) return _kuroshiro;
+
+  if (!_kuroshiroReady) {
+    _kuroshiroReady = (async () => {
+      const { default: KuroshiroModule } = await import('kuroshiro');
+      const { default: KuromojiModule }  = await import('kuroshiro-analyzer-kuromoji');
+      const Kuroshiro       = (KuroshiroModule as any).default ?? KuroshiroModule;
+      const KuromojiAnalyzer = (KuromojiModule as any).default  ?? KuromojiModule;
+      _kuroshiro = new Kuroshiro();
+      await _kuroshiro.init(new KuromojiAnalyzer());
+    })();
+  }
+
+  await _kuroshiroReady;
+  return _kuroshiro;
+}
+
+// Pre-warm the dictionary at module load so it is ready by the time the first
+// shipment arrives, rather than adding latency to that request.
+getKuroshiro().catch(() => { /* will retry on demand */ });
+
+// ── USPS field length limits ──────────────────────────────────────────────────
+
 const FIELD_LIMITS: Record<string, number> = {
   name:    35,
   company: 35,
@@ -58,14 +88,14 @@ const FIELD_LIMITS: Record<string, number> = {
 // Characters allowed on a carrier label
 const ALLOWED_RE = /[^A-Za-z0-9 ,.\-#]/g;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** True when the string contains any character that is not plain ASCII. */
+/** True when the string contains any character outside plain ASCII. */
 const hasNonAscii = (s: string) => /[^\x00-\x7F]/.test(s);
 
 /**
- * Title-case each word in a string.
- * "tanaka tarou" → "Tanaka Tarou"
+ * Title-case each word.
+ * "tanaka taro" → "Tanaka Taro"
  */
 function titleCase(s: string): string {
   return s.replace(/\b[a-z]/g, c => c.toUpperCase());
@@ -73,33 +103,35 @@ function titleCase(s: string): string {
 
 // ── Country-aware transliteration ────────────────────────────────────────────
 
-/**
- * Convert non-ASCII text to the closest printable ASCII using a pipeline
- * that is aware of the destination country.
- */
-function transliterate(text: string, country: string): string {
+async function transliterate(text: string, country: string): Promise<string> {
   switch (country.toUpperCase()) {
+
     case 'JP': {
-      // Step 1: Convert hiragana / katakana → Hepburn romaji
-      // wanakana leaves kanji and Latin characters untouched.
-      let out = toRomaji(text, { upcaseKatakana: false });
+      // Full Japanese morphological analysis — reads kanji with Japanese
+      // pronunciation (not Chinese), then emits romaji.
+      // e.g. 弘晃 → hiroshi akira, 丁目 → chome, 桑名市 → kuwana shi
+      try {
+        const k = await getKuroshiro();
+        let out: string = await k.convert(text, { to: 'romaji', mode: 'spaced' });
 
-      // Step 2: any-ascii mop-up for any remaining kanji or other non-ASCII
-      if (hasNonAscii(out)) {
-        out = anyAscii(out);
+        // kuroshiro may return macron long-vowels (ō, ū) — strip them via NFKD
+        out = out.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+
+        // any-ascii mop-up for residual non-ASCII (rare edge cases)
+        if (hasNonAscii(out)) out = anyAscii(out);
+
+        return titleCase(out);
+      } catch {
+        // If kuroshiro fails (e.g. dictionary not yet loaded), fall back to
+        // any-ascii so the label is still submitted rather than crashing.
+        return hasNonAscii(text) ? titleCase(anyAscii(text)) : text;
       }
-
-      // Step 3: Title-case the result so names look like "Tanaka Taro"
-      // rather than the all-lowercase wanakana output.
-      out = titleCase(out);
-      return out;
     }
 
     case 'KR': {
       // Revised Romanization of Korean via hangul-romanize
       // e.g. 강남구 테헤란로 → Gangnamgu Tehelanro
       let out = Romanize.from(text) as string;
-      // any-ascii mop-up for any residual non-ASCII (mixed scripts, etc.)
       if (hasNonAscii(out)) out = anyAscii(out);
       return titleCase(out);
     }
@@ -109,12 +141,10 @@ function transliterate(text: string, country: string): string {
     case 'HK': {
       // Mandarin Pinyin (no tone marks) via the pinyin library.
       // pinyin() returns an array-of-arrays: [['bei'],['jing'],['shi']]
-      // Non-Chinese characters are returned as single-element arrays unchanged.
+      // Non-Chinese characters are returned in single-element arrays unchanged.
       const syllables = (pinyin as any)(text, { style: 0, heteronym: false }) as string[][];
-      let out = syllables.map(a => a[0] ?? '').join(' ');
-      // Collapse double-spaces that appear around non-Chinese Latin segments
+      let out = syllables.map((a: string[]) => a[0] ?? '').join(' ');
       out = out.replace(/\s+/g, ' ').trim();
-      // any-ascii mop-up for any residual non-ASCII
       if (hasNonAscii(out)) out = anyAscii(out);
       return titleCase(out);
     }
@@ -129,29 +159,29 @@ function transliterate(text: string, country: string): string {
 
 // ── Per-field normalization ───────────────────────────────────────────────────
 
-function normalizeField(
+async function normalizeField(
   value: string,
   fieldName: string,
   country: string,
-): { normalized: string; warnings: string[] } {
+): Promise<{ normalized: string; warnings: string[] }> {
   const warnings: string[] = [];
 
   if (!value) return { normalized: '', warnings };
 
-  // 1 + 2: NFKD decomposition → strip combining diacritics (works for all scripts)
+  // 1: NFKD decomposition → strip combining diacritics (works for all scripts)
   let out = value
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '');
 
-  // 3: Country-aware transliteration
+  // 2: Country-aware transliteration
   if (hasNonAscii(out)) {
-    out = transliterate(out, country);
+    out = await transliterate(out, country);
   }
 
-  // 4: Remove characters outside the carrier whitelist
+  // 3: Remove characters outside the carrier whitelist
   out = out.replace(ALLOWED_RE, ' ');
 
-  // 5: Collapse multiple spaces and trim
+  // 4: Collapse multiple spaces and trim
   out = out.replace(/\s+/g, ' ').trim();
 
   // Confidence check: if the result is empty but the input wasn't, warn
@@ -161,7 +191,7 @@ function normalizeField(
     );
   }
 
-  // 6: Enforce max length
+  // 5: Enforce max length
   const maxLen = FIELD_LIMITS[fieldName];
   if (maxLen && out.length > maxLen) {
     warnings.push(
@@ -206,6 +236,9 @@ export interface NormalizeAddressResult {
 /**
  * Normalize a full address object for carrier submission.
  *
+ * Async because JP addresses use kuroshiro, which loads a morphological
+ * dictionary (once) before it can convert kanji to romaji.
+ *
  * - `original`   — the caller's input, unchanged
  * - `normalized` — carrier-safe ASCII version ready for the API
  * - `changes`    — list of fields that were modified with before/after values
@@ -214,9 +247,9 @@ export interface NormalizeAddressResult {
  * Fields not subject to transliteration (country, phone, email) are
  * passed through as-is.
  */
-export function normalizeAddress(address: AddressFields): NormalizeAddressResult {
+export async function normalizeAddress(address: AddressFields): Promise<NormalizeAddressResult> {
   const country   = (address.country ?? '').toUpperCase();
-  const warnings: string[]      = [];
+  const warnings: string[]        = [];
   const changes:  AddressChange[] = [];
   const normalized: AddressFields = {};
 
@@ -226,7 +259,7 @@ export function normalizeAddress(address: AddressFields): NormalizeAddressResult
 
   for (const field of textFields) {
     const raw = String(address[field] ?? '');
-    const { normalized: norm, warnings: fw } = normalizeField(raw, field, country);
+    const { normalized: norm, warnings: fw } = await normalizeField(raw, field, country);
     (normalized as any)[field] = norm || undefined;
     warnings.push(...fw);
     if (raw && norm !== raw) {

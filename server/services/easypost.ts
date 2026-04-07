@@ -152,7 +152,7 @@ export class EasyPostShippingVendor implements IShippingVendor {
   }> {
     // Normalize destination address to carrier-safe ASCII before submission.
     // Originals are preserved in the DB / UI; only the normalized copy goes to EasyPost.
-    const { normalized: toNorm, changes: addrChanges, warnings: addrWarnings } = normalizeAddress(request.toAddress);
+    const { normalized: toNorm, changes: addrChanges, warnings: addrWarnings } = await normalizeAddress(request.toAddress);
 
     // Log a structured diff whenever the address was actually modified so operators
     // can see exactly what was sent to EasyPost versus what the buyer entered.
