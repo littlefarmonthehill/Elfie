@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, Truck, PackageCheck,
+  ShoppingCart, PackageCheck,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -434,15 +434,52 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               </div>
               <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide", isCompact ? "text-xs" : "text-xs md:text-sm")}>Command Central</h3>
             </div>
-            <div className="grid grid-cols-6 gap-1.5" data-testid="directive-workflow-grid">
+            {/* Happy path: New → In Prog → Feedback */}
+            <div className="grid grid-cols-3 gap-1.5" data-testid="directive-workflow-grid">
               {([
-                { key: 'unpaid',     label: 'Unpaid',  badge: 'bg-orange-900/50 text-orange-300 border-orange-700/40', dot: 'bg-orange-500' },
-                { key: 'new',        label: 'New',     badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',       dot: 'bg-gray-500' },
-                { key: 'processing', label: 'In Prog', badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',       dot: 'bg-blue-500' },
-                { key: 'bump',       label: 'Bump',    badge: 'bg-amber-900/50 text-amber-300 border-amber-700/40',    dot: 'bg-amber-400' },
-                { key: 'issue',      label: 'Issue',   badge: 'bg-red-900/50 text-red-300 border-red-700/40',          dot: 'bg-red-500' },
-                { key: 'on_hold',    label: 'Hold',    badge: 'bg-purple-900/50 text-purple-300 border-purple-700/40', dot: 'bg-purple-500' },
-              ] as const).map(({ key, label, badge, dot }) => {
+                { key: 'new',        label: 'New',      badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',    isFeedback: false },
+                { key: 'processing', label: 'In Prog',  badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',    isFeedback: false },
+                { key: 'feedback',   label: 'Feedback', badge: 'bg-teal-900/50 text-teal-300 border-teal-700/40',    isFeedback: true  },
+              ] as const).map(({ key, label, badge, isFeedback }) => {
+                const count = isFeedback
+                  ? (fulfillmentStats?.feedbackPending ?? 0)
+                  : (workflowSummary?.byStatus?.[key] ?? 0);
+                const isActive = count > 0;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onDrawerChange('fulfillment')}
+                    data-testid={`directive-status-${key}`}
+                    className={cn(
+                      "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
+                      isCompact ? "px-1 py-1.5" : "px-1 py-2",
+                      isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                    )}
+                  >
+                    <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "" : "text-gray-700")}>
+                      {(workflowSummary || isFeedback) ? count : '·'}
+                    </span>
+                    <span className="text-[7px] uppercase tracking-wide leading-none text-center opacity-80">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Exceptions divider */}
+            <div className="flex items-center gap-1.5 my-0.5">
+              <div className="flex-1 h-px bg-red-900/35" />
+              <span className="text-[7px] font-mono uppercase tracking-widest text-red-400/45">exceptions</span>
+              <div className="flex-1 h-px bg-red-900/35" />
+            </div>
+
+            {/* Non-happy path: Unpaid · Bump · Issue · Hold */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {([
+                { key: 'unpaid',  label: 'Unpaid', badge: 'bg-orange-950/70 text-orange-300 border-orange-600/50 shadow-[0_0_8px_rgba(249,115,22,0.18)]' },
+                { key: 'bump',    label: 'Bump',   badge: 'bg-amber-950/70 text-amber-300 border-amber-600/50 shadow-[0_0_8px_rgba(251,191,36,0.15)]'   },
+                { key: 'issue',   label: 'Issue',  badge: 'bg-red-950/70 text-red-300 border-red-600/50 shadow-[0_0_8px_rgba(248,113,113,0.2)]'         },
+                { key: 'on_hold', label: 'Hold',   badge: 'bg-purple-950/70 text-purple-300 border-purple-600/50 shadow-[0_0_8px_rgba(168,85,247,0.15)]' },
+              ] as const).map(({ key, label, badge }) => {
                 const count = workflowSummary?.byStatus?.[key] ?? 0;
                 const isActive = count > 0;
                 return (
@@ -452,8 +489,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                     data-testid={`directive-status-${key}`}
                     className={cn(
                       "flex flex-col items-center gap-0.5 rounded-lg border transition-all hover-elevate",
-                      isCompact ? "px-1 py-1.5" : "px-1 py-2.5",
-                      isActive ? `${badge} shadow-sm` : "bg-gray-900/30 border-gray-800/40 text-gray-700"
+                      isCompact ? "px-1 py-1.5" : "px-1 py-2",
+                      isActive ? badge : "bg-gray-900/30 border-gray-800/40 text-gray-700"
                     )}
                   >
                     <span className={cn("font-bold font-mono leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "" : "text-gray-700")}>
@@ -516,52 +553,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
-
-            {/* Fulfillment & Shipping */}
-            <button
-              onClick={() => onDrawerChange('fulfillment')}
-              data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                  <Truck className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Fulfillment</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-orange-600/60 hover:text-orange-400 transition-colors"
-                      data-testid="info-fulfillment"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Pick, pack, and ship pending orders. Includes label generation and tracking.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="fulfillment-stats">
-                {(fulfillmentStats?.unfulfilled ?? 0) > 0 && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
-                    {formatNumber(fulfillmentStats!.unfulfilled)} to fulfill
-                  </span>
-                )}
-                {(fulfillmentStats?.feedbackPending ?? 0) > 0 && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="feedback-count">
-                    {formatNumber(fulfillmentStats!.feedbackPending)} feedback
-                  </span>
-                )}
-                {fulfillmentStats && fulfillmentStats.unfulfilled === 0 && fulfillmentStats.feedbackPending === 0 && (
-                  <span className="text-[11px] text-green-400/70">All caught up</span>
-                )}
-              </div>
-            </button>
+          <div className={cn("flex flex-col", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
             {/* Shipped Orders */}
             <button
