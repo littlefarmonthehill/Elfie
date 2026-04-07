@@ -182,18 +182,30 @@ export class EasyPostShippingVendor implements IShippingVendor {
           phone:   toNorm.phone,
           email:   toNorm.email,
         },
-        from_address: {
-          name: request.fromAddress.name,
-          company: request.fromAddress.company,
-          street1: request.fromAddress.street1,
-          street2: request.fromAddress.street2,
-          city: request.fromAddress.city,
-          state: request.fromAddress.state,
-          zip: request.fromAddress.zip,
-          country: request.fromAddress.country,
-          phone: request.fromAddress.phone,
-          email: request.fromAddress.email,
-        },
+        from_address: (() => {
+          const isIntl = (toNorm.country || 'US').toUpperCase() !== 'US';
+          const fromCountry = (request.fromAddress.country || 'US').toUpperCase();
+          // USPS IMM §122.3: return address on international mail must include origin country.
+          // EasyPost/USPS label templates suppress the country field from the visual FROM block
+          // for US-origin shipments. Injecting it into street2 (when otherwise blank) is the
+          // standard workaround to make "United States" appear as a printed address line.
+          const street2Override =
+            isIntl && !request.fromAddress.street2
+              ? (fromCountry === 'US' ? 'United States' : request.fromAddress.country)
+              : request.fromAddress.street2;
+          return {
+            name: request.fromAddress.name,
+            company: request.fromAddress.company,
+            street1: request.fromAddress.street1,
+            street2: street2Override,
+            city: request.fromAddress.city,
+            state: request.fromAddress.state,
+            zip: request.fromAddress.zip,
+            country: request.fromAddress.country,
+            phone: request.fromAddress.phone,
+            email: request.fromAddress.email,
+          };
+        })(),
         parcel: {
           length: request.parcel.length.toString(),
           width: request.parcel.width.toString(),
