@@ -41,55 +41,119 @@ import BundleTronPanel from "@/components/BundleTronPanel";
 import OrderSyncPanel, { PLATFORM_CONFIG as ORDER_PLATFORM_CONFIG, OrderSyncPlatform } from "@/components/OrderSyncPanel";
 
 function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
-  const { data: invStats } = useQuery<{ totalLots: number; totalParts: number; totalValue: number }>({
-    queryKey: ['/api/inventory/stats'],
+  const { data: dashStats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
+    queryKey: ['/api/dashboard/stats'],
     staleTime: 60000,
   });
   const { data: orderStats } = useQuery<{ totalOrders: number; pendingOrders: number; shippedOrders: number }>({
     queryKey: ['/api/orders/stats', 'mtd'],
     staleTime: 60000,
   });
+  const { data: bridgeSignals } = useQuery<{
+    agingOrders: number; repeatBuyers: number;
+    thisWeekRevenue: number; lastWeekRevenue: number;
+    marketNewsFreshDays: number | null; businessIntelFreshDays: number | null;
+  }>({ queryKey: ['/api/bridge/signals'], refetchInterval: 60000, staleTime: 30000 });
+  const { data: globalSyncStatuses } = useQuery<any>({ queryKey: ['/api/sync/statuses'], refetchInterval: 15000 });
+  const { data: syncStatus } = useQuery<any>({ queryKey: ['/api/platform-sync/status'], refetchInterval: 30000 });
+  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({ queryKey: ['/api/fulfillment/stats'], staleTime: 30000 });
+
+  const lastInvSync    = globalSyncStatuses?.inventory;
+  const lastOrderSync  = globalSyncStatuses?.orders;
+  const lastChannelSync = globalSyncStatuses?.channel;
+  const invSyncFailed    = lastInvSync?.lastSyncStatus    === 'failed' || lastInvSync?.lastSyncStatus    === 'error';
+  const orderSyncFailed  = lastOrderSync?.lastSyncStatus  === 'failed' || lastOrderSync?.lastSyncStatus  === 'error';
+  const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
+
+  const pendingOrders = fulfillmentStats?.unfulfilled ?? orderStats?.pendingOrders ?? 0;
+  const agingOrders   = bridgeSignals?.agingOrders ?? 0;
+  const repeatBuyers  = bridgeSignals?.repeatBuyers ?? 0;
+  const thisWeek  = bridgeSignals?.thisWeekRevenue ?? 0;
+  const lastWeek  = bridgeSignals?.lastWeekRevenue ?? 0;
+  const revDelta  = lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek) * 100 : null;
+  const marketStale = (bridgeSignals?.marketNewsFreshDays ?? 0) > 7;
+  const biStale     = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
+
+  const targets: any[] = syncStatus?.targets ?? [];
+  const channelCount = targets.length;
+  const channelDisc  = targets.reduce((s: number, t: any) =>
+    s + (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0), 0);
+
+  const fmt      = (n: number) => n.toLocaleString();
+  const fmtMoney = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
+
+  type Alert = { text: string; color: string };
+
+  const invAlerts: Alert[] = [];
+  if (invSyncFailed)    invAlerts.push({ text: 'Inventory sync failed',   color: '#f87171' });
+  if (channelSyncFailed) invAlerts.push({ text: 'Channel sync failed',    color: '#f87171' });
+  if (!invSyncFailed && !channelSyncFailed) invAlerts.push({ text: 'All syncs nominal', color: '#4ade80' });
+
+  const orderAlerts: Alert[] = [];
+  if (orderSyncFailed) orderAlerts.push({ text: 'Order sync failed',    color: '#f87171' });
+  if (agingOrders > 0) orderAlerts.push({ text: `${agingOrders} aging >24h`, color: '#fb923c' });
+  if (!orderSyncFailed && agingOrders === 0) orderAlerts.push({ text: 'Fulfillment on track', color: '#4ade80' });
+
+  const mktAlerts: Alert[] = [];
+  if (channelCount > 0)  mktAlerts.push({ text: `${channelCount} channel${channelCount !== 1 ? 's' : ''} active`, color: '#a3e635' });
+  if (channelDisc > 0)   mktAlerts.push({ text: `${channelDisc} discrepanc${channelDisc !== 1 ? 'ies' : 'y'}`, color: '#fbbf24' });
+  if (channelCount === 0) mktAlerts.push({ text: 'No channels connected', color: '#94a3b8' });
+
+  const insAlerts: Alert[] = [];
+  if (revDelta !== null) insAlerts.push({
+    text: revDelta >= 0 ? `+${revDelta.toFixed(0)}% vs last week` : `${revDelta.toFixed(0)}% vs last week`,
+    color: revDelta >= 0 ? '#4ade80' : '#f87171',
+  });
+  if (marketStale) insAlerts.push({ text: 'Market data stale', color: '#fbbf24' });
+  if (biStale)     insAlerts.push({ text: 'Intel stale',        color: '#fbbf24' });
+  if (!marketStale && !biStale && revDelta === null) insAlerts.push({ text: 'Insights nominal', color: '#4ade80' });
 
   const cards: Array<{
     id: DashboardType; ch: string; label: string; hex: string; rgb: string;
     Icon: React.ElementType;
-    stats: Array<{ label: string; value: string }>; desc: string;
+    stats: Array<{ label: string; value: string }>;
+    desc: string;
+    alerts: Alert[];
   }> = [
     {
       id: 'inventory', ch: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229',
       Icon: Package,
       stats: [
-        { label: 'LOTS',  value: invStats ? Number(invStats.totalLots).toLocaleString()  : '—' },
-        { label: 'PARTS', value: invStats ? Number(invStats.totalParts).toLocaleString() : '—' },
+        { label: 'LOTS', value: dashStats ? fmt(dashStats.totalInventoryItems) : '—' },
+        { label: 'PCS',  value: dashStats ? fmt(dashStats.totalInventoryQuantity) : '—' },
       ],
       desc: 'Stock · Pricing · Sync',
+      alerts: invAlerts,
     },
     {
       id: 'orders', ch: '03', label: 'ORDERS', hex: '#E8611C', rgb: '232,97,28',
       Icon: ShoppingCart,
       stats: [
-        { label: 'PENDING', value: orderStats ? Number(orderStats.pendingOrders).toLocaleString() : '—' },
-        { label: 'TOTAL',   value: orderStats ? Number(orderStats.totalOrders).toLocaleString()   : '—' },
+        { label: 'PENDING', value: fmt(pendingOrders) },
+        { label: 'MTD',     value: orderStats ? fmt(orderStats.totalOrders) : '—' },
       ],
       desc: 'Fulfillment · Workflow',
+      alerts: orderAlerts,
     },
     {
       id: 'marketing', ch: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0',
       Icon: Users,
       stats: [
-        { label: 'ATTRACT',  value: 'TOOL' },
-        { label: 'ENGAGE',   value: 'TOOL' },
+        { label: 'CHANNELS', value: fmt(channelCount) },
+        { label: 'REPEAT',   value: fmt(repeatBuyers) },
       ],
       desc: 'Attract · Engage · Retain',
+      alerts: mktAlerts,
     },
     {
       id: 'sales', ch: '05', label: 'INSIGHTS', hex: '#00963C', rgb: '0,150,60',
       Icon: TrendingUp,
       stats: [
-        { label: 'REVENUE',  value: '→' },
-        { label: 'TRENDS',   value: '→' },
+        { label: 'THIS WK', value: fmtMoney(thisWeek) },
+        { label: 'LAST WK', value: fmtMoney(lastWeek) },
       ],
       desc: 'Analytics · Performance',
+      alerts: insAlerts,
     },
   ];
 
@@ -109,7 +173,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
             textAlign: 'left',
             display: 'flex',
             flexDirection: 'column',
-            gap: '5px',
+            gap: '4px',
             boxShadow: `0 0 16px rgba(${card.rgb},0.12)`,
             overflow: 'hidden',
             position: 'relative',
@@ -127,7 +191,15 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
             {card.label}
           </div>
           <div style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(180,200,255,0.32)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{card.desc}</div>
-          <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', paddingTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px', flex: 1 }}>
+            {card.alerts.slice(0, 2).map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: a.color, flexShrink: 0, boxShadow: `0 0 4px ${a.color}88` }} />
+                <span style={{ fontFamily: 'monospace', fontSize: '9px', color: a.color, letterSpacing: '0.05em', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.text}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '6px', paddingTop: '4px' }}>
             {card.stats.map(s => (
               <div key={s.label} style={{ flex: 1, background: 'rgba(0,0,0,0.38)', borderRadius: '6px', padding: '5px 7px' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 'clamp(12px,1.2vw,15px)', fontWeight: 700, color: card.hex, lineHeight: 1 }}>{s.value}</div>
@@ -1435,7 +1507,7 @@ export default function Home() {
                                         onOpenBilling={() => setBillingOpen(true)}
                                         onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                                         onNavigate={(tab, panelTab) => panelTab ? tuneChannelWithTab(tab as DashboardType, panelTab) : tuneChannel(tab as DashboardType)}
-                                        section="all"
+                                        section="plan"
                                       />
                                     </div>
                                   )}
