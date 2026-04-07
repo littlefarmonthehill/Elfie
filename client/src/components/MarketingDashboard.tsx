@@ -508,7 +508,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(99,102,241,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
@@ -543,7 +543,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-new')}
               data-testid="tool-engage-new"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
@@ -584,7 +584,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-repeat')}
               data-testid="tool-engage-repeat"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(59,130,246,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
@@ -625,7 +625,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-top')}
               data-testid="tool-engage-top"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-2.5 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
