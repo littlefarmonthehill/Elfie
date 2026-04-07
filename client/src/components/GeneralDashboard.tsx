@@ -6,7 +6,7 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
   ChevronDown, ChevronUp, X,
-  Sparkles, Globe, Megaphone, Star, MessageSquare, Newspaper,
+  Globe, Megaphone, Star, MessageSquare, Newspaper,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { cn } from "@/lib/utils";
@@ -124,26 +124,12 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function relTimeUntil(isoDate: string | null): string {
-  if (!isoDate) return '';
-  const diffMs = new Date(isoDate).getTime() - Date.now();
-  if (diffMs <= 0) return 'update due';
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 60) return `in ${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return rem > 0 ? `in ${hrs}h ${rem}m` : `in ${hrs}h`;
-}
-
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport, schedulerNextRunAt, schedulerEnabled, forumPosts, newsArticles }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, forumPosts, newsArticles }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind?: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
-  flashReport?: { summary: string; urgency: string; updatedAt?: string } | null;
-  schedulerNextRunAt?: string | null;
-  schedulerEnabled?: boolean;
   forumPosts?: Array<{ title: string; threadUrl?: string; excerpt?: string; postedAt?: string }>;
   newsArticles?: Array<{ title: string; url?: string; snippet?: string; source?: string }>;
 }) {
@@ -230,34 +216,6 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
       {/* ── Body ── */}
       <div className="px-3 py-2 flex flex-col gap-1.5">
 
-        {/* Flash Report — hidden on mobile, visible md+ */}
-        {flashReport?.summary && (
-          <div
-            className="hidden md:flex flex-col gap-1 rounded px-2 py-1.5"
-            style={{ background: `color-mix(in srgb, ${hex} 10%, #080a14)`, border: `1px solid ${hex}25` }}
-            data-testid={`flash-report-${label.toLowerCase()}`}
-          >
-            <div className="flex items-start gap-1.5">
-              <Sparkles className="w-2.5 h-2.5 shrink-0 mt-[2px] opacity-80" style={{ color: hex }} />
-              <p
-                className="text-xs leading-[1.4] italic"
-                style={{ color: `color-mix(in srgb, ${hex} 65%, #8899aa)` }}
-              >
-                {flashReport.summary}
-              </p>
-            </div>
-            {schedulerNextRunAt && (
-              <p
-                className="text-[11px] leading-none text-right opacity-50"
-                style={{ color: `color-mix(in srgb, ${hex} 50%, #8899aa)` }}
-                data-testid={`flash-next-update-${label.toLowerCase()}`}
-              >
-                {`next brief ${relTimeUntil(schedulerNextRunAt)}`}
-              </p>
-            )}
-          </div>
-        )}
-
         {/* Alerts — mobile shows up to 5, with expand chip if more */}
         {hasAlerts && (
           <div className="space-y-1">
@@ -303,7 +261,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         )}
 
         {/* All clear */}
-        {!hasAlerts && !isRunning && !flashReport?.summary && !forumPosts?.length && !newsArticles?.length && (
+        {!hasAlerts && !isRunning && !forumPosts?.length && !newsArticles?.length && (
           <div className="flex items-center gap-1.5 py-1 justify-center">
             <CheckCircle className="w-3 h-3 text-green-400/60" />
             <span className="text-xs text-muted-foreground/40">All clear</span>
@@ -841,19 +799,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
   const abandonedQtyUpdates = syncQueueData?.stats?.abandoned ?? 0;
 
-  const { data: flashReportPayload } = useQuery<{
-    reports: Record<string, { summary: string; urgency: string; updatedAt: string } | null>;
-    schedulerNextRunAt: string | null;
-    schedulerEnabled: boolean;
-  }>({
-    queryKey: ['/api/ops/flash-report'],
-    refetchInterval: 5 * 60 * 1000,
-    staleTime: 4 * 60 * 1000,
-  });
-  const flashReports = flashReportPayload?.reports;
-  const schedulerNextRunAt = flashReportPayload?.schedulerNextRunAt ?? null;
-  const schedulerEnabled = flashReportPayload?.schedulerEnabled ?? false;
-
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const [dismissedItems, setDismissedItems] = useState<Set<string>>(() => {
@@ -1097,9 +1042,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'inventory'}
           channelNum="01"
           channelHex="#1B7CE5"
-          flashReport={flashReports?.inventory ?? null}
-          schedulerNextRunAt={schedulerNextRunAt}
-          schedulerEnabled={schedulerEnabled}
           isRunning={isInvSyncing || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
             { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
@@ -1142,9 +1084,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'orders'}
           channelNum="02"
           channelHex="#E8611C"
-          flashReport={flashReports?.orders ?? null}
-          schedulerNextRunAt={schedulerNextRunAt}
-          schedulerEnabled={schedulerEnabled}
           isRunning={isOrderSyncing || !!activeOrdEmbed}
           lastActions={[
             { label: 'Order sync', time: relTime(lastOrderSync?.lastSyncTime), ok: !orderSyncFailed },
@@ -1177,9 +1116,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'marketing'}
           channelNum="03"
           channelHex="#F5C200"
-          flashReport={flashReports?.market ?? null}
-          schedulerNextRunAt={schedulerNextRunAt}
-          schedulerEnabled={schedulerEnabled}
           forumPosts={marketIntel?.forum?.posts ?? []}
         />
 
@@ -1193,16 +1129,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'sales'}
           channelNum="04"
           channelHex="#00963C"
-          flashReport={(() => {
-            const p = flashReports?.pricing;
-            const c = flashReports?.customer;
-            if (!p && !c) return null;
-            if (!p) return c ?? null;
-            if (!c) return p ?? null;
-            return p; // pricing takes priority for Insights card
-          })()}
-          schedulerNextRunAt={schedulerNextRunAt}
-          schedulerEnabled={schedulerEnabled}
           newsArticles={marketIntel?.news?.articles ?? []}
         />
       </div>)}

@@ -178,7 +178,6 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
   const [supportNotification, setSupportNotification] = useState(false);
-  const [navHidden, setNavHidden] = useState(false);
   const [wizardDismissed, setWizardDismissed] = useState(false);
   useEffect(() => {
     if (org?.id) {
@@ -1244,7 +1243,7 @@ export default function Home() {
           <>
             {/* MOBILE layout (< md): single column with bottom nav */}
             <div className="md:hidden h-full overflow-y-auto">
-              <div className={cn("h-full p-2 transition-[padding] duration-300", !navHidden && "pb-20")}>
+              <div className="h-full p-2 pb-20">
                 <div className={`h-full rounded-lg border overflow-hidden ${
                   activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
                   activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
@@ -1772,7 +1771,6 @@ export default function Home() {
             active={activeDashboard}
             onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
             hideOpsCentral={false}
-            onHiddenChange={setNavHidden}
             ordersCount={fulfillmentStats?.unfulfilled ?? 0}
           />
         </div>
