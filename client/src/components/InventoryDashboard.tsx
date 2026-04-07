@@ -506,10 +506,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
               <ChannelSyncPanel channel="brickowl" onOpenSettings={onOpenSettings} />
               <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
+              {isCompact && <DashboardNotifications groupKeys={['product']} />}
             </div>
           )}
-
-          <DashboardNotifications groupKeys={['product']} />
         </div>
       </>}
 

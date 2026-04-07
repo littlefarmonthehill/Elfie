@@ -605,10 +605,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 <OrderSyncPanel key={key} platform={key} onOpenSettings={onOpenSettings} />
               ))}
               <QtySyncQueuePanel />
+              {isCompact && <DashboardNotifications groupKeys={['orders']} />}
             </div>
           )}
-
-          <DashboardNotifications groupKeys={['orders']} />
         </div>
       </>}
 
