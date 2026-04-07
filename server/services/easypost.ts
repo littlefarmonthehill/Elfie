@@ -16,8 +16,24 @@ import {
   CustomsInfo,
   TaxIdentifier,
 } from './shipping-vendor';
+import anyAscii from 'any-ascii';
 
 const EASYPOST_API_URL = 'https://api.easypost.com/v2';
+
+/**
+ * Convert a string to a carrier-safe ASCII value.
+ * USPS / EasyPost label printers are ASCII-only — non-Latin characters
+ * (Japanese, Chinese, Arabic, Korean, etc.) print as '?' unless converted
+ * before they reach the carrier API.  any-ascii maps Unicode → the nearest
+ * printable ASCII equivalent (e.g. 田中 → "Tian Zhong", タナカ → "tanaka").
+ * We apply this only to the data sent to EasyPost; the originals are kept
+ * in the database and displayed in the UI.
+ */
+function toCarrierAscii(value: string | undefined | null): string | undefined {
+  if (!value) return value ?? undefined;
+  if (!/[^\x00-\x7F]/.test(value)) return value; // already ASCII — fast path
+  return anyAscii(value);
+}
 
 // ---------------------------------------------------------------------------
 // Rate limiter — EasyPost test mode is very restrictive.
@@ -152,13 +168,13 @@ export class EasyPostShippingVendor implements IShippingVendor {
     const payload = {
       shipment: {
         to_address: {
-          name: request.toAddress.name,
-          company: request.toAddress.company,
-          street1: request.toAddress.street1,
-          street2: request.toAddress.street2,
-          city: request.toAddress.city,
-          state: request.toAddress.state,
-          zip: request.toAddress.zip,
+          name: toCarrierAscii(request.toAddress.name),
+          company: toCarrierAscii(request.toAddress.company),
+          street1: toCarrierAscii(request.toAddress.street1),
+          street2: toCarrierAscii(request.toAddress.street2),
+          city: toCarrierAscii(request.toAddress.city),
+          state: toCarrierAscii(request.toAddress.state),
+          zip: toCarrierAscii(request.toAddress.zip),
           country: request.toAddress.country,
           phone: request.toAddress.phone,
           email: request.toAddress.email,
