@@ -259,9 +259,6 @@ export default function Home() {
     const check = () => {
       const nowDesktop = window.innerWidth >= 1024 || (window.innerWidth >= 960 && window.matchMedia('(orientation: landscape)').matches);
       setIsDesktop(nowDesktop);
-      if (nowDesktop && activeDashboard === 'dashboard') {
-        setActiveDashboard('inventory');
-      }
     };
     window.addEventListener('resize', check);
     window.addEventListener('orientationchange', check);
