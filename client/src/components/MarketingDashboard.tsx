@@ -466,7 +466,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}
-        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="section-customer-overview">
+        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
@@ -494,7 +494,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="section-marketing-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2", "mb-2")}>
             <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1" : "p-1.5")}>
@@ -508,7 +508,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(99,102,241,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
@@ -543,7 +543,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-new')}
               data-testid="tool-engage-new"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
@@ -584,7 +584,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-repeat')}
               data-testid="tool-engage-repeat"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(59,130,246,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
@@ -625,7 +625,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <button
               onClick={() => onDrawerChange('engage-top')}
               data-testid="tool-engage-top"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>

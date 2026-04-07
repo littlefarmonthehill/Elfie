@@ -388,7 +388,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1 mb-0.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1" : "p-1.5")}>
@@ -461,7 +461,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1.5 md:p-2.5")} data-testid="section-panel-tabs">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-1" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
 
           {/* Retro control panel tab strip */}
@@ -513,7 +513,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
@@ -558,7 +558,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-1.5 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
