@@ -1435,7 +1435,7 @@ export default function Home() {
                                         onOpenBilling={() => setBillingOpen(true)}
                                         onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                                         onNavigate={(tab, panelTab) => panelTab ? tuneChannelWithTab(tab as DashboardType, panelTab) : tuneChannel(tab as DashboardType)}
-                                        section="plan"
+                                        section="all"
                                       />
                                     </div>
                                   )}
