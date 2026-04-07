@@ -92,8 +92,11 @@ const FIELD_LIMITS: Record<string, number> = {
   zip:     10,
 };
 
-// Characters allowed on a carrier label
-const ALLOWED_RE = /[^A-Za-z0-9 ,.\-#]/g;
+// Characters allowed on a carrier label.
+// USPS domestic allows commas and periods (e.g. "P.O. Box", "St. Paul, MN").
+// USPS International explicitly forbids commas and periods — IMM / FAQ requirement.
+const ALLOWED_RE_DOMESTIC    = /[^A-Za-z0-9 ,.\-#]/g;
+const ALLOWED_RE_INTL        = /[^A-Za-z0-9 \-#]/g;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -185,8 +188,10 @@ async function normalizeField(
     out = await transliterate(out, country);
   }
 
-  // 3: Remove characters outside the carrier whitelist
-  out = out.replace(ALLOWED_RE, ' ');
+  // 3: Remove characters outside the carrier whitelist.
+  //    International labels must not contain commas or periods (USPS IMM).
+  const allowedRe = country === 'US' ? ALLOWED_RE_DOMESTIC : ALLOWED_RE_INTL;
+  out = out.replace(allowedRe, ' ');
 
   // 4: Collapse multiple spaces and trim
   out = out.replace(/\s+/g, ' ').trim();
