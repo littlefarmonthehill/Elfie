@@ -443,36 +443,35 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           className={cn(
             "relative rounded-lg border overflow-hidden cursor-pointer hover-elevate active-elevate-2 transition-all",
             hasAction
-              ? "border-orange-400/90 bg-gradient-to-b from-orange-800/55 to-gray-900/92 shadow-[0_0_40px_rgba(249,115,22,0.55),0_0_14px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(249,115,22,0.25)]"
-              : "border-orange-400/50 bg-gradient-to-b from-orange-900/30 to-gray-900/88 shadow-[0_0_22px_rgba(249,115,22,0.2)]"
+              ? "border-orange-400/70 bg-gradient-to-b from-orange-900/45 to-gray-900/90 shadow-[0_0_20px_rgba(249,115,22,0.32),inset_0_1px_0_rgba(249,115,22,0.15)]"
+              : "border-orange-400/45 bg-gradient-to-b from-orange-900/25 to-gray-900/88 shadow-[0_0_14px_rgba(249,115,22,0.15)]"
           )}
           data-testid="section-command-central-orders"
           onClick={() => onDrawerChange('fulfillment')}
         >
-          {/* Bold solid top accent bar */}
-          <div className={cn("absolute top-0 left-0 right-0", hasAction ? "h-[2px] bg-orange-400/90" : "h-px bg-gradient-to-r from-transparent via-orange-300/60 to-transparent")} />
+          {/* Top accent bar */}
+          <div className={cn("absolute top-0 left-0 right-0 h-[2px]", hasAction ? "bg-gradient-to-r from-orange-500/60 via-orange-400/80 to-orange-500/60" : "bg-gradient-to-r from-transparent via-orange-400/35 to-transparent")} />
           <div className={cn("space-y-2", isCompact ? "px-2.5 pt-2 pb-2" : "px-3 pt-2.5 pb-2.5")}>
             <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
               <div className={cn(
-                "rounded-md ring-1 shrink-0",
-                isCompact ? "p-1.5" : "p-1.5",
+                "rounded-md ring-1 shrink-0 p-1.5",
                 hasAction
-                  ? "bg-orange-700/80 ring-orange-400/80 shadow-[0_0_14px_rgba(249,115,22,0.55)]"
-                  : "bg-orange-900/60 ring-orange-500/40 shadow-[0_0_8px_rgba(249,115,22,0.2)]"
+                  ? "bg-orange-800/70 ring-orange-500/60 shadow-[0_0_8px_rgba(249,115,22,0.35)]"
+                  : "bg-orange-900/55 ring-orange-500/35"
               )}>
-                <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-100" : "text-orange-300")} />
+                <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-200" : "text-orange-400/70")} />
               </div>
-              <h3 className={cn("font-bold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-100" : "text-orange-300")}>Command Central</h3>
+              <h3 className={cn("font-semibold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-200" : "text-orange-400/70")}>Command Central</h3>
               {hasAction ? (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="relative flex items-center">
-                    <div className="absolute inset-0 rounded-full bg-orange-400/40 animate-ping" />
-                    <div className="relative w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_6px_rgba(249,115,22,0.9)]" />
+                  <div className="relative w-1.5 h-1.5 shrink-0">
+                    <div className="absolute inset-0 rounded-full bg-orange-400/50 animate-ping" />
+                    <div className="relative w-1.5 h-1.5 rounded-full bg-orange-400" />
                   </div>
-                  <span className="text-[11px] font-bold text-orange-200 font-mono">{totalActive} to act on</span>
+                  <span className="text-[10px] font-semibold text-orange-300/90 font-mono">{totalActive} need action</span>
                 </div>
               ) : (
-                <span className="text-[10px] text-orange-400/50 font-medium shrink-0 flex items-center gap-1">Open <ArrowRight className="w-3 h-3" /></span>
+                <span className="text-[10px] text-orange-400/40 shrink-0 flex items-center gap-0.5">Open <ArrowRight className="w-2.5 h-2.5" /></span>
               )}
             </div>
             {/* Happy path: New → In Prog → Feedback */}
