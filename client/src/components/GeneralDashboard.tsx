@@ -961,10 +961,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (repeatBuyers > 0) {
     urgentAlerts.push({ id: 'repeat-buyers', icon: Users, iconColor: 'text-teal-400', label: `${repeatBuyers} loyal buyer${repeatBuyers !== 1 ? 's' : ''} in your store`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('marketing') });
   }
-  const feedbackPending = fulfillmentStats?.feedbackPending ?? 0;
-  if (feedbackPending > 0) {
-    urgentAlerts.push({ id: 'feedback-pending', icon: MessageSquare, iconColor: 'text-teal-400', label: `${feedbackPending} order${feedbackPending !== 1 ? 's' : ''} need${feedbackPending === 1 ? 's' : ''} feedback`, severity: 'info', kind: 'opportunity', onClick: () => onNavigate?.('orders') });
-  }
 
   // ── Insights signals ────────────────────────────────────────────────────────
   if (overpricedCount > 0) {
@@ -1089,12 +1085,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={Megaphone}
           color="yellow"
           stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
-          alerts={urgentAlerts.filter(a => ['repeat-buyers', 'feedback-pending'].includes(a.id))}
+          alerts={urgentAlerts.filter(a => ['repeat-buyers'].includes(a.id))}
           onClick={() => onNavigate?.('marketing')}
           isActive={activeSection === 'marketing'}
           channelNum="03"
           channelHex="#F5C200"
-          forumPosts={marketIntel?.forum?.posts ?? []}
         />
 
         <OpAreaCard
