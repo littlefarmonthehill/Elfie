@@ -145,7 +145,7 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
         </div>
 
         {/* App Name - Centered */}
-        <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-2xl lg:text-3xl font-bold text-foreground">
+        <h1 className="absolute left-1/2 transform -translate-x-1/2 text-sm md:text-base lg:text-lg font-bold text-foreground">
           {org?.name ?? 'E.L.F.I.E.'}
         </h1>
 
