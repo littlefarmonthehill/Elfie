@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, PackageCheck, TrendingUp, BarChart2, Activity,
+  ShoppingCart, PackageCheck, BarChart2, Activity,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -415,8 +415,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </div>
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
-            <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-pending-orders" />
-            <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" compact={isCompact} data-testid="metric-shipped-orders" />
+            <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
+            <MetricCard label="Refunds" value={adjustments ? (adjustments.totalRefunds > 0 ? `-$${Math.round(adjustments.totalRefunds).toLocaleString()}` : '$0') : '—'} color="red" compact={isCompact} data-testid="metric-orders-refunds" />
           </div>
           <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-orders-kpis">
             <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" compact={isCompact} data-testid="metric-aov" />
@@ -556,28 +556,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
           <div className={cn("flex flex-col", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
-
-            {/* Sales Performance — revenue summary */}
-            <div className={cn("rounded-lg border border-green-500/30 bg-gradient-to-b from-green-900/18 to-gray-900/50 overflow-hidden relative", isCompact ? "p-2" : "p-2.5")} data-testid="section-sales-performance">
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/40 to-transparent" />
-              <div className={cn("flex items-center gap-1.5", isCompact ? "mb-1.5" : "mb-2")}>
-                <TrendingUp className="w-3 h-3 text-green-400 flex-shrink-0" />
-                <span className="text-xs font-semibold text-green-300 uppercase tracking-wide">Sales Performance</span>
-                <div className="flex-1" />
-                <CollapsibleDatePicker value={dateRange} onChange={setDateRange} accentClass="text-green-400/70 hover:text-green-300" testId="button-orders-sales-date" />
-              </div>
-              <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")}>
-                <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
-                <MetricCard label="Orders" value={stats ? formatNumber(stats.totalOrders) : '—'} color="green" compact={isCompact} data-testid="metric-orders-count" />
-                <MetricCard label="Avg Order" value={stats ? `$${aov.toFixed(2)}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-aov" />
-              </div>
-              {adjustments && (
-                <div className={cn("grid grid-cols-2", isCompact ? "gap-1" : "gap-1.5")}>
-                  <MetricCard label="Net Revenue" value={`$${Math.max(0, (stats?.monthRevenue ?? 0) - adjustments.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" compact={isCompact} data-testid="metric-orders-net" />
-                  <MetricCard label="Refunds" value={adjustments.totalRefunds > 0 ? `-$${adjustments.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" compact={isCompact} data-testid="metric-orders-refunds" />
-                </div>
-              )}
-            </div>
 
             {/* Tool cards row */}
             <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
