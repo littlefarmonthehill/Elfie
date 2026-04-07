@@ -398,11 +398,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-purple-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]")}>
+                <div className={cn("rounded-lg bg-purple-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]")}>
                   <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Price-O-Matic</span>
@@ -422,11 +422,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
+                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
                   <Globe className={cn("w-3.5 h-3.5 text-green-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>List-O-Matic</span>
@@ -440,11 +440,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
+                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
                   <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Brick Spotter</span>
@@ -464,11 +464,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('inventoryhealth')}
               data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
+                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
                   <Activity className={cn("w-3.5 h-3.5 text-cyan-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Inventory Health</span>
@@ -482,11 +482,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('bundletron')}
               data-testid="tool-bundletron"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-1.5" : "p-2 md:p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
+                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
                   <Layers className={cn("w-3.5 h-3.5 text-orange-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>BundleTron</span>
