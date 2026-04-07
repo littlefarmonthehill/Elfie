@@ -62,8 +62,17 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const returnToFulfillmentMutation = useMutation({
     mutationFn: async (orderId: string) =>
       apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/return-to-fulfillment`),
-    onSuccess: () => {
-      toast({ title: "Order returned to fulfillment queue" });
+    onSuccess: (data: any) => {
+      const voided = data?.voidedLabels ?? 0;
+      const warning = data?.voidWarning;
+      toast({
+        title: "Order returned to fulfillment queue",
+        description: voided > 0
+          ? `${voided} shipping label${voided > 1 ? 's' : ''} voided with EasyPost.`
+          : warning
+            ? "Label could not be voided — it may be a test label or already voided."
+            : undefined,
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });

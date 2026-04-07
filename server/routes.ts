@@ -5103,6 +5103,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .limit(1);
       if (!order) return res.status(404).json({ error: "Order not found" });
 
+      // ── Void any purchased EasyPost labels for this order (best-effort) ──
+      const purchasedShipments = await db.select().from(shipments)
+        .where(and(eq(shipments.orderId, orderId), eq(shipments.orgId, orgId), eq(shipments.status, 'purchased')));
+
+      let voidedCount = 0;
+      let voidWarning: string | undefined;
+
+      if (purchasedShipments.length > 0) {
+        try {
+          const { getShippingProvider } = await import("./services/shipping-factory");
+          const vendor = await getShippingProvider(orgId);
+          for (const shipment of purchasedShipments) {
+            if (!shipment.vendorShipmentId) continue;
+            try {
+              const voidResult = await vendor.voidLabel(shipment.vendorShipmentId);
+              await db.update(shipments)
+                .set({ status: 'voided', updatedAt: new Date() })
+                .where(eq(shipments.id, shipment.id));
+              if (voidResult.success) {
+                voidedCount++;
+                console.log(`🗑️  Voided EasyPost label ${shipment.vendorShipmentId} for order ${orderId}`);
+              } else {
+                console.warn(`⚠️  EasyPost void non-success for ${shipment.vendorShipmentId}: ${voidResult.message}`);
+              }
+            } catch (voidErr: any) {
+              // Test-mode labels cannot be voided — log and continue
+              console.warn(`⚠️  Could not void label ${shipment.vendorShipmentId}: ${voidErr.message}`);
+              voidWarning = voidErr.message;
+            }
+          }
+        } catch (vendorErr: any) {
+          console.warn(`⚠️  Could not load shipping provider for void: ${vendorErr.message}`);
+          voidWarning = vendorErr.message;
+        }
+      }
+
       // BrickOwl: awaiting_shipment (BO skips awaiting_fulfillment in its workflow)
       // BrickLink + all others: awaiting_fulfillment
       const targetStatus = order.marketplace === 'BrickOwl'
@@ -5119,8 +5155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
 
-      console.log(`🔄 Order ${orderId} returned to fulfillment (${targetStatus}) by org ${orgId}`);
-      res.json({ success: true, orderStatus: targetStatus });
+      console.log(`🔄 Order ${orderId} returned to fulfillment (${targetStatus}), ${voidedCount} label(s) voided`);
+      res.json({ success: true, orderStatus: targetStatus, voidedLabels: voidedCount, voidWarning });
     } catch (error: any) {
       console.error("Error returning order to fulfillment:", error);
       res.status(500).json({ error: error.message || "Failed to return order to fulfillment" });
