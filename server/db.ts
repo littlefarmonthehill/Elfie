@@ -2487,6 +2487,85 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-108 (print configuration on app_settings) complete.');
 
+    // Phase-109: Create wh_zones table and add zone_id to warehouse tables.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wh_zones (
+        id          SERIAL PRIMARY KEY,
+        org_id      VARCHAR NOT NULL,
+        name        TEXT NOT NULL,
+        description TEXT,
+        depth       INTEGER NOT NULL DEFAULT 3,
+        sort_order  INTEGER DEFAULT 0,
+        aisle_format VARCHAR(20) DEFAULT 'numeric',
+        shelf_format VARCHAR(20) DEFAULT 'alpha',
+        bin_format   VARCHAR(20) DEFAULT 'numeric',
+        created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at  TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS wh_zones_org_id_idx ON wh_zones(org_id);
+      ALTER TABLE wh_aisles  ADD COLUMN IF NOT EXISTS zone_id INTEGER REFERENCES wh_zones(id) ON DELETE CASCADE;
+      ALTER TABLE wh_shelves ADD COLUMN IF NOT EXISTS zone_id INTEGER REFERENCES wh_zones(id) ON DELETE CASCADE;
+      ALTER TABLE wh_bins    ADD COLUMN IF NOT EXISTS zone_id INTEGER REFERENCES wh_zones(id) ON DELETE CASCADE;
+    `);
+    // Drop the old global unique constraint on wh_aisles.name if it still exists
+    await client.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'wh_aisles_name_unique' AND conrelid = 'wh_aisles'::regclass
+        ) THEN
+          ALTER TABLE wh_aisles DROP CONSTRAINT wh_aisles_name_unique;
+        END IF;
+      END $$;
+    `).catch(() => {}); // ignore if constraint name differs
+    console.log('[Migration] Phase-109 (wh_zones table + zone_id columns) complete.');
+
+    // Phase-110: For each org that has existing warehouse data, create a default
+    // "Main Warehouse" zone and assign all existing aisles/shelves/bins to it.
+    {
+      const orgRows = await client.query(`
+        SELECT DISTINCT org_id, (
+          SELECT warehouse_depth FROM organizations WHERE id = wa.org_id LIMIT 1
+        ) AS depth
+        FROM (
+          SELECT org_id FROM wh_aisles WHERE zone_id IS NULL
+          UNION
+          SELECT org_id FROM wh_shelves WHERE zone_id IS NULL
+          UNION
+          SELECT org_id FROM wh_bins WHERE zone_id IS NULL
+        ) AS wa
+        WHERE org_id IS NOT NULL
+      `);
+      for (const row of orgRows.rows) {
+        const { org_id, depth } = row;
+        const d = depth || 3;
+        const af = d >= 3 ? 'numeric' : 'alpha';
+        const sf = 'alpha';
+        const bf = 'numeric';
+        // Check if a default zone already exists for this org
+        const existing = await client.query(
+          `SELECT id FROM wh_zones WHERE org_id = $1 LIMIT 1`, [org_id]
+        );
+        let zoneId: number;
+        if (existing.rows.length > 0) {
+          zoneId = existing.rows[0].id;
+        } else {
+          const inserted = await client.query(
+            `INSERT INTO wh_zones (org_id, name, description, depth, sort_order, aisle_format, shelf_format, bin_format)
+             VALUES ($1, 'Main Warehouse', 'Default warehouse zone', $2, 0, $3, $4, $5)
+             RETURNING id`,
+            [org_id, d, af, sf, bf]
+          );
+          zoneId = inserted.rows[0].id;
+        }
+        // Assign all unzoned aisles, shelves, bins to this default zone
+        await client.query(`UPDATE wh_aisles  SET zone_id = $1 WHERE org_id = $2 AND zone_id IS NULL`, [zoneId, org_id]);
+        await client.query(`UPDATE wh_shelves SET zone_id = $1 WHERE org_id = $2 AND zone_id IS NULL`, [zoneId, org_id]);
+        await client.query(`UPDATE wh_bins    SET zone_id = $1 WHERE org_id = $2 AND zone_id IS NULL`, [zoneId, org_id]);
+      }
+    }
+    console.log('[Migration] Phase-110 (default zones for existing warehouse data) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

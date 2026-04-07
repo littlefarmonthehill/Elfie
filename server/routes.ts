@@ -39,7 +39,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, getBrickOw
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup, saveXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whZones, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhZoneSchema, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages } from "@shared/schema";
 import { uploadUserImage, deleteUserImage, assignImageToLot, assignImageToItemType, getImagesForLot, readFromStorage } from "./services/user-image-store";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -16496,20 +16496,115 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   // ========================================
 
   // Get all aisles with shelf and bin counts
+  // ── Warehouse Zones ───────────────────────────────────────────────────────
+
+  app.get("/api/warehouse/zones", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const zones = await db
+        .select({
+          id: whZones.id,
+          orgId: whZones.orgId,
+          name: whZones.name,
+          description: whZones.description,
+          depth: whZones.depth,
+          sortOrder: whZones.sortOrder,
+          aisleFormat: whZones.aisleFormat,
+          shelfFormat: whZones.shelfFormat,
+          binFormat: whZones.binFormat,
+          createdAt: whZones.createdAt,
+          updatedAt: whZones.updatedAt,
+          aisleCount: sql<number>`(SELECT COUNT(*) FROM wh_aisles WHERE zone_id = ${whZones.id})`,
+          shelfCount: sql<number>`(SELECT COUNT(*) FROM wh_shelves WHERE zone_id = ${whZones.id})`,
+          binCount: sql<number>`(SELECT COUNT(*) FROM wh_bins WHERE zone_id = ${whZones.id})`,
+          assignedLotCount: sql<number>`(
+            SELECT COUNT(DISTINCT il.inventory_id)
+            FROM inventory_locations il
+            JOIN wh_bins b ON il.bin_id = b.id
+            WHERE b.zone_id = ${whZones.id}
+          )`,
+        })
+        .from(whZones)
+        .where(eq(whZones.orgId, orgId))
+        .orderBy(whZones.sortOrder, whZones.name);
+      res.json(zones);
+    } catch (error) {
+      console.error("Error fetching warehouse zones:", error);
+      res.status(500).json({ error: "Failed to fetch zones" });
+    }
+  });
+
+  app.post("/api/warehouse/zones", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const data = insertWhZoneSchema.parse({ ...req.body, orgId });
+      const [zone] = await db.insert(whZones).values(data).returning();
+      res.json(zone);
+    } catch (error) {
+      console.error("Error creating zone:", error);
+      res.status(500).json({ error: "Failed to create zone" });
+    }
+  });
+
+  app.put("/api/warehouse/zones/:id", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      const { name, description, depth, aisleFormat, shelfFormat, binFormat, sortOrder } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (name !== undefined) updates.name = name;
+      if (description !== undefined) updates.description = description;
+      if (depth !== undefined) {
+        const d = parseInt(depth);
+        if (![1, 2, 3].includes(d)) return res.status(400).json({ error: "depth must be 1, 2, or 3" });
+        updates.depth = d;
+      }
+      const validFormats = ['alpha', 'numeric', 'alphanumeric'];
+      if (aisleFormat !== undefined) { if (!validFormats.includes(aisleFormat)) return res.status(400).json({ error: "Invalid aisleFormat" }); updates.aisleFormat = aisleFormat; }
+      if (shelfFormat !== undefined) { if (!validFormats.includes(shelfFormat)) return res.status(400).json({ error: "Invalid shelfFormat" }); updates.shelfFormat = shelfFormat; }
+      if (binFormat !== undefined)   { if (!validFormats.includes(binFormat))   return res.status(400).json({ error: "Invalid binFormat" });   updates.binFormat = binFormat; }
+      if (sortOrder !== undefined) updates.sortOrder = parseInt(sortOrder);
+      const [zone] = await db.update(whZones).set(updates).where(and(eq(whZones.id, id), eq(whZones.orgId, orgId))).returning();
+      if (!zone) return res.status(404).json({ error: "Zone not found" });
+      res.json(zone);
+    } catch (error) {
+      console.error("Error updating zone:", error);
+      res.status(500).json({ error: "Failed to update zone" });
+    }
+  });
+
+  app.delete("/api/warehouse/zones/:id", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      await db.delete(whZones).where(and(eq(whZones.id, id), eq(whZones.orgId, orgId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting zone:", error);
+      res.status(500).json({ error: "Failed to delete zone" });
+    }
+  });
+
+  // ── Warehouse Aisles ──────────────────────────────────────────────────────
+
   app.get("/api/warehouse/aisles", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
+      const zoneId = req.query.zoneId ? parseInt(req.query.zoneId as string) : null;
       const aislesWithCounts = await db
         .select({
           id: whAisles.id,
           name: whAisles.name,
           description: whAisles.description,
+          zoneId: whAisles.zoneId,
           createdAt: whAisles.createdAt,
           updatedAt: whAisles.updatedAt,
           shelfCount: sql<number>`(SELECT COUNT(*) FROM ${whShelves} WHERE ${whShelves.aisleId} = ${whAisles.id})`,
         })
         .from(whAisles)
-        .where(eq(whAisles.orgId, orgId))
+        .where(zoneId
+          ? and(eq(whAisles.orgId, orgId), eq(whAisles.zoneId, zoneId))
+          : eq(whAisles.orgId, orgId))
         .orderBy(whAisles.name);
 
       res.json(aislesWithCounts);
@@ -16573,13 +16668,21 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     try {
       const orgId = reqOrgId(req);
       const aisleId = req.query.aisleId ? parseInt(req.query.aisleId as string) : null;
+      const zoneId  = req.query.zoneId  ? parseInt(req.query.zoneId  as string) : null;
       
+      const whereClause = aisleId
+        ? and(eq(whShelves.orgId, orgId), eq(whShelves.aisleId, aisleId))
+        : zoneId
+        ? and(eq(whShelves.orgId, orgId), eq(whShelves.zoneId, zoneId))
+        : eq(whShelves.orgId, orgId);
+
       const shelvesWithCounts = await db
         .select({
           id: whShelves.id,
           name: whShelves.name,
           aisleId: whShelves.aisleId,
           aisleName: whAisles.name,
+          zoneId: whShelves.zoneId,
           position: whShelves.position,
           description: whShelves.description,
           createdAt: whShelves.createdAt,
@@ -16588,7 +16691,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         })
         .from(whShelves)
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(aisleId ? and(eq(whShelves.orgId, orgId), eq(whShelves.aisleId, aisleId)) : eq(whShelves.orgId, orgId))
+        .where(whereClause)
         .orderBy(whShelves.aisleId, whShelves.position);
 
       res.json(shelvesWithCounts);
@@ -16647,11 +16750,18 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
-  // Get all bins (with optional shelf filter)
+  // Get all bins (with optional shelf and/or zone filter)
   app.get("/api/warehouse/bins", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
       const shelfId = req.query.shelfId ? parseInt(req.query.shelfId as string) : null;
+      const zoneId  = req.query.zoneId  ? parseInt(req.query.zoneId  as string) : null;
+
+      const whereClause = shelfId
+        ? and(eq(whBins.orgId, orgId), eq(whBins.shelfId, shelfId))
+        : zoneId
+        ? and(eq(whBins.orgId, orgId), eq(whBins.zoneId, zoneId))
+        : eq(whBins.orgId, orgId);
       
       const binsWithDetails = await db
         .select({
@@ -16661,6 +16771,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           shelfName: whShelves.name,
           aisleId: whAisles.id,
           aisleName: whAisles.name,
+          zoneId: whBins.zoneId,
           position: whBins.position,
           description: whBins.description,
           createdAt: whBins.createdAt,
@@ -16670,7 +16781,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .from(whBins)
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(shelfId ? and(eq(whBins.orgId, orgId), eq(whBins.shelfId, shelfId)) : eq(whBins.orgId, orgId))
+        .where(whereClause)
         .orderBy(whBins.shelfId, whBins.position);
 
       res.json(binsWithDetails);
@@ -17106,7 +17217,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   app.post("/api/warehouse/bins/bulk", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { prefix, start, end, padLength, shelfId } = req.body;
+      const { prefix, start, end, padLength, shelfId, zoneId } = req.body;
       if (prefix == null || start == null || end == null) return res.status(400).json({ error: "start and end are required" });
       const from = parseInt(start);
       const to = parseInt(end);
@@ -17115,6 +17226,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       }
       const pad = parseInt(padLength) || 0;
       const resolvedShelfId = shelfId ? parseInt(shelfId) : null;
+      const resolvedZoneId = zoneId ? parseInt(zoneId) : null;
 
       // Build the full list of names we want to create
       const candidates: string[] = [];
@@ -17137,7 +17249,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
       const rows = candidates
         .filter(name => !existingNames.has(name.toLowerCase()))
-        .map(name => ({ name, shelfId: resolvedShelfId, orgId }));
+        .map(name => ({ name, shelfId: resolvedShelfId, zoneId: resolvedZoneId, orgId }));
 
       if (rows.length === 0) {
         return res.json({ created: 0, skipped: candidates.length, bins: [] });

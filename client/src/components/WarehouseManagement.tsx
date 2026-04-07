@@ -30,6 +30,7 @@ import {
   Loader2,
   Zap,
   ChevronRight,
+  ChevronLeft,
   Pencil,
   Trash2,
   X,
@@ -43,6 +44,7 @@ import {
   CheckCircle2,
   AlertCircle,
   MoveRight,
+  Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -124,6 +126,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [showDepthSetup, setShowDepthSetup] = useState(false);
 
+  // Zone navigation & CRUD state
+  const [activeZoneId, setActiveZoneId] = useState<number | null>(null);
+  const [createZoneOpen, setCreateZoneOpen] = useState(false);
+  const [editZoneOpen, setEditZoneOpen] = useState(false);
+  const [editZone, setEditZone] = useState<any>(null);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneDesc, setNewZoneDesc] = useState('');
+  const [newZoneDepth, setNewZoneDepth] = useState(3);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 280);
     return () => clearTimeout(t);
@@ -184,14 +195,50 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number; aisleFormat: string; shelfFormat: string; binFormat: string }>({
     queryKey: ['/api/warehouse/settings'],
   });
-  const depth = warehouseSettings?.depth ?? 3;
-  const aisleFormat = warehouseSettings?.aisleFormat ?? 'numeric';
-  const shelfFormat = warehouseSettings?.shelfFormat ?? 'alpha';
-  const binFormat  = warehouseSettings?.binFormat  ?? 'numeric';
 
-  const { data: aisles = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/aisles'] });
-  const { data: shelves = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/shelves'] });
-  const { data: bins = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/bins'] });
+  // Zones list (always loaded)
+  const { data: zones = [], isLoading: zonesLoading } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/zones'],
+  });
+
+  // Active zone derived values — override global settings when inside a zone
+  const activeZone = zones.find((z: any) => z.id === activeZoneId) ?? null;
+  const depth = activeZone?.depth ?? warehouseSettings?.depth ?? 3;
+  const aisleFormat = (activeZone?.aisleFormat ?? warehouseSettings?.aisleFormat ?? 'numeric') as LocationFormat;
+  const shelfFormat = (activeZone?.shelfFormat ?? warehouseSettings?.shelfFormat ?? 'alpha') as LocationFormat;
+  const binFormat   = (activeZone?.binFormat   ?? warehouseSettings?.binFormat   ?? 'numeric') as LocationFormat;
+
+  // Zone-scoped warehouse data — only load when inside a zone
+  const { data: aisles = [] } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/aisles', activeZoneId],
+    queryFn: async () => {
+      if (activeZoneId === null) return [];
+      const res = await fetch(`/api/warehouse/aisles?zoneId=${activeZoneId}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: activeZoneId !== null,
+  });
+  const { data: shelves = [] } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/shelves', activeZoneId],
+    queryFn: async () => {
+      if (activeZoneId === null) return [];
+      const res = await fetch(`/api/warehouse/shelves?zoneId=${activeZoneId}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: activeZoneId !== null,
+  });
+  const { data: bins = [] } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/bins', activeZoneId],
+    queryFn: async () => {
+      if (activeZoneId === null) return [];
+      const res = await fetch(`/api/warehouse/bins?zoneId=${activeZoneId}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: activeZoneId !== null,
+  });
   const { data: unassignedInventory = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/inventory'] });
   const { data: unassignedBins = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/bins'] });
   const { data: unassignedShelves = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/shelves'] });
@@ -238,7 +285,43 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/inventory/search'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
   };
+
+  // Zone CRUD mutations
+  const createZoneMutation = useMutation({
+    mutationFn: (data: { name: string; description?: string; depth: number }) =>
+      apiRequest('POST', '/api/warehouse/zones', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
+      setCreateZoneOpen(false);
+      setNewZoneName(''); setNewZoneDesc(''); setNewZoneDepth(3);
+      toast({ title: "Zone created" });
+    },
+    onError: () => toast({ title: "Failed to create zone", variant: "destructive" }),
+  });
+
+  const updateZoneMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      apiRequest('PUT', `/api/warehouse/zones/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
+      setEditZoneOpen(false);
+      setShowDepthSetup(false);
+      toast({ title: "Zone settings updated" });
+    },
+    onError: () => toast({ title: "Failed to update zone", variant: "destructive" }),
+  });
+
+  const deleteZoneMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/zones/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
+      if (activeZoneId) setActiveZoneId(null);
+      toast({ title: "Zone deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete zone", variant: "destructive" }),
+  });
 
   const invalidateLotLocations = (inventoryId: number) => {
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations/inventory', inventoryId] });
@@ -283,34 +366,43 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   });
 
   const updateDepthMutation = useMutation({
-    mutationFn: (d: number) => apiRequest('PATCH', '/api/warehouse/settings', { depth: d }),
+    mutationFn: (d: number) => {
+      if (activeZoneId) return apiRequest('PUT', `/api/warehouse/zones/${activeZoneId}`, { depth: d });
+      return apiRequest('PATCH', '/api/warehouse/settings', { depth: d });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
       setShowDepthSetup(false);
-      toast({ title: "Warehouse depth updated" });
+      toast({ title: "Depth updated" });
     },
   });
 
   const updateFormatMutation = useMutation({
-    mutationFn: (data: { aisleFormat?: string; shelfFormat?: string; binFormat?: string }) =>
-      apiRequest('PATCH', '/api/warehouse/settings', data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] }),
+    mutationFn: (data: { aisleFormat?: string; shelfFormat?: string; binFormat?: string }) => {
+      if (activeZoneId) return apiRequest('PUT', `/api/warehouse/zones/${activeZoneId}`, data);
+      return apiRequest('PATCH', '/api/warehouse/settings', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
+    },
   });
 
   const createAisleMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string }) =>
+    mutationFn: (data: { name: string; description?: string; zoneId?: number }) =>
       apiRequest('POST', '/api/warehouse/aisles', data),
     onSuccess: () => { invalidateWarehouse(); toast({ title: "Aisle created" }); setCreateDialogOpen(false); },
   });
 
   const createShelfMutation = useMutation({
-    mutationFn: (data: { name: string; aisleId?: number; description?: string }) =>
+    mutationFn: (data: { name: string; aisleId?: number; description?: string; zoneId?: number }) =>
       apiRequest('POST', '/api/warehouse/shelves', data),
     onSuccess: () => { invalidateWarehouse(); toast({ title: "Shelf created" }); setCreateDialogOpen(false); },
   });
 
   const createBinMutation = useMutation({
-    mutationFn: (data: { name: string; shelfId?: number; description?: string }) =>
+    mutationFn: (data: { name: string; shelfId?: number; description?: string; zoneId?: number }) =>
       apiRequest('POST', '/api/warehouse/bins', data),
     onSuccess: () => { invalidateWarehouse(); toast({ title: "Bin created" }); setCreateDialogOpen(false); },
   });
@@ -422,14 +514,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const name = createName.trim();
     if (!name) return;
     const description = fd.get('description') as string;
+    const zoneId = activeZoneId ?? undefined;
     if (createType === 'aisle') {
-      createAisleMutation.mutate({ name, description });
+      createAisleMutation.mutate({ name, description, zoneId });
     } else if (createType === 'shelf') {
       const aisleId = fd.get('aisleId') as string;
-      createShelfMutation.mutate({ name, aisleId: aisleId ? parseInt(aisleId) : undefined, description });
+      createShelfMutation.mutate({ name, aisleId: aisleId ? parseInt(aisleId) : undefined, description, zoneId });
     } else {
       const shelfId = fd.get('shelfId') as string;
-      createBinMutation.mutate({ name, shelfId: shelfId ? parseInt(shelfId) : undefined, description });
+      createBinMutation.mutate({ name, shelfId: shelfId ? parseInt(shelfId) : undefined, description, zoneId });
     }
   };
 
@@ -740,9 +833,185 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const depthOption = DEPTH_OPTIONS.find(d => d.value === depth) || DEPTH_OPTIONS[2];
 
-  if (settingsLoading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
-  }
+  // Zones list view — shown when no zone is selected
+  const zonesView = (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">Warehouse Zones</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Each zone is an independent area with its own storage hierarchy</p>
+        </div>
+        <Button
+          size="sm"
+          className="gap-1.5 shrink-0"
+          onClick={() => { setNewZoneName(''); setNewZoneDesc(''); setNewZoneDepth(3); setCreateZoneOpen(true); }}
+          data-testid="button-create-zone"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add Zone
+        </Button>
+      </div>
+
+      {zonesLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+      ) : zones.length === 0 ? (
+        <Card className="p-8 text-center">
+          <Building2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">No zones yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1 mb-4">Create your first warehouse zone to start organising your storage</p>
+          <Button size="sm" onClick={() => setCreateZoneOpen(true)} data-testid="button-create-first-zone">
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Create Zone
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {zones.map((zone: any) => {
+            const dOpt = DEPTH_OPTIONS.find(d => d.value === zone.depth) || DEPTH_OPTIONS[2];
+            return (
+              <Card
+                key={zone.id}
+                className="p-4 hover-elevate cursor-pointer"
+                onClick={() => { setActiveZoneId(zone.id); setActiveView(null); setSelectedItems(new Set()); setSearchQuery(''); }}
+                data-testid={`card-zone-${zone.id}`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="h-4 w-4 text-yellow-400 shrink-0" />
+                    <span className="text-sm font-semibold truncate">{zone.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); setEditZone(zone); setNewZoneName(zone.name); setNewZoneDesc(zone.description || ''); setNewZoneDepth(zone.depth); setEditZoneOpen(true); }}
+                      data-testid={`button-edit-zone-${zone.id}`}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); if (confirm(`Delete zone "${zone.name}" and all its aisles, shelves, and bins? This cannot be undone.`)) deleteZoneMutation.mutate(zone.id); }}
+                      data-testid={`button-delete-zone-${zone.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                {zone.description && (
+                  <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{zone.description}</p>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate">{dOpt.label}</Badge>
+                  {Number(zone.binCount) > 0 && (
+                    <span className="text-[10px] text-muted-foreground/70">{zone.binCount} bin{zone.binCount !== 1 ? 's' : ''}</span>
+                  )}
+                  {Number(zone.assignedLotCount) > 0 && (
+                    <span className="text-[10px] text-muted-foreground/70">· {zone.assignedLotCount} lot{zone.assignedLotCount !== 1 ? 's' : ''} stored</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-end mt-2">
+                  <span className="text-[10px] text-muted-foreground/50 flex items-center gap-0.5">Enter zone <ChevronRight className="h-3 w-3" /></span>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Create Zone Dialog */}
+      <Dialog open={createZoneOpen} onOpenChange={setCreateZoneOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create Warehouse Zone</DialogTitle>
+            <DialogDescription>Name this area and choose how deep its storage hierarchy goes.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); if (!newZoneName.trim()) return; createZoneMutation.mutate({ name: newZoneName.trim(), description: newZoneDesc.trim() || undefined, depth: newZoneDepth }); }} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Zone Name</Label>
+              <Input value={newZoneName} onChange={e => setNewZoneName(e.target.value)} placeholder="e.g. Sets & Minifigs, Parts, Bulk" autoFocus data-testid="input-zone-name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description <span className="text-muted-foreground/60 font-normal">(optional)</span></Label>
+              <Input value={newZoneDesc} onChange={e => setNewZoneDesc(e.target.value)} placeholder="e.g. Location A — left side of room" data-testid="input-zone-description" />
+            </div>
+            <div className="space-y-2">
+              <Label>Storage Depth</Label>
+              {DEPTH_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setNewZoneDepth(opt.value)}
+                  className={`flex items-start gap-3 w-full p-2.5 rounded-md border text-left transition-colors hover-elevate ${newZoneDepth === opt.value ? 'border-yellow-500/60 bg-yellow-500/10' : 'border-border'}`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">{opt.label}</span>
+                      {newZoneDepth === opt.value && <Badge className="text-[9px] px-1 py-0 no-default-active-elevate">Selected</Badge>}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{opt.example}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setCreateZoneOpen(false)}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={!newZoneName.trim() || createZoneMutation.isPending} data-testid="button-save-zone">
+                {createZoneMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Create Zone'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Zone Dialog */}
+      <Dialog open={editZoneOpen} onOpenChange={setEditZoneOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Zone</DialogTitle>
+            <DialogDescription>Update the name, description, or depth of this zone.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); if (!editZone || !newZoneName.trim()) return; updateZoneMutation.mutate({ id: editZone.id, data: { name: newZoneName.trim(), description: newZoneDesc.trim() || null, depth: newZoneDepth } }); }} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Zone Name</Label>
+              <Input value={newZoneName} onChange={e => setNewZoneName(e.target.value)} autoFocus data-testid="input-edit-zone-name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description <span className="text-muted-foreground/60 font-normal">(optional)</span></Label>
+              <Input value={newZoneDesc} onChange={e => setNewZoneDesc(e.target.value)} data-testid="input-edit-zone-description" />
+            </div>
+            <div className="space-y-2">
+              <Label>Storage Depth</Label>
+              {DEPTH_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setNewZoneDepth(opt.value)}
+                  className={`flex items-start gap-3 w-full p-2.5 rounded-md border text-left transition-colors hover-elevate ${newZoneDepth === opt.value ? 'border-yellow-500/60 bg-yellow-500/10' : 'border-border'}`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">{opt.label}</span>
+                      {newZoneDepth === opt.value && <Badge className="text-[9px] px-1 py-0 no-default-active-elevate">Selected</Badge>}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{opt.example}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditZoneOpen(false)}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={!newZoneName.trim() || updateZoneMutation.isPending} data-testid="button-save-edit-zone">
+                {updateZoneMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 
   // Build selected items data for print dialog
   const printItems = (() => {
@@ -907,13 +1176,41 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   return (
     <div className="space-y-4">
 
+      {/* Zones list — shown when no zone is selected */}
+      {activeZoneId === null ? zonesView : (
+      <>
+
+      {/* Zone header — always visible when inside a zone */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 h-8 px-2 text-xs"
+          onClick={() => { setActiveZoneId(null); setShowDepthSetup(false); setActiveView(null); setSelectedItems(new Set()); }}
+          data-testid="button-back-to-zones"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          All Zones
+        </Button>
+        <span className="text-muted-foreground/40 text-xs">/</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Building2 className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+          <span className="text-sm font-semibold truncate">{activeZone?.name}</span>
+        </div>
+        {activeZone && (
+          <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate ml-1">
+            {DEPTH_OPTIONS.find(d => d.value === activeZone.depth)?.label ?? 'Full Warehouse'}
+          </Badge>
+        )}
+      </div>
+
       {/* Depth Selector */}
       {showDepthSetup ? (
         <Card className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold">Warehouse Setup Style</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Choose how deep your location hierarchy goes</p>
+              <p className="text-sm font-semibold">Zone Setup — {activeZone?.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Choose how deep the location hierarchy goes in this zone</p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(false)}>Cancel</Button>
           </div>
@@ -1874,6 +2171,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 end: parseInt(bulkEnd),
                 padLength: parseInt(bulkPad) || 0,
                 shelfId: bulkShelfForBins || undefined,
+                zoneId: activeZoneId ?? undefined,
               })}
               data-testid="button-bulk-create-confirm"
             >
@@ -2457,6 +2755,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           )}
         </DialogContent>
       </Dialog>
+
+      </>
+      )}
     </div>
   );
 }

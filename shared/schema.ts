@@ -1236,12 +1236,39 @@ export const insertEmbeddingJobSchema = createInsertSchema(embeddingJobs).omit({
 export type InsertEmbeddingJob = z.infer<typeof insertEmbeddingJobSchema>;
 export type EmbeddingJob = typeof embeddingJobs.$inferSelect;
 
+// Warehouse Management - Zones (top-level named areas, each with its own depth)
+export const whZones = pgTable("wh_zones", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  orgId: varchar("org_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  depth: integer("depth").notNull().default(3),          // 1=bins, 2=shelf+bin, 3=aisle+shelf+bin
+  sortOrder: integer("sort_order").default(0),
+  aisleFormat: varchar("aisle_format", { length: 20 }).default('numeric'),
+  shelfFormat: varchar("shelf_format", { length: 20 }).default('alpha'),
+  binFormat: varchar("bin_format", { length: 20 }).default('numeric'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  orgIdIdx: index("wh_zones_org_id_idx").on(table.orgId),
+}));
+
+export const insertWhZoneSchema = createInsertSchema(whZones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhZone = z.infer<typeof insertWhZoneSchema>;
+export type WhZone = typeof whZones.$inferSelect;
+
 // Warehouse Management - Aisles
 export const whAisles = pgTable("wh_aisles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  name: text("name").notNull().unique(), // e.g., "Aisle 1", "A", etc.
+  name: text("name").notNull(), // e.g., "Aisle 1", "A", etc.
   description: text("description"),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  zoneId: integer("zone_id").references(() => whZones.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1264,6 +1291,7 @@ export const whShelves = pgTable("wh_shelves", {
   position: integer("position"), // Optional: ordering within aisle
   description: text("description"),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  zoneId: integer("zone_id").references(() => whZones.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1286,6 +1314,7 @@ export const whBins = pgTable("wh_bins", {
   position: integer("position"), // Optional: ordering on shelf
   description: text("description"),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  zoneId: integer("zone_id").references(() => whZones.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1325,11 +1354,19 @@ export type InsertInventoryLocation = z.infer<typeof insertInventoryLocationSche
 export type InventoryLocation = typeof inventoryLocations.$inferSelect;
 
 // Relations for warehouse management
-export const whAislesRelations = relations(whAisles, ({ many }) => ({
+export const whZonesRelations = relations(whZones, ({ many }) => ({
+  aisles: many(whAisles),
+  shelves: many(whShelves),
+  bins: many(whBins),
+}));
+
+export const whAislesRelations = relations(whAisles, ({ one, many }) => ({
+  zone: one(whZones, { fields: [whAisles.zoneId], references: [whZones.id] }),
   shelves: many(whShelves),
 }));
 
 export const whShelvesRelations = relations(whShelves, ({ one, many }) => ({
+  zone: one(whZones, { fields: [whShelves.zoneId], references: [whZones.id] }),
   aisle: one(whAisles, {
     fields: [whShelves.aisleId],
     references: [whAisles.id],
@@ -1338,6 +1375,7 @@ export const whShelvesRelations = relations(whShelves, ({ one, many }) => ({
 }));
 
 export const whBinsRelations = relations(whBins, ({ one, many }) => ({
+  zone: one(whZones, { fields: [whBins.zoneId], references: [whZones.id] }),
   shelf: one(whShelves, {
     fields: [whBins.shelfId],
     references: [whShelves.id],
