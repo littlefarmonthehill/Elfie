@@ -58,20 +58,27 @@ async function getKuroshiro(): Promise<any> {
     _kuroshiroReady = (async () => {
       const { default: KuroshiroModule } = await import('kuroshiro');
       const { default: KuromojiModule }  = await import('kuroshiro-analyzer-kuromoji');
-      const Kuroshiro       = (KuroshiroModule as any).default ?? KuroshiroModule;
+      const Kuroshiro        = (KuroshiroModule as any).default ?? KuroshiroModule;
       const KuromojiAnalyzer = (KuromojiModule as any).default  ?? KuromojiModule;
-      _kuroshiro = new Kuroshiro();
-      await _kuroshiro.init(new KuromojiAnalyzer());
-    })();
+      const k = new Kuroshiro();
+      await k.init(new KuromojiAnalyzer());
+      _kuroshiro = k;
+      console.log('[AddrNorm] kuroshiro + kuromoji dictionary ready — Japanese romanization active');
+    })().catch((err: unknown) => {
+      // Reset so the next call will retry rather than getting a cached rejection.
+      _kuroshiroReady = null;
+      console.error('[AddrNorm] kuroshiro init FAILED — JP addresses will fall back to any-ascii:', err instanceof Error ? err.message : String(err));
+    });
   }
 
   await _kuroshiroReady;
+  if (!_kuroshiro) throw new Error('kuroshiro unavailable');
   return _kuroshiro;
 }
 
 // Pre-warm the dictionary at module load so it is ready by the time the first
 // shipment arrives, rather than adding latency to that request.
-getKuroshiro().catch(() => { /* will retry on demand */ });
+getKuroshiro().catch(() => { /* logged inside */ });
 
 // ── USPS field length limits ──────────────────────────────────────────────────
 
