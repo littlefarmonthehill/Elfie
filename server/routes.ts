@@ -18759,7 +18759,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   // Create shipment and get rates
   app.post("/api/shipments/create", isApproved, async (req, res) => {
     try {
-      const { orderId, fromAddress, parcel, itemIdsToShip, overrideToAddress } = req.body;
+      const { orderId, fromAddress, parcel, itemIdsToShip, overrideToAddress, customsDescription } = req.body;
       
       if (!orderId || !fromAddress || !parcel) {
         return res.status(400).json({ error: "orderId, fromAddress, and parcel are required" });
@@ -18772,6 +18772,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         fromAddress,
         parcel,
         overrideToAddress: overrideToAddress || undefined,
+        customsDescription: typeof customsDescription === 'string' ? customsDescription : undefined,
       });
       
       

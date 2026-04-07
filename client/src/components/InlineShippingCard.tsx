@@ -237,6 +237,7 @@ export default function InlineShippingCard({
 
   type AddrChange = { field: string; original: string; normalized: string };
   const [addrChanges, setAddrChanges] = useState<AddrChange[]>([]);
+  const [customsDescription, setCustomsDescription] = useState('Plastic toy parts');
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
@@ -440,6 +441,7 @@ export default function InlineShippingCard({
         orderId, itemIdsToShip: [], fromAddress,
         parcel: buildParcel(pkg, l, w_, h, w, wu),
         overrideToAddress: address,
+        customsDescription,
       });
       setShipmentId(result.shipmentId);
       setAddrChanges(result.addressNormalization?.changes ?? []);
@@ -915,6 +917,21 @@ export default function InlineShippingCard({
             </div>
           ) : null;
         })()}
+
+        {/* ── Contents description (always visible) ── */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">Contents</span>
+          <input
+            type="text"
+            value={customsDescription}
+            onChange={e => setCustomsDescription(e.target.value)}
+            placeholder="Plastic toy parts"
+            maxLength={60}
+            className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 h-7 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/60 min-w-0"
+            style={{ fontSize: '16px' }}
+            data-testid={`input-customs-description-${orderId}`}
+          />
+        </div>
 
         {/* ── Row 4: Service selector ── */}
         {isLoadingRates ? (
