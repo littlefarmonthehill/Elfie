@@ -172,7 +172,6 @@ const TEST_FROM_ADDRESS = {
 const BASE_PROD_FROM_ADDRESS = {
   street1: "PO Box 202", city: "Lanesboro",
   state: "MN", zip: "55949", country: "US",
-  phone: "5072670202", email: "shipping@elfie.app",
 };
 
 /** Format a ref string like "BO.8362106" with its 2-char short code prefix: "[AB] BO.8362106" */
@@ -192,7 +191,7 @@ export default function InlineShippingCard({
     queryKey: ['/api/settings'],
   });
 
-  const { data: org } = useQuery<{ name: string; address?: string }>({
+  const { data: org } = useQuery<{ name: string; address?: string; phone?: string }>({
     queryKey: ['/api/org'],
   });
 
@@ -435,6 +434,7 @@ export default function InlineShippingCard({
         ...BASE_PROD_FROM_ADDRESS,
         name: org?.name ?? "E.L.F.I.E.",
         company: "",
+        phone: org?.phone ?? "",
       };
       const result: any = await apiRequest("POST", "/api/shipments/create", {
         orderId, itemIdsToShip: [], fromAddress,
