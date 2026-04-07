@@ -398,14 +398,14 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         <div className={isCompact ? "p-2 space-y-2 h-full overflow-y-auto" : "p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]"}>
       {(!tvSplit || tvSplit === 'left') && <>
 
-        {/* ── Orders Info ── */}
+        {/* ── Sales Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Orders</h3>
+            <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
             <CollapsibleDatePicker
               value={dateRange}
               onChange={setDateRange}
@@ -413,13 +413,16 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               testId="button-orders-date-picker"
             />
           </div>
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-counts">
-            <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
+          {/* Row 1 — Sales / Financial */}
+          <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-sales">
             <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
             <MetricCard label="Refunds" value={adjustments ? (adjustments.totalRefunds > 0 ? `-$${Math.round(adjustments.totalRefunds).toLocaleString()}` : '$0') : '—'} color="red" compact={isCompact} data-testid="metric-orders-refunds" />
-          </div>
-          <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-orders-kpis">
+            <MetricCard label="Shipping" value={adjustments ? `$${Math.round(adjustments.totalShipping).toLocaleString()}` : '—'} color="orange" compact={isCompact} data-testid="metric-orders-shipping" />
             <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" compact={isCompact} data-testid="metric-aov" />
+          </div>
+          {/* Row 2 — Orders / Operational */}
+          <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-orders-ops">
+            <MetricCard label="Total Orders" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
             <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" compact={isCompact} data-testid="metric-avg-lots" />
             <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" compact={isCompact} data-testid="metric-fulfillment-rate" />
             <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} compact={isCompact} data-testid="metric-return-rate" />
