@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
-import DashboardNotifications from "./DashboardNotifications";
+import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
 import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,6 +34,8 @@ interface InventoryDashboardProps {
   onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
   tvSplit?: 'left' | 'right';
   compact?: boolean;
+  /** Deep-link to this tab on mount / when value changes. */
+  initialPanelTab?: 'systems' | 'uplink';
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
@@ -71,7 +73,7 @@ const CHANNEL_SYNC_CONFIG: Record<InvSyncChannel, {
 };
 
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen, tvSplit, compact }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen, tvSplit, compact, initialPanelTab }: InventoryDashboardProps) {
   const isCompact = !!(tvSplit || compact);
 
   const { toast } = useToast();
@@ -81,7 +83,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browsePage, setBrowsePage] = useState(0);
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
-  const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>('systems');
+  const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+
+  useEffect(() => {
+    if (initialPanelTab) setPanelTab(initialPanelTab);
+  }, [initialPanelTab]);
+
+  const inventorySyncIssueCount = useSyncIssueCount(['product']);
 
   const openBrowse = (type: BrowseType) => {
     setBrowseDrawer(type);
@@ -382,8 +390,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <Globe className="w-3 h-3 flex-shrink-0" />
               Channels
-              {hasChannelErrors && panelTab !== 'uplink' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
+              {(hasChannelErrors || inventorySyncIssueCount > 0) && panelTab !== 'uplink' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
               )}
               {panelTab === 'uplink' && (
                 <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />

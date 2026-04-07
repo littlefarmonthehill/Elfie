@@ -221,21 +221,38 @@ function GroupSheet({
   );
 }
 
+const SYNC_ISSUES_QUERY_KEY = ["/api/sync-issues", { status: "open" }];
+const fetchSyncIssues = async (): Promise<SyncIssuesResponse> => {
+  const response = await fetch("/api/sync-issues?status=open");
+  if (!response.ok) throw new Error("Failed to fetch sync issues");
+  return response.json();
+};
+
+/** Lightweight hook — returns the count of open sync issues for the given group keys. */
+export function useSyncIssueCount(groupKeys: string[]): number {
+  const { data } = useQuery<SyncIssuesResponse>({
+    queryKey: SYNC_ISSUES_QUERY_KEY,
+    queryFn: fetchSyncIssues,
+    refetchInterval: 30000,
+  });
+  const issues = data?.issues ?? [];
+  const relevant = GROUPS.filter(g => groupKeys.includes(g.key));
+  return relevant.reduce((sum, g) => sum + issues.filter(i => g.syncTypes.includes(i.syncType)).length, 0);
+}
+
 interface DashboardNotificationsProps {
   /** Only render groups whose key appears in this list. Omit to show all groups. */
   groupKeys?: string[];
+  /** Called when user taps a group alert — use to navigate to the correct dashboard+tab. */
+  onNavigate?: () => void;
 }
 
-export default function DashboardNotifications({ groupKeys }: DashboardNotificationsProps = {}) {
+export default function DashboardNotifications({ groupKeys, onNavigate }: DashboardNotificationsProps = {}) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const { data } = useQuery<SyncIssuesResponse>({
-    queryKey: ["/api/sync-issues", { status: "open" }],
-    queryFn: async () => {
-      const response = await fetch("/api/sync-issues?status=open");
-      if (!response.ok) throw new Error("Failed to fetch sync issues");
-      return response.json();
-    },
+    queryKey: SYNC_ISSUES_QUERY_KEY,
+    queryFn: fetchSyncIssues,
     refetchInterval: 30000,
   });
 
@@ -261,7 +278,7 @@ export default function DashboardNotifications({ groupKeys }: DashboardNotificat
         {groupsWithIssues.map(({ group, issues: groupIssues }) => (
           <button
             key={group.key}
-            onClick={() => setOpenGroup(group.key)}
+            onClick={() => { onNavigate?.(); setOpenGroup(group.key); }}
             className="w-full flex items-center justify-between gap-3 px-2 py-1.5 rounded border border-orange-500/20 bg-orange-950/30 text-left hover-elevate active-elevate-2 text-orange-200"
             data-testid={`button-group-${group.key}`}
           >

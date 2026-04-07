@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
@@ -17,7 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
-import DashboardNotifications from "./DashboardNotifications";
+import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 
@@ -46,6 +46,8 @@ interface OrdersDashboardProps {
   desktopMode?: boolean;
   tvSplit?: 'left' | 'right';
   compact?: boolean;
+  /** Deep-link to this tab on mount / when value changes. */
+  initialPanelTab?: 'systems' | 'uplink';
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -304,10 +306,16 @@ function QtySyncQueuePanel() {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact, initialPanelTab }: OrdersDashboardProps) {
   const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
-  const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>('systems');
+  const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+
+  useEffect(() => {
+    if (initialPanelTab) setPanelTab(initialPanelTab);
+  }, [initialPanelTab]);
+
+  const ordersSyncIssueCount = useSyncIssueCount(['orders']);
 
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
@@ -497,8 +505,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             >
               <Globe className="w-3 h-3 flex-shrink-0" />
               Channels
-              {hasOrderChannelErrors && panelTab !== 'uplink' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
+              {(hasOrderChannelErrors || ordersSyncIssueCount > 0) && panelTab !== 'uplink' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
               )}
               {panelTab === 'uplink' && (
                 <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
@@ -606,6 +614,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               ))}
               <QtySyncQueuePanel />
               {isCompact && <DashboardNotifications groupKeys={['orders']} />}
+
             </div>
           )}
         </div>

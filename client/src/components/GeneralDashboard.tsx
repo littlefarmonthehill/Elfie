@@ -17,7 +17,7 @@ interface GeneralDashboardProps {
   onOpenPriceomatic?: () => void;
   onOpenBilling?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications') => void;
-  onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
+  onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing', panelTab?: 'systems' | 'uplink') => void;
   section?: 'all' | 'plan' | 'ops';
   activeSection?: 'inventory' | 'orders' | 'marketing' | 'sales';
 }
@@ -919,7 +919,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', severity: 'error', kind: 'critical' });
   }
   if (abandonedQtyUpdates > 0) {
-    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders') });
+    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('orders', 'uplink') });
   }
   if (channelSyncFailed) {
     urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });

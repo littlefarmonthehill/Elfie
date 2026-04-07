@@ -273,6 +273,8 @@ export default function Home() {
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null>(null);
+  const [inventoryInitialTab, setInventoryInitialTab] = useState<'systems' | 'uplink' | undefined>(undefined);
+  const [ordersInitialTab, setOrdersInitialTab] = useState<'systems' | 'uplink' | undefined>(undefined);
   const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
   const [planCollapsed, setPlanCollapsed] = useState(false);
   const [tvFlash, setTvFlash] = useState(false);
@@ -500,9 +502,9 @@ export default function Home() {
   const renderDynamicDashboard = (isDesktopMode?: boolean, tvSplit?: 'left' | 'right', compact?: boolean) => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} compact={compact} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} tvSplit={tvSplit} compact={compact} initialPanelTab={inventoryInitialTab} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} tvSplit={tvSplit} compact={compact} initialPanelTab={ordersInitialTab} />;
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} tvSplit={tvSplit} compact={compact} />;
       case 'marketing':
@@ -514,7 +516,7 @@ export default function Home() {
 
   const renderMobileDashboard = () => {
     if (activeDashboard === 'dashboard') {
-      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
+      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'orders') setOrdersInitialTab(panelTab); } }} />;
     }
     // Pass isDesktop so that when the desktop layout is active, the mobile/tablet
     // copies of this dashboard (CSS-hidden but still in the DOM) also suppress any
@@ -557,6 +559,13 @@ export default function Home() {
       }
       setTvFlash(false);
     }, 180);
+  };
+
+  /** Navigate to a dashboard AND open a specific panel tab. */
+  const tuneChannelWithTab = (dashboard: DashboardType, panelTab: 'systems' | 'uplink') => {
+    if (dashboard === 'inventory') setInventoryInitialTab(panelTab);
+    if (dashboard === 'orders') setOrdersInitialTab(panelTab);
+    tuneChannel(dashboard);
   };
 
   useEffect(() => {
@@ -1195,7 +1204,7 @@ export default function Home() {
                   onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
                   onOpenBilling={() => setBillingOpen(true)}
                   onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                  onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                  onNavigate={(tab, panelTab) => { setActiveDashboard(tab as DashboardType); if (panelTab) { if (tab === 'inventory') setInventoryInitialTab(panelTab); if (tab === 'orders') setOrdersInitialTab(panelTab); } }}
                 />
               </div>
             </div>
@@ -1425,7 +1434,7 @@ export default function Home() {
                                         onOpenPriceomatic={() => { tuneChannel('inventory'); setTimeout(() => setActiveInventoryDrawer('priceomatic'), 250); }}
                                         onOpenBilling={() => setBillingOpen(true)}
                                         onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                                        onNavigate={(tab) => tuneChannel(tab as DashboardType)}
+                                        onNavigate={(tab, panelTab) => panelTab ? tuneChannelWithTab(tab as DashboardType, panelTab) : tuneChannel(tab as DashboardType)}
                                         section="plan"
                                       />
                                     </div>
