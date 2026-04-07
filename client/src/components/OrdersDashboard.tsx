@@ -459,35 +459,35 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           )} />
 
           {/* Header */}
-          <div className={cn("flex items-center gap-2 flex-wrap", isCompact ? "mb-1.5" : "mb-2")}>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
             <div className={cn(
-              "rounded-md ring-1 shrink-0 p-1.5",
+              "rounded-md ring-1 shrink-0 p-1",
               hasAction
-                ? "bg-orange-800/65 ring-orange-500/55 shadow-[0_0_8px_rgba(249,115,22,0.3)]"
+                ? "bg-orange-800/65 ring-orange-500/55 shadow-[0_0_6px_rgba(249,115,22,0.3)]"
                 : "bg-gray-800/70 ring-gray-600/40"
             )}>
-              <Crosshair className={cn(isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4", hasAction ? "text-orange-300" : "text-gray-500")} />
+              <Crosshair className={cn("w-3 h-3", hasAction ? "text-orange-300" : "text-gray-500")} />
             </div>
-            <h3 className={cn("font-semibold uppercase tracking-wide flex-1", isCompact ? "text-xs" : "text-xs md:text-sm", hasAction ? "text-orange-200" : "text-gray-500")}>Command Central</h3>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">Command Central</h3>
             {hasAction ? (
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <div className="relative w-1.5 h-1.5 shrink-0">
                   <div className="absolute inset-0 rounded-full bg-orange-400/50 animate-ping" />
                   <div className="relative w-1.5 h-1.5 rounded-full bg-orange-400" />
                 </div>
-                <span className="text-[10px] font-semibold text-orange-300/90 font-mono">{totalActive} need action</span>
+                <span className="text-[9px] font-semibold text-orange-300/80 font-mono">{totalActive} active</span>
               </div>
             ) : (
-              <span className="text-[10px] text-gray-600 shrink-0 flex items-center gap-0.5">Open <ArrowRight className="w-2.5 h-2.5" /></span>
+              <span className="text-[9px] text-gray-600 shrink-0">all clear</span>
             )}
           </div>
 
           {/* Workflow row — New → In Prog → Feedback */}
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1 mb-1" : "gap-1.5 mb-1.5")} data-testid="directive-workflow-grid">
+          <div className="grid grid-cols-3 gap-1 mb-1" data-testid="directive-workflow-grid">
             {([
-              { key: 'new',        label: 'New',      lampColor: 'rgba(156,163,175,0.85)', activeClass: 'bg-gray-700/80 border-gray-400/65 text-gray-200',  isFeedback: false },
-              { key: 'processing', label: 'In Prog',  lampColor: 'rgba(96,165,250,0.85)',  activeClass: 'bg-blue-900/85 border-blue-400/65 text-blue-200',  isFeedback: false },
-              { key: 'feedback',   label: 'Feedback', lampColor: 'rgba(45,212,191,0.85)',  activeClass: 'bg-teal-900/85 border-teal-400/65 text-teal-200',  isFeedback: true  },
+              { key: 'new',        label: 'New',     lampColor: 'rgba(156,163,175,0.85)', activeClass: 'bg-gray-800/95 border-gray-400/60 text-gray-200',  isFeedback: false },
+              { key: 'processing', label: 'In Prog', lampColor: 'rgba(96,165,250,0.85)',  activeClass: 'bg-blue-950/95 border-blue-400/60 text-blue-200',  isFeedback: false },
+              { key: 'feedback',   label: 'Fdbk',    lampColor: 'rgba(45,212,191,0.85)',  activeClass: 'bg-teal-950/95 border-teal-400/60 text-teal-200',  isFeedback: true  },
             ] as const).map(({ key, label, lampColor, activeClass, isFeedback }) => {
               const count = isFeedback
                 ? (fulfillmentStats?.feedbackPending ?? 0)
@@ -500,35 +500,36 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   data-testid={`directive-status-${key}`}
                   style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
                   className={cn(
-                    "relative flex flex-col items-center justify-center rounded-md border transition-all cursor-pointer active:scale-[0.94]",
-                    isCompact ? "py-1.5 min-h-[42px]" : "py-2 min-h-[48px]",
-                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-900/80 border-gray-700/40"
+                    "relative overflow-hidden flex flex-col items-center justify-center rounded-md border min-h-[36px] py-1 cursor-pointer transition-colors",
+                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-950/90 border-gray-700/35"
                   )}
                 >
-                  <div className="absolute top-0 left-0 right-0 h-px bg-white/10 rounded-t-md" />
-                  <span className={cn("font-mono font-bold leading-none", isCompact ? "text-sm" : "text-base", isActive ? "text-white" : "text-gray-700")}>
+                  {/* Pressed-in: dark inset at top, light lip at bottom */}
+                  <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-white/10 pointer-events-none" />
+                  <span className={cn("font-mono font-bold leading-none text-sm", isActive ? "text-white" : "text-gray-700")}>
                     {(workflowSummary || isFeedback) ? (count > 0 ? count : '0') : '—'}
                   </span>
-                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 font-semibold text-[8px]", isActive ? "opacity-65" : "opacity-25")}>{label}</span>
+                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 text-[7px] font-semibold", isActive ? "opacity-60" : "opacity-20")}>{label}</span>
                 </button>
               );
             })}
           </div>
 
           {/* Exceptions separator */}
-          <div className={cn("flex items-center gap-1.5", isCompact ? "mb-1" : "mb-1.5")}>
-            <div className="flex-1 h-px bg-red-900/30" />
-            <span className="text-[7px] font-mono uppercase tracking-widest text-red-400/40">exceptions</span>
-            <div className="flex-1 h-px bg-red-900/30" />
+          <div className="flex items-center gap-1 mb-1">
+            <div className="flex-1 h-px bg-red-900/25" />
+            <span className="text-[6px] font-mono uppercase tracking-widest text-red-400/35">exceptions</span>
+            <div className="flex-1 h-px bg-red-900/25" />
           </div>
 
           {/* Exception row — Unpaid · Bump · Issue · Hold */}
-          <div className={cn("grid grid-cols-4", isCompact ? "gap-1" : "gap-1.5")}>
+          <div className="grid grid-cols-4 gap-1">
             {([
-              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)',  activeClass: 'bg-orange-950/85 border-orange-400/65 text-orange-200'  },
-              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)',  activeClass: 'bg-amber-950/85 border-amber-400/65 text-amber-200'    },
-              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)', activeClass: 'bg-red-950/85 border-red-400/65 text-red-200'           },
-              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)', activeClass: 'bg-purple-950/85 border-purple-400/65 text-purple-200'  },
+              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)',  activeClass: 'bg-orange-950/95 border-orange-400/60 text-orange-200'  },
+              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)',  activeClass: 'bg-amber-950/95 border-amber-400/60 text-amber-200'    },
+              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)', activeClass: 'bg-red-950/95 border-red-400/60 text-red-200'           },
+              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)', activeClass: 'bg-purple-950/95 border-purple-400/60 text-purple-200'  },
             ] as const).map(({ key, label, lampColor, activeClass }) => {
               const count = workflowSummary?.byStatus?.[key] ?? 0;
               const isActive = count > 0;
@@ -539,16 +540,16 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   data-testid={`directive-status-${key}`}
                   style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
                   className={cn(
-                    "relative flex flex-col items-center justify-center rounded-md border transition-all cursor-pointer active:scale-[0.94]",
-                    isCompact ? "py-1 min-h-[34px]" : "py-1.5 min-h-[38px]",
-                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-900/80 border-gray-700/40"
+                    "relative overflow-hidden flex flex-col items-center justify-center rounded-md border min-h-[28px] py-0.5 cursor-pointer transition-colors",
+                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-950/90 border-gray-700/35"
                   )}
                 >
-                  <div className="absolute top-0 left-0 right-0 h-px bg-white/10 rounded-t-md" />
-                  <span className={cn("font-mono font-bold leading-none", isCompact ? "text-xs" : "text-sm", isActive ? "text-white" : "text-gray-700")}>
+                  <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-white/10 pointer-events-none" />
+                  <span className={cn("font-mono font-bold leading-none text-xs", isActive ? "text-white" : "text-gray-700")}>
                     {workflowSummary ? (count > 0 ? count : '0') : '—'}
                   </span>
-                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 font-semibold text-[8px]", isActive ? "opacity-65" : "opacity-25")}>{label}</span>
+                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 text-[6px] font-semibold", isActive ? "opacity-60" : "opacity-20")}>{label}</span>
                 </button>
               );
             })}
