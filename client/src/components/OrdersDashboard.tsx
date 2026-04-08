@@ -482,88 +482,107 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             )}
           </div>
 
-          {/* Unified workflow row: [ORDERS] | main statuses | exceptions separator | exception statuses */}
-          <div className="flex items-stretch gap-1" data-testid="directive-workflow-grid">
+          {/* Unified workflow pipeline */}
+          <div className="flex items-stretch gap-2" data-testid="directive-workflow-grid">
 
-            {/* Orders button */}
+            {/* ORDERS button */}
             <button
               onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
               data-testid="button-workflow-orders"
-              className="flex flex-col items-center justify-center rounded-md border border-orange-400/35 bg-orange-900/15 px-2 py-1 hover-elevate active-elevate-2 shrink-0 gap-0.5"
+              className="flex flex-col items-center justify-center rounded-lg border border-orange-500/40 bg-gradient-to-b from-orange-900/30 to-orange-900/5 px-3 hover-elevate active-elevate-2 shrink-0 gap-1 self-stretch min-w-[46px]"
             >
-              <span className="font-mono text-[7px] font-bold uppercase tracking-widest text-orange-300/70">ORDERS</span>
+              <ShoppingCart className="w-3.5 h-3.5 text-orange-400/70" />
+              <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-orange-300/75">ORDERS</span>
             </button>
 
-            {/* Vertical divider */}
-            <div className="w-px bg-gray-700/35 self-stretch mx-0.5 shrink-0" />
+            {/* Pipeline track + all statuses */}
+            <div className="flex-1 relative pt-3 pb-1">
+              {/* Connecting track line */}
+              <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
 
-            {/* Main workflow statuses */}
-            {([
-              { key: 'new',        label: 'New',     lampColor: 'rgba(156,163,175,0.85)', isFeedback: false },
-              { key: 'processing', label: 'In Prog', lampColor: 'rgba(96,165,250,0.85)',  isFeedback: false },
-              { key: 'feedback',   label: 'Fdbk',    lampColor: 'rgba(45,212,191,0.85)',  isFeedback: true  },
-            ] as const).map(({ key, label, lampColor, isFeedback }) => {
-              const count = isFeedback
-                ? (fulfillmentStats?.feedbackPending ?? 0)
-                : (workflowSummary?.byStatus?.[key] ?? 0);
-              const isActive = count > 0;
-              return (
-                <button
-                  key={key}
-                  onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
-                  data-testid={`directive-status-${key}`}
-                  className="flex flex-col items-center gap-1 flex-1 py-1 rounded hover-elevate active-elevate-2"
-                >
-                  <div
-                    style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor } as React.CSSProperties : undefined}
-                    className={cn("w-2 h-2 rounded-full shrink-0", isActive ? "panel-lamp-active" : "bg-gray-700/45")}
-                  />
-                  <div className="flex items-center gap-0.5">
-                    <span className={cn("font-mono text-[7px] uppercase tracking-wide", isActive ? "text-gray-300" : "text-gray-600")}>{label}</span>
-                    <span className={cn("font-mono text-[9px] font-bold", isActive ? "text-white" : "text-gray-600")}>
-                      {(workflowSummary || isFeedback) ? count : '—'}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+              <div className="flex items-start">
+                {/* Main workflow statuses */}
+                {([
+                  { key: 'new',        label: 'New',  lampColor: 'rgba(156,163,175,0.9)', isFeedback: false },
+                  { key: 'processing', label: 'Prog', lampColor: 'rgba(96,165,250,0.9)',  isFeedback: false },
+                  { key: 'feedback',   label: 'Fdbk', lampColor: 'rgba(45,212,191,0.9)',  isFeedback: true  },
+                ] as const).map(({ key, label, lampColor, isFeedback }) => {
+                  const count = isFeedback
+                    ? (fulfillmentStats?.feedbackPending ?? 0)
+                    : (workflowSummary?.byStatus?.[key] ?? 0);
+                  const isActive = count > 0;
+                  return (
+                    <button
+                      key={key}
+                      onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                      data-testid={`directive-status-${key}`}
+                      className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
+                    >
+                      <div
+                        style={isActive ? {
+                          '--lamp-color': lampColor,
+                          backgroundColor: lampColor,
+                          boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55`,
+                        } as React.CSSProperties : undefined}
+                        className={cn(
+                          "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
+                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-800 ring-gray-700/50"
+                        )}
+                      />
+                      <div className="flex items-baseline gap-0.5">
+                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-600")}>{label}</span>
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-600")}>
+                          {(workflowSummary || isFeedback) ? count : '—'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
 
-            {/* Exceptions separator */}
-            <div className="flex flex-col items-center justify-center gap-0.5 px-0.5 shrink-0">
-              <div className="flex-1 w-px bg-red-900/30" />
-              <span className="font-mono text-[5px] uppercase tracking-widest text-red-400/35" style={{ writingMode: 'vertical-rl' }}>exc</span>
-              <div className="flex-1 w-px bg-red-900/30" />
+                {/* Exception divider — vertical line with red dot on track */}
+                <div className="self-stretch relative px-1.5 shrink-0">
+                  <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-red-900/40" />
+                  <div className="absolute top-[15px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
+                </div>
+
+                {/* Exception statuses */}
+                {([
+                  { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.9)'  },
+                  { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.9)' },
+                  { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.9)' },
+                ] as const).map(({ key, label, lampColor }) => {
+                  const count = workflowSummary?.byStatus?.[key] ?? 0;
+                  const isActive = count > 0;
+                  return (
+                    <button
+                      key={key}
+                      onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                      data-testid={`directive-status-${key}`}
+                      className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
+                    >
+                      <div
+                        style={isActive ? {
+                          '--lamp-color': lampColor,
+                          backgroundColor: lampColor,
+                          boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55`,
+                        } as React.CSSProperties : undefined}
+                        className={cn(
+                          "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
+                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-800 ring-gray-700/50"
+                        )}
+                      />
+                      <div className="flex items-baseline gap-0.5">
+                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-400" : "text-gray-700")}>{label}</span>
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-700")}>
+                          {workflowSummary ? count : '—'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-
-            {/* Exception statuses */}
-            {([
-              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)'  },
-              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)'  },
-              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)' },
-              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)' },
-            ] as const).map(({ key, label, lampColor }) => {
-              const count = workflowSummary?.byStatus?.[key] ?? 0;
-              const isActive = count > 0;
-              return (
-                <button
-                  key={key}
-                  onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
-                  data-testid={`directive-status-${key}`}
-                  className="flex flex-col items-center gap-1 flex-1 py-1 rounded hover-elevate active-elevate-2"
-                >
-                  <div
-                    style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor } as React.CSSProperties : undefined}
-                    className={cn("w-1.5 h-1.5 rounded-full shrink-0", isActive ? "panel-lamp-active" : "bg-gray-700/45")}
-                  />
-                  <div className="flex items-center gap-0.5">
-                    <span className={cn("font-mono text-[6px] uppercase tracking-wide", isActive ? "text-gray-400" : "text-gray-700")}>{label}</span>
-                    <span className={cn("font-mono text-[8px] font-bold", isActive ? "text-white" : "text-gray-700")}>
-                      {workflowSummary ? count : '—'}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
 
           </div>
         </div>
