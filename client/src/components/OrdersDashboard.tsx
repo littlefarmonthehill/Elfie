@@ -313,6 +313,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+  const [orderSearchOpen, setOrderSearchOpen] = useState(false);
   const [orderSearchInput, setOrderSearchInput] = useState('');
   const deferredOrderSearch = useDeferredValue(orderSearchInput);
 
@@ -414,69 +415,78 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         {/* ── Sales Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : orderSearchOpen ? "mb-1.5" : "mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
-            <CollapsibleDatePicker
-              value={dateRange}
-              onChange={setDateRange}
-              accentClass="text-orange-400/70 hover:text-orange-300"
-              testId="button-orders-date-picker"
-            />
-          </div>
-
-          {/* Orders search bar */}
-          <div className={cn("relative flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-gray-900/60 px-2.5 mb-1.5", isCompact ? "h-7" : "h-8")} data-testid="form-orders-search">
-            <Search className="w-3 h-3 text-orange-400/60 shrink-0" />
-            <Input
-              value={orderSearchInput}
-              onChange={e => setOrderSearchInput(e.target.value)}
-              placeholder="Order #, buyer username…"
-              type="text"
-              inputMode="search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore
-              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
-              data-testid="input-orders-search"
-            />
-            {orderSearchInput ? (
-              <button type="button" onClick={() => setOrderSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-orders-search-clear">
-                <X className="w-3 h-3" />
-              </button>
-            ) : null}
-          </div>
-
-          {/* Search results panel */}
-          {orderSearchInput.trim().length >= 2 && orderSearchResults.length > 0 && (
-            <div className="rounded-md border border-orange-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mb-1.5 overflow-hidden">
-              {orderSearchResults.map(o => (
+            <div className="ml-auto flex items-center gap-1.5">
+              {!orderSearchOpen && (
                 <button
-                  key={o.id}
-                  onClick={() => { setOrderSearchInput(''); onItemClick('order', o.id); }}
-                  className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
-                  data-testid={`result-order-${o.id}`}
+                  type="button"
+                  onClick={() => setOrderSearchOpen(true)}
+                  className="text-orange-400/60 hover:text-orange-400 transition-colors"
+                  data-testid="button-orders-search-open"
                 >
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
-                    {o.customerUsername && <span className="ml-1.5 text-[10px] text-gray-400">{o.customerUsername}</span>}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {o.orderTotal && <span className="text-[10px] font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
-                    {o.orderStatus && <span className="text-[10px] text-gray-500 capitalize">{o.orderStatus}</span>}
-                  </div>
+                  <Search className="h-3.5 w-3.5" />
                 </button>
-              ))}
+              )}
+              <CollapsibleDatePicker
+                value={dateRange}
+                onChange={setDateRange}
+                accentClass="text-orange-400/70 hover:text-orange-300"
+                testId="button-orders-date-picker"
+              />
             </div>
-          )}
-          {orderSearchInput.trim().length >= 2 && orderSearchResults.length === 0 && (
-            <p className="text-[10px] text-gray-600 px-1 mb-1.5">No orders matched "{orderSearchInput}"</p>
+          </div>
+
+          {/* Orders search panel — only mounted when open */}
+          {orderSearchOpen && (
+            <div className="mb-1.5">
+              <div className={cn("flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-gray-900/60 px-2.5", isCompact ? "h-7" : "h-8")} data-testid="form-orders-search">
+                <Search className="w-3 h-3 text-orange-400/60 shrink-0" />
+                <Input
+                  autoFocus
+                  value={orderSearchInput}
+                  onChange={e => setOrderSearchInput(e.target.value)}
+                  placeholder="Order #, buyer username…"
+                  type="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  data-testid="input-orders-search"
+                />
+                <button type="button" onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); }} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-orders-search-close">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {orderSearchInput.trim().length >= 2 && orderSearchResults.length > 0 && (
+                <div className="rounded-md border border-orange-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mt-1 overflow-hidden">
+                  {orderSearchResults.map(o => (
+                    <button
+                      key={o.id}
+                      onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); onItemClick('order', o.id); }}
+                      className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
+                      data-testid={`result-order-${o.id}`}
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
+                        {o.customerUsername && <span className="ml-1.5 text-[10px] text-gray-400">{o.customerUsername}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {o.orderTotal && <span className="text-[10px] font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
+                        {o.orderStatus && <span className="text-[10px] text-gray-500 capitalize">{o.orderStatus}</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {orderSearchInput.trim().length >= 2 && orderSearchResults.length === 0 && (
+                <p className="text-[10px] text-gray-600 px-1 mt-1">No orders matched "{orderSearchInput}"</p>
+              )}
+            </div>
           )}
 
           {/* Row 1 — Sales / Financial */}

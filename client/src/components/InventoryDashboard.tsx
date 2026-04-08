@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, ComponentType } from "react";
+import { useState, useRef, useEffect, useDeferredValue, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -84,7 +84,18 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+  const [invSearchOpen, setInvSearchOpen] = useState(false);
   const [invSearchInput, setInvSearchInput] = useState('');
+  const deferredInvSearch = useDeferredValue(invSearchInput);
+  const { data: invSearchResults = [] } = useQuery<Array<{
+    id: number; itemNo: string; itemName: string; colorId: number; colorName: string;
+    newOrUsed: string; quantity: number; myCost: string | null; myPrice: string | null;
+  }>>({
+    queryKey: ['/api/inventory/quick-search', deferredInvSearch],
+    queryFn: () => fetch(`/api/inventory/quick-search?q=${encodeURIComponent(deferredInvSearch)}`, { credentials: 'include' }).then(r => r.json()),
+    enabled: deferredInvSearch.trim().length >= 2,
+    staleTime: 10000,
+  });
 
   useEffect(() => {
     if (initialPanelTab) setPanelTab(initialPanelTab);
@@ -221,12 +232,22 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-3")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : invSearchOpen ? "mb-1.5" : "mb-3")}>
             <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Package className="w-3 h-3 text-blue-200" />
             </div>
             <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1.5">
+              {!invSearchOpen && (
+                <button
+                  type="button"
+                  onClick={() => setInvSearchOpen(true)}
+                  className="text-blue-400/60 hover:text-blue-400 transition-colors"
+                  data-testid="button-inv-search-open"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </button>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button className="text-gray-600 hover:text-gray-400 transition-colors" data-testid="button-cost-info">
@@ -244,36 +265,54 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           </div>
 
-          {/* Inventory search bar */}
-          <div
-            className={cn("relative flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-gray-900/60 px-2.5", isCompact ? "mb-1.5 h-7" : "mb-2 h-8")}
-            data-testid="form-inv-search"
-          >
-            <Search className="w-3 h-3 text-blue-400/60 shrink-0" />
-            <Input
-              value={invSearchInput}
-              onChange={e => setInvSearchInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && invSearchInput.trim()) {
-                  setBrowseSearchInput(invSearchInput.trim());
-                  desktopMode && onBrowseOpen ? onBrowseOpen('lots') : openBrowse('lots');
-                }
-              }}
-              placeholder="Search lots, item #, color, category…"
-              type="search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
-              data-testid="input-inv-search"
-            />
-            {invSearchInput ? (
-              <button type="button" onClick={() => setInvSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-inv-search-clear">
-                <X className="w-3 h-3" />
-              </button>
-            ) : null}
-          </div>
+          {/* Inventory search panel — only mounted when open */}
+          {invSearchOpen && (
+            <div className={cn(isCompact ? "mb-1.5" : "mb-2")}>
+              <div className={cn("flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-gray-900/60 px-2.5", isCompact ? "h-7" : "h-8")} data-testid="form-inv-search">
+                <Search className="w-3 h-3 text-blue-400/60 shrink-0" />
+                <Input
+                  autoFocus
+                  value={invSearchInput}
+                  onChange={e => setInvSearchInput(e.target.value)}
+                  placeholder="Search lots, item #, color…"
+                  type="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  data-testid="input-inv-search"
+                />
+                <button type="button" onClick={() => { setInvSearchOpen(false); setInvSearchInput(''); }} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-inv-search-close">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {deferredInvSearch.trim().length >= 2 && invSearchResults.length > 0 && (
+                <div className="rounded-md border border-blue-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mt-1 overflow-hidden">
+                  {invSearchResults.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => { setInvSearchOpen(false); setInvSearchInput(''); if (onItemClick) onItemClick('inventory', item.id); }}
+                      className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
+                      data-testid={`result-inv-${item.id}`}
+                    >
+                      <div className="min-w-0 flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-blue-200 font-mono shrink-0">{item.itemNo}</span>
+                        {item.itemName && <span className="text-[10px] text-gray-400 truncate">{item.itemName}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.colorName && <span className="text-[10px] text-gray-500">{item.colorName}</span>}
+                        <span className="text-[10px] font-mono text-blue-400">×{item.quantity}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {deferredInvSearch.trim().length >= 2 && invSearchResults.length === 0 && (
+                <p className="text-[10px] text-gray-600 px-1 mt-1">No lots matched "{invSearchInput}"</p>
+              )}
+            </div>
+          )}
 
           {/* Top row: Lots, Parts, Categories */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">

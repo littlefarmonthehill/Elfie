@@ -320,6 +320,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
+  const [mktSearchOpen, setMktSearchOpen] = useState(false);
   const [mktSearchInput, setMktSearchInput] = useState('');
 
   const [newDateRange, setNewDateRange] = useState<DateRangeValue>('mtd');
@@ -483,71 +484,80 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : mktSearchOpen ? "mb-1.5" : "mb-2")}>
             <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Users className={cn("text-yellow-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Customers</h3>
-            <CollapsibleDatePicker
-              value={localDateRange}
-              onChange={setLocalDateRange}
-              accentClass="text-yellow-400/70 hover:text-yellow-300"
-              testId="button-customers-date-picker"
-            />
-          </div>
-
-          {/* Customer search bar */}
-          <div className={cn("relative flex items-center gap-1.5 rounded-md border border-yellow-500/30 bg-gray-900/60 px-2.5 mb-1.5", isCompact ? "h-7" : "h-8")} data-testid="form-mkt-search">
-            <Search className="w-3 h-3 text-yellow-400/60 shrink-0" />
-            <Input
-              value={mktSearchInput}
-              onChange={e => setMktSearchInput(e.target.value)}
-              placeholder="Customer, email, city, country…"
-              type="text"
-              inputMode="search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore
-              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
-              data-testid="input-mkt-search"
-            />
-            {mktSearchInput ? (
-              <button type="button" onClick={() => setMktSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-mkt-search-clear">
-                <X className="w-3 h-3" />
-              </button>
-            ) : null}
-          </div>
-
-          {/* Customer search results */}
-          {mktSearchInput.trim().length >= 2 && mktSearchResults.length > 0 && (
-            <div className="rounded-md border border-yellow-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mb-1.5 overflow-hidden">
-              {mktSearchResults.map(c => (
+            <div className="ml-auto flex items-center gap-1.5">
+              {!mktSearchOpen && (
                 <button
-                  key={c.customerUsername}
-                  onClick={() => { setMktSearchInput(''); handleCustomerClick(c); }}
-                  className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
-                  data-testid={`result-customer-${c.customerUsername}`}
+                  type="button"
+                  onClick={() => setMktSearchOpen(true)}
+                  className="text-yellow-400/60 hover:text-yellow-400 transition-colors"
+                  data-testid="button-mkt-search-open"
                 >
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold text-yellow-200">{c.customerUsername}</span>
-                    {(c.shipCity || c.shipCountry) && (
-                      <span className="ml-1.5 text-[10px] text-gray-400">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
-                    <span className="text-[10px] text-gray-500">{c.orderCount} order{c.orderCount !== 1 ? 's' : ''}</span>
-                  </div>
+                  <Search className="h-3.5 w-3.5" />
                 </button>
-              ))}
+              )}
+              <CollapsibleDatePicker
+                value={localDateRange}
+                onChange={setLocalDateRange}
+                accentClass="text-yellow-400/70 hover:text-yellow-300"
+                testId="button-customers-date-picker"
+              />
             </div>
-          )}
-          {mktSearchInput.trim().length >= 2 && mktSearchResults.length === 0 && (
-            <p className="text-[10px] text-gray-600 px-1 mb-1.5">No customers matched "{mktSearchInput}"</p>
+          </div>
+
+          {/* Customer search panel — only mounted when open */}
+          {mktSearchOpen && (
+            <div className="mb-1.5">
+              <div className={cn("flex items-center gap-1.5 rounded-md border border-yellow-500/30 bg-gray-900/60 px-2.5", isCompact ? "h-7" : "h-8")} data-testid="form-mkt-search">
+                <Search className="w-3 h-3 text-yellow-400/60 shrink-0" />
+                <Input
+                  autoFocus
+                  value={mktSearchInput}
+                  onChange={e => setMktSearchInput(e.target.value)}
+                  placeholder="Customer, email, city, country…"
+                  type="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  data-testid="input-mkt-search"
+                />
+                <button type="button" onClick={() => { setMktSearchOpen(false); setMktSearchInput(''); }} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-mkt-search-close">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {mktSearchInput.trim().length >= 2 && mktSearchResults.length > 0 && (
+                <div className="rounded-md border border-yellow-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mt-1 overflow-hidden">
+                  {mktSearchResults.map(c => (
+                    <button
+                      key={c.customerUsername}
+                      onClick={() => { setMktSearchOpen(false); setMktSearchInput(''); handleCustomerClick(c); }}
+                      className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
+                      data-testid={`result-customer-${c.customerUsername}`}
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-yellow-200">{c.customerUsername}</span>
+                        {(c.shipCity || c.shipCountry) && (
+                          <span className="ml-1.5 text-[10px] text-gray-400">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
+                        <span className="text-[10px] text-gray-500">{c.orderCount} order{c.orderCount !== 1 ? 's' : ''}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {mktSearchInput.trim().length >= 2 && mktSearchResults.length === 0 && (
+                <p className="text-[10px] text-gray-600 px-1 mt-1">No customers matched "{mktSearchInput}"</p>
+              )}
+            </div>
           )}
 
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-customer-counts">

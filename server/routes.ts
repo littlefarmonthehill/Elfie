@@ -4699,6 +4699,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/inventory/quick-search?q=X — lightweight inventory search (by itemNo or item name)
+  app.get("/api/inventory/quick-search", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const q = ((req.query.q as string) || '').trim().toLowerCase();
+      if (!q || q.length < 2) { res.json([]); return; }
+      const results = await db.select({
+        id: blInventory.id,
+        itemNo: blInventory.itemNo,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+        colorId: blInventory.colorId,
+        colorName: blColors.name,
+        newOrUsed: blInventory.newOrUsed,
+        quantity: blInventory.quantity,
+        myCost: blInventory.myCost,
+        myPrice: blInventory.myPrice,
+      })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .where(
+          and(
+            eq(blInventory.orgId, orgId),
+            eq(blInventory.isDeleted, false),
+            or(
+              sql`LOWER(${blInventory.itemNo}) LIKE ${'%' + q + '%'}`,
+              sql`LOWER(COALESCE(${blCatalog.name}, '')) LIKE ${'%' + q + '%'}`,
+              sql`LOWER(COALESCE(${blColors.name}, '')) LIKE ${'%' + q + '%'}`
+            )
+          )
+        )
+        .orderBy(desc(blInventory.quantity))
+        .limit(8);
+      res.json(results);
+    } catch (err) {
+      console.error("inventory quick-search error:", err);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   // GET /api/orders/quick-search?q=X — lightweight order search (by order ID, order number, buyer)
   app.get("/api/orders/quick-search", isApproved, async (req: any, res) => {
     try {
