@@ -258,8 +258,8 @@ interface StrategyModalData {
 
 export default function InsightsDashboard({ onOpenSettings, compact }: InsightsDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [showAllInsights, setShowAllInsights] = useState(false);
   const [strategyModal, setStrategyModal] = useState<StrategyModalData | null>(null);
+  const [visionExpanded, setVisionExpanded] = useState(false);
 
   const {
     data: marketIntel,
@@ -312,10 +312,6 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
     const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
     return (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2);
   });
-
-  const PREVIEW_COUNT = 5;
-  const visibleInsights = showAllInsights ? sortedInsights : sortedInsights.slice(0, PREVIEW_COUNT);
-  const hiddenCount = sortedInsights.length - PREVIEW_COUNT;
 
   const totalSignals = insights.length;
   const urgentCount = insights.filter(i => i.urgency === 'high').length;
@@ -378,6 +374,35 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           </Button>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          VISION & MISSION — collapsible, default collapsed
+      ═══════════════════════════════════════════════════════════════════ */}
+      {strategies?.visionMission && (
+        <div
+          className="rounded-xl border border-green-500/15 bg-green-950/20 overflow-hidden"
+          data-testid="section-vision-mission"
+        >
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 hover-elevate active-elevate-2"
+            onClick={() => setVisionExpanded(v => !v)}
+            data-testid="button-vision-toggle"
+          >
+            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1.5 shrink-0">
+              <Target className="w-3.5 h-3.5 text-green-300" />
+            </div>
+            <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider flex-1 text-left">Vision & Mission</p>
+            {visionExpanded
+              ? <ChevronUp className="w-3.5 h-3.5 text-green-500/60 shrink-0" />
+              : <ChevronDown className="w-3.5 h-3.5 text-green-500/60 shrink-0" />}
+          </button>
+          {visionExpanded && (
+            <div className="px-3 pb-3 -mt-0.5">
+              <p className="text-xs text-gray-400 leading-relaxed">{strategies.visionMission}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           STRATEGY LENS — 5 clickable area filters
@@ -486,27 +511,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          VISION CONTEXT
-      ═══════════════════════════════════════════════════════════════════ */}
-      {strategies?.visionMission && (
-        <div
-          className="rounded-xl border border-green-500/15 bg-green-950/20 p-3"
-          data-testid="section-vision-mission"
-        >
-          <div className="flex items-start gap-2">
-            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1.5 shrink-0">
-              <Target className="w-3.5 h-3.5 text-green-300" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-0.5">Vision & Mission</p>
-              <p className="text-xs text-gray-400 leading-relaxed">{strategies.visionMission}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY INTEL — 2-col (mobile) / 3-col (md+) signal grid
+          STRATEGY INTEL — horizontal scroll carousel
       ═══════════════════════════════════════════════════════════════════ */}
       <section data-testid="zone-strategy-intel">
         <SectionTitle
@@ -520,9 +525,9 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         />
 
         {insightsLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
             {[0, 1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="rounded-xl border border-gray-700/40 bg-gray-900/50 p-3 animate-pulse">
+              <div key={i} className="rounded-xl border border-gray-700/40 bg-gray-900/50 p-3 animate-pulse flex-shrink-0 w-[220px]">
                 <div className="h-1 bg-gray-700/50 rounded w-full mb-2.5" />
                 <div className="h-3 bg-gray-700/50 rounded w-1/2 mb-1.5" />
                 <div className="h-3 bg-gray-700/50 rounded w-3/4 mb-1" />
@@ -555,8 +560,8 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {visibleInsights.map((insight, i) => {
+            <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
+              {sortedInsights.map((insight, i) => {
                 const urgency = URGENCY_CONFIG[insight.urgency as keyof typeof URGENCY_CONFIG] ?? URGENCY_CONFIG.low;
                 const CatIcon = CATEGORY_ICON[insight.category] ?? Target;
                 const isLead = i === 0 && urgentCount > 0 && insight.urgency === 'high';
@@ -566,7 +571,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                     key={insight.id}
                     data-testid={`insight-card-${insight.id}`}
                     className={cn(
-                      "rounded-xl border p-2.5 flex flex-col gap-1.5 transition-all",
+                      "rounded-xl border p-2.5 flex flex-col gap-1.5 transition-all flex-shrink-0 w-[220px]",
                       urgency.bg,
                       urgency.border,
                       isLead && urgency.glow,
@@ -621,20 +626,6 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
               })}
             </div>
 
-            {/* See more / less toggle */}
-            {hiddenCount > 0 && (
-              <button
-                onClick={() => setShowAllInsights(!showAllInsights)}
-                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-700/40 bg-gray-900/50 text-xs text-gray-500 hover-elevate active-elevate-2 transition-all"
-                data-testid="button-see-more-insights"
-              >
-                {showAllInsights ? (
-                  <><ChevronUp className="w-3 h-3" /> Show less</>
-                ) : (
-                  <><ChevronDown className="w-3 h-3" /> Show {hiddenCount} more signal{hiddenCount !== 1 ? 's' : ''}</>
-                )}
-              </button>
-            )}
           </>
         )}
       </section>
