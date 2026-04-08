@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
-import SearchDrawer from "./SearchDrawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -703,45 +703,72 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         />
       )}
 
-      <SearchDrawer
-        open={invSearchOpen}
-        onClose={() => { setInvSearchOpen(false); setInvSearchInput(''); }}
-        title="Search Inventory"
-        placeholder="Item number, name, color…"
-        accentColor="blue"
-        searchInput={invSearchInput}
-        onSearchChange={setInvSearchInput}
-      >
-        {invSearchInput.trim().length < 2 ? (
-          <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search inventory lots.</p>
-        ) : invSearchResults.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center mt-8">No lots matched &ldquo;{invSearchInput}&rdquo;</p>
-        ) : (
-          <div className="rounded-lg border border-blue-500/20 bg-gray-900/60 divide-y divide-gray-800/60 overflow-hidden">
-            {invSearchResults.map(item => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setInvSearchOpen(false);
-                  setInvSearchInput('');
-                  if (onItemClick) onItemClick('inventory', item.id);
-                }}
-                className="w-full text-left px-4 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
-                data-testid={`result-inv-drawer-${item.id}`}
-              >
-                <div className="min-w-0 flex items-center gap-3">
-                  <span className="text-sm font-semibold text-blue-200 font-mono shrink-0">{item.itemNo}</span>
-                  {item.itemName && <span className="text-sm text-gray-300 truncate">{item.itemName}</span>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {item.colorName && <span className="text-xs text-gray-500">{item.colorName}</span>}
-                  <span className="text-xs font-mono text-blue-400">×{item.quantity}</span>
-                </div>
-              </button>
-            ))}
+      <Drawer open={invSearchOpen} onOpenChange={(open) => { if (!open) { setInvSearchOpen(false); setInvSearchInput(''); } }}>
+        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl" data-testid="drawer-inv-search">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
+              <Search className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              <DrawerTitle className="text-sm font-semibold text-blue-200 flex-1">Search Inventory</DrawerTitle>
+              <DrawerClose asChild>
+                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-inv-search">
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+            <div className="px-4 py-3 border-b border-gray-800/60">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                <input
+                  type="text"
+                  inputMode="search"
+                  placeholder="Item number, name, color…"
+                  value={invSearchInput}
+                  onChange={e => setInvSearchInput(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  autoFocus
+                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60"
+                  data-testid="input-inv-search"
+                />
+              </div>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0">
+            {invSearchInput.trim().length < 2 ? (
+              <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search your inventory.</p>
+            ) : invSearchResults.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center mt-8">No lots matched &ldquo;{invSearchInput}&rdquo;</p>
+            ) : (
+              <div className="divide-y divide-gray-800/60">
+                {invSearchResults.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setInvSearchOpen(false); setInvSearchInput(''); if (onItemClick) onItemClick('inventory', item.id); }}
+                    className="w-full text-left px-2 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
+                    data-testid={`result-inv-drawer-${item.id}`}
+                  >
+                    <div className="min-w-0 flex items-center gap-3">
+                      <span className="text-sm font-semibold text-blue-200 font-mono shrink-0">{item.itemNo}</span>
+                      {item.itemName && <span className="text-sm text-gray-300 truncate">{item.itemName}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.colorName && <span className="text-xs text-gray-500">{item.colorName}</span>}
+                      <span className="text-xs font-mono text-blue-400">×{item.quantity}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </SearchDrawer>
+        </DrawerContent>
+      </Drawer>
 
     </div>
   );

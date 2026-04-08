@@ -4725,7 +4725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eq(blInventory.isDeleted, false),
             or(
               sql`LOWER(${blInventory.itemNo}) LIKE ${'%' + q + '%'}`,
-              sql`LOWER(COALESCE(${blCatalog.name}, '')) LIKE ${'%' + q + '%'}`,
+              sql`LOWER(COALESCE(${blCatalog.itemName}, '')) LIKE ${'%' + q + '%'}`,
               sql`LOWER(COALESCE(${blColors.name}, '')) LIKE ${'%' + q + '%'}`
             )
           )

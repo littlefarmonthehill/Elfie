@@ -1,7 +1,7 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
-import SearchDrawer from "./SearchDrawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -697,52 +697,77 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
         </div>
       </>}
 
-      <SearchDrawer
-        open={mktSearchOpen}
-        onClose={() => { setMktSearchOpen(false); setMktSearchInput(''); }}
-        title="Search Customers"
-        placeholder="Username, email, city, country…"
-        accentColor="yellow"
-        searchInput={mktSearchInput}
-        onSearchChange={setMktSearchInput}
-      >
-        {mktSearchInput.trim().length < 2 ? (
-          <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search customers.</p>
-        ) : mktSearchResults.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center mt-8">No customers matched &ldquo;{mktSearchInput}&rdquo;</p>
-        ) : (
-          <div className="rounded-lg border border-yellow-500/20 bg-gray-900/60 divide-y divide-gray-800/60 overflow-hidden">
-            {mktSearchResults.map(c => (
-              <button
-                key={c.customerUsername}
-                onClick={() => {
-                  setMktSearchOpen(false);
-                  setMktSearchInput('');
-                  handleCustomerClick(c);
-                }}
-                className="w-full text-left px-4 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
-                data-testid={`result-customer-drawer-${c.customerUsername}`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-yellow-200">{c.customerUsername}</span>
-                    {(c.shipCity || c.shipCountry) && (
-                      <span className="text-xs text-gray-500">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
-                    )}
-                  </div>
-                  {c.customerEmail && (
-                    <p className="text-xs text-gray-600 mt-0.5">{c.customerEmail}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
-                  <span className="text-xs text-gray-600">{c.orderCount}×</span>
-                </div>
-              </button>
-            ))}
+      <Drawer open={mktSearchOpen} onOpenChange={(open) => { if (!open) { setMktSearchOpen(false); setMktSearchInput(''); } }}>
+        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl" data-testid="drawer-mkt-search">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
+              <Search className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+              <DrawerTitle className="text-sm font-semibold text-yellow-200 flex-1">Search Customers</DrawerTitle>
+              <DrawerClose asChild>
+                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-mkt-search">
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+            <div className="px-4 py-3 border-b border-gray-800/60">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                <input
+                  type="text"
+                  inputMode="search"
+                  placeholder="Username, email, city, country…"
+                  value={mktSearchInput}
+                  onChange={e => setMktSearchInput(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  autoFocus
+                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-yellow-500/60"
+                  data-testid="input-mkt-search"
+                />
+              </div>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0">
+            {mktSearchInput.trim().length < 2 ? (
+              <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search customers.</p>
+            ) : mktSearchResults.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center mt-8">No customers matched &ldquo;{mktSearchInput}&rdquo;</p>
+            ) : (
+              <div className="divide-y divide-gray-800/60">
+                {mktSearchResults.map(c => (
+                  <button
+                    key={c.customerUsername}
+                    onClick={() => { setMktSearchOpen(false); setMktSearchInput(''); handleCustomerClick(c); }}
+                    className="w-full text-left px-2 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
+                    data-testid={`result-customer-drawer-${c.customerUsername}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-yellow-200">{c.customerUsername}</span>
+                        {(c.shipCity || c.shipCountry) && (
+                          <span className="text-xs text-gray-500">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
+                        )}
+                      </div>
+                      {c.customerEmail && <p className="text-xs text-gray-600 mt-0.5">{c.customerEmail}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
+                      <span className="text-xs text-gray-600">{c.orderCount}×</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </SearchDrawer>
+        </DrawerContent>
+      </Drawer>
 
     </div>
   );

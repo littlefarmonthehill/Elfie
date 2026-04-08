@@ -5,7 +5,7 @@ import {
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair, Search,
 } from "lucide-react";
-import SearchDrawer from "./SearchDrawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
@@ -709,46 +708,73 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
       </>}
 
-      <SearchDrawer
-        open={orderSearchOpen}
-        onClose={() => { setOrderSearchOpen(false); setOrderSearchInput(''); }}
-        title="Search Orders"
-        placeholder="Order number, buyer username…"
-        accentColor="orange"
-        searchInput={orderSearchInput}
-        onSearchChange={setOrderSearchInput}
-      >
-        {orderSearchInput.trim().length < 2 ? (
-          <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search orders.</p>
-        ) : orderSearchResults.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center mt-8">No orders matched &ldquo;{orderSearchInput}&rdquo;</p>
-        ) : (
-          <div className="rounded-lg border border-orange-500/20 bg-gray-900/60 divide-y divide-gray-800/60 overflow-hidden">
-            {orderSearchResults.map(o => (
-              <button
-                key={o.id}
-                onClick={() => {
-                  setOrderSearchOpen(false);
-                  setOrderSearchInput('');
-                  if (onItemClick) onItemClick('order', o.id);
-                }}
-                className="w-full text-left px-4 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
-                data-testid={`result-order-drawer-${o.id}`}
-              >
-                <div className="min-w-0">
-                  <span className="text-sm font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
-                  {o.customerUsername && <span className="ml-2 text-sm text-gray-400">{o.customerUsername}</span>}
-                  {o.marketplace && <span className="ml-2 text-xs text-gray-600">{o.marketplace}</span>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {o.orderTotal && <span className="text-sm font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
-                  {o.orderStatus && <span className="text-xs text-gray-500 capitalize">{o.orderStatus}</span>}
-                </div>
-              </button>
-            ))}
+      <Drawer open={orderSearchOpen} onOpenChange={(open) => { if (!open) { setOrderSearchOpen(false); setOrderSearchInput(''); } }}>
+        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl" data-testid="drawer-orders-search">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
+              <Search className="w-4 h-4 text-orange-400 flex-shrink-0" />
+              <DrawerTitle className="text-sm font-semibold text-orange-200 flex-1">Search Orders</DrawerTitle>
+              <DrawerClose asChild>
+                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-orders-search">
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+            <div className="px-4 py-3 border-b border-gray-800/60">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                <input
+                  type="text"
+                  inputMode="search"
+                  placeholder="Order number, buyer username…"
+                  value={orderSearchInput}
+                  onChange={e => setOrderSearchInput(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  autoFocus
+                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-orange-500/60"
+                  data-testid="input-orders-search"
+                />
+              </div>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0">
+            {orderSearchInput.trim().length < 2 ? (
+              <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search orders.</p>
+            ) : orderSearchResults.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center mt-8">No orders matched &ldquo;{orderSearchInput}&rdquo;</p>
+            ) : (
+              <div className="divide-y divide-gray-800/60">
+                {orderSearchResults.map(o => (
+                  <button
+                    key={o.id}
+                    onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); if (onItemClick) onItemClick('order', o.id); }}
+                    className="w-full text-left px-2 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
+                    data-testid={`result-order-drawer-${o.id}`}
+                  >
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
+                      {o.customerUsername && <span className="ml-2 text-sm text-gray-400">{o.customerUsername}</span>}
+                      {o.marketplace && <span className="ml-2 text-xs text-gray-600">{o.marketplace}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {o.orderTotal && <span className="text-sm font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
+                      {o.orderStatus && <span className="text-xs text-gray-500 capitalize">{o.orderStatus}</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </SearchDrawer>
+        </DrawerContent>
+      </Drawer>
 
     </div>
   );
