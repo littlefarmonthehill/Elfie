@@ -352,7 +352,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         data-testid={`directive-inv-${key}`}
                         className="flex-1 flex flex-col items-center gap-0.5 py-0"
                       >
-                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none whitespace-nowrap", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
                           style={isActive ? {
                             '--lamp-color': lampColor,
@@ -428,11 +428,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onButtonClick={() => onDrawerChange('platformsync')}
                 testId="button-inv-listomatic"
                 statuses={[
-                  { key: 'lom-cat',   label: 'Category',    count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'lom-sub',   label: 'Subcategory', count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
-                  { key: 'lom-fin',   label: 'Final Sort',  count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
-                  { key: 'lom-lst',   label: 'Listing',     count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
-                  { key: 'lom-fil',   label: 'File',        count: lomCount('file'),        lampColor: 'rgba(129,140,248,0.9)' },
+                  { key: 'lom-cat',   label: 'Cat',    count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'lom-sub',   label: 'Sub',    count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
+                  { key: 'lom-fin',   label: 'Sort',   count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
+                  { key: 'lom-lst',   label: 'List',   count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
+                  { key: 'lom-fil',   label: 'File',   count: lomCount('file'),        lampColor: 'rgba(129,140,248,0.9)' },
                 ]}
               />
               </div>
