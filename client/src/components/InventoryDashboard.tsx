@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp, Rocket, ListOrdered } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -164,6 +164,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: pomDeepSpace } = useQuery<{ success: boolean; keys: string[] }>({
+    queryKey: ['/api/priceomatic/deep-space'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: pomFutureMissions } = useQuery<{ success: boolean; keys: string[] }>({
+    queryKey: ['/api/priceomatic/future-missions'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: lomCategories } = useQuery<{ success: boolean; categories: { id: number; name: string; sortingPhase: string | null }[] }>({
+    queryKey: ['/api/listomatc/category-phases'],
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: browseData, isLoading: browseLoading } = useQuery<{
     rows: any[];
     total: number;
@@ -289,70 +304,141 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
-        <div className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden" style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-command-central-inventory">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
-          <div className={cn(isCompact ? "px-2.5 pt-2 pb-2 space-y-1.5" : "px-3 pt-2.5 pb-2.5 space-y-1.5")}>
-            <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1" : "gap-2 mb-1")}>
-              <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
-                <Crosshair className="w-3 h-3 text-blue-200" />
-              </div>
-              <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Command Central</h3>
-            </div>
+        {(() => {
+          const inOrbitCount  = pomInsights?.data?.summary?.wellPriced ?? 0;
+          const missionCount  = pomFutureMissions?.keys?.length ?? 0;
+          const deepSpaceCount = pomDeepSpace?.keys?.length ?? 0;
+          const lomCount = (phase: string) =>
+            (lomCategories?.categories ?? []).filter(c => c.sortingPhase === phase).length;
+          const pomHasActivity  = (pomInsights?.data?.summary?.tooHigh ?? 0) > 0 || (pomInsights?.data?.summary?.tooLow ?? 0) > 0;
+          const lomHasActivity  = ['category','subcategory','finalsort','listing'].some(p => lomCount(p) > 0);
 
-            {/* Pricing signal */}
-            <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[11px] text-gray-400 uppercase tracking-widest w-16 flex-shrink-0">Pricing</span>
-              {pomInsights ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(pomInsights.data?.summary?.tooLow ?? 0) > 0 && (
-                    <button
-                      onClick={() => onDrawerChange('priceomatic')}
-                      data-testid="directive-underpriced"
-                      className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 hover-elevate"
-                    >
-                      <TrendingDown className="w-2.5 h-2.5" />
-                      {pomInsights.data.summary.tooLow} underpriced
-                    </button>
-                  )}
-                  {(pomInsights.data?.summary?.tooHigh ?? 0) > 0 && (
-                    <button
-                      onClick={() => onDrawerChange('priceomatic')}
-                      data-testid="directive-overpriced"
-                      className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
-                    >
-                      <TrendingUp className="w-2.5 h-2.5" />
-                      {pomInsights.data.summary.tooHigh} overpriced
-                    </button>
-                  )}
-                  {!(pomInsights.data?.summary?.tooLow > 0) && !(pomInsights.data?.summary?.tooHigh > 0) && (
-                    <span className="text-[11px] text-green-400/60">All well-priced</span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-[11px] text-gray-700">—</span>
-              )}
-            </div>
-
-            {/* Channel sync signal */}
-            <div className={cn("flex items-center gap-2", isCompact ? "" : "min-h-[1.5rem]")}>
-              <span className="text-[11px] text-gray-400 uppercase tracking-widest w-16 flex-shrink-0">Channels</span>
-              {hasChannelErrors ? (
+          const PipelineRow = ({
+            sectionLabel,
+            buttonIcon,
+            buttonLabel,
+            buttonStyle,
+            buttonClass,
+            onButtonClick,
+            testId,
+            statuses,
+          }: {
+            sectionLabel: string;
+            buttonIcon: React.ReactNode;
+            buttonLabel: string;
+            buttonStyle: React.CSSProperties;
+            buttonClass: string;
+            onButtonClick: () => void;
+            testId: string;
+            statuses: { key: string; label: string; count: number; lampColor: string }[];
+          }) => (
+            <div>
+              <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-gray-500 pl-0.5">{sectionLabel}</span>
+              <div className="flex items-stretch gap-3 mt-1">
                 <button
-                  onClick={() => setPanelTab('uplink')}
-                  data-testid="directive-channel-error"
-                  className="flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/25 hover-elevate"
+                  onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                  data-testid={testId}
+                  style={buttonStyle}
+                  className={buttonClass}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                  Sync issues detected
+                  {buttonIcon}
+                  <span className="font-mono text-[7px] font-bold uppercase tracking-[0.15em]">{buttonLabel}</span>
                 </button>
-              ) : syncStatuses ? (
-                <span className="text-[11px] text-green-400/80">All channels nominal</span>
-              ) : (
-                <span className="text-[11px] text-gray-700">—</span>
-              )}
+                <div className="flex-1 relative pt-4 pb-2">
+                  <div className="absolute left-0 right-0 top-[22px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
+                  <div className="flex items-start">
+                    {statuses.map(({ key, label, count, lampColor }) => {
+                      const isActive = count > 0;
+                      return (
+                        <button
+                          key={key}
+                          onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                          data-testid={`directive-inv-${key}`}
+                          className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
+                        >
+                          <div
+                            style={isActive ? {
+                              '--lamp-color': lampColor,
+                              backgroundColor: lampColor,
+                              boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55`,
+                            } as React.CSSProperties : undefined}
+                            className={cn(
+                              "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
+                              isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
+                            )}
+                          />
+                          <div className="flex items-baseline gap-0.5">
+                            <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                            <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+
+          return (
+            <div
+              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3 cursor-pointer hover-elevate active-elevate-2"
+              style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
+              data-testid="section-command-central-inventory"
+              onClick={() => onDrawerChange('priceomatic')}
+            >
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/70 to-transparent" />
+              <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
+
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-0.5">
+                <div className="rounded-md bg-blue-800/70 ring-1 ring-blue-500/55 shadow-[0_0_10px_rgba(59,130,246,0.28)] shrink-0 p-1">
+                  <Crosshair className="w-3 h-3 text-blue-200" />
+                </div>
+                <h3 className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wide flex-1">Command Central</h3>
+              </div>
+
+              {/* Price-o-Matic pipeline */}
+              <PipelineRow
+                sectionLabel="Price-o-Matic"
+                buttonIcon={<Rocket className="w-4 h-4 text-blue-200" />}
+                buttonLabel="POM"
+                buttonStyle={{
+                  background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
+                  boxShadow: '0 4px 0 rgba(15,35,100,0.70), inset 0 1px 0 rgba(147,197,253,0.12), 0 0 12px rgba(59,130,246,0.15)',
+                }}
+                buttonClass="flex flex-col items-center justify-center rounded-lg border border-blue-500/55 px-3 shrink-0 gap-1.5 self-stretch min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
+                onButtonClick={() => onDrawerChange('priceomatic')}
+                testId="button-inv-priceomatic"
+                statuses={[
+                  { key: 'in-orbit',   label: 'Orbit',   count: inOrbitCount,   lampColor: 'rgba(56,189,248,0.9)'  },
+                  { key: 'mission',    label: 'Mission',  count: missionCount,   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'deep-space', label: 'D.Space',  count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
+                ]}
+              />
+
+              {/* List-o-Matic pipeline */}
+              <PipelineRow
+                sectionLabel="List-o-Matic"
+                buttonIcon={<ListOrdered className="w-4 h-4 text-teal-200" />}
+                buttonLabel="LOM"
+                buttonStyle={{
+                  background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
+                  boxShadow: '0 4px 0 rgba(5,60,55,0.70), inset 0 1px 0 rgba(153,246,228,0.12), 0 0 12px rgba(20,184,166,0.15)',
+                }}
+                buttonClass="flex flex-col items-center justify-center rounded-lg border border-teal-500/55 px-3 shrink-0 gap-1.5 self-stretch min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
+                onButtonClick={() => onDrawerChange('platformsync')}
+                testId="button-inv-listomatic"
+                statuses={[
+                  { key: 'lom-cat',    label: 'Cat',     count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'lom-sub',    label: 'Sub-Cat', count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
+                  { key: 'lom-final',  label: 'Final',   count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
+                  { key: 'lom-list',   label: 'Listing', count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
+                ]}
+              />
+            </div>
+          );
+        })()}
       </>}
       {(!tvSplit || tvSplit === 'right') && <>
 
