@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -84,6 +84,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+  const [invSearchInput, setInvSearchInput] = useState('');
 
   useEffect(() => {
     if (initialPanelTab) setPanelTab(initialPanelTab);
@@ -243,6 +244,33 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           </div>
 
+          {/* Inventory search bar */}
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              if (invSearchInput.trim()) {
+                setBrowseSearchInput(invSearchInput.trim());
+                desktopMode && onBrowseOpen ? onBrowseOpen('lots') : openBrowse('lots');
+              }
+            }}
+            className={cn("relative flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-gray-900/60 px-2.5", isCompact ? "mb-1.5 h-7" : "mb-2 h-8")}
+            data-testid="form-inv-search"
+          >
+            <Search className="w-3 h-3 text-blue-400/60 shrink-0" />
+            <Input
+              value={invSearchInput}
+              onChange={e => setInvSearchInput(e.target.value)}
+              placeholder="Search lots, item #, color, category…"
+              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+              data-testid="input-inv-search"
+            />
+            {invSearchInput ? (
+              <button type="button" onClick={() => setInvSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-inv-search-clear">
+                <X className="w-3 h-3" />
+              </button>
+            ) : null}
+          </form>
+
           {/* Top row: Lots, Parts, Categories */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">
             {([
@@ -250,18 +278,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
               { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '—' },
             ] as const).map(({ key, label, value }) => (
-              <button
+              <div
                 key={key}
-                onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
+                className={cn("flex flex-col rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
               >
                 <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>{label}</span>
                 <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-sm" : "text-xs md:text-base")}>{value}</span>
-                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
-                  <ChevronRight className="w-2.5 h-2.5 text-white" />
-                </span>
-              </button>
+              </div>
             ))}
           </div>
 

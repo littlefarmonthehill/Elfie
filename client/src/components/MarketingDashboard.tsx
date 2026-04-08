@@ -1,6 +1,7 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -319,6 +320,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
+  const [mktSearchInput, setMktSearchInput] = useState('');
 
   const [newDateRange, setNewDateRange] = useState<DateRangeValue>('mtd');
   const [repeatDateRange, setRepeatDateRange] = useState<DateRangeValue>('mtd');
@@ -372,6 +374,19 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   const repeatRate = totalCustomers > 0 ? (repeatCustomerCount / totalCustomers * 100).toFixed(1) : '0.0';
   const totalOrders = customerData.reduce((sum, c) => sum + c.orderCount, 0);
   const avgOrders = totalCustomers > 0 ? (totalOrders / totalCustomers).toFixed(1) : '0.0';
+
+  const deferredMktSearch = useDeferredValue(mktSearchInput);
+  const mktSearchResults = useMemo(() => {
+    const q = deferredMktSearch.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    return customerData.filter(c =>
+      c.customerUsername.toLowerCase().includes(q) ||
+      (c.customerEmail || '').toLowerCase().includes(q) ||
+      (c.shipCity || '').toLowerCase().includes(q) ||
+      (c.shipCountry || '').toLowerCase().includes(q) ||
+      (c.shipName || '').toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [customerData, deferredMktSearch]);
 
   const handleCustomerClick = (customer: CustomerData) => {
     onDrawerChange(null);
@@ -480,6 +495,52 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               testId="button-customers-date-picker"
             />
           </div>
+
+          {/* Customer search bar */}
+          <div className={cn("relative flex items-center gap-1.5 rounded-md border border-yellow-500/30 bg-gray-900/60 px-2.5 mb-1.5", isCompact ? "h-7" : "h-8")} data-testid="form-mkt-search">
+            <Search className="w-3 h-3 text-yellow-400/60 shrink-0" />
+            <Input
+              value={mktSearchInput}
+              onChange={e => setMktSearchInput(e.target.value)}
+              placeholder="Customer, email, city, country…"
+              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+              data-testid="input-mkt-search"
+            />
+            {mktSearchInput ? (
+              <button type="button" onClick={() => setMktSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-mkt-search-clear">
+                <X className="w-3 h-3" />
+              </button>
+            ) : null}
+          </div>
+
+          {/* Customer search results */}
+          {mktSearchInput.trim().length >= 2 && mktSearchResults.length > 0 && (
+            <div className="rounded-md border border-yellow-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mb-1.5 overflow-hidden">
+              {mktSearchResults.map(c => (
+                <button
+                  key={c.customerUsername}
+                  onClick={() => { setMktSearchInput(''); handleCustomerClick(c); }}
+                  className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
+                  data-testid={`result-customer-${c.customerUsername}`}
+                >
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-yellow-200">{c.customerUsername}</span>
+                    {(c.shipCity || c.shipCountry) && (
+                      <span className="ml-1.5 text-[10px] text-gray-400">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
+                    <span className="text-[10px] text-gray-500">{c.orderCount} order{c.orderCount !== 1 ? 's' : ''}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {mktSearchInput.trim().length >= 2 && mktSearchResults.length === 0 && (
+            <p className="text-[10px] text-gray-600 px-1 mb-1.5">No customers matched "{mktSearchInput}"</p>
+          )}
+
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" compact={isCompact} data-testid="metric-total-customers" />
             <MetricCard label="Repeat" value={String(repeatCustomerCount)} color="green" compact={isCompact} data-testid="metric-repeat-customers" />

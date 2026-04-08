@@ -4699,8 +4699,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Customer stats aggregated server-side for Marketing Dashboard
-  // Returns one row per customer with order_count, total_revenue, last/first order date, most recent order id & ship_to
+  // GET /api/orders/quick-search?q=X — lightweight order search (by order ID, order number, buyer)
+  app.get("/api/orders/quick-search", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const q = ((req.query.q as string) || '').trim().toLowerCase();
+      if (!q || q.length < 2) { res.json([]); return; }
+      const results = await db.select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerUsername: orders.customerUsername,
+        orderDate: orders.orderDate,
+        orderStatus: orders.orderStatus,
+        orderTotal: orders.orderTotal,
+        marketplace: orders.marketplace,
+      })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.orgId, orgId),
+            eq(orders.isTest, false),
+            or(
+              sql`LOWER(${orders.id}) LIKE ${'%' + q + '%'}`,
+              sql`LOWER(COALESCE(${orders.orderNumber}, '')) LIKE ${'%' + q + '%'}`,
+              sql`LOWER(COALESCE(${orders.customerUsername}, '')) LIKE ${'%' + q + '%'}`
+            )
+          )
+        )
+        .orderBy(desc(orders.orderDate))
+        .limit(8);
+      res.json(results);
+    } catch (err) {
+      console.error("quick-search error:", err);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   app.get("/api/orders/customer-stats", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);

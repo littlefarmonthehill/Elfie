@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useDeferredValue } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, PackageCheck, BarChart2, Activity,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
-  Loader2, RefreshCw, X, ArrowRight, Crosshair,
+  Loader2, RefreshCw, X, ArrowRight, Crosshair, Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -312,6 +313,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
+  const [orderSearchInput, setOrderSearchInput] = useState('');
+  const deferredOrderSearch = useDeferredValue(orderSearchInput);
+
+  const { data: orderSearchResults = [] } = useQuery<{
+    id: string; orderNumber: string | null; customerUsername: string | null;
+    orderDate: string | null; orderStatus: string | null; orderTotal: string | null; marketplace: string | null;
+  }[]>({
+    queryKey: ['/api/orders/quick-search', deferredOrderSearch],
+    queryFn: () => fetch(`/api/orders/quick-search?q=${encodeURIComponent(deferredOrderSearch)}`, { credentials: 'include' }).then(r => r.json()),
+    enabled: deferredOrderSearch.trim().length >= 2,
+    staleTime: 30000,
+  });
 
   useEffect(() => {
     if (initialPanelTab) setPanelTab(initialPanelTab);
@@ -413,6 +426,50 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               testId="button-orders-date-picker"
             />
           </div>
+
+          {/* Orders search bar */}
+          <div className={cn("relative flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-gray-900/60 px-2.5 mb-1.5", isCompact ? "h-7" : "h-8")} data-testid="form-orders-search">
+            <Search className="w-3 h-3 text-orange-400/60 shrink-0" />
+            <Input
+              value={orderSearchInput}
+              onChange={e => setOrderSearchInput(e.target.value)}
+              placeholder="Order #, buyer username…"
+              className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+              data-testid="input-orders-search"
+            />
+            {orderSearchInput ? (
+              <button type="button" onClick={() => setOrderSearchInput('')} className="text-gray-600 hover-elevate rounded shrink-0" data-testid="button-orders-search-clear">
+                <X className="w-3 h-3" />
+              </button>
+            ) : null}
+          </div>
+
+          {/* Search results panel */}
+          {orderSearchInput.trim().length >= 2 && orderSearchResults.length > 0 && (
+            <div className="rounded-md border border-orange-500/20 bg-gray-900/80 divide-y divide-gray-700/40 mb-1.5 overflow-hidden">
+              {orderSearchResults.map(o => (
+                <button
+                  key={o.id}
+                  onClick={() => { setOrderSearchInput(''); onItemClick('order', o.id); }}
+                  className="w-full text-left px-2.5 py-1.5 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
+                  data-testid={`result-order-${o.id}`}
+                >
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
+                    {o.customerUsername && <span className="ml-1.5 text-[10px] text-gray-400">{o.customerUsername}</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {o.orderTotal && <span className="text-[10px] font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
+                    {o.orderStatus && <span className="text-[10px] text-gray-500 capitalize">{o.orderStatus}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {orderSearchInput.trim().length >= 2 && orderSearchResults.length === 0 && (
+            <p className="text-[10px] text-gray-600 px-1 mb-1.5">No orders matched "{orderSearchInput}"</p>
+          )}
+
           {/* Row 1 — Sales / Financial */}
           <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-sales">
             <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
