@@ -25,15 +25,22 @@ export function SearchDrawer({
   children,
 }: SearchDrawerProps) {
   const [query, setQuery] = useState('');
+  const [inputReady, setInputReady] = useState(false);
   const deferred = useDeferredValue(query);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setQuery('');
+      setInputReady(false);
       onQueryChange?.('');
-      const t = setTimeout(() => inputRef.current?.focus(), 120);
+      const t = setTimeout(() => {
+        setInputReady(true);
+        inputRef.current?.focus();
+      }, 200);
       return () => clearTimeout(t);
+    } else {
+      setInputReady(false);
     }
   }, [open]);
 
@@ -50,21 +57,28 @@ export function SearchDrawer({
 
   return (
     <Drawer open={open} onOpenChange={v => { if (!v) handleClose(); }}>
-      <DrawerContent className="bg-gray-950 border-gray-800 focus:outline-none">
-        <div className="px-4 pt-2 pb-3 border-b border-gray-800/60">
+      <DrawerContent
+        className="bg-gray-950 border-gray-800 focus:outline-none flex flex-col"
+        style={{ height: '78vh', maxHeight: '78vh' }}
+      >
+        <div className="px-4 pt-2 pb-3 border-b border-gray-800/60 shrink-0">
           <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">{title}</p>
           <div className={cn("flex items-center gap-2 rounded-md border px-3 h-10 bg-gray-900/80", accentBorder)}>
             <Search className={cn("w-4 h-4 shrink-0", accentIcon)} />
             <input
               ref={inputRef}
               value={query}
-              onChange={e => updateQuery(e.target.value)}
+              onChange={inputReady ? e => updateQuery(e.target.value) : undefined}
+              readOnly={!inputReady}
               placeholder={placeholder}
-              type="search"
+              type="text"
+              inputMode="search"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
               className="flex-1 h-full border-0 bg-transparent text-sm text-gray-200 placeholder:text-gray-600 focus:outline-none"
               data-testid="input-search-drawer"
             />
@@ -75,7 +89,7 @@ export function SearchDrawer({
             ) : null}
           </div>
         </div>
-        <div className="overflow-y-auto pb-safe" style={{ maxHeight: '55vh' }}>
+        <div className="flex-1 overflow-y-auto">
           {children(query, deferred, handleClose)}
         </div>
       </DrawerContent>
