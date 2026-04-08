@@ -318,7 +318,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             buttonIcon,
             buttonLabel,
             buttonStyle,
-            buttonClass,
+            buttonBorderClass,
             onButtonClick,
             testId,
             statuses,
@@ -327,113 +327,112 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             buttonIcon: React.ReactNode;
             buttonLabel: string;
             buttonStyle: React.CSSProperties;
-            buttonClass: string;
+            buttonBorderClass: string;
             onButtonClick: () => void;
             testId: string;
             statuses: { key: string; label: string; count: number; lampColor: string }[];
           }) => (
             <div>
-              <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-gray-500 pl-0.5">{sectionLabel}</span>
-              <div className="flex items-stretch gap-3 mt-1">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
-                  data-testid={testId}
-                  style={buttonStyle}
-                  className={buttonClass}
-                >
-                  {buttonIcon}
-                  <span className="font-mono text-[7px] font-bold uppercase tracking-[0.15em]">{buttonLabel}</span>
-                </button>
-                <div className="flex-1 relative pt-4 pb-2">
-                  <div className="absolute left-0 right-0 top-[22px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
-                  <div className="flex items-start">
-                    {statuses.map(({ key, label, count, lampColor }) => {
-                      const isActive = count > 0;
-                      return (
-                        <button
-                          key={key}
-                          onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
-                          data-testid={`directive-inv-${key}`}
-                          className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
-                        >
-                          <div
-                            style={isActive ? {
-                              '--lamp-color': lampColor,
-                              backgroundColor: lampColor,
-                              boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55`,
-                            } as React.CSSProperties : undefined}
-                            className={cn(
-                              "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
-                              isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
-                            )}
-                          />
-                          <div className="flex items-baseline gap-0.5">
-                            <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                            <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+            <span className="font-mono text-[6px] uppercase tracking-[0.18em] text-gray-500 pl-0.5">{sectionLabel}</span>
+            <div className="flex items-stretch gap-2 mt-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                data-testid={testId}
+                style={buttonStyle}
+                className={`flex flex-col items-center justify-center rounded-md border px-2 shrink-0 gap-0.5 self-stretch min-w-[38px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
+              >
+                {buttonIcon}
+                <span className="font-mono text-[6px] font-bold uppercase tracking-[0.15em] leading-none">{buttonLabel}</span>
+              </button>
+              <div className="flex-1 relative pt-[10px] pb-1">
+                <div className="absolute left-0 right-0 top-[15px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
+                <div className="flex items-start">
+                  {statuses.map(({ key, label, count, lampColor }) => {
+                    const isActive = count > 0;
+                    return (
+                      <button
+                        key={key}
+                        onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                        data-testid={`directive-inv-${key}`}
+                        className="flex-1 flex flex-col items-center gap-1 hover-elevate rounded py-0"
+                      >
+                        <div
+                          style={isActive ? {
+                            '--lamp-color': lampColor,
+                            backgroundColor: lampColor,
+                            boxShadow: `0 0 6px ${lampColor}, 0 0 14px ${lampColor}55`,
+                          } as React.CSSProperties : undefined}
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full z-10 ring-1 shrink-0",
+                            isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
+                          )}
+                        />
+                        <div className="flex items-baseline gap-px">
+                          <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                          <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+            </div>
             </div>
           );
 
           return (
             <div
-              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3 cursor-pointer hover-elevate active-elevate-2"
+              className="relative rounded-lg border border-blue-400/50 p-2 space-y-1.5 cursor-pointer hover-elevate active-elevate-2"
               style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
               data-testid="section-command-central-inventory"
               onClick={() => onDrawerChange('priceomatic')}
             >
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/70 to-transparent" />
               <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
               {/* Header */}
-              <div className="flex items-center gap-2 mb-0.5">
-                <div className="rounded-md bg-blue-800/70 ring-1 ring-blue-500/55 shadow-[0_0_10px_rgba(59,130,246,0.28)] shrink-0 p-1">
-                  <Crosshair className="w-3 h-3 text-blue-200" />
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="rounded bg-blue-800/70 ring-1 ring-blue-500/55 shrink-0 p-0.5">
+                  <Crosshair className="w-2.5 h-2.5 text-blue-200" />
                 </div>
-                <h3 className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-wide flex-1">Command Central</h3>
+                <h3 className="text-[9px] font-semibold text-blue-200/80 uppercase tracking-wide flex-1">Command Central</h3>
               </div>
 
               {/* Price-o-Matic pipeline */}
               <PipelineRow
                 sectionLabel="Price-o-Matic"
-                buttonIcon={<Rocket className="w-4 h-4 text-blue-200" />}
+                buttonIcon={<Rocket className="w-3 h-3 text-blue-200" />}
                 buttonLabel="POM"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
-                  boxShadow: '0 4px 0 rgba(15,35,100,0.70), inset 0 1px 0 rgba(147,197,253,0.12), 0 0 12px rgba(59,130,246,0.15)',
+                  boxShadow: '0 3px 0 rgba(15,35,100,0.65), inset 0 1px 0 rgba(147,197,253,0.10)',
                 }}
-                buttonClass="flex flex-col items-center justify-center rounded-lg border border-blue-500/55 px-3 shrink-0 gap-1.5 self-stretch min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
+                buttonBorderClass="border-blue-500/55"
                 onButtonClick={() => onDrawerChange('priceomatic')}
                 testId="button-inv-priceomatic"
                 statuses={[
                   { key: 'in-orbit',   label: 'Orbit',   count: inOrbitCount,   lampColor: 'rgba(56,189,248,0.9)'  },
-                  { key: 'mission',    label: 'Mission',  count: missionCount,   lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'deep-space', label: 'D.Space',  count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
+                  { key: 'mission',    label: 'Msn',      count: missionCount,   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'deep-space', label: 'D.Spc',   count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
                 ]}
               />
 
               {/* List-o-Matic pipeline */}
               <PipelineRow
                 sectionLabel="List-o-Matic"
-                buttonIcon={<ListOrdered className="w-4 h-4 text-teal-200" />}
+                buttonIcon={<ListOrdered className="w-3 h-3 text-teal-200" />}
                 buttonLabel="LOM"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
-                  boxShadow: '0 4px 0 rgba(5,60,55,0.70), inset 0 1px 0 rgba(153,246,228,0.12), 0 0 12px rgba(20,184,166,0.15)',
+                  boxShadow: '0 3px 0 rgba(5,60,55,0.65), inset 0 1px 0 rgba(153,246,228,0.10)',
                 }}
-                buttonClass="flex flex-col items-center justify-center rounded-lg border border-teal-500/55 px-3 shrink-0 gap-1.5 self-stretch min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
+                buttonBorderClass="border-teal-500/55"
                 onButtonClick={() => onDrawerChange('platformsync')}
                 testId="button-inv-listomatic"
                 statuses={[
-                  { key: 'lom-cat',    label: 'Cat',     count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'lom-sub',    label: 'Sub-Cat', count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
-                  { key: 'lom-final',  label: 'Final',   count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
-                  { key: 'lom-list',   label: 'Listing', count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
+                  { key: 'lom-cat',   label: 'Cat',  count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'lom-sub',   label: 'Sub',  count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
+                  { key: 'lom-fin',   label: 'Fin',  count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
+                  { key: 'lom-lst',   label: 'List', count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
                 ]}
               />
             </div>
