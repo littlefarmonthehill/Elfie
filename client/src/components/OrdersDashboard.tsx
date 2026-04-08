@@ -515,11 +515,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                     : (workflowSummary?.byStatus?.[key] ?? 0);
                   const isActive = count > 0;
                   return (
-                    <button
+                    <div
                       key={key}
-                      onClick={() => onDrawerChange('fulfillment')}
                       data-testid={`directive-status-${key}`}
-                      className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
+                      className="flex-1 flex flex-col items-center gap-0.5 py-0"
                     >
                       <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                       <div
@@ -536,7 +535,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                       <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
                         {(workflowSummary || isFeedback) ? count : '—'}
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
 
@@ -556,11 +555,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   const count = workflowSummary?.byStatus?.[key] ?? 0;
                   const isActive = count > 0;
                   return (
-                    <button
+                    <div
                       key={key}
-                      onClick={() => onDrawerChange('fulfillment')}
                       data-testid={`directive-status-${key}`}
-                      className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
+                      className="flex-1 flex flex-col items-center gap-0.5 py-0"
                     >
                       <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                       <div
@@ -577,7 +575,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                       <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
                         {workflowSummary ? count : '—'}
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

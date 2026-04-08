@@ -347,11 +347,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   {statuses.map(({ key, label, count, lampColor }) => {
                     const isActive = count > 0;
                     return (
-                      <button
+                      <div
                         key={key}
-                        onClick={() => onButtonClick()}
                         data-testid={`directive-inv-${key}`}
-                        className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded py-0"
+                        className="flex-1 flex flex-col items-center gap-0.5 py-0"
                       >
                         <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
@@ -366,7 +365,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                           )}
                         />
                         <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
