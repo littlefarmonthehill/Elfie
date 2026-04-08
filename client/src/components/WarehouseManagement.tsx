@@ -1326,6 +1326,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )}
             <nav className="flex flex-col gap-0.5">
               <button
+                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'bins' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                data-testid="button-view-bins-sidebar"
+              >
+                <Archive className="w-4 h-4 shrink-0" />
+                Bins
+                {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length}</span>}
+              </button>
+              <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                 className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'lots' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                 data-testid="button-view-lots-sidebar"
@@ -1335,15 +1344,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 {unassignedLots > 0 && <Badge className="ml-auto text-[9px] px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
               <button
-                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'bins' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                data-testid="button-view-bins-sidebar"
+                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'zones' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                data-testid="button-view-zones-sidebar"
               >
-                <Archive className="w-4 h-4 shrink-0" />
-                Bins
-                {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length}</span>}
+                <Building2 className="w-4 h-4 shrink-0" />
+                Zones
+                {zones.length > 0 && <span className="ml-auto text-xs opacity-60">{zones.length}</span>}
               </button>
-              {(activeZoneId === null || depth >= 2) && (
+              {(shelves.length > 0 || activeZoneId !== null) && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'shelves' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1354,7 +1363,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-auto text-xs opacity-60">{shelves.length}</span>}
                 </button>
               )}
-              {(activeZoneId === null || depth >= 3) && (
+              {(aisles.length > 0 || activeZoneId !== null) && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'aisles' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1365,15 +1374,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {aisles.length > 0 && <span className="ml-auto text-xs opacity-60">{aisles.length}</span>}
                 </button>
               )}
-              <button
-                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'zones' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                data-testid="button-view-zones-sidebar"
-              >
-                <Building2 className="w-4 h-4 shrink-0" />
-                Zones
-                {zones.length > 0 && <span className="ml-auto text-xs opacity-60">{zones.length}</span>}
-              </button>
             </nav>
           </div>
 
@@ -1412,26 +1412,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </div>
               </div>
             )}
-            {activeZoneId === null && (
-              <div className="md:hidden flex items-center justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 px-2 gap-1"
-                  onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
-                  data-testid="button-import-csv-top"
-                >
-                  <Upload className="h-3 w-3" />
-                  Import CSV
-                </Button>
-              </div>
-            )}
-
-            {/* Mobile-only: horizontal tabs */}
-            <div className="md:hidden tool-tab-bar">
+            {/* Mobile-only: horizontal tabs (scrollable so all tabs are reachable) */}
+            <div className="md:hidden tool-tab-bar overflow-x-auto">
+              <button
+                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`tool-tab shrink-0 ${activeView === 'bins' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                data-testid="button-view-bins"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                Bins
+                {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
+              </button>
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`tool-tab ${activeView === 'lots' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                className={`tool-tab shrink-0 ${activeView === 'lots' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
                 data-testid="button-view-lots"
               >
                 <Package className="w-3.5 h-3.5" />
@@ -1441,18 +1435,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 )}
               </button>
               <button
-                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`tool-tab ${activeView === 'bins' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                data-testid="button-view-bins"
+                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`tool-tab shrink-0 ${activeView === 'zones' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                data-testid="button-view-zones"
               >
-                <Archive className="w-3.5 h-3.5" />
-                Bins
-                {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
+                <Building2 className="w-3.5 h-3.5" />
+                Zones
+                {zones.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{zones.length}</span>}
               </button>
-              {(activeZoneId === null || depth >= 2) && (
+              {(shelves.length > 0 || activeZoneId !== null) && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`tool-tab ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                  className={`tool-tab shrink-0 ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
                   data-testid="button-view-shelves"
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -1460,10 +1454,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{shelves.length}</span>}
                 </button>
               )}
-              {(activeZoneId === null || depth >= 3) && (
+              {(aisles.length > 0 || activeZoneId !== null) && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`tool-tab ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                  className={`tool-tab shrink-0 ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
                   data-testid="button-view-aisles"
                 >
                   <MapPin className="w-3.5 h-3.5" />
@@ -1471,15 +1465,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {aisles.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{aisles.length}</span>}
                 </button>
               )}
-              <button
-                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`tool-tab ${activeView === 'zones' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                data-testid="button-view-zones"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                Zones
-                {zones.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{zones.length}</span>}
-              </button>
             </div>
 
             {/* Zones view — rendered inline when Zones tab is active */}
