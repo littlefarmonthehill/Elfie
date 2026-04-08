@@ -156,8 +156,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
   const { data: pomInsights } = useQuery<{
     data: {
-      tooHigh: any[]; tooLow: any[]; wellPriced: any[];
-      summary: { total: number; tooHigh: number; tooLow: number; wellPriced: number };
+      items: any[];
+      summary: { total: number };
     };
   }>({
     queryKey: ['/api/priceomatic/insights'],
@@ -305,12 +305,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
         {/* ── COMMAND CENTRAL ─ Focus panel ── */}
         {(() => {
-          const inOrbitCount  = pomInsights?.data?.summary?.wellPriced ?? 0;
-          const missionCount  = pomFutureMissions?.keys?.length ?? 0;
+          const missionCount   = pomFutureMissions?.keys?.length ?? 0;
           const deepSpaceCount = pomDeepSpace?.keys?.length ?? 0;
+          const totalPomItems  = pomInsights?.data?.summary?.total ?? 0;
+          const inOrbitCount   = Math.max(0, totalPomItems - missionCount - deepSpaceCount);
           const lomCount = (phase: string) =>
             (lomCategories?.categories ?? []).filter(c => c.sortingPhase === phase).length;
-          const pomHasActivity  = (pomInsights?.data?.summary?.tooHigh ?? 0) > 0 || (pomInsights?.data?.summary?.tooLow ?? 0) > 0;
+          const pomHasActivity  = totalPomItems > 0;
           const lomHasActivity  = ['category','subcategory','finalsort','listing','file'].some(p => lomCount(p) > 0);
 
           const PipelineRow = ({
