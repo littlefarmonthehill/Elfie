@@ -5588,21 +5588,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Look up catalog image URLs + item type for all order items.
-      // Key: "itemNo" → { imageUrl, itemType } (best color match first).
+      // Key: "itemNo:colorId" → { imageUrl, itemType } — color-matched like the picklist.
+      // Falls back to colorId=0 (universal) at lookup time if no color-specific row exists.
       const catalogImageMap: Record<string, { imageUrl: string | null; itemType: string | null }> = {};
       {
-        const itemNos = [...new Set(items.map(i => i.itemNo).filter(Boolean))] as string[];
+        const itemNos = [...new Set(items.map(i => {
+          const invId = resolveInvId(i);
+          return i.itemNo || (invId != null ? fallbackItemNoMap[invId] : null) || i.sku || '';
+        }).filter(Boolean))] as string[];
+        const colorIds = [...new Set([0, ...items.map(i => i.colorId ?? 0)])];
         if (itemNos.length > 0) {
           const catalogRows = await db.execute(sql`
-            SELECT DISTINCT ON (item_no)
-              item_no, image_url, item_type
+            SELECT item_no, color_id, image_url, item_type
             FROM bl_catalog
             WHERE item_no = ANY(${sql.raw(`ARRAY[${itemNos.map(n => `'${n.replace(/'/g, "''")}'`).join(',')}]`)})
-            ORDER BY item_no, image_url NULLS LAST
+              AND color_id = ANY(${sql.raw(`ARRAY[${colorIds.join(',')}]`)})
+              AND image_url IS NOT NULL AND image_url != ''
           `);
           for (const row of catalogRows.rows as any[]) {
-            if (row.item_no) {
-              catalogImageMap[row.item_no] = {
+            if (row.item_no != null) {
+              catalogImageMap[`${row.item_no}:${row.color_id}`] = {
                 imageUrl: row.image_url ?? null,
                 itemType: row.item_type ?? null,
               };
@@ -5724,7 +5729,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             && demand.orderCount >= 2
             && currentInventoryQty < demand.totalQty;
           const pn = item.itemNo || (invId ? fallbackItemNoMap[invId] : undefined) || item.sku || '';
-          const catalogEntry = catalogImageMap[pn] ?? null;
+          const colorId = item.colorId ?? 0;
+          const catalogEntry = catalogImageMap[`${pn}:${colorId}`] ?? catalogImageMap[`${pn}:0`] ?? null;
           return {
             partNumber: pn,
             name: item.name,
