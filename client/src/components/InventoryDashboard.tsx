@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp, Rocket, ListOrdered } from "lucide-react";
+import { StationTool } from "./StationTool";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -459,7 +460,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               )}
             >
               <Sparkles className="w-3 h-3 flex-shrink-0" />
-              Systems
+              Station
               {panelTab === 'systems' && (
                 <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
               )}
@@ -485,87 +486,61 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </button>
           </div>
 
-          {/* SYSTEMS — Tools grid */}
+          {/* STATION — Tools grid */}
           {panelTab === 'systems' && (
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
-            {/* Brick Spotter 3000 */}
-            <button
+            <StationTool
+              icon={ScanSearch}
+              label="Brick Spotter"
+              hex="#f59e0b"
+              glowRgb="245,158,11"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('brickanalyzer')}
-              data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
-                  <ScanSearch className={cn("text-amber-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-amber-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Brick Spotter</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="brickspotter-action-stats">
-                {(toolStats?.pendingScans ?? 0) > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
+              testId="tool-brickspotter"
+              status={
+                (toolStats?.pendingScans ?? 0) > 0 ? (
+                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30" data-testid="brickspotter-action-stats">
                     {toolStats!.pendingScans} pending scans
                   </span>
                 ) : toolStats ? (
-                  <span className="text-[11px] text-green-400/70">Ready to scan</span>
-                ) : null}
-              </div>
-            </button>
+                  <span className="text-green-400/70" data-testid="brickspotter-action-stats">Ready to scan</span>
+                ) : undefined
+              }
+            />
 
-            {/* Inventory Health */}
-            <button
+            <StationTool
+              icon={Activity}
+              label="Inventory Health"
+              hex="#06b6d4"
+              glowRgb="6,182,212"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('inventoryhealth')}
-              data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
-                  <Activity className={cn("text-cyan-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-cyan-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Inventory Health</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="inventoryhealth-action-stats">
-                <span className="text-[11px] text-cyan-400/70">Audit your stock</span>
-              </div>
-            </button>
+              testId="tool-inventoryhealth"
+              status={<span style={{ color: 'rgba(6,182,212,0.55)' }}>Audit your stock</span>}
+            />
 
-            {/* BundleTron */}
-            <button
+            <StationTool
+              icon={Layers}
+              label="BundleTron"
+              hex="#f97316"
+              glowRgb="249,115,22"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('bundletron')}
-              data-testid="tool-bundletron"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-orange-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                  <Layers className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-orange-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>BundleTron</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="bundletron-action-stats">
-                <span className="text-[11px] text-orange-400/70">Bundle lots for BO</span>
-              </div>
-            </button>
+              testId="tool-bundletron"
+              status={<span style={{ color: 'rgba(249,115,22,0.55)' }}>Bundle lots for BO</span>}
+            />
 
-            {/* Acquisition Evaluator */}
-            <button
+            <StationTool
+              icon={Package}
+              label="Acquisition Evaluator"
+              hex="#8b5cf6"
+              glowRgb="139,92,246"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('acquisition-evaluator')}
-              data-testid="tool-acquisition-evaluator"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-violet-400/72 bg-gradient-to-br from-violet-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(139,92,246,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-violet-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-violet-400/65 shadow-[0_0_10px_rgba(139,92,246,0.22)]")}>
-                  <Package className={cn("text-violet-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-violet-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Acquisition Evaluator</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="acquisition-evaluator-action-stats">
-                <span className="text-[11px] text-violet-400/70">Analyze seller inventory</span>
-              </div>
-            </button>
+              testId="tool-acquisition-evaluator"
+              status={<span style={{ color: 'rgba(139,92,246,0.55)' }}>Analyze seller inventory</span>}
+            />
 
           </div>
           )}

@@ -5,6 +5,7 @@ import {
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
+import { StationTool } from "./StationTool";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -652,7 +653,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               )}
             >
               <Sparkles className="w-3 h-3 flex-shrink-0" />
-              Systems
+              Station
               {panelTab === 'systems' && (
                 <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
               )}
@@ -679,61 +680,43 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </button>
           </div>
 
-          {/* SYSTEMS — Tools grid */}
+          {/* STATION — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("flex flex-col", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
-            {/* Tool cards row */}
-            <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
+            <StationTool
+              icon={BarChart2}
+              label="By Platform"
+              hex="#f97316"
+              glowRgb="249,115,22"
+              isCompact={isCompact}
+              onClick={() => onSalesDrawer?.('platform-perf')}
+              testId="tool-platform-performance"
+              status={<span style={{ color: 'rgba(249,115,22,0.55)' }}>Sales by marketplace</span>}
+            />
 
-              {/* Platform Performance */}
-              <button
-                onClick={() => onSalesDrawer?.('platform-perf')}
-                data-testid="tool-platform-performance"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-                style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
-              >
-                <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
-                  <div className={cn("rounded-lg bg-orange-800/75 flex-shrink-0", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]")}>
-                    <BarChart2 className="w-3 h-3 text-orange-200" />
-                  </div>
-                  <span className="text-[11px] font-bold text-orange-100 leading-tight flex-1 min-w-0">By Platform</span>
-                </div>
-                <p className="text-[10px] text-orange-300/60 leading-snug">Sales by marketplace</p>
-              </button>
+            <StationTool
+              icon={Activity}
+              label="Sales Chart"
+              hex="#14b8a6"
+              glowRgb="20,184,166"
+              isCompact={isCompact}
+              onClick={() => onSalesDrawer?.('chart')}
+              testId="tool-sales-chart"
+              status={<span style={{ color: 'rgba(20,184,166,0.55)' }}>Revenue trend</span>}
+            />
 
-              {/* Sales Chart */}
-              <button
-                onClick={() => onSalesDrawer?.('chart')}
-                data-testid="tool-sales-chart"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-400/72 bg-gradient-to-br from-teal-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-                style={{ '--tool-glow-color': 'rgba(20,184,166,0.35)' } as React.CSSProperties}
-              >
-                <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
-                  <div className={cn("rounded-lg bg-teal-800/75 flex-shrink-0", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-teal-400/65 shadow-[0_0_10px_rgba(20,184,166,0.22)]")}>
-                    <Activity className="w-3 h-3 text-teal-200" />
-                  </div>
-                  <span className="text-[11px] font-bold text-teal-100 leading-tight flex-1 min-w-0">Sales Chart</span>
-                </div>
-                <p className="text-[10px] text-teal-300/60 leading-snug">Revenue trend</p>
-              </button>
+            <StationTool
+              icon={PackageCheck}
+              label="Shipped"
+              hex="#22c55e"
+              glowRgb="34,197,94"
+              isCompact={isCompact}
+              onClick={() => onDrawerChange('shipped')}
+              testId="tool-shipped"
+              status={<span style={{ color: 'rgba(34,197,94,0.55)' }}>Shipped orders log</span>}
+            />
 
-              {/* Shipped Orders */}
-              <button
-                onClick={() => onDrawerChange('shipped')}
-                data-testid="tool-shipped"
-                className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-                style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
-              >
-                <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-1.5")}>
-                  <div className={cn("rounded-lg bg-green-800/75 flex-shrink-0", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
-                    <PackageCheck className="w-3 h-3 text-green-200" />
-                  </div>
-                  <span className="text-[11px] font-bold text-green-100 leading-tight flex-1 min-w-0">Shipped</span>
-                </div>
-              </button>
-
-            </div>
           </div>
           )}
 

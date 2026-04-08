@@ -4,6 +4,7 @@ import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mai
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
+import { StationTool } from "./StationTool";
 import {
   Popover,
   PopoverContent,
@@ -500,167 +501,85 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <div className={cn("rounded-md bg-gray-600/70 ring-1 ring-gray-300/55 shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Sparkles className={cn("text-gray-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide">Systems</h3>
+            <h3 className="text-xs font-semibold text-gray-200 uppercase tracking-wide">Market Station</h3>
           </div>
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
-            {/* Attract */}
-            <button
+            <StationTool
+              icon={Megaphone}
+              label="Attract New Customers"
+              hex="#6366f1"
+              glowRgb="99,102,241"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('attract')}
-              data-testid="tool-attract"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-indigo-400/72 bg-gradient-to-br from-indigo-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(99,102,241,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-indigo-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-indigo-400/65 shadow-[0_0_10px_rgba(99,102,241,0.22)]")}>
-                  <Megaphone className={cn("w-3.5 h-3.5 text-indigo-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-indigo-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Attract New Customers</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-indigo-600/60 hover:text-indigo-400 transition-colors"
-                      data-testid="info-attract"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Tools to grow your customer base — promotions, store visibility, and new buyer campaigns.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
-                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
+              testId="tool-attract"
+              infoContent="Tools to grow your customer base — promotions, store visibility, and new buyer campaigns."
+              status={
+                <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
                   Coming soon
                 </span>
-              </div>
-            </button>
+              }
+            />
 
-            {/* Engage New */}
-            <button
+            <StationTool
+              icon={UserPlus}
+              label="New Customers"
+              hex="#06b6d4"
+              glowRgb="6,182,212"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('engage-new')}
-              data-testid="tool-engage-new"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-cyan-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]")}>
-                  <UserPlus className={cn("w-3.5 h-3.5 text-cyan-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>New Customers</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-cyan-600/60 hover:text-cyan-400 transition-colors"
-                      data-testid="info-engage-new"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    First-time buyers — see who bought recently and track whether they return for a second order.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
-                {newCustomers.length > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
+              testId="tool-engage-new"
+              infoContent="First-time buyers — see who bought recently and track whether they return for a second order."
+              status={
+                newCustomers.length > 0 ? (
+                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
                     {newCustomers.length} new buyers
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-600/25">
-                    No data yet
-                  </span>
-                )}
-              </div>
-            </button>
+                  <span style={{ color: 'rgba(6,182,212,0.45)' }}>No data yet</span>
+                )
+              }
+            />
 
-            {/* Engage Repeat */}
-            <button
+            <StationTool
+              icon={RefreshCcw}
+              label="Repeat Customers"
+              hex="#3b82f6"
+              glowRgb="59,130,246"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('engage-repeat')}
-              data-testid="tool-engage-repeat"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(59,130,246,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-blue-900/70", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]")}>
-                  <RefreshCcw className={cn("w-3.5 h-3.5 text-blue-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-blue-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Repeat Customers</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-blue-600/60 hover:text-blue-400 transition-colors"
-                      data-testid="info-engage-repeat"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Buyers who have ordered more than once — your most loyal customers and best candidates for re-engagement.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
-                {repeatCustomerCount > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
+              testId="tool-engage-repeat"
+              infoContent="Buyers who have ordered more than once — your most loyal customers and best candidates for re-engagement."
+              status={
+                repeatCustomerCount > 0 ? (
+                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
                     {repeatCustomerCount} repeat buyers
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-600/25">
-                    No data yet
-                  </span>
-                )}
-              </div>
-            </button>
+                  <span style={{ color: 'rgba(59,130,246,0.45)' }}>No data yet</span>
+                )
+              }
+            />
 
-            {/* Engage Top */}
-            <button
+            <StationTool
+              icon={Trophy}
+              label="Top Spenders"
+              hex="#f59e0b"
+              glowRgb="245,158,11"
+              isCompact={isCompact}
               onClick={() => onDrawerChange('engage-top')}
-              data-testid="tool-engage-top"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-amber-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]")}>
-                  <Trophy className={cn("w-3.5 h-3.5 text-amber-200", isCompact ? "w-3 h-3" : "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", isCompact ? "" : "md:text-sm")}>Top Spenders</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-amber-600/60 hover:text-amber-400 transition-colors"
-                      data-testid="info-engage-top"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Your highest-value customers ranked by total spend — ideal for priority service or special offers.
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")}>
-                {topSpenders.length > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
+              testId="tool-engage-top"
+              infoContent="Your highest-value customers ranked by total spend — ideal for priority service or special offers."
+              status={
+                topSpenders.length > 0 ? (
+                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {topSpenders.length} customers ranked
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-600/25">
-                    No data yet
-                  </span>
-                )}
-              </div>
-            </button>
+                  <span style={{ color: 'rgba(245,158,11,0.45)' }}>No data yet</span>
+                )
+              }
+            />
 
           </div>
         </div>
