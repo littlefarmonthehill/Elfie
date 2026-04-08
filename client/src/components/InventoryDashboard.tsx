@@ -378,7 +378,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               className={cn(
                 "relative rounded-lg border transition-all",
                 isCompact ? "p-3" : "p-2 md:p-3",
-                "space-y-3",
                 pomHasActivity || lomHasActivity
                   ? "border-blue-400/55 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(59,130,246,0.18)]"
                   : "border-gray-600/55 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(59,130,246,0.08)]"
@@ -388,6 +387,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
+              <div className="space-y-3">
               {/* Header */}
               <div className="flex items-center gap-1.5 mb-0.5">
                 <div className="rounded bg-blue-800/70 ring-1 ring-blue-500/55 shrink-0 p-1">
@@ -435,6 +435,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   { key: 'lom-fil',   label: 'File',        count: lomCount('file'),        lampColor: 'rgba(129,140,248,0.9)' },
                 ]}
               />
+              </div>
             </div>
           );
         })()}
