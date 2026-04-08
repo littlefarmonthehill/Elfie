@@ -453,7 +453,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <Sparkles className="w-3 h-3 text-gray-500" />
             </div>
             <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">
-              {panelTab === 'systems' ? 'Station Instruments' : 'Selling Channels'}
+              {panelTab === 'systems' ? 'Inventory Station' : 'Selling Channels'}
             </h3>
             <div className="flex items-center rounded border border-gray-700/60 bg-black/40 overflow-hidden shrink-0">
               <button
