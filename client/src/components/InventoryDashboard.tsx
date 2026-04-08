@@ -498,15 +498,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               isCompact={isCompact}
               onClick={() => onDrawerChange('brickanalyzer')}
               testId="tool-brickspotter"
-              status={
-                (toolStats?.pendingScans ?? 0) > 0 ? (
-                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30" data-testid="brickspotter-action-stats">
-                    {toolStats!.pendingScans} pending scans
-                  </span>
-                ) : toolStats ? (
-                  <span className="text-green-400/70" data-testid="brickspotter-action-stats">Ready to scan</span>
-                ) : undefined
-              }
             />
 
             <StationTool
@@ -517,7 +508,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               isCompact={isCompact}
               onClick={() => onDrawerChange('inventoryhealth')}
               testId="tool-inventoryhealth"
-              status={<span style={{ color: 'rgba(6,182,212,0.55)' }}>Audit your stock</span>}
             />
 
             <StationTool
@@ -528,7 +518,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               isCompact={isCompact}
               onClick={() => onDrawerChange('bundletron')}
               testId="tool-bundletron"
-              status={<span style={{ color: 'rgba(249,115,22,0.55)' }}>Bundle lots for BO</span>}
             />
 
             <StationTool
@@ -539,7 +528,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               isCompact={isCompact}
               onClick={() => onDrawerChange('acquisition-evaluator')}
               testId="tool-acquisition-evaluator"
-              status={<span style={{ color: 'rgba(139,92,246,0.55)' }}>Analyze seller inventory</span>}
             />
 
           </div>

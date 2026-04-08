@@ -692,7 +692,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('platform-perf')}
               testId="tool-platform-performance"
-              status={<span style={{ color: 'rgba(249,115,22,0.55)' }}>Sales by marketplace</span>}
             />
 
             <StationTool
@@ -703,7 +702,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('chart')}
               testId="tool-sales-chart"
-              status={<span style={{ color: 'rgba(20,184,166,0.55)' }}>Revenue trend</span>}
             />
 
             <StationTool
@@ -714,7 +712,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               isCompact={isCompact}
               onClick={() => onDrawerChange('shipped')}
               testId="tool-shipped"
-              status={<span style={{ color: 'rgba(34,197,94,0.55)' }}>Shipped orders log</span>}
             />
 
           </div>

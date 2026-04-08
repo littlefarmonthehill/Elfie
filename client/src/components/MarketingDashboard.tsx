@@ -513,12 +513,6 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               isCompact={isCompact}
               onClick={() => onDrawerChange('attract')}
               testId="tool-attract"
-              infoContent="Tools to grow your customer base — promotions, store visibility, and new buyer campaigns."
-              status={
-                <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
-                  Coming soon
-                </span>
-              }
             />
 
             <StationTool
@@ -529,16 +523,6 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               isCompact={isCompact}
               onClick={() => onDrawerChange('engage-new')}
               testId="tool-engage-new"
-              infoContent="First-time buyers — see who bought recently and track whether they return for a second order."
-              status={
-                newCustomers.length > 0 ? (
-                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
-                    {newCustomers.length} new buyers
-                  </span>
-                ) : (
-                  <span style={{ color: 'rgba(6,182,212,0.45)' }}>No data yet</span>
-                )
-              }
             />
 
             <StationTool
@@ -549,16 +533,6 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               isCompact={isCompact}
               onClick={() => onDrawerChange('engage-repeat')}
               testId="tool-engage-repeat"
-              infoContent="Buyers who have ordered more than once — your most loyal customers and best candidates for re-engagement."
-              status={
-                repeatCustomerCount > 0 ? (
-                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
-                    {repeatCustomerCount} repeat buyers
-                  </span>
-                ) : (
-                  <span style={{ color: 'rgba(59,130,246,0.45)' }}>No data yet</span>
-                )
-              }
             />
 
             <StationTool
@@ -569,16 +543,6 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
               isCompact={isCompact}
               onClick={() => onDrawerChange('engage-top')}
               testId="tool-engage-top"
-              infoContent="Your highest-value customers ranked by total spend — ideal for priority service or special offers."
-              status={
-                topSpenders.length > 0 ? (
-                  <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
-                    {topSpenders.length} customers ranked
-                  </span>
-                ) : (
-                  <span style={{ color: 'rgba(245,158,11,0.45)' }}>No data yet</span>
-                )
-              }
             />
 
           </div>

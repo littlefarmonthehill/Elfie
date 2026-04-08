@@ -1,30 +1,24 @@
-import { ElementType, ReactNode } from "react";
+import { ElementType } from "react";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Info } from "lucide-react";
 
 interface StationToolProps {
   icon: ElementType;
   label: string;
-  status?: ReactNode;
   hex: string;
   glowRgb: string;
   isCompact?: boolean;
   onClick?: () => void;
   testId?: string;
-  infoContent?: string;
 }
 
 export function StationTool({
   icon: Icon,
   label,
-  status,
   hex,
   glowRgb,
   isCompact,
   onClick,
   testId,
-  infoContent,
 }: StationToolProps) {
   return (
     <button
@@ -57,40 +51,13 @@ export function StationTool({
         />
       </div>
 
-      {/* Label + status */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <span
-          className={cn("font-bold leading-tight truncate", isCompact ? "text-xs" : "text-xs md:text-sm")}
-          style={{ color: `color-mix(in srgb, ${hex} 60%, #dde4f0)` }}
-        >
-          {label}
-        </span>
-        {status != null && (
-          <div className={cn("mt-0.5 leading-none", isCompact ? "text-[10px]" : "text-[11px]")}>
-            {status}
-          </div>
-        )}
-      </div>
-
-      {/* Optional info popover */}
-      {infoContent && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <span
-              role="button"
-              onClick={(e) => e.stopPropagation()}
-              className="flex-shrink-0 transition-colors"
-              style={{ color: `rgba(${glowRgb}, 0.45)` }}
-              data-testid={testId ? `info-${testId}` : undefined}
-            >
-              <Info className="w-3 h-3" />
-            </span>
-          </PopoverTrigger>
-          <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-            {infoContent}
-          </PopoverContent>
-        </Popover>
-      )}
+      {/* Label */}
+      <span
+        className={cn("font-bold leading-tight truncate min-w-0 flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}
+        style={{ color: `color-mix(in srgb, ${hex} 60%, #dde4f0)` }}
+      >
+        {label}
+      </span>
     </button>
   );
 }
