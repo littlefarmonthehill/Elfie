@@ -336,13 +336,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onClick={() => onButtonClick()}
                 data-testid={testId}
                 style={buttonStyle}
-                className={`flex flex-col items-center justify-center rounded-lg border px-3 shrink-0 gap-1.5 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer ${buttonBorderClass}`}
+                className={`flex flex-col items-center justify-center rounded-md border px-3 shrink-0 gap-1 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
               >
                 {buttonIcon}
-                <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] leading-none whitespace-nowrap">{buttonLabel}</span>
+                <span className="font-mono text-[6.5px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
               </button>
-              <div className="flex-1 relative pt-1 pb-2">
-                <div className="absolute left-0 right-0 top-[19px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
+              <div className="flex-1 relative pt-1 pb-1.5">
+                <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
                 <div className="flex items-start">
                   {statuses.map(({ key, label, count, lampColor }) => {
                     const isActive = count > 0;
@@ -352,19 +352,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         data-testid={`directive-inv-${key}`}
                         className="flex-1 flex flex-col items-center gap-0.5 py-0"
                       >
-                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                        <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
                           style={isActive ? {
                             '--lamp-color': lampColor,
                             backgroundColor: lampColor,
-                            boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55`,
+                            boxShadow: `0 0 7px ${lampColor}, 0 0 16px ${lampColor}55`,
                           } as React.CSSProperties : undefined}
                           className={cn(
                             "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
                             isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                           )}
                         />
-                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
+                        <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
                       </div>
                     );
                   })}
@@ -382,8 +382,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
               {/* Header */}
-              <div className="flex items-center gap-2 mb-0.5">
-                <div className="rounded-md ring-1 shrink-0 p-1 bg-blue-800/70 ring-blue-500/55">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="rounded bg-blue-800/70 ring-1 ring-blue-500/55 shrink-0 p-1">
                   <Crosshair className="w-3 h-3 text-blue-200" />
                 </div>
                 <h3 className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-widest flex-1">Command Central</h3>
@@ -391,7 +391,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
               {/* Price-o-Matic pipeline */}
               <PipelineRow
-                buttonIcon={<Rocket className="w-4 h-4 text-blue-200" />}
+                buttonIcon={<Rocket className="w-3.5 h-3.5 text-blue-200" />}
                 buttonLabel="Price-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
@@ -411,7 +411,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
               {/* List-o-Matic pipeline */}
               <PipelineRow
-                buttonIcon={<ListOrdered className="w-4 h-4 text-teal-200" />}
+                buttonIcon={<ListOrdered className="w-3.5 h-3.5 text-teal-200" />}
                 buttonLabel="List-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
