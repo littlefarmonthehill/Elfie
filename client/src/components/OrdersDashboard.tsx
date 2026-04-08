@@ -507,7 +507,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <div className="flex items-start">
                 {/* Main workflow statuses */}
                 {([
-                  { key: 'new',        label: 'New',  lampColor: 'rgba(156,163,175,0.9)', isFeedback: false },
+                  { key: 'new',        label: 'New',  lampColor: 'rgba(250,204,21,0.9)',  isFeedback: false },
                   { key: 'processing', label: 'Prog', lampColor: 'rgba(96,165,250,0.9)',  isFeedback: false },
                   { key: 'feedback',   label: 'Fdbk', lampColor: 'rgba(45,212,191,0.9)',  isFeedback: true  },
                 ] as const).map(({ key, label, lampColor, isFeedback }) => {
