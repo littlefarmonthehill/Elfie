@@ -60,11 +60,9 @@ export function StationTool({
 
       {/* Label */}
       <span
-        className="truncate min-w-0 flex-1 font-bold"
+        className="truncate min-w-0 flex-1 font-mono font-bold uppercase tracking-[0.1em] leading-none"
         style={{
           fontSize: isCompact ? '9px' : '10px',
-          letterSpacing: '0.13em',
-          textTransform: 'uppercase',
           color: `color-mix(in srgb, ${hex} 65%, #ccd8f0)`,
         }}
       >

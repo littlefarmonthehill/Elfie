@@ -460,7 +460,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onClick={() => setPanelTab('systems')}
                 data-testid="tab-systems"
                 className={cn(
-                  "text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 transition-colors duration-150",
+                  "font-mono text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 transition-colors duration-150",
                   panelTab === 'systems' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
                 )}
               >Station</button>
@@ -469,7 +469,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onClick={() => setPanelTab('uplink')}
                 data-testid="tab-uplink"
                 className={cn(
-                  "relative flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 transition-colors duration-150",
+                  "relative flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 transition-colors duration-150",
                   panelTab === 'uplink' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
                 )}
               >
