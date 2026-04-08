@@ -441,14 +441,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           return (
         <div
           className={cn(
-            "relative rounded-lg border cursor-pointer hover-elevate active-elevate-2 transition-all",
+            "relative rounded-lg border transition-all",
             isCompact ? "p-3" : "p-2 md:p-3",
             hasAction
               ? "border-orange-400/60 bg-gradient-to-b from-gray-700/55 to-gray-900/95 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
               : "border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
           )}
           data-testid="section-command-central-orders"
-          onClick={() => onDrawerChange('fulfillment')}
         >
           {/* Top accent bar */}
           <div className={cn(
@@ -487,7 +486,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
             {/* ORDERS button — 3-D raised pushable style */}
             <button
-              onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+              onClick={() => onDrawerChange('fulfillment')}
               data-testid="button-workflow-orders"
               style={{
                 background: 'linear-gradient(180deg, rgba(234,88,12,0.42) 0%, rgba(154,52,18,0.28) 100%)',
@@ -518,7 +517,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   return (
                     <button
                       key={key}
-                      onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                      onClick={() => onDrawerChange('fulfillment')}
                       data-testid={`directive-status-${key}`}
                       className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
                     >
@@ -559,7 +558,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   return (
                     <button
                       key={key}
-                      onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+                      onClick={() => onDrawerChange('fulfillment')}
                       data-testid={`directive-status-${key}`}
                       className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
                     >

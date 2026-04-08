@@ -332,7 +332,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           }) => (
             <div className="flex items-stretch gap-3">
               <button
-                onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                onClick={() => onButtonClick()}
                 data-testid={testId}
                 style={buttonStyle}
                 className={`flex flex-col items-center justify-center rounded-md border px-3 shrink-0 gap-1 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
@@ -348,7 +348,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     return (
                       <button
                         key={key}
-                        onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
+                        onClick={() => onButtonClick()}
                         data-testid={`directive-inv-${key}`}
                         className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded py-0"
                       >
@@ -375,10 +375,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           return (
             <div
-              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3 cursor-pointer hover-elevate active-elevate-2"
+              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3"
               style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
               data-testid="section-command-central-inventory"
-              onClick={() => onDrawerChange('priceomatic')}
             >
               <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
