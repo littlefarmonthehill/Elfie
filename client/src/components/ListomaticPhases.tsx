@@ -13,7 +13,7 @@ interface PhaseCategory {
   sortingPhase: string | null;
 }
 
-const PHASES = ['category', 'subcategory', 'finalsort', 'listing'] as const;
+const PHASES = ['category', 'subcategory', 'finalsort', 'listing', 'file'] as const;
 type PhaseKey = typeof PHASES[number];
 
 const PHASE_CONFIG: Record<PhaseKey, {
@@ -123,6 +123,29 @@ const PHASE_CONFIG: Record<PhaseKey, {
       "Final MF / Torso Sort: arrange by BrickLink color order within each variation group.",
       "Count, bag, and photograph each unique torso combo; note condition and completeness.",
       "Goal: each bag = one BrickLink lot with accurate variation metadata ready to list.",
+    ],
+  },
+  file: {
+    label: "Phase 5 — File",
+    stepLabel: "File",
+    icon: FolderOpen,
+    color: "text-indigo-300",
+    bg: "bg-indigo-500/10 border-indigo-500/30",
+    badgeBg: "bg-indigo-500/20 text-indigo-200 border-indigo-500/40",
+    dot: "bg-indigo-400",
+    partsDetail: "Store & File",
+    mfDetail: "Store & File",
+    partsInfo: [
+      "Transfer bagged lots into labeled storage bins by category.",
+      "Record each lot in BrickLink inventory with correct quantity, condition, and price.",
+      "Update bin location and lot ID in your tracking system.",
+      "Goal: every lot is live on BrickLink and physically retrievable for fulfillment.",
+    ],
+    mfInfo: [
+      "Transfer bagged minifig lots into labeled storage with theme and condition noted.",
+      "Record each lot in BrickLink inventory with complete variant metadata.",
+      "Update bin location for fast pick-and-ship retrieval.",
+      "Goal: every lot is live and locatable — sorting work fully converted to active inventory.",
     ],
   },
 };

@@ -114,7 +114,7 @@ export const blCategories = pgTable("bl_categories", {
   id: integer("id").primaryKey(),
   name: text("name").notNull(),
   priorityTier: text("priority_tier").default('standard').notNull(), // 'top' | 'standard' | 'commodity'
-  sortingPhase: text("sorting_phase"), // 'category' | 'subcategory' | 'finalsort' | 'listing' | null (unassigned)
+  sortingPhase: text("sorting_phase"), // 'category' | 'subcategory' | 'finalsort' | 'listing' | 'file' | null (unassigned)
   flagged: boolean("flagged").default(false).notNull(), // doubles phase score in listing phase only
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

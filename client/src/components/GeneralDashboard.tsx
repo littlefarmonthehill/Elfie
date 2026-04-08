@@ -283,32 +283,6 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
-        {/* ── Forum discussions (Marketing card) ── */}
-        {forumPosts && forumPosts.length > 0 && (
-          <div className="space-y-0 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Community Buzz</span>
-            {forumPosts.slice(0, 3).map((p, i) => (
-              <button
-                key={i}
-                onClick={(e) => { e.stopPropagation(); if (p.threadUrl) window.open(p.threadUrl, '_blank'); }}
-                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[28px] px-1 -mx-1 rounded', p.threadUrl ? 'cursor-pointer hover-elevate' : 'cursor-default')}
-                data-testid={`forum-post-${i}`}
-              >
-                <MessageSquare className="w-3 h-3 shrink-0 text-muted-foreground/50" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{p.title}</p>
-                  {p.postedAt && (
-                    <span className="flex items-center gap-1 mt-0.5">
-                      <Clock className="w-2 h-2 shrink-0 text-muted-foreground/45" />
-                      <span className="text-[11px] font-mono text-green-500/70 leading-tight">{relTime(p.postedAt)}</span>
-                    </span>
-                  )}
-                </div>
-                {p.threadUrl && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/45" />}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* ── News articles (Insights card) ── */}
         {newsArticles && newsArticles.length > 0 && (

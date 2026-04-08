@@ -311,7 +311,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           const lomCount = (phase: string) =>
             (lomCategories?.categories ?? []).filter(c => c.sortingPhase === phase).length;
           const pomHasActivity  = (pomInsights?.data?.summary?.tooHigh ?? 0) > 0 || (pomInsights?.data?.summary?.tooLow ?? 0) > 0;
-          const lomHasActivity  = ['category','subcategory','finalsort','listing'].some(p => lomCount(p) > 0);
+          const lomHasActivity  = ['category','subcategory','finalsort','listing','file'].some(p => lomCount(p) > 0);
 
           const PipelineRow = ({
             buttonIcon,
@@ -426,6 +426,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   { key: 'lom-sub',   label: 'Subcategory', count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
                   { key: 'lom-fin',   label: 'Final Sort',  count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
                   { key: 'lom-lst',   label: 'Listing',     count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
+                  { key: 'lom-fil',   label: 'File',        count: lomCount('file'),        lampColor: 'rgba(129,140,248,0.9)' },
                 ]}
               />
             </div>
@@ -480,48 +481,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {/* SYSTEMS — Tools grid */}
           {panelTab === 'systems' && (
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
-
-            {/* Price-O-Matic */}
-            <button
-              onClick={() => onDrawerChange('priceomatic')}
-              data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-purple-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]")}>
-                  <Sparkles className={cn("text-purple-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-purple-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>Price-O-Matic</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="pom-action-stats">
-                {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
-                    {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)} to review
-                  </span>
-                ) : pomInsights ? (
-                  <span className="text-[11px] text-green-400/70">All well-priced</span>
-                ) : null}
-              </div>
-            </button>
-
-            {/* List-O-Matic */}
-            <button
-              onClick={() => onDrawerChange('platformsync')}
-              data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", isCompact ? "p-2" : "p-1.5 md:p-3")}
-              style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
-            >
-              <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2")}>
-                <div className={cn("rounded-lg bg-green-800/75", isCompact ? "p-1.5" : "p-1 md:p-1.5", "ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]")}>
-                  <Globe className={cn("text-green-200", isCompact ? "w-3.5 h-3.5" : "w-3.5 h-3.5 md:w-5 md:h-5 lg:w-4 lg:h-4")} />
-                </div>
-                <span className={cn("font-bold text-green-100 leading-tight flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}>List-O-Matic</span>
-              </div>
-              <div className={cn("flex flex-wrap gap-1 justify-end", isCompact ? "min-h-[1rem]" : "min-h-[1.25rem]")} data-testid="listomatic-action-stats">
-                <span className="text-[11px] text-green-400/70">Sync across channels</span>
-              </div>
-            </button>
 
             {/* Brick Spotter 3000 */}
             <button

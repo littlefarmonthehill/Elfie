@@ -16107,7 +16107,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   app.patch("/api/listomatc/category-phase", isApproved, async (req, res) => {
     try {
       const { categoryId, phase } = req.body as { categoryId: number; phase: string | null };
-      const validPhases = ['category', 'subcategory', 'finalsort', 'listing', null];
+      const validPhases = ['category', 'subcategory', 'finalsort', 'listing', 'file', null];
       if (!categoryId || !validPhases.includes(phase)) {
         return res.status(400).json({ error: "Invalid categoryId or phase" });
       }

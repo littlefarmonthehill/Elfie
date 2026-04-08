@@ -38,7 +38,7 @@ interface PriorityResponse {
   phaseScores: Record<string, number>;
 }
 
-const PHASES = ['category', 'subcategory', 'finalsort', 'listing'] as const;
+const PHASES = ['category', 'subcategory', 'finalsort', 'listing', 'file'] as const;
 type PhaseKey = typeof PHASES[number];
 
 const PHASE_CONFIG: Record<PhaseKey, {
@@ -55,6 +55,7 @@ const PHASE_CONFIG: Record<PhaseKey, {
   subcategory: { label: "Subcategory", textColor: "text-blue-400",    borderColor: "border-blue-500/40",    bgColor: "bg-blue-500/10",    tileBorder: "border-blue-600/60",    tileBg: "bg-gradient-to-br from-blue-800/35 via-blue-950/25 to-slate-900/70",    tileShadow: "shadow-[0_2px_10px_rgba(30,60,160,0.4)]", tileHover: "hover:border-blue-500/80" },
   finalsort:   { label: "Final Sort",  textColor: "text-purple-400",  borderColor: "border-purple-500/40",  bgColor: "bg-purple-500/10",  tileBorder: "border-purple-600/60",  tileBg: "bg-gradient-to-br from-purple-800/35 via-purple-950/25 to-slate-900/70", tileShadow: "shadow-[0_2px_10px_rgba(100,30,160,0.4)]", tileHover: "hover:border-purple-500/80" },
   listing:     { label: "Listing",     textColor: "text-emerald-400", borderColor: "border-emerald-500/40", bgColor: "bg-emerald-500/10", tileBorder: "border-emerald-600/60", tileBg: "bg-gradient-to-br from-emerald-800/35 via-emerald-950/25 to-slate-900/70", tileShadow: "shadow-[0_2px_10px_rgba(0,100,60,0.4)]",  tileHover: "hover:border-emerald-500/80" },
+  file:        { label: "File",        textColor: "text-indigo-400",  borderColor: "border-indigo-500/40",  bgColor: "bg-indigo-500/10",  tileBorder: "border-indigo-600/60",  tileBg: "bg-gradient-to-br from-indigo-800/35 via-indigo-950/25 to-slate-900/70",  tileShadow: "shadow-[0_2px_10px_rgba(60,50,180,0.4)]", tileHover: "hover:border-indigo-500/80" },
 };
 
 const UNASSIGNED_TILE = {
@@ -165,7 +166,7 @@ export default function ListomaticPriority() {
     const dir = sort.dir === 'asc' ? 1 : -1;
     if (sort.key === 'name') return dir * a.name.localeCompare(b.name);
     if (sort.key === 'sortingPhase') {
-      const order: Record<string, number> = { listing: 4, finalsort: 3, subcategory: 2, category: 1 };
+      const order: Record<string, number> = { file: 5, listing: 4, finalsort: 3, subcategory: 2, category: 1 };
       return dir * ((order[a.sortingPhase ?? ''] ?? 0) - (order[b.sortingPhase ?? ''] ?? 0));
     }
     return dir * ((a[sort.key] as number) - (b[sort.key] as number));
