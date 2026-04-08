@@ -90,7 +90,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const deferredInvSearch = useDeferredValue(invSearchInput);
   const { data: invSearchResults = [] } = useQuery<Array<{
     id: number; itemNo: string; itemName: string; colorId: number; colorName: string;
-    newOrUsed: string; quantity: number; myCost: string | null; myPrice: string | null;
+    newOrUsed: string; quantity: number; myCost: string | null; unitPrice: string | null;
   }>>({
     queryKey: ['/api/inventory/quick-search', deferredInvSearch],
     queryFn: () => fetch(`/api/inventory/quick-search?q=${encodeURIComponent(deferredInvSearch)}`, { credentials: 'include' }).then(r => r.json()),

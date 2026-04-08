@@ -4714,7 +4714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newOrUsed: blInventory.newOrUsed,
         quantity: blInventory.quantity,
         myCost: blInventory.myCost,
-        myPrice: blInventory.myPrice,
+        unitPrice: blInventory.unitPrice,
       })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
