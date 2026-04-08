@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -245,14 +245,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
 
           {/* Inventory search bar */}
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              if (invSearchInput.trim()) {
-                setBrowseSearchInput(invSearchInput.trim());
-                desktopMode && onBrowseOpen ? onBrowseOpen('lots') : openBrowse('lots');
-              }
-            }}
+          <div
             className={cn("relative flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-gray-900/60 px-2.5", isCompact ? "mb-1.5 h-7" : "mb-2 h-8")}
             data-testid="form-inv-search"
           >
@@ -260,7 +253,18 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <Input
               value={invSearchInput}
               onChange={e => setInvSearchInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && invSearchInput.trim()) {
+                  setBrowseSearchInput(invSearchInput.trim());
+                  desktopMode && onBrowseOpen ? onBrowseOpen('lots') : openBrowse('lots');
+                }
+              }}
               placeholder="Search lots, item #, color, category…"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="flex-1 h-full border-0 bg-transparent p-0 text-xs text-gray-200 placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
               data-testid="input-inv-search"
             />
@@ -269,7 +273,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <X className="w-3 h-3" />
               </button>
             ) : null}
-          </form>
+          </div>
 
           {/* Top row: Lots, Parts, Categories */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">
