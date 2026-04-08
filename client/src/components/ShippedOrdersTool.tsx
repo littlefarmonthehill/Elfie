@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,6 +54,10 @@ type ShippedOrder = {
   orderStatus: string;
   isTest: boolean;
   trackingNumber: string | null;
+  trackerId: string | null;
+  trackingStatus: string | null;
+  trackingStatusDetail: string | null;
+  trackingUpdatedAt: string | null;
   carrier: string | null;
   service: string | null;
   labelUrl: string | null;
@@ -145,6 +149,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     },
   });
 
+  const [isRefreshingTracking, setIsRefreshingTracking] = useState(false);
+
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
   });
@@ -160,6 +166,33 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       return response.json();
     },
   });
+
+  const handleRefreshTracking = async () => {
+    if (!shippedOrders?.length) return;
+    const eligibleIds = shippedOrders
+      .filter(o => o.trackingNumber && o.trackingStatus !== 'delivered' && o.orderStatus !== 'returned')
+      .map(o => o.id);
+    if (!eligibleIds.length) {
+      toast({ title: "Nothing to refresh", description: "All tracked orders are already delivered." });
+      return;
+    }
+    setIsRefreshingTracking(true);
+    try {
+      const res = await apiRequest('POST', '/api/orders/shipped/refresh-tracking', { orderIds: eligibleIds });
+      const count = Object.keys(res as object).length;
+      toast({ title: "Tracking refreshed", description: `Updated ${count} shipment${count !== 1 ? 's' : ''}.` });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+    } catch (e: any) {
+      const msg = e?.message || '';
+      if (msg.includes('not configured')) {
+        toast({ title: "EasyPost not configured", description: "Add your EasyPost API key in Settings to use live tracking.", variant: "destructive" });
+      } else {
+        toast({ title: "Tracking refresh failed", description: msg, variant: "destructive" });
+      }
+    } finally {
+      setIsRefreshingTracking(false);
+    }
+  };
 
   const handlePrintPackingSlip = async (orderId: string) => {
     try {
@@ -290,6 +323,16 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               data-testid="input-search-shipped-orders"
             />
           </div>
+          <Button
+            size="default"
+            variant="outline"
+            onClick={handleRefreshTracking}
+            disabled={isRefreshingTracking || !shippedOrders?.length}
+            data-testid="button-refresh-tracking"
+          >
+            <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshingTracking ? 'animate-spin' : ''}`} />
+            {isRefreshingTracking ? 'Refreshing…' : 'Tracking'}
+          </Button>
         </div>
 
         {shippedOrders && shippedOrders.length > 0 && (
@@ -320,7 +363,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
 
               const isBrickOwl = order.marketplace === 'BrickOwl';
               const isShipped = order.orderStatus === 'shipped';
-              const isCompleted = order.orderStatus === 'completed';
               const isReturned = order.orderStatus === 'returned';
               const orderTotalNum = parseFloat(order.orderTotal ?? '0');
               const refundTotalNum = parseFloat(order.refundTotal ?? '0');
@@ -345,10 +387,34 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                             {order.marketplace}
                           </Badge>
                         )}
-                        {isCompleted && (
+                        {order.trackingStatus === 'delivered' && (
+                          <Badge className="text-xs bg-green-900/60 text-green-300 border border-green-700/50 gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Delivered
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'out_for_delivery' && (
+                          <Badge className="text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50 gap-1">
+                            <Truck className="w-3 h-3" />
+                            Out for Delivery
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'in_transit' && (
                           <Badge className="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 gap-1">
-                            <PackageCheck className="w-3 h-3" />
-                            Completed
+                            <Truck className="w-3 h-3" />
+                            In Transit
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'return_to_sender' && (
+                          <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1">
+                            <ArrowLeftRight className="w-3 h-3" />
+                            Return to Sender
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'failure' && (
+                          <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Delivery Issue
                           </Badge>
                         )}
                         {isReturned && (

@@ -2566,6 +2566,13 @@ export async function runMigrations() {
     }
     console.log('[Migration] Phase-110 (default zones for existing warehouse data) complete.');
 
+    // Phase-111: Add EasyPost tracker columns to shipments
+    await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracker_id TEXT`);
+    await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracking_status TEXT`);
+    await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracking_status_detail TEXT`);
+    await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracking_updated_at TIMESTAMP`);
+    console.log('[Migration] Phase-111 (EasyPost tracker columns on shipments) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

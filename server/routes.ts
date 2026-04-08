@@ -4934,6 +4934,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             o.order_status AS "orderStatus",
             o.is_test AS "isTest",
             s.tracking_number AS "trackingNumber",
+            s.tracker_id AS "trackerId",
+            s.tracking_status AS "trackingStatus",
+            s.tracking_status_detail AS "trackingStatusDetail",
+            s.tracking_updated_at AS "trackingUpdatedAt",
             s.carrier,
             s.service,
             s.label_url AS "labelUrl",
@@ -4959,6 +4963,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching shipped orders:", error);
       res.status(500).json({ error: "Failed to fetch shipped orders" });
+    }
+  });
+
+  // Refresh tracking status via EasyPost for a batch of order IDs
+  // Each shipment: if it has a tracker_id, GET that tracker (free); otherwise POST to create one.
+  // Only refreshes if status is not 'delivered' and last update is > 30 min ago (or no status).
+  app.post("/api/orders/shipped/refresh-tracking", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderIds } = req.body as { orderIds?: string[] };
+      if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "orderIds array required" });
+      }
+
+      // Load shipments for these orders that have tracking numbers
+      const rows = await db.execute(sql`
+        SELECT DISTINCT ON (s.order_id)
+          s.id AS shipment_id,
+          s.order_id,
+          s.tracking_number,
+          s.carrier,
+          s.tracker_id,
+          s.tracking_status,
+          s.tracking_updated_at
+        FROM shipments s
+        WHERE s.org_id = ${orgId}
+          AND s.order_id = ANY(${orderIds}::text[])
+          AND s.tracking_number IS NOT NULL
+          AND s.status = 'purchased'
+        ORDER BY s.order_id, s.created_at DESC
+      `);
+
+      const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+      const now = Date.now();
+
+      let vendor: any;
+      try {
+        const { getShippingVendor } = await import('./services/easypost');
+        vendor = await getShippingVendor(undefined, orgId);
+      } catch (e: any) {
+        return res.status(503).json({ error: `EasyPost not configured: ${e.message}` });
+      }
+
+      const results: Record<string, { trackingStatus: string; trackingStatusDetail: string; trackingUpdatedAt: string }> = {};
+
+      for (const row of (rows.rows as any[])) {
+        // Skip delivered shipments — terminal state, no need to re-check
+        if (row.tracking_status === 'delivered') {
+          results[row.order_id] = {
+            trackingStatus: row.tracking_status,
+            trackingStatusDetail: '',
+            trackingUpdatedAt: row.tracking_updated_at,
+          };
+          continue;
+        }
+        // Skip if refreshed recently
+        if (row.tracking_updated_at) {
+          const age = now - new Date(row.tracking_updated_at).getTime();
+          if (age < STALE_AFTER_MS) {
+            results[row.order_id] = {
+              trackingStatus: row.tracking_status || 'unknown',
+              trackingStatusDetail: '',
+              trackingUpdatedAt: row.tracking_updated_at,
+            };
+            continue;
+          }
+        }
+
+        try {
+          let tracker: { id: string; status: string; statusDetail: string };
+          if (row.tracker_id) {
+            tracker = await vendor.getTracker(row.tracker_id);
+          } else {
+            tracker = await vendor.createOrGetTracker(row.tracking_number, row.carrier);
+          }
+
+          // Save to DB
+          await db.execute(sql`
+            UPDATE shipments
+            SET tracker_id = ${tracker.id},
+                tracking_status = ${tracker.status},
+                tracking_status_detail = ${tracker.statusDetail},
+                tracking_updated_at = NOW()
+            WHERE id = ${row.shipment_id}
+          `);
+
+          results[row.order_id] = {
+            trackingStatus: tracker.status,
+            trackingStatusDetail: tracker.statusDetail,
+            trackingUpdatedAt: new Date().toISOString(),
+          };
+        } catch (e: any) {
+          console.warn(`[Tracking] Failed to refresh tracking for ${row.tracking_number}: ${e.message}`);
+          results[row.order_id] = {
+            trackingStatus: row.tracking_status || 'unknown',
+            trackingStatusDetail: '',
+            trackingUpdatedAt: row.tracking_updated_at,
+          };
+        }
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error refreshing tracking:", error);
+      res.status(500).json({ error: "Failed to refresh tracking" });
     }
   });
 

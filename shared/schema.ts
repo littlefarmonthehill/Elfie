@@ -468,6 +468,10 @@ export const shipments = pgTable("shipments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   eodFormId: integer("eod_form_id"), // FK to eodForms.id — set after SCAN form creation
   isTest: boolean("is_test").default(false).notNull(), // true when purchased with test API key
+  trackerId: text("tracker_id"),                       // EasyPost tracker ID
+  trackingStatus: text("tracking_status"),             // pre_transit|in_transit|out_for_delivery|delivered|return_to_sender|failure
+  trackingStatusDetail: text("tracking_status_detail"),// human-readable detail from EasyPost
+  trackingUpdatedAt: timestamp("tracking_updated_at"), // when we last fetched status from EasyPost
 }, (table) => ({
   orgIdIdx: index("shipments_org_id_idx").on(table.orgId),
   orgIdStatusIdx: index("shipments_org_id_status_idx").on(table.orgId, table.status),

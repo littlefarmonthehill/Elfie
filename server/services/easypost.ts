@@ -135,6 +135,49 @@ export class EasyPostShippingVendor implements IShippingVendor {
     return await response.json();
   }
 
+  // ---------------------------------------------------------------------------
+  // Tracker API
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a tracker for a tracking number (idempotent — EasyPost returns the
+   * same tracker if the code already has one).  Costs ~$0.01 per unique code.
+   */
+  async createOrGetTracker(trackingCode: string, carrier?: string | null): Promise<{
+    id: string;
+    status: string;
+    statusDetail: string;
+    carrier: string;
+    estDeliveryDate: string | null;
+  }> {
+    const payload: any = { tracker: { tracking_code: trackingCode } };
+    if (carrier) payload.tracker.carrier = carrier;
+    const res = await this.request('/trackers', 'POST', payload);
+    return {
+      id: res.id,
+      status: res.status ?? 'unknown',
+      statusDetail: res.status_detail ?? '',
+      carrier: res.carrier ?? '',
+      estDeliveryDate: res.est_delivery_date ?? null,
+    };
+  }
+
+  /** Retrieve an already-created tracker by its EasyPost tracker ID (free). */
+  async getTracker(trackerId: string): Promise<{
+    id: string;
+    status: string;
+    statusDetail: string;
+    estDeliveryDate: string | null;
+  }> {
+    const res = await this.request(`/trackers/${trackerId}`);
+    return {
+      id: res.id,
+      status: res.status ?? 'unknown',
+      statusDetail: res.status_detail ?? '',
+      estDeliveryDate: res.est_delivery_date ?? null,
+    };
+  }
+
   async createShipment(request: CreateShipmentRequest): Promise<{
     shipmentId: string;
     rates: ShippingRate[];
