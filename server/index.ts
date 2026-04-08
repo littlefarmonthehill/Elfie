@@ -515,7 +515,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       // scheduled syncs in dev would cause double-processing of real orders and
       // double-deducting real BrickLink inventory.  Manual syncs triggered through
       // the UI still work in dev — only the background auto-tick is suppressed.
-      if (process.env.NODE_ENV === 'production') {
+      if (isProduction) {
         startInventorySyncScheduler();
         startPomSyncScheduler();
         startCatalogDetailScheduler();
