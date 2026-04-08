@@ -140,6 +140,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // Auto-enter the single zone on first load (only once — not if the user explicitly navigates back)
+  const hasAutoEnteredRef = useRef(false);
+  useEffect(() => {
+    if (!hasAutoEnteredRef.current && activeZoneId === null && zones.length === 1) {
+      hasAutoEnteredRef.current = true;
+      setActiveZoneId(zones[0].id);
+      setActiveView('bins');
+    }
+  }, [zones, activeZoneId]);
+
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -292,10 +302,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const createZoneMutation = useMutation({
     mutationFn: (data: { name: string; description?: string; depth: number }) =>
       apiRequest('POST', '/api/warehouse/zones', data),
-    onSuccess: () => {
+    onSuccess: (zone: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
       setCreateZoneOpen(false);
       setNewZoneName(''); setNewZoneDesc(''); setNewZoneDepth(3);
+      // Navigate directly into the new zone
+      setActiveZoneId(zone.id);
+      setActiveView('bins');
       toast({ title: "Zone created" });
     },
     onError: () => toast({ title: "Failed to create zone", variant: "destructive" }),
@@ -871,7 +884,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Card
                 key={zone.id}
                 className="p-4 hover-elevate cursor-pointer"
-                onClick={() => { setActiveZoneId(zone.id); setActiveView(null); setSelectedItems(new Set()); setSearchQuery(''); }}
+                onClick={() => { setActiveZoneId(zone.id); setActiveView('bins'); setSelectedItems(new Set()); setSearchQuery(''); }}
                 data-testid={`card-zone-${zone.id}`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
