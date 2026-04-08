@@ -314,7 +314,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           const lomHasActivity  = ['category','subcategory','finalsort','listing'].some(p => lomCount(p) > 0);
 
           const PipelineRow = ({
-            sectionLabel,
             buttonIcon,
             buttonLabel,
             buttonStyle,
@@ -323,7 +322,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             testId,
             statuses,
           }: {
-            sectionLabel: string;
             buttonIcon: React.ReactNode;
             buttonLabel: string;
             buttonStyle: React.CSSProperties;
@@ -332,17 +330,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             testId: string;
             statuses: { key: string; label: string; count: number; lampColor: string }[];
           }) => (
-            <div>
-            <span className="font-mono text-[6px] uppercase tracking-[0.18em] text-gray-500 pl-0.5">{sectionLabel}</span>
-            <div className="flex items-stretch gap-2 mt-0.5">
+            <div className="flex items-stretch gap-2">
               <button
                 onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
                 data-testid={testId}
                 style={buttonStyle}
-                className={`flex flex-col items-center justify-center rounded-md border px-2 shrink-0 gap-0.5 self-stretch min-w-[38px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
+                className={`flex flex-col items-center justify-center rounded-md border px-2 shrink-0 gap-0.5 self-stretch min-w-[54px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
               >
                 {buttonIcon}
-                <span className="font-mono text-[6px] font-bold uppercase tracking-[0.15em] leading-none">{buttonLabel}</span>
+                <span className="font-mono text-[5.5px] font-bold uppercase tracking-tight leading-none whitespace-nowrap">{buttonLabel}</span>
               </button>
               <div className="flex-1 relative pt-[10px] pb-1">
                 <div className="absolute left-0 right-0 top-[15px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
@@ -377,7 +373,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </div>
               </div>
             </div>
-            </div>
           );
 
           return (
@@ -399,9 +394,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
               {/* Price-o-Matic pipeline */}
               <PipelineRow
-                sectionLabel="Price-o-Matic"
                 buttonIcon={<Rocket className="w-3 h-3 text-blue-200" />}
-                buttonLabel="POM"
+                buttonLabel="Price-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
                   boxShadow: '0 3px 0 rgba(15,35,100,0.65), inset 0 1px 0 rgba(147,197,253,0.10)',
@@ -410,17 +404,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onButtonClick={() => onDrawerChange('priceomatic')}
                 testId="button-inv-priceomatic"
                 statuses={[
-                  { key: 'in-orbit',   label: 'Orbit',   count: inOrbitCount,   lampColor: 'rgba(56,189,248,0.9)'  },
-                  { key: 'mission',    label: 'Msn',      count: missionCount,   lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'deep-space', label: 'D.Spc',   count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
+                  { key: 'in-orbit',   label: 'In Orbit',   count: inOrbitCount,   lampColor: 'rgba(56,189,248,0.9)'  },
+                  { key: 'mission',    label: 'Mission',     count: missionCount,   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'deep-space', label: 'Deep Space',  count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
                 ]}
               />
 
               {/* List-o-Matic pipeline */}
               <PipelineRow
-                sectionLabel="List-o-Matic"
                 buttonIcon={<ListOrdered className="w-3 h-3 text-teal-200" />}
-                buttonLabel="LOM"
+                buttonLabel="List-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
                   boxShadow: '0 3px 0 rgba(5,60,55,0.65), inset 0 1px 0 rgba(153,246,228,0.10)',
@@ -429,10 +422,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onButtonClick={() => onDrawerChange('platformsync')}
                 testId="button-inv-listomatic"
                 statuses={[
-                  { key: 'lom-cat',   label: 'Cat',  count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'lom-sub',   label: 'Sub',  count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
-                  { key: 'lom-fin',   label: 'Fin',  count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
-                  { key: 'lom-lst',   label: 'List', count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
+                  { key: 'lom-cat',   label: 'Category',    count: lomCount('category'),   lampColor: 'rgba(251,191,36,0.9)'  },
+                  { key: 'lom-sub',   label: 'Subcategory', count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
+                  { key: 'lom-fin',   label: 'Final Sort',  count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
+                  { key: 'lom-lst',   label: 'Listing',     count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
                 ]}
               />
             </div>
