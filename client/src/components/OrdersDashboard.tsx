@@ -500,9 +500,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </button>
 
             {/* Pipeline track + all statuses */}
-            <div className="flex-1 relative pt-4 pb-2">
+            <div className="flex-1 relative pt-1 pb-2">
               {/* Connecting track line */}
-              <div className="absolute left-0 right-0 top-[22px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
+              <div className="absolute left-0 right-0 top-[19px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
 
               <div className="flex items-start">
                 {/* Main workflow statuses */}
@@ -520,8 +520,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                       key={key}
                       onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                       data-testid={`directive-status-${key}`}
-                      className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
+                      className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
                     >
+                      <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                       <div
                         style={isActive ? {
                           '--lamp-color': lampColor,
@@ -533,12 +534,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                           isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                         )}
                       />
-                      <div className="flex items-baseline gap-0.5">
-                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
-                          {(workflowSummary || isFeedback) ? count : '—'}
-                        </span>
-                      </div>
+                      <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
+                        {(workflowSummary || isFeedback) ? count : '—'}
+                      </span>
                     </button>
                   );
                 })}
@@ -546,7 +544,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 {/* Exception divider — vertical line with red dot on track */}
                 <div className="self-stretch relative px-1.5 shrink-0">
                   <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-red-900/40" />
-                  <div className="absolute top-[19px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
+                  <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
                 </div>
 
                 {/* Exception statuses */}
@@ -563,8 +561,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                       key={key}
                       onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                       data-testid={`directive-status-${key}`}
-                      className="flex-1 flex flex-col items-center gap-2 hover-elevate rounded-md py-0.5"
+                      className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded-md py-0"
                     >
+                      <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                       <div
                         style={isActive ? {
                           '--lamp-color': lampColor,
@@ -576,12 +575,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                           isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                         )}
                       />
-                      <div className="flex items-baseline gap-0.5">
-                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-400" : "text-gray-400")}>{label}</span>
-                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
-                          {workflowSummary ? count : '—'}
-                        </span>
-                      </div>
+                      <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
+                        {workflowSummary ? count : '—'}
+                      </span>
                     </button>
                   );
                 })}

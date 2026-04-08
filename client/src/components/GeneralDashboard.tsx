@@ -284,27 +284,6 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         )}
 
 
-        {/* ── News articles (Insights card) ── */}
-        {newsArticles && newsArticles.length > 0 && (
-          <div className="space-y-0 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Market News</span>
-            {newsArticles.slice(0, 3).map((n, i) => (
-              <button
-                key={i}
-                onClick={(e) => { e.stopPropagation(); if (n.url) window.open(n.url, '_blank'); }}
-                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[28px] px-1 -mx-1 rounded', n.url ? 'cursor-pointer hover-elevate' : 'cursor-default')}
-                data-testid={`news-article-${i}`}
-              >
-                <Newspaper className="w-3 h-3 shrink-0 text-muted-foreground/50" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{n.title}</p>
-                  {n.source && <p className="text-[10px] text-muted-foreground/45 leading-tight truncate">{n.source}</p>}
-                </div>
-                {n.url && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/45" />}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

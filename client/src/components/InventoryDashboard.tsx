@@ -340,7 +340,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 {buttonIcon}
                 <span className="font-mono text-[6.5px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
               </button>
-              <div className="flex-1 relative pt-[13px] pb-1.5">
+              <div className="flex-1 relative pt-1 pb-1.5">
                 <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
                 <div className="flex items-start">
                   {statuses.map(({ key, label, count, lampColor }) => {
@@ -350,8 +350,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         key={key}
                         onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
                         data-testid={`directive-inv-${key}`}
-                        className="flex-1 flex flex-col items-center gap-1 hover-elevate rounded py-0"
+                        className="flex-1 flex flex-col items-center gap-0.5 hover-elevate rounded py-0"
                       >
+                        <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
                           style={isActive ? {
                             '--lamp-color': lampColor,
@@ -363,10 +364,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                             isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                           )}
                         />
-                        <div className="flex items-baseline gap-0.5">
-                          <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                          <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
-                        </div>
+                        <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
                       </button>
                     );
                   })}
