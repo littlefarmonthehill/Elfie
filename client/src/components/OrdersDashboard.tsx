@@ -332,7 +332,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
   const { data: fulfillmentStats } = useQuery<{ unfulfilled: number; feedbackPending: number }>({
     queryKey: ['/api/fulfillment/stats'],
-    staleTime: 60 * 1000,
+    staleTime: 15 * 1000,
+    refetchInterval: 15 * 1000,
   });
 
   const { data: syncStatuses } = useQuery<any>({
@@ -346,8 +347,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
   const { data: workflowSummary } = useQuery<{ byStatus: Record<string, number> }>({
     queryKey: ['/api/orders/workflow-summary'],
-    staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    staleTime: 15 * 1000,
+    refetchInterval: 15 * 1000,
   });
 
   const { data: adjustments } = useQuery<{

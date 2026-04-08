@@ -391,6 +391,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       }
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       setShipFreeDialog(null);
@@ -425,6 +426,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       ));
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       setMergeShipDialog(null);
@@ -672,6 +674,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         });
         queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
         queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       }
       // Show per-row hard errors for any that fully failed
       if (failed.length) {
@@ -705,6 +709,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
     },
     onError: (err: any, { orderId }) => {
       setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to submit' }));
@@ -720,6 +725,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
     },
     onError: (err: any, orderId) => {
       setFbRowErrors(prev => ({ ...prev, [orderId]: err?.message ?? 'Failed to skip' }));
@@ -730,6 +736,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
     },
   });
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
@@ -792,6 +799,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     onSuccess: () => {
       // Only update stats, don't refetch the main data
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
     },
   });
 
@@ -1042,6 +1050,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
 
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment"] });
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/orders/workflow-summary"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/feedback-pending"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/shipped"] });
@@ -1113,6 +1122,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
     } catch (error: any) {
       console.error('Error splitting order:', error);
       toast({
