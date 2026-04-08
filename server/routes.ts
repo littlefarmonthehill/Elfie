@@ -19762,6 +19762,53 @@ Write a 1–2 sentence feedback comment for this order.`;
     }
   });
 
+  // GET /api/market-intel/forum-summary — AI-generated digest of recent forum topics
+  {
+    let _forumSummaryCache: { summary: string; generatedAt: number } | null = null;
+    const FORUM_SUMMARY_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+    app.get("/api/market-intel/forum-summary", isApproved, async (req: any, res) => {
+      try {
+        if (_forumSummaryCache && Date.now() - _forumSummaryCache.generatedAt < FORUM_SUMMARY_TTL_MS) {
+          return res.json({ summary: _forumSummaryCache.summary, cached: true });
+        }
+        const orgId = req.user?.orgId ?? PLATFORM_ORG_ID;
+        const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const posts = await db
+          .select({ title: blForumPosts.title, excerpt: blForumPosts.excerpt })
+          .from(blForumPosts)
+          .where(and(
+            eq(blForumPosts.orgId, orgId),
+            sql`${blForumPosts.postedAt} >= ${cutoff}`,
+            sql`${blForumPosts.title} NOT ILIKE 'Re:%'`
+          ))
+          .orderBy(sql`${blForumPosts.postedAt} DESC`)
+          .limit(20);
+        if (posts.length === 0) return res.json({ summary: null });
+        const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
+        const client = new AnthropicSDK({
+          apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+          baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+        });
+        const topicList = posts.map((p, i) => `${i + 1}. ${p.title}${p.excerpt ? ` — ${p.excerpt.slice(0, 80)}` : ''}`).join('\n');
+        const message = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 180,
+          messages: [{
+            role: "user",
+            content: `You are a LEGO reselling market intelligence assistant. The following are recent BrickLink forum discussion topics. Write a 2-3 sentence high-level summary of what the community is currently talking about. Be specific, concise, and relevant to LEGO resellers. Do not list individual topics.\n\nTopics:\n${topicList}\n\nSummary:`
+          }]
+        });
+        const summary = message.content[0]?.type === 'text' ? message.content[0].text.trim() : null;
+        if (summary) _forumSummaryCache = { summary, generatedAt: Date.now() };
+        res.json({ summary });
+      } catch (error: any) {
+        console.error("[ForumSummary] Error:", error.message);
+        res.status(500).json({ error: error.message || "Failed to generate forum summary" });
+      }
+    });
+  }
+
   // ============================================================================
   // BACKUP & RESTORE ROUTES
   // ============================================================================

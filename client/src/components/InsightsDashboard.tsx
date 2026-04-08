@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -7,7 +7,7 @@ import {
   Newspaper, Radio, Radar, TrendingUp, ShoppingCart, Package, AlertTriangle,
   Activity, BarChart2, Users, DollarSign, EyeOff, ExternalLink, X,
   MessageSquare, Settings, RefreshCw, Truck, Star, Zap, Target, ChevronDown,
-  ChevronUp, ArrowRight,
+  ChevronUp, ArrowRight, Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -245,9 +245,20 @@ interface InsightsDashboardProps {
   compact?: boolean;
 }
 
+interface StrategyModalData {
+  label: string;
+  text: string;
+  icon: ComponentType<{ className?: string }>;
+  color: string;
+  bg: string;
+  border: string;
+  ring: string;
+}
+
 export default function InsightsDashboard({ onOpenSettings, compact }: InsightsDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showAllInsights, setShowAllInsights] = useState(false);
+  const [strategyModal, setStrategyModal] = useState<StrategyModalData | null>(null);
 
   const {
     data: marketIntel,
@@ -264,6 +275,11 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
 
   const { data: strategies } = useQuery<IEStrategies>({
     queryKey: ['/api/ie-strategies'],
+  });
+
+  const { data: forumSummaryData, isLoading: forumSummaryLoading } = useQuery<{ summary: string | null }>({
+    queryKey: ['/api/market-intel/forum-summary'],
+    staleTime: 15 * 60 * 1000,
   });
 
   const dismissMutation = useMutation({
@@ -423,7 +439,29 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                 )}
               </div>
               {activeStratText ? (
-                <p className="text-xs text-gray-300 leading-relaxed">{activeStratText}</p>
+                <div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {activeStratText.length > 120 ? activeStratText.slice(0, 120) + '…' : activeStratText}
+                  </p>
+                  {activeStratText.length > 120 && activeArea && (
+                    <button
+                      className="mt-1 text-[10px] font-semibold underline underline-offset-2 hover-elevate rounded"
+                      style={{ color: 'inherit' }}
+                      onClick={() => setStrategyModal({
+                        label: activeArea.label,
+                        text: activeStratText,
+                        icon: activeArea.icon,
+                        color: activeArea.color,
+                        bg: activeArea.bg,
+                        border: activeArea.border,
+                        ring: activeArea.ring,
+                      })}
+                      data-testid="button-strategy-read-more"
+                    >
+                      Read full strategy
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-xs text-gray-500 flex-1 min-w-0">
@@ -522,6 +560,23 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           unit={posts.length === 1 ? 'topic' : 'topics'}
           accent="text-purple-200"
         />
+
+        {/* AI-generated community digest */}
+        {forumSummaryLoading ? (
+          <div className="rounded-xl border border-purple-800/30 bg-purple-950/20 p-2.5 mb-2 flex items-start gap-2 animate-pulse">
+            <Sparkles className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-2.5 bg-purple-900/40 rounded w-3/4" />
+              <div className="h-2.5 bg-purple-900/40 rounded w-full" />
+            </div>
+          </div>
+        ) : forumSummaryData?.summary ? (
+          <div className="rounded-xl border border-purple-800/30 bg-purple-950/20 p-2.5 mb-2 flex items-start gap-2" data-testid="section-forum-ai-summary">
+            <Sparkles className="w-3 h-3 text-purple-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-purple-200/80 leading-relaxed">{forumSummaryData.summary}</p>
+          </div>
+        ) : null}
+
         {intelLoading ? (
           <HScrollSkeleton />
         ) : posts.length === 0 ? (
@@ -543,7 +598,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                 {/* User + time */}
                 <div className="flex items-center justify-between mb-2 gap-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-400 border border-purple-700/30 font-semibold truncate max-w-[120px]">
-                    {post.username}
+                    {post.username && post.username.toLowerCase() !== 'unknown' ? post.username : 'BrickLink'}
                   </span>
                   <span className="text-[10px] text-gray-600 shrink-0">{timeAgo(post.postedAt)}</span>
                 </div>
@@ -732,6 +787,40 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
               <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-0.5">Vision & Mission</p>
               <p className="text-xs text-gray-400 leading-relaxed">{strategies.visionMission}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Strategy full-text modal ─────────────────────────────────────────── */}
+      {strategyModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setStrategyModal(null)}
+          data-testid="overlay-strategy-modal"
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className={cn("relative max-w-lg w-full rounded-2xl border p-5 shadow-2xl", strategyModal.bg, strategyModal.border)}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-3">
+              <div className={cn("rounded-md p-2 shrink-0 ring-1", strategyModal.bg, strategyModal.ring)}>
+                <strategyModal.icon className={cn("w-4 h-4", strategyModal.color)} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-[10px] font-bold uppercase tracking-wider mb-0.5", strategyModal.color)}>
+                  {strategyModal.label} Strategy
+                </p>
+              </div>
+              <button
+                className="text-gray-500 hover-elevate rounded-md p-1 shrink-0"
+                onClick={() => setStrategyModal(null)}
+                data-testid="button-close-strategy-modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-200 leading-relaxed">{strategyModal.text}</p>
           </div>
         </div>
       )}
