@@ -380,73 +380,41 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY LENS — 2-col (mobile) / 3-col (md+) card grid
+          STRATEGY LENS — 5 clickable area filters
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2" data-testid="section-strategy-lens">
+      <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
         {areaCounts.map(area => {
           const isActive = activeFilter === area.key;
           const Icon = area.icon;
-          const stratText = strategies?.[area.stratField] ?? null;
-          const preview = stratText
-            ? (stratText.length > 85 ? stratText.slice(0, 85) + '…' : stratText)
-            : null;
           return (
             <button
               key={area.key}
               onClick={() => setActiveFilter(isActive ? null : area.key)}
               data-testid={`filter-strategy-${area.key}`}
               className={cn(
-                "flex flex-col gap-2 rounded-xl border p-3 text-left transition-all hover-elevate active-elevate-2",
+                "flex flex-col items-center gap-1 rounded-xl border py-2 px-1 transition-all hover-elevate active-elevate-2 text-center",
                 isActive
                   ? `${area.bg} ${area.border} ring-1 ${area.ring}`
                   : "border-gray-700/40 bg-gray-900/60"
               )}
             >
-              {/* Header: icon + label + signal count */}
-              <div className="flex items-center justify-between gap-1 flex-wrap">
-                <div className={cn("flex items-center gap-1.5", isActive ? area.color : "text-gray-500")}>
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="text-[11px] font-bold uppercase tracking-wide leading-tight">{area.label}</span>
-                </div>
+              <div className={cn("flex items-center justify-center gap-1", isActive ? area.color : "text-gray-600")}>
+                <Icon className="w-3 h-3 shrink-0" />
                 {area.total > 0 && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {area.urgent > 0 && (
-                      <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">{area.urgent}</Badge>
-                    )}
-                    <span className={cn("text-[10px] font-semibold", isActive ? area.color : "text-gray-600")}>
-                      {area.total}
-                    </span>
-                  </div>
+                  <span className={cn(
+                    "text-[11px] font-bold",
+                    area.urgent > 0 ? 'text-red-400' : (isActive ? area.color : 'text-gray-500')
+                  )}>
+                    {area.total}
+                  </span>
                 )}
               </div>
-              {/* Brief synopsis */}
-              {preview ? (
-                <p className="text-[10px] text-gray-400 leading-relaxed">{preview}</p>
-              ) : (
-                <p className="text-[10px] text-gray-600 italic">No strategy defined</p>
-              )}
-              {/* Read more link */}
-              {stratText && stratText.length > 85 && (
-                <span
-                  role="button"
-                  className={cn("text-[10px] font-semibold underline underline-offset-2 w-fit", area.color)}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setStrategyModal({
-                      label: area.label,
-                      text: stratText,
-                      icon: area.icon,
-                      color: area.color,
-                      bg: area.bg,
-                      border: area.border,
-                      ring: area.ring,
-                    });
-                  }}
-                  data-testid={`button-strategy-readmore-${area.key}`}
-                >
-                  Read more
-                </span>
-              )}
+              <span className={cn(
+                "text-[9px] font-bold uppercase tracking-wide leading-tight",
+                isActive ? area.color : "text-gray-600"
+              )}>
+                {area.label}
+              </span>
             </button>
           );
         })}
@@ -516,6 +484,160 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          VISION CONTEXT
+      ═══════════════════════════════════════════════════════════════════ */}
+      {strategies?.visionMission && (
+        <div
+          className="rounded-xl border border-green-500/15 bg-green-950/20 p-3"
+          data-testid="section-vision-mission"
+        >
+          <div className="flex items-start gap-2">
+            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1.5 shrink-0">
+              <Target className="w-3.5 h-3.5 text-green-300" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-0.5">Vision & Mission</p>
+              <p className="text-xs text-gray-400 leading-relaxed">{strategies.visionMission}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          STRATEGY INTEL — 2-col (mobile) / 3-col (md+) signal grid
+      ═══════════════════════════════════════════════════════════════════ */}
+      <section data-testid="zone-strategy-intel">
+        <SectionTitle
+          icon={Radar}
+          iconBg="bg-cyan-900/50 ring-cyan-400/30"
+          iconColor="text-cyan-300"
+          label="Strategy Intel"
+          count={sortedInsights.length}
+          unit={sortedInsights.length === 1 ? 'signal' : 'signals'}
+          accent="text-cyan-200"
+        />
+
+        {insightsLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="rounded-xl border border-gray-700/40 bg-gray-900/50 p-3 animate-pulse">
+                <div className="h-1 bg-gray-700/50 rounded w-full mb-2.5" />
+                <div className="h-3 bg-gray-700/50 rounded w-1/2 mb-1.5" />
+                <div className="h-3 bg-gray-700/50 rounded w-3/4 mb-1" />
+                <div className="h-2.5 bg-gray-800/50 rounded w-full" />
+              </div>
+            ))}
+          </div>
+        ) : sortedInsights.length === 0 ? (
+          <div className="rounded-xl border border-gray-700/30 bg-gray-900/30 p-5 flex flex-col items-center gap-2.5 text-center">
+            <div className="rounded-full bg-gray-800/60 p-2.5 ring-1 ring-gray-700/40">
+              <Radar className="w-4 h-4 text-gray-600" />
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              {activeFilter
+                ? "No signals for this strategy area right now."
+                : "No active signals yet. Business Intel generates AI-powered insights about your operations."}
+            </p>
+            {!activeFilter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs gap-1.5 text-gray-500"
+                onClick={() => onOpenSettings?.('automation')}
+                data-testid="button-empty-settings"
+              >
+                <Settings className="w-3 h-3" />
+                Open automation settings
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {visibleInsights.map((insight, i) => {
+                const urgency = URGENCY_CONFIG[insight.urgency as keyof typeof URGENCY_CONFIG] ?? URGENCY_CONFIG.low;
+                const CatIcon = CATEGORY_ICON[insight.category] ?? Target;
+                const isLead = i === 0 && urgentCount > 0 && insight.urgency === 'high';
+
+                return (
+                  <div
+                    key={insight.id}
+                    data-testid={`insight-card-${insight.id}`}
+                    className={cn(
+                      "rounded-xl border p-2.5 flex flex-col gap-1.5 transition-all",
+                      urgency.bg,
+                      urgency.border,
+                      isLead && urgency.glow,
+                    )}
+                  >
+                    {/* Top accent bar */}
+                    <div className={cn("h-0.5 rounded-full -mx-0.5", urgency.bar)} />
+
+                    {/* Icon + urgency */}
+                    <div className="flex items-center gap-1.5">
+                      <div className={cn("rounded p-1 shrink-0", urgency.bg, "ring-1", urgency.border)}>
+                        <CatIcon className={cn("w-2.5 h-2.5", urgency.color)} />
+                      </div>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", urgency.dot, isLead && "animate-pulse")} />
+                        <span className={cn("text-[9px] font-bold uppercase tracking-wide truncate", urgency.color)}>
+                          {urgency.label}
+                        </span>
+                        {isLead && (
+                          <span className="text-[9px] font-bold px-1 py-0 rounded-full bg-white/8 text-gray-300 border border-white/15 shrink-0 hidden sm:block">
+                            Lead
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <p className="text-[11px] font-bold text-gray-100 leading-snug line-clamp-3 flex-1">
+                      {insight.title}
+                    </p>
+
+                    {/* Summary */}
+                    <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2">
+                      {insight.summary}
+                    </p>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                      <span className="text-[9px] text-gray-600">{timeAgo(insight.createdAt)}</span>
+                      <button
+                        onClick={() => dismissMutation.mutate(insight.id)}
+                        disabled={dismissMutation.isPending}
+                        className="text-gray-600 hover-elevate p-0.5 rounded"
+                        data-testid={`button-dismiss-${insight.id}`}
+                        title="Dismiss signal"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* See more / less toggle */}
+            {hiddenCount > 0 && (
+              <button
+                onClick={() => setShowAllInsights(!showAllInsights)}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-700/40 bg-gray-900/50 text-xs text-gray-500 hover-elevate active-elevate-2 transition-all"
+                data-testid="button-see-more-insights"
+              >
+                {showAllInsights ? (
+                  <><ChevronUp className="w-3 h-3" /> Show less</>
+                ) : (
+                  <><ChevronDown className="w-3 h-3" /> Show {hiddenCount} more signal{hiddenCount !== 1 ? 's' : ''}</>
+                )}
+              </button>
+            )}
+          </>
+        )}
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
           MARKET WIRE — horizontal scroll carousel
@@ -650,175 +772,6 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           </div>
         )}
       </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY INTEL — vertical list + see more
-      ═══════════════════════════════════════════════════════════════════ */}
-      <section data-testid="zone-strategy-intel">
-        <SectionTitle
-          icon={Radar}
-          iconBg="bg-cyan-900/50 ring-cyan-400/30"
-          iconColor="text-cyan-300"
-          label="Strategy Intel"
-          count={sortedInsights.length}
-          unit={sortedInsights.length === 1 ? 'signal' : 'signals'}
-          accent="text-cyan-200"
-        />
-
-        {insightsLoading ? (
-          <div className="space-y-2">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="rounded-xl border border-gray-700/40 bg-gray-900/50 p-3 animate-pulse">
-                <div className="h-3 bg-gray-700/50 rounded w-1/3 mb-2" />
-                <div className="h-3 bg-gray-700/50 rounded w-3/4 mb-1.5" />
-                <div className="h-2.5 bg-gray-800/50 rounded w-full" />
-              </div>
-            ))}
-          </div>
-        ) : sortedInsights.length === 0 ? (
-          <div className="rounded-xl border border-gray-700/30 bg-gray-900/30 p-5 flex flex-col items-center gap-2.5 text-center">
-            <div className="rounded-full bg-gray-800/60 p-2.5 ring-1 ring-gray-700/40">
-              <Radar className="w-4 h-4 text-gray-600" />
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              {activeFilter
-                ? "No signals for this strategy area right now."
-                : "No active signals yet. Business Intel generates AI-powered insights about your operations."}
-            </p>
-            {!activeFilter && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs gap-1.5 text-gray-500"
-                onClick={() => onOpenSettings?.('automation')}
-                data-testid="button-empty-settings"
-              >
-                <Settings className="w-3 h-3" />
-                Open automation settings
-              </Button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="space-y-2">
-              {visibleInsights.map((insight, i) => {
-                const urgency = URGENCY_CONFIG[insight.urgency as keyof typeof URGENCY_CONFIG] ?? URGENCY_CONFIG.low;
-                const stratArea = getStrategyAreaForCategory(insight.category);
-                const CatIcon = CATEGORY_ICON[insight.category] ?? Target;
-                const isLead = i === 0 && urgentCount > 0 && insight.urgency === 'high';
-
-                return (
-                  <div
-                    key={insight.id}
-                    data-testid={`insight-card-${insight.id}`}
-                    className={cn(
-                      "rounded-xl border p-3 transition-all",
-                      urgency.bg,
-                      urgency.border,
-                      isLead && urgency.glow,
-                    )}
-                  >
-                    {/* Left accent bar */}
-                    <div className="flex gap-2.5">
-                      <div className={cn("w-0.5 rounded-full shrink-0 self-stretch", urgency.bar)} />
-                      <div className="flex-1 min-w-0">
-                        {/* Header */}
-                        <div className="flex items-start gap-2 mb-1.5">
-                          <div className={cn("rounded-md p-1 shrink-0 mt-0.5", urgency.bg, "ring-1", urgency.border)}>
-                            <CatIcon className={cn("w-3 h-3", urgency.color)} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                              <span className={cn(
-                                "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border",
-                                urgency.bg, urgency.border, urgency.color
-                              )}>
-                                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", urgency.dot, isLead && "animate-pulse")} />
-                                {urgency.label}
-                              </span>
-                              {isLead && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-gray-300 border border-white/15">
-                                  Lead Signal
-                                </span>
-                              )}
-                            </div>
-                            <p className={cn("font-bold text-gray-100 leading-snug", isLead ? "text-sm" : "text-xs")}>
-                              {insight.title}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Summary */}
-                        <p className="text-[11px] text-gray-400 leading-relaxed mb-2">
-                          {insight.summary}
-                        </p>
-
-                        {/* Footer */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {stratArea && (
-                            <div className={cn(
-                              "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border",
-                              stratArea.bg, stratArea.border
-                            )}>
-                              <stratArea.icon className={cn("w-2.5 h-2.5", stratArea.color)} />
-                              <span className={stratArea.color}>{stratArea.label}</span>
-                            </div>
-                          )}
-                          <span className="text-[10px] text-gray-600 ml-auto">{timeAgo(insight.createdAt)}</span>
-                          <button
-                            onClick={() => dismissMutation.mutate(insight.id)}
-                            disabled={dismissMutation.isPending}
-                            className="text-gray-600 hover-elevate p-0.5 rounded"
-                            data-testid={`button-dismiss-${insight.id}`}
-                            title="Dismiss signal"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* See more / less toggle */}
-            {hiddenCount > 0 && (
-              <button
-                onClick={() => setShowAllInsights(!showAllInsights)}
-                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-700/40 bg-gray-900/50 text-xs text-gray-500 hover-elevate active-elevate-2 transition-all"
-                data-testid="button-see-more-insights"
-              >
-                {showAllInsights ? (
-                  <><ChevronUp className="w-3 h-3" /> Show less</>
-                ) : (
-                  <><ChevronDown className="w-3 h-3" /> Show {hiddenCount} more signal{hiddenCount !== 1 ? 's' : ''}</>
-                )}
-              </button>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          VISION CONTEXT
-      ═══════════════════════════════════════════════════════════════════ */}
-      {strategies?.visionMission && (
-        <div
-          className="rounded-xl border border-green-500/15 bg-green-950/20 p-3"
-          data-testid="section-vision-mission"
-        >
-          <div className="flex items-start gap-2">
-            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1.5 shrink-0">
-              <Target className="w-3.5 h-3.5 text-green-300" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-0.5">Vision & Mission</p>
-              <p className="text-xs text-gray-400 leading-relaxed">{strategies.visionMission}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Strategy full-text modal ─────────────────────────────────────────── */}
       {strategyModal && (
