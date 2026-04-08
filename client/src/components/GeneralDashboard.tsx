@@ -6,7 +6,7 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
   ChevronDown, ChevronUp, X,
-  Globe, Megaphone, Star, MessageSquare,
+  Globe, Megaphone, Star, MessageSquare, Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -123,13 +123,14 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, forumPosts }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, forumPosts, newsArticles }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; kind?: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
   forumPosts?: Array<{ title: string; threadUrl?: string; excerpt?: string; postedAt?: string }>;
+  newsArticles?: Array<{ title: string; url?: string; snippet?: string; source?: string }>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
@@ -259,7 +260,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         )}
 
         {/* All clear */}
-        {!hasAlerts && !isRunning && !forumPosts?.length && (
+        {!hasAlerts && !isRunning && !forumPosts?.length && !newsArticles?.length && (
           <div className="flex items-center gap-1.5 py-1 justify-center">
             <CheckCircle className="w-3 h-3 text-green-400/75" />
             <span className="text-xs text-muted-foreground/60">All clear</span>
@@ -309,6 +310,27 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
+        {/* ── News articles (Insights card) ── */}
+        {newsArticles && newsArticles.length > 0 && (
+          <div className="space-y-0 pt-0.5" style={{ borderTop: `1px solid ${hex}18` }}>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Market News</span>
+            {newsArticles.slice(0, 3).map((n, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); if (n.url) window.open(n.url, '_blank'); }}
+                className={cn('flex items-center gap-2 w-full text-left min-w-0 min-h-[28px] px-1 -mx-1 rounded', n.url ? 'cursor-pointer hover-elevate' : 'cursor-default')}
+                data-testid={`news-article-${i}`}
+              >
+                <Newspaper className="w-3 h-3 shrink-0 text-muted-foreground/50" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted-foreground/75 truncate leading-tight">{n.title}</p>
+                  {n.source && <p className="text-[10px] text-muted-foreground/45 leading-tight truncate">{n.source}</p>}
+                </div>
+                {n.url && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/45" />}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -655,6 +677,16 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/bridge/signals'],
     refetchInterval: 60000,
     staleTime: 30000,
+  });
+
+  const { data: marketIntel } = useQuery<{
+    success: boolean;
+    forum: { count: number; posts: Array<{ title: string; excerpt?: string; username?: string; postedAt?: string; threadUrl?: string }> };
+    news:  { count: number; articles: Array<{ title: string; snippet?: string; url?: string; source?: string; fetchedAt?: string }> };
+  }>({
+    queryKey: ['/api/market-intel/recent'],
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
   });
 
   const { data: pricingInsights } = useQuery<{ success: boolean; data: any }>({
@@ -1075,6 +1107,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'insights'}
           channelNum="04"
           channelHex="#00963C"
+          newsArticles={marketIntel?.news?.articles ?? []}
         />
       </div>)}
 

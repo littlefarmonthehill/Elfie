@@ -1,11 +1,10 @@
-import { useState, useEffect, useDeferredValue } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, PackageCheck, BarChart2, Activity,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
-  Loader2, RefreshCw, X, ArrowRight, Crosshair, Search,
+  Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
@@ -312,19 +312,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   const isCompact = !!(tvSplit || compact);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
-  const [orderSearchOpen, setOrderSearchOpen] = useState(false);
-  const [orderSearchInput, setOrderSearchInput] = useState('');
-  const deferredOrderSearch = useDeferredValue(orderSearchInput);
-
-  const { data: orderSearchResults = [] } = useQuery<{
-    id: string; orderNumber: string | null; customerUsername: string | null;
-    orderDate: string | null; orderStatus: string | null; orderTotal: string | null; marketplace: string | null;
-  }[]>({
-    queryKey: ['/api/orders/quick-search', deferredOrderSearch],
-    queryFn: () => fetch(`/api/orders/quick-search?q=${encodeURIComponent(deferredOrderSearch)}`, { credentials: 'include' }).then(r => r.json()),
-    enabled: deferredOrderSearch.trim().length >= 2,
-    staleTime: 30000,
-  });
 
   useEffect(() => {
     if (initialPanelTab) setPanelTab(initialPanelTab);
@@ -414,26 +401,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         {/* ── Sales Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
-          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-2")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <>
-                <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
-                <button type="button" onClick={() => setOrderSearchOpen(true)} className="ml-1 text-orange-400/50 hover:text-orange-400 transition-colors" data-testid="button-orders-search-open">
-                  <Search className="h-3 w-3" />
-                </button>
-                <div className="ml-auto">
-                  <CollapsibleDatePicker
-                    value={dateRange}
-                    onChange={setDateRange}
-                    accentClass="text-orange-400/70 hover:text-orange-300"
-                    testId="button-orders-date-picker"
-                  />
-                </div>
-              </>
+            <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
+            <CollapsibleDatePicker
+              value={dateRange}
+              onChange={setDateRange}
+              accentClass="text-orange-400/70 hover:text-orange-300"
+              testId="button-orders-date-picker"
+            />
           </div>
-
           {/* Row 1 — Sales / Financial */}
           <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-sales">
             <MetricCard label="Revenue" value={stats ? `$${Math.round(stats.monthRevenue).toLocaleString()}` : '—'} color="green" compact={isCompact} data-testid="metric-orders-revenue" />
@@ -707,74 +686,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           )}
         </div>
       </>}
-
-      <Drawer open={orderSearchOpen} onOpenChange={(open) => { if (!open) { setOrderSearchOpen(false); setOrderSearchInput(''); } }}>
-        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl" data-testid="drawer-orders-search">
-          <DrawerHeader className="p-0 flex-shrink-0">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-600" />
-            </div>
-            <div className="flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
-              <Search className="w-4 h-4 text-orange-400 flex-shrink-0" />
-              <DrawerTitle className="text-sm font-semibold text-orange-200 flex-1">Search Orders</DrawerTitle>
-              <DrawerClose asChild>
-                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-orders-search">
-                  <X className="w-5 h-5" />
-                </button>
-              </DrawerClose>
-            </div>
-            <div className="px-4 py-3 border-b border-gray-800/60">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-                <input
-                  type="text"
-                  inputMode="search"
-                  placeholder="Order number, buyer username…"
-                  value={orderSearchInput}
-                  onChange={e => setOrderSearchInput(e.target.value)}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  autoFocus
-                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-orange-500/60"
-                  data-testid="input-orders-search"
-                />
-              </div>
-            </div>
-          </DrawerHeader>
-          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0">
-            {orderSearchInput.trim().length < 2 ? (
-              <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search orders.</p>
-            ) : orderSearchResults.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center mt-8">No orders matched &ldquo;{orderSearchInput}&rdquo;</p>
-            ) : (
-              <div className="divide-y divide-gray-800/60">
-                {orderSearchResults.map(o => (
-                  <button
-                    key={o.id}
-                    onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); if (onItemClick) onItemClick('order', o.id); }}
-                    className="w-full text-left px-2 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
-                    data-testid={`result-order-drawer-${o.id}`}
-                  >
-                    <div className="min-w-0">
-                      <span className="text-sm font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
-                      {o.customerUsername && <span className="ml-2 text-sm text-gray-400">{o.customerUsername}</span>}
-                      {o.marketplace && <span className="ml-2 text-xs text-gray-600">{o.marketplace}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {o.orderTotal && <span className="text-sm font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
-                      {o.orderStatus && <span className="text-xs text-gray-500 capitalize">{o.orderStatus}</span>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
 
     </div>
   );

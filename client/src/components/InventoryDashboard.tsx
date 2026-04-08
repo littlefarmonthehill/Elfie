@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect, useDeferredValue, ComponentType } from "react";
+import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp } from "lucide-react";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
@@ -85,18 +84,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
-  const [invSearchOpen, setInvSearchOpen] = useState(false);
-  const [invSearchInput, setInvSearchInput] = useState('');
-  const deferredInvSearch = useDeferredValue(invSearchInput);
-  const { data: invSearchResults = [] } = useQuery<Array<{
-    id: number; itemNo: string; itemName: string; colorId: number; colorName: string;
-    newOrUsed: string; quantity: number; myCost: string | null; unitPrice: string | null;
-  }>>({
-    queryKey: ['/api/inventory/quick-search', deferredInvSearch],
-    queryFn: () => fetch(`/api/inventory/quick-search?q=${encodeURIComponent(deferredInvSearch)}`, { credentials: 'include' }).then(r => r.json()),
-    enabled: deferredInvSearch.trim().length >= 2,
-    staleTime: 10000,
-  });
 
   useEffect(() => {
     if (initialPanelTab) setPanelTab(initialPanelTab);
@@ -233,32 +220,27 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-2")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-3")}>
             <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Package className="w-3 h-3 text-blue-200" />
             </div>
-            <>
-                <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
-                <button type="button" onClick={() => setInvSearchOpen(true)} className="ml-1 text-blue-400/50 hover:text-blue-400 transition-colors" data-testid="button-inv-search-open">
-                  <Search className="h-3 w-3" />
-                </button>
-                <div className="ml-auto">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="text-gray-600 hover:text-gray-400 transition-colors" data-testid="button-cost-info">
-                        <InfoIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-xs">
-                        <strong>My Cost</strong> tracking is not available via BrickLink's API.
-                        To track costs, you'll need to manually add them in this app.
-                        (Cost tracking feature coming soon!)
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </>
+            <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
+            <div className="ml-auto">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-gray-600 hover:text-gray-400 transition-colors" data-testid="button-cost-info">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">
+                    <strong>My Cost</strong> tracking is not available via BrickLink's API.
+                    To track costs, you'll need to manually add them in this app.
+                    (Cost tracking feature coming soon!)
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           {/* Top row: Lots, Parts, Categories */}
@@ -268,14 +250,18 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
               { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '—' },
             ] as const).map(({ key, label, value }) => (
-              <div
+              <button
                 key={key}
+                onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("flex flex-col rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
               >
                 <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>{label}</span>
                 <span className={cn("font-semibold font-mono text-lego-blue leading-none", isCompact ? "text-sm" : "text-xs md:text-base")}>{value}</span>
-              </div>
+                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
+                  <ChevronRight className="w-2.5 h-2.5 text-white" />
+                </span>
+              </button>
             ))}
           </div>
 
@@ -702,73 +688,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           onItemClick={onItemClick}
         />
       )}
-
-      <Drawer open={invSearchOpen} onOpenChange={(open) => { if (!open) { setInvSearchOpen(false); setInvSearchInput(''); } }}>
-        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl" data-testid="drawer-inv-search">
-          <DrawerHeader className="p-0 flex-shrink-0">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-600" />
-            </div>
-            <div className="flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
-              <Search className="w-4 h-4 text-blue-400 flex-shrink-0" />
-              <DrawerTitle className="text-sm font-semibold text-blue-200 flex-1">Search Inventory</DrawerTitle>
-              <DrawerClose asChild>
-                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-inv-search">
-                  <X className="w-5 h-5" />
-                </button>
-              </DrawerClose>
-            </div>
-            <div className="px-4 py-3 border-b border-gray-800/60">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-                <input
-                  type="text"
-                  inputMode="search"
-                  placeholder="Item number, name, color…"
-                  value={invSearchInput}
-                  onChange={e => setInvSearchInput(e.target.value)}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  autoFocus
-                  className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/60"
-                  data-testid="input-inv-search"
-                />
-              </div>
-            </div>
-          </DrawerHeader>
-          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0">
-            {invSearchInput.trim().length < 2 ? (
-              <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search your inventory.</p>
-            ) : invSearchResults.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center mt-8">No lots matched &ldquo;{invSearchInput}&rdquo;</p>
-            ) : (
-              <div className="divide-y divide-gray-800/60">
-                {invSearchResults.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => { setInvSearchOpen(false); setInvSearchInput(''); if (onItemClick) onItemClick('inventory', item.id); }}
-                    className="w-full text-left px-2 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
-                    data-testid={`result-inv-drawer-${item.id}`}
-                  >
-                    <div className="min-w-0 flex items-center gap-3">
-                      <span className="text-sm font-semibold text-blue-200 font-mono shrink-0">{item.itemNo}</span>
-                      {item.itemName && <span className="text-sm text-gray-300 truncate">{item.itemName}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {item.colorName && <span className="text-xs text-gray-500">{item.colorName}</span>}
-                      <span className="text-xs font-mono text-blue-400">×{item.quantity}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
 
     </div>
   );

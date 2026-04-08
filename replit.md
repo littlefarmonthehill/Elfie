@@ -239,7 +239,7 @@ ChatGPT-style conversation management with thread persistence and auto-expiry.
 ## Elfie Chat — Feature Requests & Toolbar
 
 - **Feature Request Mode**: Users click "Feature Request" in the chat toolbar to enter feature request mode. They describe a feature; Elfie AI rephrases it for clarity via `POST /api/feature-request/rephrase`. A green "Submit" button appears in the toolbar for confirmation. On submit, it's saved as a level-3 capability with `status='new'` via `POST /api/feature-request/submit`, auto-classified into the best-matching L2 capability.
-- **Chat toolbar** (below title): Three pills — "Agent Request" (escalation), "Idea/Request" (enters feature request mode), "View Roadmap" (opens public roadmap drawer).
+- **Chat toolbar** (below title): Four pills — "Latest News" (quick prompt), "Agent Request" (escalation), "Feature Request" (enters feature request mode), "View Roadmap" (opens public roadmap drawer).
 - **Public Roadmap drawer**: Overlay in chat showing all L3 capability features with status filters (All/New/Now/Next/Later/Built). Each feature tile shows title, description, status badge, L2 category, vote count, and a thumbs-up vote toggle. Features sorted by vote count (highest first). One vote per user per feature (toggle on/off).
 - **Feature Voting**: `feature_votes` table (id, capability_id, user_id, org_id, created_at) with unique constraint on (capability_id, user_id). Migration Phase-35. Toggle vote via `POST /api/feature-votes/:capabilityId`. Vote counts shown on admin Roadmap and Backlog panels via `GET /api/feature-votes/counts`. Public roadmap via `GET /api/public-roadmap?status=all|new|now|next|later|built`.
 - **Support ticket status**: Shown inline above the input area when a ticket is active/escalated.
