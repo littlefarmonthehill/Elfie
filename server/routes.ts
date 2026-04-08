@@ -19762,20 +19762,20 @@ Write a 1–2 sentence feedback comment for this order.`;
     }
   });
 
-  // GET /api/market-intel/forum-summary — AI-generated digest of recent forum topics
+  // GET /api/market-intel/forum-summary — AI-generated per-topic descriptions
   {
-    let _forumSummaryCache: { summary: string; generatedAt: number } | null = null;
+    let _forumSummaryCache: { descriptions: Record<string, string>; generatedAt: number } | null = null;
     const FORUM_SUMMARY_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
     app.get("/api/market-intel/forum-summary", isApproved, async (req: any, res) => {
       try {
         if (_forumSummaryCache && Date.now() - _forumSummaryCache.generatedAt < FORUM_SUMMARY_TTL_MS) {
-          return res.json({ summary: _forumSummaryCache.summary, cached: true });
+          return res.json({ descriptions: _forumSummaryCache.descriptions, cached: true });
         }
         const orgId = req.user?.orgId ?? PLATFORM_ORG_ID;
         const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const posts = await db
-          .select({ title: blForumPosts.title, excerpt: blForumPosts.excerpt })
+          .select({ threadId: blForumPosts.threadId, title: blForumPosts.title, excerpt: blForumPosts.excerpt })
           .from(blForumPosts)
           .where(and(
             eq(blForumPosts.orgId, orgId),
@@ -19784,27 +19784,33 @@ Write a 1–2 sentence feedback comment for this order.`;
           ))
           .orderBy(sql`${blForumPosts.postedAt} DESC`)
           .limit(20);
-        if (posts.length === 0) return res.json({ summary: null });
+        if (posts.length === 0) return res.json({ descriptions: {} });
         const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
         const client = new AnthropicSDK({
           apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
           baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
         });
-        const topicList = posts.map((p, i) => `${i + 1}. ${p.title}${p.excerpt ? ` — ${p.excerpt.slice(0, 80)}` : ''}`).join('\n');
+        const topicList = posts.map((p, i) =>
+          `${i + 1}. "${p.title}"${p.excerpt ? ` — ${p.excerpt.slice(0, 100)}` : ''}`
+        ).join('\n');
         const message = await client.messages.create({
           model: "claude-sonnet-4-6",
-          max_tokens: 180,
+          max_tokens: 600,
           messages: [{
             role: "user",
-            content: `You are a LEGO reselling market intelligence assistant. The following are recent BrickLink forum discussion topics. Write a 2-3 sentence high-level summary of what the community is currently talking about. Be specific, concise, and relevant to LEGO resellers. Do not list individual topics.\n\nTopics:\n${topicList}\n\nSummary:`
+            content: `You are a LEGO reselling market intelligence assistant. For each BrickLink forum topic below, write exactly ONE concise sentence (max 18 words) explaining what the discussion is about and why it matters to LEGO resellers. Return ONLY a valid JSON array of strings in the same order as the topics, with no extra text before or after.\n\nTopics:\n${topicList}\n\nJSON array:`
           }]
         });
-        const summary = message.content[0]?.type === 'text' ? message.content[0].text.trim() : null;
-        if (summary) _forumSummaryCache = { summary, generatedAt: Date.now() };
-        res.json({ summary });
+        const raw = message.content[0]?.type === 'text' ? message.content[0].text.trim() : '[]';
+        let descArray: string[] = [];
+        try { descArray = JSON.parse(raw); } catch { descArray = posts.map(() => ''); }
+        const descriptions: Record<string, string> = {};
+        posts.forEach((p, i) => { if (p.threadId) descriptions[p.threadId] = descArray[i] ?? ''; });
+        _forumSummaryCache = { descriptions, generatedAt: Date.now() };
+        res.json({ descriptions });
       } catch (error: any) {
         console.error("[ForumSummary] Error:", error.message);
-        res.status(500).json({ error: error.message || "Failed to generate forum summary" });
+        res.status(500).json({ error: error.message || "Failed to generate forum descriptions" });
       }
     });
   }

@@ -18,6 +18,7 @@ interface MarketIntelData {
   forum: {
     count: number;
     posts: Array<{
+      threadId: string | null;
       title: string;
       excerpt: string | null;
       username: string;
@@ -277,7 +278,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
     queryKey: ['/api/ie-strategies'],
   });
 
-  const { data: forumSummaryData, isLoading: forumSummaryLoading } = useQuery<{ summary: string | null }>({
+  const { data: forumSummaryData, isLoading: forumSummaryLoading } = useQuery<{ descriptions: Record<string, string> }>({
     queryKey: ['/api/market-intel/forum-summary'],
     staleTime: 15 * 60 * 1000,
   });
@@ -379,41 +380,73 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY LENS — 5 clickable area filters
+          STRATEGY LENS — 2-col (mobile) / 3-col (md+) card grid
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2" data-testid="section-strategy-lens">
         {areaCounts.map(area => {
           const isActive = activeFilter === area.key;
           const Icon = area.icon;
+          const stratText = strategies?.[area.stratField] ?? null;
+          const preview = stratText
+            ? (stratText.length > 85 ? stratText.slice(0, 85) + '…' : stratText)
+            : null;
           return (
             <button
               key={area.key}
               onClick={() => setActiveFilter(isActive ? null : area.key)}
               data-testid={`filter-strategy-${area.key}`}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-xl border py-2 px-1 transition-all hover-elevate active-elevate-2 text-center",
+                "flex flex-col gap-2 rounded-xl border p-3 text-left transition-all hover-elevate active-elevate-2",
                 isActive
                   ? `${area.bg} ${area.border} ring-1 ${area.ring}`
                   : "border-gray-700/40 bg-gray-900/60"
               )}
             >
-              <div className={cn("flex items-center justify-center gap-1", isActive ? area.color : "text-gray-600")}>
-                <Icon className="w-3 h-3 shrink-0" />
+              {/* Header: icon + label + signal count */}
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <div className={cn("flex items-center gap-1.5", isActive ? area.color : "text-gray-500")}>
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide leading-tight">{area.label}</span>
+                </div>
                 {area.total > 0 && (
-                  <span className={cn(
-                    "text-[11px] font-bold",
-                    area.urgent > 0 ? 'text-red-400' : (isActive ? area.color : 'text-gray-500')
-                  )}>
-                    {area.total}
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {area.urgent > 0 && (
+                      <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">{area.urgent}</Badge>
+                    )}
+                    <span className={cn("text-[10px] font-semibold", isActive ? area.color : "text-gray-600")}>
+                      {area.total}
+                    </span>
+                  </div>
                 )}
               </div>
-              <span className={cn(
-                "text-[9px] font-bold uppercase tracking-wide leading-tight",
-                isActive ? area.color : "text-gray-600"
-              )}>
-                {area.label}
-              </span>
+              {/* Brief synopsis */}
+              {preview ? (
+                <p className="text-[10px] text-gray-400 leading-relaxed">{preview}</p>
+              ) : (
+                <p className="text-[10px] text-gray-600 italic">No strategy defined</p>
+              )}
+              {/* Read more link */}
+              {stratText && stratText.length > 85 && (
+                <span
+                  role="button"
+                  className={cn("text-[10px] font-semibold underline underline-offset-2 w-fit", area.color)}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setStrategyModal({
+                      label: area.label,
+                      text: stratText,
+                      icon: area.icon,
+                      color: area.color,
+                      bg: area.bg,
+                      border: area.border,
+                      ring: area.ring,
+                    });
+                  }}
+                  data-testid={`button-strategy-readmore-${area.key}`}
+                >
+                  Read more
+                </span>
+              )}
             </button>
           );
         })}
@@ -561,22 +594,6 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           accent="text-purple-200"
         />
 
-        {/* AI-generated community digest */}
-        {forumSummaryLoading ? (
-          <div className="rounded-xl border border-purple-800/30 bg-purple-950/20 p-2.5 mb-2 flex items-start gap-2 animate-pulse">
-            <Sparkles className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-2.5 bg-purple-900/40 rounded w-3/4" />
-              <div className="h-2.5 bg-purple-900/40 rounded w-full" />
-            </div>
-          </div>
-        ) : forumSummaryData?.summary ? (
-          <div className="rounded-xl border border-purple-800/30 bg-purple-950/20 p-2.5 mb-2 flex items-start gap-2" data-testid="section-forum-ai-summary">
-            <Sparkles className="w-3 h-3 text-purple-400 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-purple-200/80 leading-relaxed">{forumSummaryData.summary}</p>
-          </div>
-        ) : null}
-
         {intelLoading ? (
           <HScrollSkeleton />
         ) : posts.length === 0 ? (
@@ -603,15 +620,27 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                   <span className="text-[10px] text-gray-600 shrink-0">{timeAgo(post.postedAt)}</span>
                 </div>
                 {/* Title — Re: stripped */}
-                <p className="text-xs font-bold text-gray-100 leading-snug group-hover:text-purple-200 transition-colors line-clamp-3 flex-1">
+                <p className="text-xs font-bold text-gray-100 leading-snug group-hover:text-purple-200 transition-colors line-clamp-2 flex-1">
                   {cleanTitle(post.title)}
                 </p>
-                {/* Excerpt */}
-                {post.excerpt && (
+                {/* AI description */}
+                {forumSummaryLoading ? (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="h-2 bg-purple-900/30 rounded animate-pulse w-full" />
+                    <div className="h-2 bg-purple-900/30 rounded animate-pulse w-3/4" />
+                  </div>
+                ) : (forumSummaryData?.descriptions?.[post.threadId ?? '']) ? (
+                  <div className="mt-1.5 flex items-start gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-purple-500 mt-0.5 shrink-0" />
+                    <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-2">
+                      {forumSummaryData.descriptions[post.threadId ?? '']}
+                    </p>
+                  </div>
+                ) : post.excerpt ? (
                   <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed line-clamp-2">
                     {post.excerpt}
                   </p>
-                )}
+                ) : null}
                 {/* Footer */}
                 <div className="flex items-center justify-end mt-2 pt-2 border-t border-gray-700/40">
                   <ExternalLink className="w-2.5 h-2.5 text-gray-600 group-hover:text-purple-400 transition-colors" />
