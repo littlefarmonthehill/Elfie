@@ -78,7 +78,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersC
                 )}
               </div>
               <span className={cn(
-                "text-xs font-medium truncate max-w-full",
+                "text-[10px] font-medium truncate max-w-full",
                 isActive && "font-semibold"
               )}>
                 {dashboard.label}
