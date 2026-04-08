@@ -1,6 +1,7 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
+import SearchDrawer from "./SearchDrawer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -494,27 +495,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Users className={cn("text-yellow-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            {mktSearchOpen ? (
-              <>
-                <input
-                  autoFocus
-                  value={mktSearchInput}
-                  onChange={e => setMktSearchInput(e.target.value)}
-                  placeholder="Username, city, country…"
-                  type="text"
-                  autoComplete="one-time-code"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  className="flex-1 min-w-0 text-xs bg-transparent border-b border-yellow-500/40 pb-px text-gray-200 placeholder:text-gray-600 focus:outline-none"
-                  data-testid="input-mkt-search"
-                />
-                <button type="button" onClick={() => { setMktSearchOpen(false); setMktSearchInput(''); }} className="ml-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0" data-testid="button-mkt-search-close">
-                  <X className="h-3 w-3" />
-                </button>
-              </>
-            ) : (
-              <>
+            <>
                 <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Customers</h3>
                 <button type="button" onClick={() => setMktSearchOpen(true)} className="ml-1 text-yellow-400/50 hover:text-yellow-400 transition-colors" data-testid="button-mkt-search-open">
                   <Search className="h-3 w-3" />
@@ -528,34 +509,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   />
                 </div>
               </>
-            )}
           </div>
-
-          {mktSearchOpen && deferredMktSearch.trim().length >= 2 && (
-            <div className="rounded-md border border-yellow-500/20 bg-gray-900/90 divide-y divide-gray-800/60 mb-2 overflow-hidden">
-              {mktSearchResults.length === 0 ? (
-                <p className="text-[10px] text-gray-600 px-3 py-2">No customers matched "{mktSearchInput}"</p>
-              ) : (
-                mktSearchResults.map(c => (
-                  <button
-                    key={c.customerUsername}
-                    onClick={() => { setMktSearchOpen(false); setMktSearchInput(''); handleCustomerClick(c); }}
-                    className="w-full text-left px-3 py-2 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
-                    data-testid={`result-customer-${c.customerUsername}`}
-                  >
-                    <div className="min-w-0 flex items-center gap-2">
-                      <span className="text-xs font-semibold text-yellow-200 shrink-0">{c.customerUsername}</span>
-                      {(c.shipCity || c.shipCountry) && <span className="text-[10px] text-gray-500 truncate">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
-                      <span className="text-[10px] text-gray-600">{c.orderCount}×</span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
 
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" compact={isCompact} data-testid="metric-total-customers" />
@@ -742,6 +696,53 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
           </div>
         </div>
       </>}
+
+      <SearchDrawer
+        open={mktSearchOpen}
+        onClose={() => { setMktSearchOpen(false); setMktSearchInput(''); }}
+        title="Search Customers"
+        placeholder="Username, email, city, country…"
+        accentColor="yellow"
+        searchInput={mktSearchInput}
+        onSearchChange={setMktSearchInput}
+      >
+        {mktSearchInput.trim().length < 2 ? (
+          <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search customers.</p>
+        ) : mktSearchResults.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center mt-8">No customers matched &ldquo;{mktSearchInput}&rdquo;</p>
+        ) : (
+          <div className="rounded-lg border border-yellow-500/20 bg-gray-900/60 divide-y divide-gray-800/60 overflow-hidden">
+            {mktSearchResults.map(c => (
+              <button
+                key={c.customerUsername}
+                onClick={() => {
+                  setMktSearchOpen(false);
+                  setMktSearchInput('');
+                  handleCustomerClick(c);
+                }}
+                className="w-full text-left px-4 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
+                data-testid={`result-customer-drawer-${c.customerUsername}`}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-yellow-200">{c.customerUsername}</span>
+                    {(c.shipCity || c.shipCountry) && (
+                      <span className="text-xs text-gray-500">{[c.shipCity, c.shipCountry].filter(Boolean).join(', ')}</span>
+                    )}
+                  </div>
+                  {c.customerEmail && (
+                    <p className="text-xs text-gray-600 mt-0.5">{c.customerEmail}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-mono text-green-400">${c.totalRevenue.toFixed(0)}</span>
+                  <span className="text-xs text-gray-600">{c.orderCount}×</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </SearchDrawer>
 
     </div>
   );

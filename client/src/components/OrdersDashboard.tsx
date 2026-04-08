@@ -5,6 +5,7 @@ import {
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair, Search,
 } from "lucide-react";
+import SearchDrawer from "./SearchDrawer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -418,27 +419,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            {orderSearchOpen ? (
-              <>
-                <input
-                  autoFocus
-                  value={orderSearchInput}
-                  onChange={e => setOrderSearchInput(e.target.value)}
-                  placeholder="Order #, buyer username…"
-                  type="text"
-                  autoComplete="one-time-code"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  className="flex-1 min-w-0 text-xs bg-transparent border-b border-orange-500/40 pb-px text-gray-200 placeholder:text-gray-600 focus:outline-none"
-                  data-testid="input-orders-search"
-                />
-                <button type="button" onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); }} className="ml-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0" data-testid="button-orders-search-close">
-                  <X className="h-3 w-3" />
-                </button>
-              </>
-            ) : (
-              <>
+            <>
                 <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
                 <button type="button" onClick={() => setOrderSearchOpen(true)} className="ml-1 text-orange-400/50 hover:text-orange-400 transition-colors" data-testid="button-orders-search-open">
                   <Search className="h-3 w-3" />
@@ -452,34 +433,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   />
                 </div>
               </>
-            )}
           </div>
-
-          {orderSearchOpen && deferredOrderSearch.trim().length >= 2 && (
-            <div className="rounded-md border border-orange-500/20 bg-gray-900/90 divide-y divide-gray-800/60 mb-2 overflow-hidden">
-              {orderSearchResults.length === 0 ? (
-                <p className="text-[10px] text-gray-600 px-3 py-2">No orders matched "{orderSearchInput}"</p>
-              ) : (
-                orderSearchResults.map(o => (
-                  <button
-                    key={o.id}
-                    onClick={() => { setOrderSearchOpen(false); setOrderSearchInput(''); onItemClick('order', o.id); }}
-                    className="w-full text-left px-3 py-2 hover-elevate active-elevate-2 flex items-center justify-between gap-2"
-                    data-testid={`result-order-${o.id}`}
-                  >
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
-                      {o.customerUsername && <span className="ml-1.5 text-[10px] text-gray-400">{o.customerUsername}</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {o.orderTotal && <span className="text-[10px] font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
-                      {o.orderStatus && <span className="text-[10px] text-gray-500 capitalize">{o.orderStatus}</span>}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
 
           {/* Row 1 — Sales / Financial */}
           <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-orders-sales">
@@ -754,6 +708,47 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           )}
         </div>
       </>}
+
+      <SearchDrawer
+        open={orderSearchOpen}
+        onClose={() => { setOrderSearchOpen(false); setOrderSearchInput(''); }}
+        title="Search Orders"
+        placeholder="Order number, buyer username…"
+        accentColor="orange"
+        searchInput={orderSearchInput}
+        onSearchChange={setOrderSearchInput}
+      >
+        {orderSearchInput.trim().length < 2 ? (
+          <p className="text-sm text-gray-600 text-center mt-8">Type at least 2 characters to search orders.</p>
+        ) : orderSearchResults.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center mt-8">No orders matched &ldquo;{orderSearchInput}&rdquo;</p>
+        ) : (
+          <div className="rounded-lg border border-orange-500/20 bg-gray-900/60 divide-y divide-gray-800/60 overflow-hidden">
+            {orderSearchResults.map(o => (
+              <button
+                key={o.id}
+                onClick={() => {
+                  setOrderSearchOpen(false);
+                  setOrderSearchInput('');
+                  if (onItemClick) onItemClick('order', o.id);
+                }}
+                className="w-full text-left px-4 py-3 hover-elevate active-elevate-2 flex items-center justify-between gap-3"
+                data-testid={`result-order-drawer-${o.id}`}
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-orange-200 font-mono">{o.orderNumber || o.id}</span>
+                  {o.customerUsername && <span className="ml-2 text-sm text-gray-400">{o.customerUsername}</span>}
+                  {o.marketplace && <span className="ml-2 text-xs text-gray-600">{o.marketplace}</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {o.orderTotal && <span className="text-sm font-mono text-green-400">${parseFloat(o.orderTotal).toFixed(2)}</span>}
+                  {o.orderStatus && <span className="text-xs text-gray-500 capitalize">{o.orderStatus}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </SearchDrawer>
 
     </div>
   );
