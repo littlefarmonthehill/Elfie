@@ -339,7 +339,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 className={`flex flex-col items-center justify-center rounded-md border px-3 shrink-0 gap-1 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
               >
                 {buttonIcon}
-                <span className="font-mono text-[6.5px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
+                <span className="font-mono text-[8px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
               </button>
               <div className="flex-1 relative pt-1 pb-1.5">
                 <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
@@ -352,7 +352,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         data-testid={`directive-inv-${key}`}
                         className="flex-1 flex flex-col items-center gap-0.5 py-0"
                       >
-                        <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
                           style={isActive ? {
                             '--lamp-color': lampColor,

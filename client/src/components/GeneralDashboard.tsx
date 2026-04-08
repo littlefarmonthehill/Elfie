@@ -1039,7 +1039,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
 
         <OpAreaCard
-          label="Marketing"
+          label="Market"
           Icon={Megaphone}
           color="yellow"
           stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}

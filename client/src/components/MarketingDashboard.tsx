@@ -472,7 +472,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Users className={cn("text-yellow-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Customers</h3>
+            <h3 className={cn("font-semibold text-yellow-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Market</h3>
             <CollapsibleDatePicker
               value={localDateRange}
               onChange={setLocalDateRange}
