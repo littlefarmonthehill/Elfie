@@ -442,7 +442,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         <div
           className={cn(
             "relative rounded-lg border cursor-pointer hover-elevate active-elevate-2 transition-all",
-            isCompact ? "p-2" : "p-1 md:p-2.5",
+            isCompact ? "p-3" : "p-2 md:p-3",
             hasAction
               ? "border-orange-400/60 bg-gradient-to-b from-gray-700/55 to-gray-900/95 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
               : "border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
@@ -459,7 +459,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           )} />
 
           {/* Header */}
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <div className={cn(
               "rounded-md ring-1 shrink-0 p-1",
               hasAction
@@ -483,7 +483,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </div>
 
           {/* Unified workflow pipeline */}
-          <div className="flex items-stretch gap-2" data-testid="directive-workflow-grid">
+          <div className="flex items-stretch gap-3" data-testid="directive-workflow-grid">
 
             {/* ORDERS button — 3-D raised pushable style */}
             <button
@@ -500,9 +500,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </button>
 
             {/* Pipeline track + all statuses */}
-            <div className="flex-1 relative pt-3 pb-1">
+            <div className="flex-1 relative pt-4 pb-2">
               {/* Connecting track line */}
-              <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
+              <div className="absolute left-0 right-0 top-[22px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
 
               <div className="flex items-start">
                 {/* Main workflow statuses */}
@@ -546,7 +546,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 {/* Exception divider — vertical line with red dot on track */}
                 <div className="self-stretch relative px-1.5 shrink-0">
                   <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-red-900/40" />
-                  <div className="absolute top-[15px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
+                  <div className="absolute top-[19px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
                 </div>
 
                 {/* Exception statuses */}
