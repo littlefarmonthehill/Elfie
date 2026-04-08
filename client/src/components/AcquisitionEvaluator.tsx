@@ -6,9 +6,11 @@ import * as XLSX from "xlsx";
 import {
   Upload, FileUp, X, CheckCircle2, AlertTriangle,
   Package, Layers, ChevronDown, ChevronUp, Loader2,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, Sparkles, ClipboardPaste,
+  TrendingUp, ShieldAlert, Target, Handshake, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -281,6 +283,18 @@ async function parseFile(file: File): Promise<{ items: AcqItem[]; rawRows: numbe
   return consolidate(raw);
 }
 
+interface SnapshotResult {
+  storeProfile?: string;
+  acquisitionScore?: number;
+  scoringRationale?: string;
+  highlights?: string[];
+  concerns?: string[];
+  focusAreas?: string[];
+  negotiatingPoints?: string[];
+  recommendation?: 'Buy' | 'Negotiate' | 'Pass' | 'Selective';
+  error?: string;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
@@ -444,12 +458,24 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
 export default function AcquisitionEvaluator() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<'file' | 'snapshot'>('file');
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState<{ items: AcqItem[]; rawRows: number } | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<AcqResult | null>(null);
   const [section, setSection] = useState<'common' | 'new'>('common');
+  const [snapshotText, setSnapshotText] = useState('');
+  const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null);
+
+  const snapshotMutation = useMutation({
+    mutationFn: async (text: string) =>
+      await apiRequest("POST", "/api/inventory/acquisition-snapshot", { text }) as SnapshotResult,
+    onSuccess: (data) => setSnapshotResult(data),
+    onError: (e: any) => {
+      toast({ title: "Analysis failed", description: e.message, variant: "destructive" });
+    }
+  });
 
   const evaluateMutation = useMutation({
     mutationFn: async (items: AcqItem[]) => {
@@ -500,8 +526,217 @@ export default function AcquisitionEvaluator() {
 
   const s = result?.summary;
 
+  const RECO_CONFIG = {
+    Buy:        { color: 'text-green-300',  bg: 'bg-green-900/30',  border: 'border-green-500/40'  },
+    Negotiate:  { color: 'text-amber-300',  bg: 'bg-amber-900/30',  border: 'border-amber-500/40'  },
+    Selective:  { color: 'text-blue-300',   bg: 'bg-blue-900/30',   border: 'border-blue-500/40'   },
+    Pass:       { color: 'text-red-300',    bg: 'bg-red-900/30',    border: 'border-red-500/40'    },
+  } as const;
+
   return (
     <div className="flex flex-col gap-4 h-full">
+
+      {/* Mode toggle */}
+      <div className="flex gap-1.5 rounded-xl border border-gray-700/50 bg-gray-900/60 p-1" data-testid="acq-mode-toggle">
+        <button
+          onClick={() => setMode('file')}
+          data-testid="acq-mode-file"
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all",
+            mode === 'file'
+              ? "bg-violet-900/60 text-violet-200 ring-1 ring-violet-500/40"
+              : "text-gray-500 hover:text-gray-300"
+          )}
+        >
+          <Upload className="w-3 h-3" />
+          File Analysis
+        </button>
+        <button
+          onClick={() => setMode('snapshot')}
+          data-testid="acq-mode-snapshot"
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all",
+            mode === 'snapshot'
+              ? "bg-violet-900/60 text-violet-200 ring-1 ring-violet-500/40"
+              : "text-gray-500 hover:text-gray-300"
+          )}
+        >
+          <Sparkles className="w-3 h-3" />
+          Quick Snapshot
+        </button>
+      </div>
+
+      {/* ── SNAPSHOT MODE ─────────────────────────────────────────────────── */}
+      {mode === 'snapshot' && (
+        <div className="flex flex-col gap-4">
+          {!snapshotResult ? (
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 p-3">
+                <div className="flex items-start gap-2 mb-2">
+                  <ClipboardPaste className="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Paste any store info — BrickLink category breakdown, lot counts, store description, or a mix. The AI will profile the store and score it as an acquisition target.
+                  </p>
+                </div>
+              </div>
+              <Textarea
+                value={snapshotText}
+                onChange={e => setSnapshotText(e.target.value)}
+                placeholder={"Paste store inventory overview, category list, lot counts, etc…\n\nExample:\n20,652 lots\nParts (19,573 lots)\nMinifigures (918 lots)\nStar Wars (319 lots)\n…"}
+                className="min-h-[180px] text-xs font-mono text-gray-300 bg-gray-900/60 border-gray-700/60 resize-none"
+                data-testid="acq-snapshot-textarea"
+              />
+              <Button
+                onClick={() => snapshotMutation.mutate(snapshotText)}
+                disabled={snapshotMutation.isPending || snapshotText.trim().length < 10}
+                data-testid="acq-snapshot-analyze"
+              >
+                {snapshotMutation.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing store…</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-2" /> Analyze Store Profile</>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                <span className="text-sm font-semibold text-white flex-1">Snapshot Analysis</span>
+                <Button
+                  size="icon" variant="ghost"
+                  onClick={() => { setSnapshotResult(null); }}
+                  data-testid="acq-snapshot-reset"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Score + Recommendation */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-gray-700/50 bg-gray-900/60 p-3 flex flex-col gap-1">
+                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Acquisition Score</p>
+                  <div className="flex items-end gap-2">
+                    <span className={cn(
+                      "text-3xl font-black leading-none",
+                      (snapshotResult.acquisitionScore ?? 0) >= 7 ? 'text-green-300'
+                      : (snapshotResult.acquisitionScore ?? 0) >= 4 ? 'text-amber-300'
+                      : 'text-red-300'
+                    )}>
+                      {snapshotResult.acquisitionScore ?? '—'}
+                    </span>
+                    <span className="text-sm text-gray-600 mb-0.5">/10</span>
+                  </div>
+                  {snapshotResult.scoringRationale && (
+                    <p className="text-[10px] text-gray-500 leading-relaxed mt-0.5">{snapshotResult.scoringRationale}</p>
+                  )}
+                </div>
+                {snapshotResult.recommendation && (
+                  <div className={cn(
+                    "rounded-xl border p-3 flex flex-col items-center justify-center gap-1",
+                    RECO_CONFIG[snapshotResult.recommendation].bg,
+                    RECO_CONFIG[snapshotResult.recommendation].border
+                  )}>
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Recommendation</p>
+                    <p className={cn("text-2xl font-black", RECO_CONFIG[snapshotResult.recommendation].color)}>
+                      {snapshotResult.recommendation}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Store Profile */}
+              {snapshotResult.storeProfile && (
+                <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-3">
+                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-1.5">Store Profile</p>
+                  <p className="text-xs text-gray-300 leading-relaxed">{snapshotResult.storeProfile}</p>
+                </div>
+              )}
+
+              {/* Highlights + Concerns */}
+              <div className="grid grid-cols-2 gap-2">
+                {snapshotResult.highlights && snapshotResult.highlights.length > 0 && (
+                  <div className="rounded-xl border border-green-700/30 bg-green-900/10 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Star className="w-3 h-3 text-green-400" />
+                      <p className="text-[10px] text-green-400 font-semibold uppercase tracking-wide">Highlights</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {snapshotResult.highlights.map((h, i) => (
+                        <li key={i} className="text-[11px] text-gray-300 leading-snug flex items-start gap-1.5">
+                          <span className="text-green-500 mt-0.5 shrink-0">•</span>{h}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {snapshotResult.concerns && snapshotResult.concerns.length > 0 && (
+                  <div className="rounded-xl border border-red-700/30 bg-red-900/10 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <ShieldAlert className="w-3 h-3 text-red-400" />
+                      <p className="text-[10px] text-red-400 font-semibold uppercase tracking-wide">Concerns</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {snapshotResult.concerns.map((c, i) => (
+                        <li key={i} className="text-[11px] text-gray-300 leading-snug flex items-start gap-1.5">
+                          <span className="text-red-500 mt-0.5 shrink-0">•</span>{c}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Focus Areas */}
+              {snapshotResult.focusAreas && snapshotResult.focusAreas.length > 0 && (
+                <div className="rounded-xl border border-blue-700/30 bg-blue-900/10 p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Target className="w-3 h-3 text-blue-400" />
+                    <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wide">Where to Focus</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {snapshotResult.focusAreas.map((f, i) => (
+                      <span key={i} className="text-[11px] bg-blue-900/40 border border-blue-700/30 text-blue-200 px-2 py-0.5 rounded-full">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Negotiating Points */}
+              {snapshotResult.negotiatingPoints && snapshotResult.negotiatingPoints.length > 0 && (
+                <div className="rounded-xl border border-amber-700/30 bg-amber-900/10 p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Handshake className="w-3 h-3 text-amber-400" />
+                    <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">Negotiating Points</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {snapshotResult.negotiatingPoints.map((n, i) => (
+                      <li key={i} className="text-[11px] text-gray-300 leading-snug flex items-start gap-1.5">
+                        <span className="text-amber-500 mt-0.5 shrink-0">•</span>{n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Error state */}
+              {snapshotResult.error && (
+                <div className="rounded-xl border border-red-500/30 bg-red-900/10 p-3 flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-300">{snapshotResult.error}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── FILE MODE ─────────────────────────────────────────────────────── */}
+      {mode === 'file' && <>
+
       {/* File Upload Zone */}
       {!parsed && !parseError && (
         <div
@@ -678,6 +913,8 @@ export default function AcquisitionEvaluator() {
           )}
         </div>
       )}
+
+      </> /* end file mode */}
     </div>
   );
 }

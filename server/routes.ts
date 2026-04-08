@@ -13948,6 +13948,66 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // POST /api/inventory/acquisition-snapshot — AI analysis of pasted store text / category overview
+  app.post("/api/inventory/acquisition-snapshot", isApproved, async (req: any, res) => {
+    try {
+      const { text } = req.body as { text: string };
+      if (!text || text.trim().length < 10) return res.status(400).json({ error: "No store text provided." });
+
+      const orgId = reqOrgId(req);
+      const { ieStrategies } = await import('@shared/schema');
+      const stratRow = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
+      const stratContext = stratRow[0]
+        ? [
+            stratRow[0].inventoryStrategy ? `Inventory strategy: ${stratRow[0].inventoryStrategy}` : '',
+            stratRow[0].pricingStrategy   ? `Pricing strategy: ${stratRow[0].pricingStrategy}`    : '',
+          ].filter(Boolean).join('\n')
+        : '';
+
+      const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
+      const client = new AnthropicSDK({
+        apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+      });
+
+      const prompt = `You are an expert LEGO reseller business analyst helping evaluate whether to acquire inventory from another BrickLink store.
+
+${stratContext ? `BUYER'S STRATEGY CONTEXT:\n${stratContext}\n\n` : ''}SELLER'S STORE INVENTORY OVERVIEW:
+${text.trim().slice(0, 4000)}
+
+Analyze this store's inventory and respond with ONLY a valid JSON object (no markdown, no extra text) with this exact structure:
+{
+  "storeProfile": "2-3 sentence overview of what kind of store this is and what they specialize in",
+  "acquisitionScore": <integer 1-10, where 10 is highly attractive>,
+  "scoringRationale": "1-2 sentences explaining the score",
+  "highlights": [<up to 5 strings, each a specific notable strength or interesting category>],
+  "concerns": [<up to 4 strings, each a potential risk or downside>],
+  "focusAreas": [<up to 5 strings: specific categories or themes the buyer should prioritize when reviewing>,
+  "negotiatingPoints": [<up to 3 strings: data-backed points to use when negotiating price>],
+  "recommendation": "Buy" | "Negotiate" | "Pass" | "Selective"
+}`;
+
+      const message = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 800,
+        messages: [{ role: "user", content: prompt }]
+      });
+
+      const raw = message.content[0]?.type === 'text' ? message.content[0].text.trim() : '{}';
+      let analysis: Record<string, unknown>;
+      try { analysis = JSON.parse(raw); }
+      catch {
+        const match = raw.match(/\{[\s\S]+\}/);
+        try { analysis = match ? JSON.parse(match[0]) : { error: "Could not parse AI response" }; }
+        catch { analysis = { error: "Could not parse AI response" }; }
+      }
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("[AcqSnapshot] Error:", error.message);
+      res.status(500).json({ error: error.message || "Snapshot analysis failed" });
+    }
+  });
+
   // Rate Limit Status — always reports the requesting org's own BL API usage.
   // Each org uses its own BL credentials for all operations (BrickSpotter, POM, sync).
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
