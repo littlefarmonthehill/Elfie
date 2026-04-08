@@ -20,11 +20,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
+
+function getTrackingUrl(trackingNumber: string, carrier?: string | null): string {
+  const c = (carrier ?? '').toLowerCase();
+  const t = encodeURIComponent(trackingNumber);
+  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${t}`;
+  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${t}`;
+  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${t}`;
+  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${t}`;
+  if (c.includes('canada post') || c.includes('canadapost')) return `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${t}`;
+  if (/^1Z/i.test(trackingNumber)) return `https://www.ups.com/track?tracknum=${t}`;
+  if (/^(94|93|92|95)[0-9]{18,20}$/.test(trackingNumber) || /^7[0-9]{19}$/.test(trackingNumber)) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${t}`;
+  return `https://parcelsapp.com/en/tracking/${t}`;
+}
 
 type ShippedOrder = {
   id: string;
@@ -372,7 +386,17 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         {order.trackingNumber && (
                           <>
                             <span className="text-gray-600">•</span>
-                            <span className="font-mono truncate max-w-[180px]">{order.trackingNumber}</span>
+                            <a
+                              href={getTrackingUrl(order.trackingNumber, order.carrier)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="font-mono truncate max-w-[180px] hover:underline underline-offset-2 flex items-center gap-0.5"
+                              data-testid={`link-tracking-${order.orderNumber}`}
+                            >
+                              {order.trackingNumber}
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                            </a>
                           </>
                         )}
                       </div>

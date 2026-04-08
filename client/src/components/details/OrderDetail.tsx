@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle, AlertTriangle } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle, AlertTriangle, ExternalLink } from "lucide-react";
+
 import { shortCode } from "@/components/PackingSlip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,19 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import PartImage from "@/components/PartImage";
+
+function getTrackingUrl(trackingNumber: string, carrier?: string): string {
+  const c = (carrier ?? '').toLowerCase();
+  const t = encodeURIComponent(trackingNumber);
+  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${t}`;
+  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${t}`;
+  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${t}`;
+  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${t}`;
+  if (c.includes('canada post') || c.includes('canadapost')) return `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${t}`;
+  if (/^1Z/i.test(trackingNumber)) return `https://www.ups.com/track?tracknum=${t}`;
+  if (/^(94|93|92|95)[0-9]{18,20}$/.test(trackingNumber) || /^7[0-9]{19}$/.test(trackingNumber)) return `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${t}`;
+  return `https://parcelsapp.com/en/tracking/${t}`;
+}
 
 interface OrderDetailProps {
   data: {
@@ -771,7 +785,16 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
           {data.trackingNumber && (
             <div className="flex items-center gap-2">
               <span className="text-[9px] md:text-xs text-gray-400">Tracking:</span>
-              <span className="font-mono text-[9px] md:text-xs text-lego-blue font-semibold">{data.trackingNumber}</span>
+              <a
+                href={getTrackingUrl(data.trackingNumber, data.shippingCarrier)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[9px] md:text-xs text-lego-blue font-semibold hover:underline underline-offset-2 flex items-center gap-1"
+                data-testid="link-tracking-number"
+              >
+                {data.trackingNumber}
+                <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
+              </a>
             </div>
           )}
         </div>
