@@ -4708,7 +4708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await db.select({
         id: blInventory.id,
         itemNo: blInventory.itemNo,
-        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+        itemName: blCatalog.name,
         colorId: blInventory.colorId,
         colorName: blColors.name,
         newOrUsed: blInventory.newOrUsed,
