@@ -584,6 +584,10 @@ html.admin-mode {
   box-shadow: 0 0 18px var(--tool-glow-color, rgba(120,180,255,0.3)), 0 0 6px var(--tool-glow-color, rgba(120,180,255,0.15));
 }
 
+/* ── Utility: hide scrollbar while keeping scroll ── */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
 /* ── #8 Jetsons control-panel lamp pulse ── */
 @keyframes panel-lamp-glow {
   0%, 100% {

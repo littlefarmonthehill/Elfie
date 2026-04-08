@@ -6,7 +6,8 @@ import { formatDistanceToNow, parseISO } from "date-fns";
 import {
   Newspaper, Radio, Radar, TrendingUp, ShoppingCart, Package, AlertTriangle,
   Activity, BarChart2, Users, DollarSign, EyeOff, ExternalLink, X,
-  MessageSquare, Settings, RefreshCw, Truck, Star, Zap, Target,
+  MessageSquare, Settings, RefreshCw, Truck, Star, Zap, Target, ChevronDown,
+  ChevronUp, ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,7 @@ const URGENCY_CONFIG = {
     border: 'border-red-500/40',
     glow: 'shadow-[0_0_12px_rgba(239,68,68,0.15)]',
     dot: 'bg-red-400',
+    bar: 'bg-red-500',
   },
   medium: {
     label: 'Notable',
@@ -132,6 +134,7 @@ const URGENCY_CONFIG = {
     border: 'border-amber-500/30',
     glow: '',
     dot: 'bg-amber-400',
+    bar: 'bg-amber-500',
   },
   low: {
     label: 'Info',
@@ -140,6 +143,7 @@ const URGENCY_CONFIG = {
     border: 'border-green-700/30',
     glow: '',
     dot: 'bg-green-500',
+    bar: 'bg-green-600',
   },
 } as const;
 
@@ -171,66 +175,24 @@ function timeAgo(dateStr: string | null | undefined): string {
   }
 }
 
+function cleanTitle(title: string): string {
+  return title.replace(/^Re:\s*/i, '').trim();
+}
+
 function getStrategyAreaForCategory(cat: string) {
   return STRATEGY_AREAS.find(s => (s.categories as readonly string[]).includes(cat));
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function LoadingSkeleton({ rows }: { rows: number }) {
-  return (
-    <div className="space-y-1.5">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-gray-700/40 bg-gray-900/50 p-2.5 animate-pulse space-y-1.5">
-          <div className="h-3 bg-gray-700/50 rounded w-3/4" />
-          <div className="h-2.5 bg-gray-800/50 rounded w-full" />
-          <div className="h-2.5 bg-gray-800/50 rounded w-1/2" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyZone({
-  icon: Icon,
-  message,
-  action,
-  onAction,
-}: {
-  icon: React.ElementType;
-  message: string;
-  action?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <div className="rounded-lg border border-gray-700/30 bg-gray-900/30 p-5 flex flex-col items-center gap-2.5 text-center">
-      <div className="rounded-full bg-gray-800/60 p-2.5 ring-1 ring-gray-700/40">
-        <Icon className="w-4 h-4 text-gray-600" />
-      </div>
-      <p className="text-xs text-gray-500 leading-relaxed">{message}</p>
-      {action && onAction && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs gap-1.5 text-gray-500"
-          onClick={onAction}
-          data-testid="button-empty-settings"
-        >
-          <Settings className="w-3 h-3" />
-          {action}
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function ZoneHeader({
+function SectionTitle({
   icon: Icon,
   iconBg,
   iconColor,
   label,
   count,
   unit,
+  accent,
 }: {
   icon: React.ElementType;
   iconBg: string;
@@ -238,18 +200,40 @@ function ZoneHeader({
   label: string;
   count?: number;
   unit?: string;
+  accent?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 px-0.5 mb-2">
-      <div className={cn("rounded-md p-1 ring-1", iconBg)}>
-        <Icon className={cn("w-3 h-3", iconColor)} />
+    <div className="flex items-center gap-2 mb-2.5">
+      <div className={cn("rounded-md p-1.5 ring-1 shrink-0", iconBg)}>
+        <Icon className={cn("w-3.5 h-3.5", iconColor)} />
       </div>
-      <span className="text-xs font-bold text-gray-200 uppercase tracking-wide">{label}</span>
-      {count !== undefined && (
-        <span className="ml-auto text-[11px] text-gray-600">
-          {count} {unit}
-        </span>
-      )}
+      <div className="flex-1 min-w-0">
+        <span className={cn("text-xs font-bold uppercase tracking-widest", accent ?? "text-gray-200")}>{label}</span>
+        {count !== undefined && (
+          <span className="ml-2 text-[10px] text-gray-600 font-mono">{count} {unit}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HScrollSkeleton() {
+  return (
+    <div className="flex gap-2.5 overflow-hidden">
+      {[0, 1, 2, 3].map(i => (
+        <div key={i} className="flex-shrink-0 w-[220px] h-[110px] rounded-xl border border-gray-700/40 bg-gray-900/50 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyHScroll({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
+  return (
+    <div className="rounded-xl border border-gray-700/30 bg-gray-900/30 p-4 flex items-center gap-3">
+      <div className="rounded-full bg-gray-800/60 p-2 ring-1 ring-gray-700/40 shrink-0">
+        <Icon className="w-4 h-4 text-gray-600" />
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed">{message}</p>
     </div>
   );
 }
@@ -263,6 +247,7 @@ interface InsightsDashboardProps {
 
 export default function InsightsDashboard({ onOpenSettings, compact }: InsightsDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [showAllInsights, setShowAllInsights] = useState(false);
 
   const {
     data: marketIntel,
@@ -311,31 +296,37 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
     return (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2);
   });
 
+  const PREVIEW_COUNT = 5;
+  const visibleInsights = showAllInsights ? sortedInsights : sortedInsights.slice(0, PREVIEW_COUNT);
+  const hiddenCount = sortedInsights.length - PREVIEW_COUNT;
+
   const totalSignals = insights.length;
   const urgentCount = insights.filter(i => i.urgency === 'high').length;
-
   const activeArea = activeFilter ? STRATEGY_AREAS.find(s => s.key === activeFilter) : null;
   const activeStratText = activeArea ? (strategies?.[activeArea.stratField] ?? null) : null;
 
-  return (
-    <div className={cn("h-full overflow-y-auto", compact ? "p-1.5 space-y-2" : "p-2 md:p-3 space-y-2.5")}>
+  const articles = marketIntel?.news?.articles ?? [];
+  const posts = marketIntel?.forum?.posts ?? [];
 
-      {/* ════════════════════════════════════════════════════════════════════
+  return (
+    <div className={cn("h-full overflow-y-auto", compact ? "p-1.5 space-y-3" : "p-2 md:p-3 space-y-4")}>
+
+      {/* ═══════════════════════════════════════════════════════════════════
           MASTHEAD
-      ════════════════════════════════════════════════════════════════════ */}
+      ═══════════════════════════════════════════════════════════════════ */}
       <div
-        className="relative rounded-lg border border-green-500/20 bg-gradient-to-br from-gray-900/95 to-green-950/20 overflow-hidden"
+        className="relative rounded-xl border border-green-500/20 bg-gradient-to-r from-gray-900/95 via-green-950/15 to-gray-900/95 overflow-hidden"
         data-testid="section-insights-masthead"
       >
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/40 to-transparent" />
         <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap gap-y-1.5">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="rounded-md bg-green-900/60 ring-1 ring-green-400/30 p-1.5 shrink-0">
+            <div className="rounded-lg bg-green-900/60 ring-1 ring-green-400/30 p-2 shrink-0">
               <Radio className="w-4 h-4 text-green-300" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-sm font-bold text-gray-100 uppercase tracking-widest">Insights</h1>
+                <h1 className="text-sm font-black text-gray-100 uppercase tracking-widest">Insights</h1>
                 {urgentCount > 0 && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-500/40 animate-pulse"
@@ -349,9 +340,9 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
               <p className="text-[11px] text-gray-500 mt-0.5">
                 {insightsLoading ? 'Loading signals…' : (
                   <>
-                    {totalSignals} active signal{totalSignals !== 1 ? 's' : ''}
-                    {(marketIntel?.news?.count ?? 0) > 0 && ` · ${marketIntel!.news.count} market articles`}
-                    {(marketIntel?.forum?.count ?? 0) > 0 && ` · ${marketIntel!.forum.count} forum posts`}
+                    {totalSignals} signal{totalSignals !== 1 ? 's' : ''}
+                    {articles.length > 0 && ` · ${articles.length} articles`}
+                    {posts.length > 0 && ` · ${posts.length} topics`}
                   </>
                 )}
               </p>
@@ -362,7 +353,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
             variant="ghost"
             onClick={handleRefresh}
             disabled={intelFetching}
-            className="text-xs text-gray-400 gap-1.5 shrink-0"
+            className="text-xs text-gray-500 gap-1.5 shrink-0"
             data-testid="button-refresh-insights"
           >
             <RefreshCw className={cn("w-3 h-3", intelFetching && "animate-spin")} />
@@ -371,13 +362,10 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════════════
           STRATEGY LENS — 5 clickable area filters
-      ════════════════════════════════════════════════════════════════════ */}
-      <div
-        className="grid grid-cols-5 gap-1.5"
-        data-testid="section-strategy-lens"
-      >
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
         {areaCounts.map(area => {
           const isActive = activeFilter === area.key;
           const Icon = area.icon;
@@ -387,10 +375,10 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
               onClick={() => setActiveFilter(isActive ? null : area.key)}
               data-testid={`filter-strategy-${area.key}`}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-lg border p-2 transition-all hover-elevate active-elevate-2 text-center",
+                "flex flex-col items-center gap-1 rounded-xl border py-2 px-1 transition-all hover-elevate active-elevate-2 text-center",
                 isActive
                   ? `${area.bg} ${area.border} ring-1 ${area.ring}`
-                  : "border-gray-700/50 bg-gray-900/60"
+                  : "border-gray-700/40 bg-gray-900/60"
               )}
             >
               <div className={cn("flex items-center justify-center gap-1", isActive ? area.color : "text-gray-600")}>
@@ -405,7 +393,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                 )}
               </div>
               <span className={cn(
-                "text-[10px] font-semibold leading-tight",
+                "text-[9px] font-bold uppercase tracking-wide leading-tight",
                 isActive ? area.color : "text-gray-600"
               )}>
                 {area.label}
@@ -415,12 +403,10 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         })}
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          STRATEGY CONTEXT BANNER (shown when a filter is active)
-      ════════════════════════════════════════════════════════════════════ */}
+      {/* Strategy context banner */}
       {activeArea && (
         <div
-          className={cn("rounded-lg border p-3", activeArea.bg, activeArea.border)}
+          className={cn("rounded-xl border p-3", activeArea.bg, activeArea.border)}
           data-testid="section-strategy-context"
         >
           <div className="flex items-start gap-2.5">
@@ -429,9 +415,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className={cn("text-xs font-bold", activeArea.color)}>
-                  {activeArea.label} Strategy
-                </span>
+                <span className={cn("text-xs font-bold", activeArea.color)}>{activeArea.label} Strategy</span>
                 {(areaCounts.find(a => a.key === activeFilter)?.urgent ?? 0) > 0 && (
                   <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
                     {areaCounts.find(a => a.key === activeFilter)?.urgent} urgent
@@ -443,7 +427,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-xs text-gray-500 flex-1 min-w-0">
-                    No strategy defined for this area yet. Set one in Settings to get tailored intelligence.
+                    No strategy defined for this area yet.
                   </p>
                   <Button
                     size="sm"
@@ -462,151 +446,178 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════
-          3-ZONE MAGAZINE GRID
-      ════════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5" data-testid="section-magazine-grid">
-
-        {/* ── ZONE 1: Market Wire ───────────────────────────────────────── */}
-        <div className="space-y-0" data-testid="zone-market-wire">
-          <ZoneHeader
+      {/* ═══════════════════════════════════════════════════════════════════
+          MARKET WIRE — horizontal scroll carousel
+      ═══════════════════════════════════════════════════════════════════ */}
+      <section data-testid="zone-market-wire">
+        <SectionTitle
+          icon={Newspaper}
+          iconBg="bg-blue-900/50 ring-blue-400/30"
+          iconColor="text-blue-300"
+          label="Market Wire"
+          count={articles.length}
+          unit={articles.length === 1 ? 'article' : 'articles'}
+          accent="text-blue-200"
+        />
+        {intelLoading ? (
+          <HScrollSkeleton />
+        ) : articles.length === 0 ? (
+          <EmptyHScroll
             icon={Newspaper}
-            iconBg="bg-blue-900/50 ring-blue-400/30"
-            iconColor="text-blue-300"
-            label="Market Wire"
-            count={marketIntel?.news?.count}
-            unit={marketIntel?.news?.count === 1 ? 'article' : 'articles'}
+            message="No recent market articles found. Articles are fetched periodically — try refreshing, or check that the market news sync is scheduled."
           />
-
-          {intelLoading ? (
-            <LoadingSkeleton rows={4} />
-          ) : (marketIntel?.news?.articles ?? []).length === 0 ? (
-            <EmptyZone
-              icon={Newspaper}
-              message="No recent market news. Enable market news sync to track LEGO market trends, retirements, and pricing signals."
-              action="Enable news sync"
-              onAction={() => onOpenSettings?.('automation')}
-            />
-          ) : (
-            <div className="space-y-1.5">
-              {marketIntel!.news.articles.map((article, i) => (
-                <a
-                  key={i}
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid={`article-news-${i}`}
-                  className="block rounded-lg border border-gray-700/50 bg-gray-900/60 p-2.5 hover-elevate active-elevate-2 transition-all group"
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-100 leading-snug group-hover:text-blue-300 transition-colors line-clamp-2">
-                        {article.title}
-                      </p>
-                      {article.snippet && (
-                        <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">
-                          {article.snippet}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        {article.source && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-900/40 text-blue-400 border border-blue-700/30 font-medium">
-                            {article.source}
-                          </span>
-                        )}
-                        {article.query && (
-                          <span className="text-[10px] text-gray-600 italic">{article.query}</span>
-                        )}
-                        <span className="text-[10px] text-gray-600 ml-auto">{timeAgo(article.fetchedAt)}</span>
-                      </div>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-blue-400 shrink-0 mt-0.5 transition-colors" />
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── ZONE 2: Forum Pulse ───────────────────────────────────────── */}
-        <div className="space-y-0" data-testid="zone-forum-pulse">
-          <ZoneHeader
-            icon={MessageSquare}
-            iconBg="bg-purple-900/50 ring-purple-400/30"
-            iconColor="text-purple-300"
-            label="Forum Pulse"
-            count={marketIntel?.forum?.count}
-            unit={marketIntel?.forum?.count === 1 ? 'post' : 'posts'}
-          />
-
-          {intelLoading ? (
-            <LoadingSkeleton rows={4} />
-          ) : (marketIntel?.forum?.posts ?? []).length === 0 ? (
-            <EmptyZone
-              icon={MessageSquare}
-              message="No recent BrickLink forum discussions. Enable forum sync to track community conversations around pricing, sets, and market trends."
-              action="Enable forum sync"
-              onAction={() => onOpenSettings?.('automation')}
-            />
-          ) : (
-            <div className="space-y-1.5">
-              {marketIntel!.forum.posts.map((post, i) => (
-                <a
-                  key={i}
-                  href={post.threadUrl ?? '#'}
-                  target={post.threadUrl ? '_blank' : undefined}
-                  rel="noopener noreferrer"
-                  data-testid={`post-forum-${i}`}
-                  className="block rounded-lg border border-gray-700/50 bg-gray-900/60 p-2.5 hover-elevate active-elevate-2 transition-all group"
-                >
-                  <p className="text-xs font-semibold text-gray-100 leading-snug group-hover:text-purple-300 transition-colors line-clamp-2">
-                    {post.title}
-                  </p>
-                  {post.excerpt && (
-                    <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/40 text-purple-400 border border-purple-700/30 font-medium">
-                      {post.username}
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
+            {articles.map((article, i) => (
+              <a
+                key={i}
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid={`article-news-${i}`}
+                className="flex-shrink-0 w-[230px] rounded-xl border border-gray-700/50 bg-gray-900/70 p-3 hover-elevate active-elevate-2 transition-all group flex flex-col"
+              >
+                {/* Source badge */}
+                <div className="flex items-center justify-between mb-2">
+                  {article.source ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-900/50 text-blue-400 border border-blue-700/30 font-semibold truncate max-w-[140px]">
+                      {article.source}
                     </span>
-                    <span className="text-[10px] text-gray-600 ml-auto">{timeAgo(post.postedAt)}</span>
-                    <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-purple-400 shrink-0 transition-colors" />
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+                  ) : <span />}
+                  <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-blue-400 shrink-0 transition-colors" />
+                </div>
+                {/* Title */}
+                <p className="text-xs font-bold text-gray-100 leading-snug group-hover:text-blue-200 transition-colors line-clamp-3 flex-1">
+                  {article.title}
+                </p>
+                {/* Snippet */}
+                {article.snippet && (
+                  <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed line-clamp-2">
+                    {article.snippet}
+                  </p>
+                )}
+                {/* Footer */}
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/40">
+                  <span className="text-[10px] text-gray-600">{timeAgo(article.fetchedAt)}</span>
+                  {article.query && (
+                    <span className="text-[9px] text-gray-700 italic truncate max-w-[100px]">{article.query}</span>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
 
-        {/* ── ZONE 3: Strategy Intel ────────────────────────────────────── */}
-        <div className="space-y-0" data-testid="zone-strategy-intel">
-          <ZoneHeader
-            icon={Radar}
-            iconBg="bg-cyan-900/50 ring-cyan-400/30"
-            iconColor="text-cyan-300"
-            label="Strategy Intel"
-            count={sortedInsights.length}
-            unit={sortedInsights.length === 1 ? 'signal' : 'signals'}
+      {/* ═══════════════════════════════════════════════════════════════════
+          FORUM PULSE — horizontal scroll carousel
+      ═══════════════════════════════════════════════════════════════════ */}
+      <section data-testid="zone-forum-pulse">
+        <SectionTitle
+          icon={MessageSquare}
+          iconBg="bg-purple-900/50 ring-purple-400/30"
+          iconColor="text-purple-300"
+          label="Forum Pulse"
+          count={posts.length}
+          unit={posts.length === 1 ? 'topic' : 'topics'}
+          accent="text-purple-200"
+        />
+        {intelLoading ? (
+          <HScrollSkeleton />
+        ) : posts.length === 0 ? (
+          <EmptyHScroll
+            icon={MessageSquare}
+            message="No recent BrickLink forum topics found. Topics are fetched periodically — try refreshing."
           />
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
+            {posts.map((post, i) => (
+              <a
+                key={i}
+                href={post.threadUrl ?? '#'}
+                target={post.threadUrl ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                data-testid={`post-forum-${i}`}
+                className="flex-shrink-0 w-[210px] rounded-xl border border-gray-700/50 bg-gray-900/70 p-3 hover-elevate active-elevate-2 transition-all group flex flex-col"
+              >
+                {/* User + time */}
+                <div className="flex items-center justify-between mb-2 gap-1">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-400 border border-purple-700/30 font-semibold truncate max-w-[120px]">
+                    {post.username}
+                  </span>
+                  <span className="text-[10px] text-gray-600 shrink-0">{timeAgo(post.postedAt)}</span>
+                </div>
+                {/* Title — Re: stripped */}
+                <p className="text-xs font-bold text-gray-100 leading-snug group-hover:text-purple-200 transition-colors line-clamp-3 flex-1">
+                  {cleanTitle(post.title)}
+                </p>
+                {/* Excerpt */}
+                {post.excerpt && (
+                  <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed line-clamp-2">
+                    {post.excerpt}
+                  </p>
+                )}
+                {/* Footer */}
+                <div className="flex items-center justify-end mt-2 pt-2 border-t border-gray-700/40">
+                  <ExternalLink className="w-2.5 h-2.5 text-gray-600 group-hover:text-purple-400 transition-colors" />
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
 
-          {insightsLoading ? (
-            <LoadingSkeleton rows={4} />
-          ) : sortedInsights.length === 0 ? (
-            <EmptyZone
-              icon={Radar}
-              message={
-                activeFilter
-                  ? "No signals for this strategy area right now."
-                  : "No active signals yet. Enable Business Intel to get AI-generated insights about your pricing, inventory, orders, and customers."
-              }
-              action={activeFilter ? undefined : "Enable Business Intel"}
-              onAction={activeFilter ? undefined : () => onOpenSettings?.('automation')}
-            />
-          ) : (
-            <div className="space-y-1.5">
-              {sortedInsights.map((insight, i) => {
+      {/* ═══════════════════════════════════════════════════════════════════
+          STRATEGY INTEL — vertical list + see more
+      ═══════════════════════════════════════════════════════════════════ */}
+      <section data-testid="zone-strategy-intel">
+        <SectionTitle
+          icon={Radar}
+          iconBg="bg-cyan-900/50 ring-cyan-400/30"
+          iconColor="text-cyan-300"
+          label="Strategy Intel"
+          count={sortedInsights.length}
+          unit={sortedInsights.length === 1 ? 'signal' : 'signals'}
+          accent="text-cyan-200"
+        />
+
+        {insightsLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="rounded-xl border border-gray-700/40 bg-gray-900/50 p-3 animate-pulse">
+                <div className="h-3 bg-gray-700/50 rounded w-1/3 mb-2" />
+                <div className="h-3 bg-gray-700/50 rounded w-3/4 mb-1.5" />
+                <div className="h-2.5 bg-gray-800/50 rounded w-full" />
+              </div>
+            ))}
+          </div>
+        ) : sortedInsights.length === 0 ? (
+          <div className="rounded-xl border border-gray-700/30 bg-gray-900/30 p-5 flex flex-col items-center gap-2.5 text-center">
+            <div className="rounded-full bg-gray-800/60 p-2.5 ring-1 ring-gray-700/40">
+              <Radar className="w-4 h-4 text-gray-600" />
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              {activeFilter
+                ? "No signals for this strategy area right now."
+                : "No active signals yet. Business Intel generates AI-powered insights about your operations."}
+            </p>
+            {!activeFilter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs gap-1.5 text-gray-500"
+                onClick={() => onOpenSettings?.('automation')}
+                data-testid="button-empty-settings"
+              >
+                <Settings className="w-3 h-3" />
+                Open automation settings
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {visibleInsights.map((insight, i) => {
                 const urgency = URGENCY_CONFIG[insight.urgency as keyof typeof URGENCY_CONFIG] ?? URGENCY_CONFIG.low;
                 const stratArea = getStrategyAreaForCategory(insight.category);
                 const CatIcon = CATEGORY_ICON[insight.category] ?? Target;
@@ -617,86 +628,104 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
                     key={insight.id}
                     data-testid={`insight-card-${insight.id}`}
                     className={cn(
-                      "rounded-lg border p-2.5 transition-all",
+                      "rounded-xl border p-3 transition-all",
                       urgency.bg,
                       urgency.border,
                       isLead && urgency.glow,
                     )}
                   >
-                    {/* Header row */}
-                    <div className="flex items-start gap-2 mb-1.5">
-                      <div className={cn("rounded-md p-1 shrink-0 mt-0.5", urgency.bg, "ring-1", urgency.border)}>
-                        <CatIcon className={cn("w-3 h-3", urgency.color)} />
-                      </div>
+                    {/* Left accent bar */}
+                    <div className="flex gap-2.5">
+                      <div className={cn("w-0.5 rounded-full shrink-0 self-stretch", urgency.bar)} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border",
-                            urgency.bg, urgency.border, urgency.color
-                          )}>
-                            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", urgency.dot, isLead && "animate-pulse")} />
-                            {urgency.label}
-                          </span>
-                          {isLead && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-gray-300 border border-white/15">
-                              Lead Signal
-                            </span>
-                          )}
+                        {/* Header */}
+                        <div className="flex items-start gap-2 mb-1.5">
+                          <div className={cn("rounded-md p-1 shrink-0 mt-0.5", urgency.bg, "ring-1", urgency.border)}>
+                            <CatIcon className={cn("w-3 h-3", urgency.color)} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              <span className={cn(
+                                "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border",
+                                urgency.bg, urgency.border, urgency.color
+                              )}>
+                                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", urgency.dot, isLead && "animate-pulse")} />
+                                {urgency.label}
+                              </span>
+                              {isLead && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/8 text-gray-300 border border-white/15">
+                                  Lead Signal
+                                </span>
+                              )}
+                            </div>
+                            <p className={cn("font-bold text-gray-100 leading-snug", isLead ? "text-sm" : "text-xs")}>
+                              {insight.title}
+                            </p>
+                          </div>
                         </div>
-                        <p className={cn(
-                          "font-semibold text-gray-100 leading-snug",
-                          isLead ? "text-sm" : "text-xs"
-                        )}>
-                          {insight.title}
+
+                        {/* Summary */}
+                        <p className="text-[11px] text-gray-400 leading-relaxed mb-2">
+                          {insight.summary}
                         </p>
-                      </div>
-                    </div>
 
-                    {/* Summary */}
-                    <p className="text-[11px] text-gray-400 leading-relaxed mb-2 pl-[1.625rem]">
-                      {insight.summary}
-                    </p>
-
-                    {/* Footer row */}
-                    <div className="flex items-center gap-2 flex-wrap pl-[1.625rem]">
-                      {stratArea && (
-                        <div className={cn(
-                          "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border",
-                          stratArea.bg, stratArea.border
-                        )}>
-                          <stratArea.icon className={cn("w-2.5 h-2.5", stratArea.color)} />
-                          <span className={stratArea.color}>{stratArea.label}</span>
+                        {/* Footer */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {stratArea && (
+                            <div className={cn(
+                              "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border",
+                              stratArea.bg, stratArea.border
+                            )}>
+                              <stratArea.icon className={cn("w-2.5 h-2.5", stratArea.color)} />
+                              <span className={stratArea.color}>{stratArea.label}</span>
+                            </div>
+                          )}
+                          <span className="text-[10px] text-gray-600 ml-auto">{timeAgo(insight.createdAt)}</span>
+                          <button
+                            onClick={() => dismissMutation.mutate(insight.id)}
+                            disabled={dismissMutation.isPending}
+                            className="text-gray-600 hover-elevate p-0.5 rounded"
+                            data-testid={`button-dismiss-${insight.id}`}
+                            title="Dismiss signal"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
-                      )}
-                      <span className="text-[10px] text-gray-600 ml-auto">{timeAgo(insight.createdAt)}</span>
-                      <button
-                        onClick={() => dismissMutation.mutate(insight.id)}
-                        disabled={dismissMutation.isPending}
-                        className="text-gray-600 hover-elevate p-0.5 rounded"
-                        data-testid={`button-dismiss-${insight.id}`}
-                        title="Dismiss signal"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          VISION CONTEXT (bottom anchor — shows the org's broader vision)
-      ════════════════════════════════════════════════════════════════════ */}
+            {/* See more / less toggle */}
+            {hiddenCount > 0 && (
+              <button
+                onClick={() => setShowAllInsights(!showAllInsights)}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-700/40 bg-gray-900/50 text-xs text-gray-500 hover-elevate active-elevate-2 transition-all"
+                data-testid="button-see-more-insights"
+              >
+                {showAllInsights ? (
+                  <><ChevronUp className="w-3 h-3" /> Show less</>
+                ) : (
+                  <><ChevronDown className="w-3 h-3" /> Show {hiddenCount} more signal{hiddenCount !== 1 ? 's' : ''}</>
+                )}
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          VISION CONTEXT
+      ═══════════════════════════════════════════════════════════════════ */}
       {strategies?.visionMission && (
         <div
-          className="rounded-lg border border-green-500/15 bg-green-950/20 p-3"
+          className="rounded-xl border border-green-500/15 bg-green-950/20 p-3"
           data-testid="section-vision-mission"
         >
           <div className="flex items-start gap-2">
-            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1 shrink-0">
+            <div className="rounded-md bg-green-900/50 ring-1 ring-green-400/25 p-1.5 shrink-0">
               <Target className="w-3.5 h-3.5 text-green-300" />
             </div>
             <div>

@@ -19719,7 +19719,7 @@ Write a 1–2 sentence feedback comment for this order.`;
   app.get("/api/market-intel/recent", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const daysAgo = parseInt(req.query.days as string) || 7;
+      const daysAgo = parseInt(req.query.days as string) || 30;
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
@@ -19733,9 +19733,9 @@ Write a 1–2 sentence feedback comment for this order.`;
           threadUrl: blForumPosts.threadUrl,
         })
         .from(blForumPosts)
-        .where(sql`${blForumPosts.postedAt} >= ${cutoffDate}`)
+        .where(sql`${blForumPosts.postedAt} >= ${cutoffDate} AND ${blForumPosts.title} NOT ILIKE 'Re:%'`)
         .orderBy(sql`${blForumPosts.postedAt} DESC`)
-        .limit(10);
+        .limit(20);
 
       const recentArticles = await db
         .select({
