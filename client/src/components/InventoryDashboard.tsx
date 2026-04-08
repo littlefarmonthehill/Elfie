@@ -375,7 +375,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           return (
             <div
-              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3"
+              className={cn(
+                "relative rounded-lg border transition-all",
+                isCompact ? "p-3" : "p-2 md:p-3",
+                "space-y-3",
+                pomHasActivity || lomHasActivity
+                  ? "border-blue-400/55 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(59,130,246,0.18)]"
+                  : "border-gray-600/55 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(59,130,246,0.08)]"
+              )}
               style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
               data-testid="section-command-central-inventory"
             >
