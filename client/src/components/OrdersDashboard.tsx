@@ -425,8 +425,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   value={orderSearchInput}
                   onChange={e => setOrderSearchInput(e.target.value)}
                   placeholder="Order #, buyer username…"
-                  type="search"
-                  autoComplete="off"
+                  type="text"
+                  autoComplete="one-time-code"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}

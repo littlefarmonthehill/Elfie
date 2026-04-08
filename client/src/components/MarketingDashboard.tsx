@@ -501,8 +501,8 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
                   value={mktSearchInput}
                   onChange={e => setMktSearchInput(e.target.value)}
                   placeholder="Username, city, country…"
-                  type="search"
-                  autoComplete="off"
+                  type="text"
+                  autoComplete="one-time-code"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}

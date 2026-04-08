@@ -243,8 +243,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   value={invSearchInput}
                   onChange={e => setInvSearchInput(e.target.value)}
                   placeholder="Item #, name, color…"
-                  type="search"
-                  autoComplete="off"
+                  type="text"
+                  autoComplete="one-time-code"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
