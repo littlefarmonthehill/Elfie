@@ -7,9 +7,9 @@ channel = "stable-24_05"
 packages = ["freetype", "lcms2", "libimagequant", "libjpeg", "libjpeg_turbo", "libpng", "libtiff", "libwebp", "libxcrypt", "openjpeg", "pkg-config", "tcl", "tk", "which", "xsimd", "zlib"]
 
 [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+run = ["node", "dist/index.js"]
 
 [[ports]]
 localPort = 5000
