@@ -675,7 +675,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
         queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
         queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       }
       // Show per-row hard errors for any that fully failed
       if (failed.length) {

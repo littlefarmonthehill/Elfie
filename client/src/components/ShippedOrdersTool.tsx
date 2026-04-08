@@ -76,6 +76,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
     },
     onError: (err: any) => {
@@ -115,6 +116,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       setReturnDialog({ open: false, order: null });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
     },
     onError: (err: any) => {
