@@ -45,7 +45,15 @@ import {
   AlertCircle,
   MoveRight,
   Building2,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -879,26 +887,37 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <Building2 className="h-4 w-4 text-yellow-400 shrink-0" />
                     <span className="text-sm font-semibold truncate">{zone.name}</span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); setEditZone(zone); setNewZoneName(zone.name); setNewZoneDesc(zone.description || ''); setNewZoneDepth(zone.depth); setEditZoneOpen(true); }}
-                      data-testid={`button-edit-zone-${zone.id}`}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); if (confirm(`Delete zone "${zone.name}" and all its aisles, shelves, and bins? This cannot be undone.`)) deleteZoneMutation.mutate(zone.id); }}
-                      data-testid={`button-delete-zone-${zone.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={e => e.stopPropagation()}
+                        data-testid={`button-menu-zone-${zone.id}`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem
+                        onClick={(e) => { e.stopPropagation(); setEditZone(zone); setNewZoneName(zone.name); setNewZoneDesc(zone.description || ''); setNewZoneDepth(zone.depth); setEditZoneOpen(true); }}
+                        data-testid={`button-edit-zone-${zone.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); if (confirm(`Delete zone "${zone.name}" and all its aisles, shelves, and bins? This cannot be undone.`)) deleteZoneMutation.mutate(zone.id); }}
+                        data-testid={`button-delete-zone-${zone.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 {zone.description && (
                   <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{zone.description}</p>
@@ -1748,31 +1767,42 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </div>
                 </div>
                 {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={e => { e.stopPropagation(); handleEdit(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin', item); }}
-                      data-testid={`button-edit-${activeView}-${item.id}`}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      onClick={e => {
-                        e.stopPropagation();
-                        if (activeView === 'bins') deleteBinMutation.mutate(item.id);
-                        else if (activeView === 'shelves') deleteShelfMutation.mutate(item.id);
-                        else if (activeView === 'aisles') deleteAisleMutation.mutate(item.id);
-                      }}
-                      data-testid={`button-delete-${activeView}-${item.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 shrink-0"
+                        onClick={e => e.stopPropagation()}
+                        data-testid={`button-menu-${activeView}-${item.id}`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem
+                        onClick={e => { e.stopPropagation(); handleEdit(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin', item); }}
+                        data-testid={`button-edit-${activeView}-${item.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (activeView === 'bins') deleteBinMutation.mutate(item.id);
+                          else if (activeView === 'shelves') deleteShelfMutation.mutate(item.id);
+                          else if (activeView === 'aisles') deleteAisleMutation.mutate(item.id);
+                        }}
+                        data-testid={`button-delete-${activeView}-${item.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
             ))}
@@ -1960,27 +1990,37 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         )}
                       </div>
                       {!isEditing && (
-                        <div className="flex gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => { setEditingLocationId(loc.id); setEditLocQty(loc.quantity != null ? String(loc.quantity) : ''); }}
-                            data-testid={`button-edit-location-${loc.id}`}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-red-400"
-                            disabled={deleteLocationMutation.isPending}
-                            onClick={() => deleteLocationMutation.mutate(loc.id)}
-                            data-testid={`button-delete-location-${loc.id}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 shrink-0"
+                              data-testid={`button-menu-location-${loc.id}`}
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={() => { setEditingLocationId(loc.id); setEditLocQty(loc.quantity != null ? String(loc.quantity) : ''); }}
+                              data-testid={`button-edit-location-${loc.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-2" />
+                              Edit qty
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              disabled={deleteLocationMutation.isPending}
+                              onClick={() => deleteLocationMutation.mutate(loc.id)}
+                              data-testid={`button-delete-location-${loc.id}`}
+                            >
+                              <X className="h-3.5 w-3.5 mr-2" />
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
                   );
