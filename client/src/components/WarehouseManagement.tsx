@@ -53,7 +53,7 @@ interface WarehouseManagementProps {
   onItemClick?: (type: 'inventory', id: number) => void;
 }
 
-type ViewType = null | 'lots' | 'bins' | 'shelves' | 'aisles';
+type ViewType = null | 'lots' | 'bins' | 'shelves' | 'aisles' | 'zones';
 type FilterType = 'all' | 'assigned' | 'unassigned';
 
 const DEPTH_OPTIONS = [
@@ -108,7 +108,7 @@ const FORMAT_LABELS: Record<LocationFormat, string> = {
 
 export default function WarehouseManagement({ onItemClick }: WarehouseManagementProps) {
   const { toast } = useToast();
-  const [activeView, setActiveView] = useState<ViewType>(null);
+  const [activeView, setActiveView] = useState<ViewType>('bins');
   const [filter, setFilter] = useState<FilterType>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'aisle' | 'shelf' | 'bin'>('bin');
@@ -201,53 +201,40 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryKey: ['/api/warehouse/zones'],
   });
 
-  // Auto-enter the single zone on first load (only once — not if the user explicitly navigates back)
-  const hasAutoEnteredRef = useRef(false);
-  useEffect(() => {
-    if (!hasAutoEnteredRef.current && activeZoneId === null && zones.length === 1) {
-      hasAutoEnteredRef.current = true;
-      setActiveZoneId(zones[0].id);
-      setActiveView('bins');
-    }
-  }, [zones, activeZoneId]);
-
-  // Active zone derived values — override global settings when inside a zone
+  // Active zone derived values — zone filter overrides global settings
   const activeZone = zones.find((z: any) => z.id === activeZoneId) ?? null;
   const depth = activeZone?.depth ?? warehouseSettings?.depth ?? 3;
   const aisleFormat = (activeZone?.aisleFormat ?? warehouseSettings?.aisleFormat ?? 'numeric') as LocationFormat;
   const shelfFormat = (activeZone?.shelfFormat ?? warehouseSettings?.shelfFormat ?? 'alpha') as LocationFormat;
   const binFormat   = (activeZone?.binFormat   ?? warehouseSettings?.binFormat   ?? 'numeric') as LocationFormat;
 
-  // Zone-scoped warehouse data — only load when inside a zone
+  // Warehouse data — loads all by default; filtered by zone when activeZoneId is set
   const { data: aisles = [] } = useQuery<any[]>({
     queryKey: ['/api/warehouse/aisles', activeZoneId],
     queryFn: async () => {
-      if (activeZoneId === null) return [];
-      const res = await fetch(`/api/warehouse/aisles?zoneId=${activeZoneId}`);
+      const url = activeZoneId !== null ? `/api/warehouse/aisles?zoneId=${activeZoneId}` : '/api/warehouse/aisles';
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed');
       return res.json();
     },
-    enabled: activeZoneId !== null,
   });
   const { data: shelves = [] } = useQuery<any[]>({
     queryKey: ['/api/warehouse/shelves', activeZoneId],
     queryFn: async () => {
-      if (activeZoneId === null) return [];
-      const res = await fetch(`/api/warehouse/shelves?zoneId=${activeZoneId}`);
+      const url = activeZoneId !== null ? `/api/warehouse/shelves?zoneId=${activeZoneId}` : '/api/warehouse/shelves';
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed');
       return res.json();
     },
-    enabled: activeZoneId !== null,
   });
   const { data: bins = [] } = useQuery<any[]>({
     queryKey: ['/api/warehouse/bins', activeZoneId],
     queryFn: async () => {
-      if (activeZoneId === null) return [];
-      const res = await fetch(`/api/warehouse/bins?zoneId=${activeZoneId}`);
+      const url = activeZoneId !== null ? `/api/warehouse/bins?zoneId=${activeZoneId}` : '/api/warehouse/bins';
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed');
       return res.json();
     },
-    enabled: activeZoneId !== null,
   });
   const { data: unassignedInventory = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/inventory'] });
   const { data: unassignedBins = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/bins'] });
@@ -884,7 +871,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Card
                 key={zone.id}
                 className="p-4 hover-elevate cursor-pointer"
-                onClick={() => { setActiveZoneId(zone.id); setActiveView('bins'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                onClick={() => { setActiveZoneId(zone.id); setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                 data-testid={`card-zone-${zone.id}`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -1189,36 +1176,34 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   return (
     <div className="space-y-4">
 
-      {/* Zones list — shown when no zone is selected */}
-      {activeZoneId === null ? zonesView : (
-      <>
-
-      {/* Zone header — always visible when inside a zone */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 h-8 px-2 text-xs"
-          onClick={() => { setActiveZoneId(null); setShowDepthSetup(false); setActiveView(null); setSelectedItems(new Set()); }}
-          data-testid="button-back-to-zones"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          All Zones
-        </Button>
-        <span className="text-muted-foreground/40 text-xs">/</span>
-        <div className="flex items-center gap-2 min-w-0">
-          <Building2 className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-          <span className="text-sm font-semibold truncate">{activeZone?.name}</span>
+      {/* Zone filter indicator — shown when a zone filter is active */}
+      {activeZoneId !== null && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-8 px-2 text-xs"
+            onClick={() => { setActiveZoneId(null); setShowDepthSetup(false); setFilter('all'); setSelectedItems(new Set()); }}
+            data-testid="button-clear-zone-filter"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            All
+          </Button>
+          <span className="text-muted-foreground/40 text-xs">/</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Building2 className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+            <span className="text-sm font-semibold truncate">{activeZone?.name}</span>
+          </div>
+          {activeZone && (
+            <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate ml-1">
+              {DEPTH_OPTIONS.find(d => d.value === activeZone.depth)?.label ?? 'Full Warehouse'}
+            </Badge>
+          )}
         </div>
-        {activeZone && (
-          <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate ml-1">
-            {DEPTH_OPTIONS.find(d => d.value === activeZone.depth)?.label ?? 'Full Warehouse'}
-          </Badge>
-        )}
-      </div>
+      )}
 
-      {/* Depth Selector */}
-      {showDepthSetup ? (
+      {/* Depth Selector — only available when a zone filter is active */}
+      {showDepthSetup && activeZoneId !== null ? (
         <Card className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -1295,34 +1280,50 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* ── Desktop left sidebar ─────────────────────────── */}
           <div className="hidden md:flex md:flex-col md:w-52 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:mr-4 gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <Archive className="h-3.5 w-3.5" />
-                <span className="font-medium">{depthOption.label}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 leading-relaxed">{depthOption.description}</p>
-            </div>
-            <div className="flex items-center gap-1.5">
+            {activeZoneId !== null && (
+              <>
+                <div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <Archive className="h-3.5 w-3.5" />
+                    <span className="font-medium">{depthOption.label}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 leading-relaxed">{depthOption.description}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2 gap-1 flex-1"
+                    onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
+                    data-testid="button-import-csv-sidebar"
+                  >
+                    <Upload className="h-3 w-3" />
+                    Import
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDepthSetup(true)}
+                    className="text-xs h-7 px-2"
+                    data-testid="button-warehouse-setup-sidebar"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </>
+            )}
+            {activeZoneId === null && (
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2 gap-1 flex-1"
+                className="text-xs h-7 px-2 gap-1"
                 onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
                 data-testid="button-import-csv-sidebar"
               >
                 <Upload className="h-3 w-3" />
                 Import
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDepthSetup(true)}
-                className="text-xs h-7 px-2"
-                data-testid="button-warehouse-setup-sidebar"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            )}
             <nav className="flex flex-col gap-0.5">
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1342,7 +1343,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 Bins
                 {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length}</span>}
               </button>
-              {depth >= 2 && (
+              {(activeZoneId === null || depth >= 2) && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'shelves' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1353,7 +1354,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-auto text-xs opacity-60">{shelves.length}</span>}
                 </button>
               )}
-              {depth >= 3 && (
+              {(activeZoneId === null || depth >= 3) && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'aisles' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1364,20 +1365,55 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {aisles.length > 0 && <span className="ml-auto text-xs opacity-60">{aisles.length}</span>}
                 </button>
               )}
+              <button
+                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'zones' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                data-testid="button-view-zones-sidebar"
+              >
+                <Building2 className="w-4 h-4 shrink-0" />
+                Zones
+                {zones.length > 0 && <span className="ml-auto text-xs opacity-60">{zones.length}</span>}
+              </button>
             </nav>
           </div>
 
           {/* ── Right content (always visible) ─────────────── */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
 
-            {/* Mobile-only: depth bar */}
-            <div className="md:hidden flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Archive className="h-3.5 w-3.5" />
-                <span className="font-medium">{depthOption.label}</span>
-                <span className="text-muted-foreground/60 hidden sm:inline">— {depthOption.description}</span>
+            {/* Mobile-only: depth bar — only when zone filter is active */}
+            {activeZoneId !== null && (
+              <div className="md:hidden flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Archive className="h-3.5 w-3.5" />
+                  <span className="font-medium">{depthOption.label}</span>
+                  <span className="text-muted-foreground/60 hidden sm:inline">— {depthOption.description}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2 gap-1"
+                    onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
+                    data-testid="button-import-csv-top"
+                  >
+                    <Upload className="h-3 w-3" />
+                    Import CSV
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDepthSetup(true)}
+                    className="text-xs h-7 px-2"
+                    data-testid="button-warehouse-setup"
+                  >
+                    <Settings2 className="h-3.5 w-3.5 mr-1" />
+                    Setup
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
+            )}
+            {activeZoneId === null && (
+              <div className="md:hidden flex items-center justify-end">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1388,18 +1424,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <Upload className="h-3 w-3" />
                   Import CSV
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDepthSetup(true)}
-                  className="text-xs h-7 px-2"
-                  data-testid="button-warehouse-setup"
-                >
-                  <Settings2 className="h-3.5 w-3.5 mr-1" />
-                  Change
-                </Button>
               </div>
-            </div>
+            )}
 
             {/* Mobile-only: horizontal tabs */}
             <div className="md:hidden tool-tab-bar">
@@ -1423,7 +1449,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 Bins
                 {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
               </button>
-              {depth >= 2 && (
+              {(activeZoneId === null || depth >= 2) && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`tool-tab ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
@@ -1434,7 +1460,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{shelves.length}</span>}
                 </button>
               )}
-              {depth >= 3 && (
+              {(activeZoneId === null || depth >= 3) && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`tool-tab ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
@@ -1445,10 +1471,22 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {aisles.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{aisles.length}</span>}
                 </button>
               )}
+              <button
+                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`tool-tab ${activeView === 'zones' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                data-testid="button-view-zones"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                Zones
+                {zones.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{zones.length}</span>}
+              </button>
             </div>
 
-            {/* List View */}
-            {activeView && (
+            {/* Zones view — rendered inline when Zones tab is active */}
+            {activeView === 'zones' && zonesView}
+
+            {/* List View — for lots/bins/shelves/aisles */}
+            {activeView && activeView !== 'zones' && (
         <Card className="p-3">
           {/* Stats row */}
           <div className="flex items-center gap-3 mb-3 text-xs flex-wrap">
@@ -2769,8 +2807,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </DialogContent>
       </Dialog>
 
-      </>
-      )}
     </div>
   );
 }
