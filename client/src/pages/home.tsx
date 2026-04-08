@@ -54,7 +54,6 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
   const { data: bridgeSignals } = useQuery<{
     agingOrders: number; repeatBuyers: number;
     thisWeekRevenue: number; lastWeekRevenue: number;
-    marketNewsFreshDays: number | null; businessIntelFreshDays: number | null;
   }>({ queryKey: ['/api/bridge/signals'], refetchInterval: 60000, staleTime: 30000 });
   const { data: globalSyncStatuses } = useQuery<any>({ queryKey: ['/api/sync/statuses'], refetchInterval: 15000 });
   const { data: syncStatus } = useQuery<any>({ queryKey: ['/api/platform-sync/status'], refetchInterval: 30000 });
@@ -73,8 +72,6 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
   const thisWeek  = bridgeSignals?.thisWeekRevenue ?? 0;
   const lastWeek  = bridgeSignals?.lastWeekRevenue ?? 0;
   const revDelta  = lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek) * 100 : null;
-  const marketStale = (bridgeSignals?.marketNewsFreshDays ?? 0) > 7;
-  const biStale     = (bridgeSignals?.businessIntelFreshDays ?? 0) > 7;
 
   const targets: any[] = syncStatus?.targets ?? [];
   const channelCount = targets.length;
@@ -106,9 +103,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
     text: revDelta >= 0 ? `+${revDelta.toFixed(0)}% vs last week` : `${revDelta.toFixed(0)}% vs last week`,
     color: revDelta >= 0 ? '#4ade80' : '#f87171',
   });
-  if (marketStale) insAlerts.push({ text: 'Market data stale', color: '#fbbf24' });
-  if (biStale)     insAlerts.push({ text: 'Intel stale',        color: '#fbbf24' });
-  if (!marketStale && !biStale && revDelta === null) insAlerts.push({ text: 'Insights nominal', color: '#4ade80' });
+  if (revDelta === null) insAlerts.push({ text: 'Insights nominal', color: '#4ade80' });
 
   const cards: Array<{
     id: DashboardType; ch: string; label: string; hex: string; rgb: string;
