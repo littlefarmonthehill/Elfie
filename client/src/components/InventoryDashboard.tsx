@@ -330,18 +330,18 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             testId: string;
             statuses: { key: string; label: string; count: number; lampColor: string }[];
           }) => (
-            <div className="flex items-stretch gap-2">
+            <div className="flex items-stretch gap-3">
               <button
                 onClick={(e) => { e.stopPropagation(); onButtonClick(); }}
                 data-testid={testId}
                 style={buttonStyle}
-                className={`flex flex-col items-center justify-center rounded-md border px-2 shrink-0 gap-0.5 self-stretch min-w-[54px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
+                className={`flex flex-col items-center justify-center rounded-md border px-3 shrink-0 gap-1 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
               >
                 {buttonIcon}
-                <span className="font-mono text-[5.5px] font-bold uppercase tracking-tight leading-none whitespace-nowrap">{buttonLabel}</span>
+                <span className="font-mono text-[6.5px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
               </button>
-              <div className="flex-1 relative pt-[10px] pb-1">
-                <div className="absolute left-0 right-0 top-[15px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
+              <div className="flex-1 relative pt-[13px] pb-1.5">
+                <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
                 <div className="flex items-start">
                   {statuses.map(({ key, label, count, lampColor }) => {
                     const isActive = count > 0;
@@ -356,14 +356,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                           style={isActive ? {
                             '--lamp-color': lampColor,
                             backgroundColor: lampColor,
-                            boxShadow: `0 0 6px ${lampColor}, 0 0 14px ${lampColor}55`,
+                            boxShadow: `0 0 7px ${lampColor}, 0 0 16px ${lampColor}55`,
                           } as React.CSSProperties : undefined}
                           className={cn(
-                            "w-2.5 h-2.5 rounded-full z-10 ring-1 shrink-0",
+                            "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
                             isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                           )}
                         />
-                        <div className="flex items-baseline gap-px">
+                        <div className="flex items-baseline gap-0.5">
                           <span className={cn("font-mono text-[6px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                           <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
                         </div>
@@ -377,7 +377,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           return (
             <div
-              className="relative rounded-lg border border-blue-400/50 p-2 space-y-1.5 cursor-pointer hover-elevate active-elevate-2"
+              className="relative rounded-lg border border-blue-400/50 p-3 space-y-3 cursor-pointer hover-elevate active-elevate-2"
               style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
               data-testid="section-command-central-inventory"
               onClick={() => onDrawerChange('priceomatic')}
@@ -385,16 +385,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
               {/* Header */}
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="rounded bg-blue-800/70 ring-1 ring-blue-500/55 shrink-0 p-0.5">
-                  <Crosshair className="w-2.5 h-2.5 text-blue-200" />
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="rounded bg-blue-800/70 ring-1 ring-blue-500/55 shrink-0 p-1">
+                  <Crosshair className="w-3 h-3 text-blue-200" />
                 </div>
-                <h3 className="text-[9px] font-semibold text-blue-200/80 uppercase tracking-wide flex-1">Command Central</h3>
+                <h3 className="text-[10px] font-semibold text-blue-200/80 uppercase tracking-widest flex-1">Command Central</h3>
               </div>
 
               {/* Price-o-Matic pipeline */}
               <PipelineRow
-                buttonIcon={<Rocket className="w-3 h-3 text-blue-200" />}
+                buttonIcon={<Rocket className="w-3.5 h-3.5 text-blue-200" />}
                 buttonLabel="Price-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
@@ -410,9 +410,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 ]}
               />
 
+              <div className="h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+
               {/* List-o-Matic pipeline */}
               <PipelineRow
-                buttonIcon={<ListOrdered className="w-3 h-3 text-teal-200" />}
+                buttonIcon={<ListOrdered className="w-3.5 h-3.5 text-teal-200" />}
                 buttonLabel="List-o-Matic"
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
