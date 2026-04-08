@@ -140,16 +140,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Auto-enter the single zone on first load (only once — not if the user explicitly navigates back)
-  const hasAutoEnteredRef = useRef(false);
-  useEffect(() => {
-    if (!hasAutoEnteredRef.current && activeZoneId === null && zones.length === 1) {
-      hasAutoEnteredRef.current = true;
-      setActiveZoneId(zones[0].id);
-      setActiveView('bins');
-    }
-  }, [zones, activeZoneId]);
-
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -210,6 +200,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: zones = [], isLoading: zonesLoading } = useQuery<any[]>({
     queryKey: ['/api/warehouse/zones'],
   });
+
+  // Auto-enter the single zone on first load (only once — not if the user explicitly navigates back)
+  const hasAutoEnteredRef = useRef(false);
+  useEffect(() => {
+    if (!hasAutoEnteredRef.current && activeZoneId === null && zones.length === 1) {
+      hasAutoEnteredRef.current = true;
+      setActiveZoneId(zones[0].id);
+      setActiveView('bins');
+    }
+  }, [zones, activeZoneId]);
 
   // Active zone derived values — override global settings when inside a zone
   const activeZone = zones.find((z: any) => z.id === activeZoneId) ?? null;
