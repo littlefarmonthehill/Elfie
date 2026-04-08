@@ -485,14 +485,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           {/* Unified workflow pipeline */}
           <div className="flex items-stretch gap-2" data-testid="directive-workflow-grid">
 
-            {/* ORDERS button */}
+            {/* ORDERS button — 3-D raised pushable style */}
             <button
               onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
               data-testid="button-workflow-orders"
-              className="flex flex-col items-center justify-center rounded-lg border border-orange-500/40 bg-gradient-to-b from-orange-900/30 to-orange-900/5 px-3 hover-elevate active-elevate-2 shrink-0 gap-1 self-stretch min-w-[46px]"
+              style={{
+                background: 'linear-gradient(180deg, rgba(234,88,12,0.42) 0%, rgba(154,52,18,0.28) 100%)',
+                boxShadow: '0 4px 0 rgba(100,28,0,0.65), inset 0 1px 0 rgba(255,160,80,0.14), 0 0 14px rgba(249,115,22,0.15)',
+              }}
+              className="flex flex-col items-center justify-center rounded-lg border border-orange-500/55 px-3 shrink-0 gap-1.5 self-stretch min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
             >
-              <ShoppingCart className="w-3.5 h-3.5 text-orange-400/70" />
-              <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-orange-300/75">ORDERS</span>
+              <ShoppingCart className="w-4 h-4 text-orange-300" />
+              <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-orange-200">ORDERS</span>
             </button>
 
             {/* Pipeline track + all statuses */}
@@ -526,12 +530,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                         } as React.CSSProperties : undefined}
                         className={cn(
                           "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
-                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-800 ring-gray-700/50"
+                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                         )}
                       />
                       <div className="flex items-baseline gap-0.5">
-                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-600")}>{label}</span>
-                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-600")}>
+                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
                           {(workflowSummary || isFeedback) ? count : '—'}
                         </span>
                       </div>
@@ -569,12 +573,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                         } as React.CSSProperties : undefined}
                         className={cn(
                           "w-3 h-3 rounded-full z-10 ring-1 shrink-0",
-                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-800 ring-gray-700/50"
+                          isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40"
                         )}
                       />
                       <div className="flex items-baseline gap-0.5">
-                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-400" : "text-gray-700")}>{label}</span>
-                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-700")}>
+                        <span className={cn("font-mono text-[7px] uppercase tracking-wide leading-none", isActive ? "text-gray-400" : "text-gray-400")}>{label}</span>
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>
                           {workflowSummary ? count : '—'}
                         </span>
                       </div>
