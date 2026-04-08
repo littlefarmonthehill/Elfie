@@ -722,15 +722,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </div>
                   <span className="text-[11px] font-bold text-green-100 leading-tight flex-1 min-w-0">Shipped</span>
                 </div>
-                <div className="flex flex-wrap gap-1" data-testid="shipped-stats">
-                  {(stats?.shippedOrders ?? 0) > 0 ? (
-                    <span className="text-[10px] font-semibold px-1 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
-                      {formatNumber(stats!.shippedOrders)} shipped
-                    </span>
-                  ) : stats ? (
-                    <span className="text-[10px] text-gray-500/70">None yet</span>
-                  ) : null}
-                </div>
               </button>
 
             </div>
