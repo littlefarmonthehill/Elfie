@@ -636,48 +636,41 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/75 to-gray-900/95 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-100/65 to-transparent" />
+        <div className={cn("relative rounded-lg border border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(255,255,255,0.04)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-gray-500/30 to-transparent" />
 
-          {/* Retro control panel tab strip */}
-          <div className={cn("flex rounded-md border border-gray-500/30 bg-black/50 p-0.5 gap-0.5 shadow-inner", isCompact ? "mb-2" : "mb-3")} data-testid="control-panel-tabs">
-            <button
-              onClick={() => setPanelTab('systems')}
-              data-testid="tab-systems"
-              className={cn(
-                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
-                isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
-                panelTab === 'systems'
-                  ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-400 hover:text-gray-200"
-              )}
-            >
-              <Sparkles className="w-3 h-3 flex-shrink-0" />
-              Station
-              {panelTab === 'systems' && (
-                <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
-              )}
-            </button>
-            <button
-              onClick={() => setPanelTab('uplink')}
-              data-testid="tab-uplink"
-              className={cn(
-                "relative flex-1 flex items-center justify-center rounded transition-all duration-200 text-xs font-bold uppercase tracking-widest",
-                isCompact ? "gap-1 py-1" : "gap-1.5 py-1.5",
-                panelTab === 'uplink'
-                  ? "bg-gray-700/90 text-gray-100 shadow-[0_0_14px_rgba(255,255,255,0.07)]"
-                  : "text-gray-400 hover:text-gray-200"
-              )}
-            >
-              <Globe className="w-3 h-3 flex-shrink-0" />
-              Channels
-              {(hasOrderChannelErrors || ordersSyncIssueCount > 0) && panelTab !== 'uplink' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
-              )}
-              {panelTab === 'uplink' && (
-                <span className="absolute bottom-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-gray-300/70 to-transparent" />
-              )}
-            </button>
+          {/* CC-style header row */}
+          <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")} data-testid="control-panel-tabs">
+            <div className="rounded-md ring-1 shrink-0 p-1 bg-gray-800/70 ring-gray-600/40">
+              <Sparkles className="w-3 h-3 text-gray-500" />
+            </div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">
+              {panelTab === 'systems' ? 'Station Instruments' : 'Order Channels'}
+            </h3>
+            <div className="flex items-center rounded border border-gray-700/60 bg-black/40 overflow-hidden shrink-0">
+              <button
+                onClick={() => setPanelTab('systems')}
+                data-testid="tab-systems"
+                className={cn(
+                  "text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 transition-colors duration-150",
+                  panelTab === 'systems' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
+                )}
+              >Station</button>
+              <div className="w-px self-stretch bg-gray-700/60" />
+              <button
+                onClick={() => setPanelTab('uplink')}
+                data-testid="tab-uplink"
+                className={cn(
+                  "relative flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 transition-colors duration-150",
+                  panelTab === 'uplink' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
+                )}
+              >
+                Channels
+                {(hasOrderChannelErrors || ordersSyncIssueCount > 0) && panelTab !== 'uplink' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse flex-shrink-0" data-testid="badge-channel-errors" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* STATION — Tools grid */}
