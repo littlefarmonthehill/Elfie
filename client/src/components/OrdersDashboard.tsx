@@ -482,13 +482,27 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             )}
           </div>
 
-          {/* Workflow row — New → In Prog → Feedback */}
-          <div className="grid grid-cols-3 gap-1 mb-1" data-testid="directive-workflow-grid">
+          {/* Unified workflow row: [ORDERS] | main statuses | exceptions separator | exception statuses */}
+          <div className="flex items-stretch gap-1" data-testid="directive-workflow-grid">
+
+            {/* Orders button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
+              data-testid="button-workflow-orders"
+              className="flex flex-col items-center justify-center rounded-md border border-orange-400/35 bg-orange-900/15 px-2 py-1 hover-elevate active-elevate-2 shrink-0 gap-0.5"
+            >
+              <span className="font-mono text-[7px] font-bold uppercase tracking-widest text-orange-300/70">ORDERS</span>
+            </button>
+
+            {/* Vertical divider */}
+            <div className="w-px bg-gray-700/35 self-stretch mx-0.5 shrink-0" />
+
+            {/* Main workflow statuses */}
             {([
-              { key: 'new',        label: 'New',     lampColor: 'rgba(156,163,175,0.85)', activeClass: 'bg-gray-800/95 border-gray-400/60 text-gray-200',  isFeedback: false },
-              { key: 'processing', label: 'In Prog', lampColor: 'rgba(96,165,250,0.85)',  activeClass: 'bg-blue-950/95 border-blue-400/60 text-blue-200',  isFeedback: false },
-              { key: 'feedback',   label: 'Fdbk',    lampColor: 'rgba(45,212,191,0.85)',  activeClass: 'bg-teal-950/95 border-teal-400/60 text-teal-200',  isFeedback: true  },
-            ] as const).map(({ key, label, lampColor, activeClass, isFeedback }) => {
+              { key: 'new',        label: 'New',     lampColor: 'rgba(156,163,175,0.85)', isFeedback: false },
+              { key: 'processing', label: 'In Prog', lampColor: 'rgba(96,165,250,0.85)',  isFeedback: false },
+              { key: 'feedback',   label: 'Fdbk',    lampColor: 'rgba(45,212,191,0.85)',  isFeedback: true  },
+            ] as const).map(({ key, label, lampColor, isFeedback }) => {
               const count = isFeedback
                 ? (fulfillmentStats?.feedbackPending ?? 0)
                 : (workflowSummary?.byStatus?.[key] ?? 0);
@@ -498,39 +512,36 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   key={key}
                   onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                   data-testid={`directive-status-${key}`}
-                  style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
-                  className={cn(
-                    "relative overflow-hidden flex flex-col items-center justify-center rounded-md border min-h-[36px] py-1 cursor-pointer transition-colors",
-                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-950/90 border-gray-700/35"
-                  )}
+                  className="flex flex-col items-center gap-1 flex-1 py-1 rounded hover-elevate active-elevate-2"
                 >
-                  {/* Pressed-in: dark inset at top, light lip at bottom */}
-                  <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 h-px bg-white/10 pointer-events-none" />
-                  <span className={cn("font-mono font-bold leading-none text-sm", isActive ? "text-white" : "text-gray-700")}>
-                    {(workflowSummary || isFeedback) ? (count > 0 ? count : '0') : '—'}
-                  </span>
-                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 text-[7px] font-semibold", isActive ? "opacity-60" : "opacity-20")}>{label}</span>
+                  <div
+                    style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor } as React.CSSProperties : undefined}
+                    className={cn("w-2 h-2 rounded-full shrink-0", isActive ? "panel-lamp-active" : "bg-gray-700/45")}
+                  />
+                  <div className="flex items-center gap-0.5">
+                    <span className={cn("font-mono text-[7px] uppercase tracking-wide", isActive ? "text-gray-300" : "text-gray-600")}>{label}</span>
+                    <span className={cn("font-mono text-[9px] font-bold", isActive ? "text-white" : "text-gray-600")}>
+                      {(workflowSummary || isFeedback) ? count : '—'}
+                    </span>
+                  </div>
                 </button>
               );
             })}
-          </div>
 
-          {/* Exceptions separator */}
-          <div className="flex items-center gap-1 mb-1">
-            <div className="flex-1 h-px bg-red-900/25" />
-            <span className="text-[6px] font-mono uppercase tracking-widest text-red-400/35">exceptions</span>
-            <div className="flex-1 h-px bg-red-900/25" />
-          </div>
+            {/* Exceptions separator */}
+            <div className="flex flex-col items-center justify-center gap-0.5 px-0.5 shrink-0">
+              <div className="flex-1 w-px bg-red-900/30" />
+              <span className="font-mono text-[5px] uppercase tracking-widest text-red-400/35" style={{ writingMode: 'vertical-rl' }}>exc</span>
+              <div className="flex-1 w-px bg-red-900/30" />
+            </div>
 
-          {/* Exception row — Unpaid · Bump · Issue · Hold */}
-          <div className="grid grid-cols-4 gap-1">
+            {/* Exception statuses */}
             {([
-              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)',  activeClass: 'bg-orange-950/95 border-orange-400/60 text-orange-200'  },
-              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)',  activeClass: 'bg-amber-950/95 border-amber-400/60 text-amber-200'    },
-              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)', activeClass: 'bg-red-950/95 border-red-400/60 text-red-200'           },
-              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)', activeClass: 'bg-purple-950/95 border-purple-400/60 text-purple-200'  },
-            ] as const).map(({ key, label, lampColor, activeClass }) => {
+              { key: 'unpaid',  label: 'Unpaid', lampColor: 'rgba(249,115,22,0.85)'  },
+              { key: 'bump',    label: 'Bump',   lampColor: 'rgba(251,191,36,0.85)'  },
+              { key: 'issue',   label: 'Issue',  lampColor: 'rgba(248,113,113,0.85)' },
+              { key: 'on_hold', label: 'Hold',   lampColor: 'rgba(192,132,252,0.85)' },
+            ] as const).map(({ key, label, lampColor }) => {
               const count = workflowSummary?.byStatus?.[key] ?? 0;
               const isActive = count > 0;
               return (
@@ -538,21 +549,22 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   key={key}
                   onClick={(e) => { e.stopPropagation(); onDrawerChange('fulfillment'); }}
                   data-testid={`directive-status-${key}`}
-                  style={isActive ? { '--lamp-color': lampColor } as React.CSSProperties : undefined}
-                  className={cn(
-                    "relative overflow-hidden flex flex-col items-center justify-center rounded-md border min-h-[28px] py-0.5 cursor-pointer transition-colors",
-                    isActive ? cn("panel-lamp-active", activeClass) : "bg-gray-950/90 border-gray-700/35"
-                  )}
+                  className="flex flex-col items-center gap-1 flex-1 py-1 rounded hover-elevate active-elevate-2"
                 >
-                  <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 h-px bg-white/10 pointer-events-none" />
-                  <span className={cn("font-mono font-bold leading-none text-xs", isActive ? "text-white" : "text-gray-700")}>
-                    {workflowSummary ? (count > 0 ? count : '0') : '—'}
-                  </span>
-                  <span className={cn("uppercase tracking-widest leading-none mt-0.5 text-[6px] font-semibold", isActive ? "opacity-60" : "opacity-20")}>{label}</span>
+                  <div
+                    style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor } as React.CSSProperties : undefined}
+                    className={cn("w-1.5 h-1.5 rounded-full shrink-0", isActive ? "panel-lamp-active" : "bg-gray-700/45")}
+                  />
+                  <div className="flex items-center gap-0.5">
+                    <span className={cn("font-mono text-[6px] uppercase tracking-wide", isActive ? "text-gray-400" : "text-gray-700")}>{label}</span>
+                    <span className={cn("font-mono text-[8px] font-bold", isActive ? "text-white" : "text-gray-700")}>
+                      {workflowSummary ? count : '—'}
+                    </span>
+                  </div>
                 </button>
               );
             })}
+
           </div>
         </div>
           );
