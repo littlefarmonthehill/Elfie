@@ -20,45 +20,56 @@ export function StationTool({
   onClick,
   testId,
 }: StationToolProps) {
+  const dotSize = isCompact ? 20 : 24;
+  const iconSize = isCompact ? 10 : 12;
+
   return (
     <button
       onClick={onClick}
       data-testid={testId}
-      className={cn(
-        "group flex items-center w-full rounded-lg text-left hover-elevate active-elevate-2 transition-all",
-        isCompact ? "gap-2.5 px-2.5 py-2" : "gap-3 px-3 py-2.5"
-      )}
+      className="group flex items-center w-full hover-elevate active-elevate-2 transition-all"
       style={{
-        border: `1px solid ${hex}38`,
-        background: `linear-gradient(135deg, color-mix(in srgb, ${hex} 11%, #08090f) 0%, #0b0d18 100%)`,
-        boxShadow: `0 0 18px rgba(${glowRgb}, 0.09), inset 0 1px 0 rgba(${glowRgb}, 0.07)`,
+        borderRadius: '999px',
+        padding: isCompact ? '5px 12px 5px 5px' : '6px 14px 6px 6px',
+        gap: isCompact ? '8px' : '10px',
+        border: `1px solid rgba(${glowRgb}, 0.32)`,
+        background: `rgba(${glowRgb}, 0.05)`,
       }}
     >
-      {/* Circular badge */}
+      {/* Indicator light */}
       <div
-        className={cn(
-          "rounded-full flex-shrink-0 flex items-center justify-center",
-          isCompact ? "w-8 h-8" : "w-10 h-10"
-        )}
+        className="flex-shrink-0 flex items-center justify-center"
         style={{
-          background: `radial-gradient(circle at 35% 35%, color-mix(in srgb, ${hex} 28%, #0d1020), color-mix(in srgb, ${hex} 10%, #080a14))`,
-          boxShadow: `0 0 16px rgba(${glowRgb}, 0.42), 0 0 4px rgba(${glowRgb}, 0.18), inset 0 0 0 1.5px rgba(${glowRgb}, 0.42)`,
+          width: dotSize,
+          height: dotSize,
+          borderRadius: '50%',
+          background: `radial-gradient(circle at 38% 38%, rgba(${glowRgb}, 0.55), rgba(${glowRgb}, 0.12))`,
+          boxShadow: `0 0 10px rgba(${glowRgb}, 0.55), 0 0 3px rgba(${glowRgb}, 0.3), inset 0 0 0 1px rgba(${glowRgb}, 0.5)`,
         }}
       >
         <Icon
-          className={cn(isCompact ? "w-3.5 h-3.5" : "w-4 h-4")}
-          style={{ color: hex, filter: `drop-shadow(0 0 5px rgba(${glowRgb}, 0.75))` }}
+          style={{
+            width: iconSize,
+            height: iconSize,
+            color: hex,
+            filter: `drop-shadow(0 0 4px rgba(${glowRgb}, 1))`,
+            flexShrink: 0,
+          }}
         />
       </div>
 
       {/* Label */}
       <span
-        className={cn("font-bold leading-tight truncate min-w-0 flex-1", isCompact ? "text-xs" : "text-xs md:text-sm")}
-        style={{ color: `color-mix(in srgb, ${hex} 60%, #dde4f0)` }}
+        className="truncate min-w-0 flex-1 font-bold"
+        style={{
+          fontSize: isCompact ? '9px' : '10px',
+          letterSpacing: '0.13em',
+          textTransform: 'uppercase',
+          color: `color-mix(in srgb, ${hex} 65%, #ccd8f0)`,
+        }}
       >
         {label}
       </span>
     </button>
   );
 }
-
