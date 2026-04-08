@@ -4977,23 +4977,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "orderIds array required" });
       }
 
-      // Load shipments for these orders that have tracking numbers
-      const rows = await db.execute(sql`
-        SELECT DISTINCT ON (s.order_id)
-          s.id AS shipment_id,
-          s.order_id,
-          s.tracking_number,
-          s.carrier,
-          s.tracker_id,
-          s.tracking_status,
-          s.tracking_updated_at
-        FROM shipments s
-        WHERE s.org_id = ${orgId}
-          AND s.order_id = ANY(${orderIds}::text[])
-          AND s.tracking_number IS NOT NULL
-          AND s.status = 'purchased'
-        ORDER BY s.order_id, s.created_at DESC
-      `);
+      // Load shipments for these orders that have tracking numbers.
+      // Use inArray (not ANY()) to avoid Drizzle array serialization issues.
+      const allRows = await db
+        .select({
+          id: shipments.id,
+          orderId: shipments.orderId,
+          trackingNumber: shipments.trackingNumber,
+          carrier: shipments.carrier,
+          trackerId: shipments.trackerId,
+          trackingStatus: shipments.trackingStatus,
+          trackingUpdatedAt: shipments.trackingUpdatedAt,
+        })
+        .from(shipments)
+        .where(and(
+          eq(shipments.orgId, orgId),
+          inArray(shipments.orderId, orderIds),
+          isNotNull(shipments.trackingNumber),
+          eq(shipments.status, 'purchased'),
+        ))
+        .orderBy(desc(shipments.createdAt));
+
+      // Keep most-recent shipment per order (already sorted desc)
+      const seen = new Set<string>();
+      const rows: typeof allRows = [];
+      for (const r of allRows) {
+        if (!seen.has(r.orderId)) { seen.add(r.orderId); rows.push(r); }
+      }
 
       const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
       const now = Date.now();
@@ -5008,24 +5018,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results: Record<string, { trackingStatus: string; trackingStatusDetail: string; trackingUpdatedAt: string }> = {};
 
-      for (const row of (rows.rows as any[])) {
+      for (const row of rows) {
         // Skip delivered shipments — terminal state, no need to re-check
-        if (row.tracking_status === 'delivered') {
-          results[row.order_id] = {
-            trackingStatus: row.tracking_status,
+        if (row.trackingStatus === 'delivered') {
+          results[row.orderId] = {
+            trackingStatus: row.trackingStatus,
             trackingStatusDetail: '',
-            trackingUpdatedAt: row.tracking_updated_at,
+            trackingUpdatedAt: row.trackingUpdatedAt?.toISOString() ?? '',
           };
           continue;
         }
         // Skip if refreshed recently
-        if (row.tracking_updated_at) {
-          const age = now - new Date(row.tracking_updated_at).getTime();
+        if (row.trackingUpdatedAt) {
+          const age = now - new Date(row.trackingUpdatedAt).getTime();
           if (age < STALE_AFTER_MS) {
-            results[row.order_id] = {
-              trackingStatus: row.tracking_status || 'unknown',
+            results[row.orderId] = {
+              trackingStatus: row.trackingStatus || 'unknown',
               trackingStatusDetail: '',
-              trackingUpdatedAt: row.tracking_updated_at,
+              trackingUpdatedAt: row.trackingUpdatedAt.toISOString(),
             };
             continue;
           }
@@ -5033,33 +5043,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         try {
           let tracker: { id: string; status: string; statusDetail: string };
-          if (row.tracker_id) {
-            tracker = await vendor.getTracker(row.tracker_id);
+          if (row.trackerId) {
+            tracker = await vendor.getTracker(row.trackerId);
           } else {
-            tracker = await vendor.createOrGetTracker(row.tracking_number, row.carrier);
+            tracker = await vendor.createOrGetTracker(row.trackingNumber, row.carrier);
           }
 
-          // Save to DB
-          await db.execute(sql`
-            UPDATE shipments
-            SET tracker_id = ${tracker.id},
-                tracking_status = ${tracker.status},
-                tracking_status_detail = ${tracker.statusDetail},
-                tracking_updated_at = NOW()
-            WHERE id = ${row.shipment_id}
-          `);
+          // Save to DB using Drizzle update (scalar params — no array issues)
+          await db.update(shipments)
+            .set({
+              trackerId: tracker.id,
+              trackingStatus: tracker.status,
+              trackingStatusDetail: tracker.statusDetail,
+              trackingUpdatedAt: new Date(),
+            })
+            .where(eq(shipments.id, row.id));
 
-          results[row.order_id] = {
+          results[row.orderId] = {
             trackingStatus: tracker.status,
             trackingStatusDetail: tracker.statusDetail,
             trackingUpdatedAt: new Date().toISOString(),
           };
         } catch (e: any) {
-          console.warn(`[Tracking] Failed to refresh tracking for ${row.tracking_number}: ${e.message}`);
-          results[row.order_id] = {
-            trackingStatus: row.tracking_status || 'unknown',
+          console.warn(`[Tracking] Failed to refresh tracking for ${row.trackingNumber}: ${e.message}`);
+          results[row.orderId] = {
+            trackingStatus: row.trackingStatus || 'unknown',
             trackingStatusDetail: '',
-            trackingUpdatedAt: row.tracking_updated_at,
+            trackingUpdatedAt: row.trackingUpdatedAt?.toISOString() ?? '',
           };
         }
       }
