@@ -437,6 +437,18 @@ html.admin-mode {
   }
 }
 
+/*
+ * Mobile / touch devices — restore 16px industry-standard base font size.
+ * The admin-mode clamp and global 15px base both result in sub-standard sizes
+ * on phones (~390px → 14px). This rule overrides both so that all text,
+ * spacing, and rem-based components scale correctly on touch screens.
+ */
+@media (hover: none) and (pointer: coarse) {
+  html, html.admin-mode {
+    font-size: 16px;
+  }
+}
+
 /* ── Settings Modal design tokens ──────────────────────────────────────────
  *
  * Single source of truth for the dark-panel design system used inside
