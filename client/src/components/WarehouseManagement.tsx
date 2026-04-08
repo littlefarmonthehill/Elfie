@@ -53,7 +53,7 @@ interface WarehouseManagementProps {
   onItemClick?: (type: 'inventory', id: number) => void;
 }
 
-type ViewType = null | 'lots' | 'bins' | 'shelves' | 'aisles' | 'zones';
+type ViewType = null | 'lots' | 'bins' | 'shelves' | 'aisles';
 type FilterType = 'all' | 'assigned' | 'unassigned';
 
 const DEPTH_OPTIONS = [
@@ -126,8 +126,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [showDepthSetup, setShowDepthSetup] = useState(false);
 
-  // Zone navigation & CRUD state
+  // Zone filter & CRUD state
   const [activeZoneId, setActiveZoneId] = useState<number | null>(null);
+  const [manageZonesOpen, setManageZonesOpen] = useState(false);
   const [createZoneOpen, setCreateZoneOpen] = useState(false);
   const [editZoneOpen, setEditZoneOpen] = useState(false);
   const [editZone, setEditZone] = useState<any>(null);
@@ -757,7 +758,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const openBinDetail = (bin: any) => {
     const lots = locations.filter((l: any) => l.binId === bin.id);
     setBinDetailBin(bin);
-    setBinDetailSelected(new Set<number>(lots.map((l: any) => l.id)));
+    setBinDetailSelected(new Set());
     setBinMoveStep('select');
     setBinMoveType('existing');
     setBinMoveExistingId('');
@@ -831,7 +832,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return names;
   })();
 
-  const depthOption = DEPTH_OPTIONS.find(d => d.value === depth) || DEPTH_OPTIONS[2];
 
   // Zones list view — shown when no zone is selected
   const zonesView = (
@@ -1280,50 +1280,27 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* ── Desktop left sidebar ─────────────────────────── */}
           <div className="hidden md:flex md:flex-col md:w-52 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:mr-4 gap-3">
-            {activeZoneId !== null && (
-              <>
-                <div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <Archive className="h-3.5 w-3.5" />
-                    <span className="font-medium">{depthOption.label}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/60 leading-relaxed">{depthOption.description}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-7 px-2 gap-1 flex-1"
-                    onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
-                    data-testid="button-import-csv-sidebar"
-                  >
-                    <Upload className="h-3 w-3" />
-                    Import
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDepthSetup(true)}
-                    className="text-xs h-7 px-2"
-                    data-testid="button-warehouse-setup-sidebar"
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </>
-            )}
-            {activeZoneId === null && (
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2 gap-1"
+                className="text-xs h-7 px-2 gap-1 flex-1"
                 onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
                 data-testid="button-import-csv-sidebar"
               >
                 <Upload className="h-3 w-3" />
                 Import
               </Button>
-            )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDepthSetup(true)}
+                className="text-xs h-7 px-2"
+                data-testid="button-warehouse-setup-sidebar"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <nav className="flex flex-col gap-0.5">
               <button
                 onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1343,16 +1320,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 Lots
                 {unassignedLots > 0 && <Badge className="ml-auto text-[9px] px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
-              <button
-                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'zones' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                data-testid="button-view-zones-sidebar"
-              >
-                <Building2 className="w-4 h-4 shrink-0" />
-                Zones
-                {zones.length > 0 && <span className="ml-auto text-xs opacity-60">{zones.length}</span>}
-              </button>
-              {(shelves.length > 0 || activeZoneId !== null) && (
+              {depth >= 2 && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'shelves' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1363,7 +1331,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-auto text-xs opacity-60">{shelves.length}</span>}
                 </button>
               )}
-              {(aisles.length > 0 || activeZoneId !== null) && (
+              {depth >= 3 && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'aisles' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
@@ -1375,44 +1343,88 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </button>
               )}
             </nav>
+            {/* Zone filter */}
+            <div className="border-t border-border pt-3 space-y-1.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />Zone
+                </span>
+                <button
+                  onClick={() => setManageZonesOpen(true)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  data-testid="button-manage-zones-sidebar"
+                >Manage</button>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => { setActiveZoneId(null); setFilter('all'); setSelectedItems(new Set()); }}
+                  className={`flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-left ${activeZoneId === null ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                  data-testid="button-zone-filter-all"
+                >
+                  All zones
+                </button>
+                {zones.map((z: any) => (
+                  <button
+                    key={z.id}
+                    onClick={() => { setActiveZoneId(z.id); setFilter('all'); setSelectedItems(new Set()); }}
+                    className={`flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-left truncate ${activeZoneId === z.id ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                    data-testid={`button-zone-filter-${z.id}`}
+                  >
+                    <span className="truncate">{z.name}</span>
+                    {Number(z.binCount) > 0 && <span className="ml-auto text-xs opacity-60 shrink-0">{z.binCount}</span>}
+                  </button>
+                ))}
+                {zones.length === 0 && (
+                  <button
+                    onClick={() => setManageZonesOpen(true)}
+                    className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md text-xs text-muted-foreground/60 hover-elevate text-left"
+                  >
+                    <Plus className="h-3 w-3" /> Add zone
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* ── Right content (always visible) ─────────────── */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
 
-            {/* Mobile-only: depth bar — only when zone filter is active */}
-            {activeZoneId !== null && (
-              <div className="md:hidden flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Archive className="h-3.5 w-3.5" />
-                  <span className="font-medium">{depthOption.label}</span>
-                  <span className="text-muted-foreground/60 hidden sm:inline">— {depthOption.description}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-7 px-2 gap-1"
-                    onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
-                    data-testid="button-import-csv-top"
-                  >
-                    <Upload className="h-3 w-3" />
-                    Import CSV
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDepthSetup(true)}
-                    className="text-xs h-7 px-2"
-                    data-testid="button-warehouse-setup"
-                  >
-                    <Settings2 className="h-3.5 w-3.5 mr-1" />
-                    Setup
-                  </Button>
-                </div>
+            {/* Mobile-only: zone filter + actions row */}
+            <div className="md:hidden flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+                <button
+                  onClick={() => { setActiveZoneId(null); setFilter('all'); setSelectedItems(new Set()); }}
+                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${activeZoneId === null ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                  data-testid="button-zone-filter-all-mobile"
+                >All</button>
+                {zones.map((z: any) => (
+                  <button
+                    key={z.id}
+                    onClick={() => { setActiveZoneId(z.id); setFilter('all'); setSelectedItems(new Set()); }}
+                    className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors truncate max-w-[100px] ${activeZoneId === z.id ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                    data-testid={`button-zone-filter-mobile-${z.id}`}
+                  >{z.name}</button>
+                ))}
+                <button
+                  onClick={() => setManageZonesOpen(true)}
+                  className="shrink-0 px-2 py-1 rounded-md text-xs text-muted-foreground/60 hover-elevate flex items-center gap-0.5"
+                  data-testid="button-manage-zones-mobile"
+                ><Building2 className="h-3 w-3" /></button>
               </div>
-            )}
-            {/* Mobile-only: horizontal tabs (scrollable so all tabs are reachable) */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button variant="outline" size="sm" className="text-xs h-7 px-2 gap-1"
+                  onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
+                  data-testid="button-import-csv-top">
+                  <Upload className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(true)} className="text-xs h-7 px-2"
+                  data-testid="button-warehouse-setup">
+                  <Settings2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Mobile-only: horizontal tabs — fixed set, no conditional renders */}
             <div className="md:hidden tool-tab-bar overflow-x-auto">
               <button
                 onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1434,16 +1446,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <Badge className="text-[9px] px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
                 )}
               </button>
-              <button
-                onClick={() => { setActiveView('zones'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`tool-tab shrink-0 ${activeView === 'zones' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                data-testid="button-view-zones"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                Zones
-                {zones.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{zones.length}</span>}
-              </button>
-              {(shelves.length > 0 || activeZoneId !== null) && (
+              {depth >= 2 && (
                 <button
                   onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`tool-tab shrink-0 ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
@@ -1454,7 +1457,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {shelves.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{shelves.length}</span>}
                 </button>
               )}
-              {(aisles.length > 0 || activeZoneId !== null) && (
+              {depth >= 3 && (
                 <button
                   onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                   className={`tool-tab shrink-0 ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
@@ -1467,11 +1470,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               )}
             </div>
 
-            {/* Zones view — rendered inline when Zones tab is active */}
-            {activeView === 'zones' && zonesView}
 
             {/* List View — for lots/bins/shelves/aisles */}
-            {activeView && activeView !== 'zones' && (
+            {activeView && (
         <Card className="p-3">
           {/* Stats row */}
           <div className="flex items-center gap-3 mb-3 text-xs flex-wrap">
@@ -2451,7 +2452,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </DialogTitle>
             <DialogDescription>
               {binMoveStep === 'select'
-                ? `${binDetailLots.length} lot${binDetailLots.length !== 1 ? 's' : ''} stored here. Select which to move.`
+                ? `${binDetailLots.length} lot${binDetailLots.length !== 1 ? 's' : ''} in this bin. Select any to move them to another bin.`
                 : `Moving ${binDetailSelected.size} lot${binDetailSelected.size !== 1 ? 's' : ''} — choose a destination.`}
             </DialogDescription>
           </DialogHeader>
@@ -2459,7 +2460,23 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           {binMoveStep === 'select' ? (
             <div className="space-y-3">
               {binDetailLots.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6 italic">This bin is empty.</p>
+                <div className="text-center py-6 space-y-3">
+                  <p className="text-xs text-muted-foreground italic">This bin is empty.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBinDetailOpen(false);
+                      resetBinDetail();
+                      setFillBinTargetId(String(binDetailBin?.id ?? ''));
+                      setFillBinDialogOpen(true);
+                    }}
+                    data-testid="button-bin-add-items-empty"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add items to this bin
+                  </Button>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
@@ -2510,13 +2527,26 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </div>
                   <div className="flex gap-2 pt-1">
                     <Button
+                      variant="outline"
+                      onClick={() => {
+                        setBinDetailOpen(false);
+                        resetBinDetail();
+                        setFillBinTargetId(String(binDetailBin?.id ?? ''));
+                        setFillBinDialogOpen(true);
+                      }}
+                      data-testid="button-bin-add-items"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add items
+                    </Button>
+                    <Button
                       className="flex-1"
                       disabled={binDetailSelected.size === 0}
                       onClick={() => setBinMoveStep('move')}
                       data-testid="button-bin-move-next"
                     >
                       <MoveRight className="h-4 w-4 mr-1.5" />
-                      Move {binDetailSelected.size > 0 ? binDetailSelected.size : ''} selected lot{binDetailSelected.size !== 1 ? 's' : ''}
+                      {binDetailSelected.size > 0 ? `Move ${binDetailSelected.size} lot${binDetailSelected.size !== 1 ? 's' : ''}` : 'Move selected'}
                     </Button>
                   </div>
                 </>
@@ -2789,6 +2819,22 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Zones Dialog */}
+      <Dialog open={manageZonesOpen} onOpenChange={setManageZonesOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-yellow-400" />
+              Warehouse Zones
+            </DialogTitle>
+            <DialogDescription>Each zone is an independent area with its own storage hierarchy and naming rules.</DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            {zonesView}
+          </div>
         </DialogContent>
       </Dialog>
 
