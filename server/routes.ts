@@ -4973,6 +4973,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const range = req.query.range as string | undefined;
       // When true: skip date filter and exclude delivered orders (for the "not delivered" panel)
       const excludeDelivered = req.query.excludeDelivered === 'true';
+      // When true: only return delivered orders (for the "delivered" panel — keeps 200-cap on delivered rows only)
+      const deliveredOnly = req.query.deliveredOnly === 'true';
 
       const tz = await getOrgTimezone(orgId);
       const { start, end } = tzDateBounds(range ?? '', tz);
@@ -5000,7 +5002,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Exclude delivered orders when fetching the "not delivered" panel
       const deliveredWhere = excludeDelivered
         ? sql`AND COALESCE(s.tracking_status, '') <> 'delivered'`
-        : sql``;
+        : deliveredOnly
+          ? sql`AND COALESCE(s.tracking_status, '') = 'delivered'`
+          : sql``;
 
       const rawRows = await db.execute(sql`
         SELECT * FROM (

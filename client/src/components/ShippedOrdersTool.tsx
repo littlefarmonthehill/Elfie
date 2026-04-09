@@ -168,13 +168,15 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     },
   });
 
-  // Delivered panel: respects the date range selector
+  // Delivered panel: backend filters to delivered-only + applies date range
+  // (deliveredOnly=true ensures the 200-cap is spent only on delivered rows)
   const { data: deliveredOrders, isLoading: isLoadingDelivered } = useQuery<ShippedOrder[]>({
     queryKey: ['/api/orders/shipped', searchQuery, dateRange, 'delivered'],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
       if (dateRange && dateRange !== 'all') params.set('range', dateRange);
+      params.set('deliveredOnly', 'true');
       const response = await fetch(`/api/orders/shipped?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch shipped orders');
       return response.json();
@@ -182,8 +184,9 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   });
 
   const isLoading = isLoadingNotDelivered || isLoadingDelivered;
-  // Merge for legacy references (refresh-tracking, etc.)
-  const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders?.filter(o => o.trackingStatus === 'delivered') ?? [])];
+  // Merge for legacy references (refresh-tracking, count display, etc.)
+  // deliveredOrders is already backend-filtered to delivered-only
+  const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders ?? [])];
 
   const handleRefreshTracking = async () => {
     if (!shippedOrders?.length) return;
@@ -374,7 +377,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         ) : (
           (() => {
             const notDelivered = notDeliveredOrders ?? [];
-            const delivered    = (deliveredOrders ?? []).filter(o => o.trackingStatus === 'delivered');
+            const delivered    = deliveredOrders ?? [];
 
             const renderCard = (order: ShippedOrder) => {
               let shipTo: any = {};
