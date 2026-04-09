@@ -468,15 +468,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
-        <div className={cn("relative rounded-lg border border-blue-400/45 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(59,130,246,0.12)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-blue-400/45 bg-transparent shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(59,130,246,0.12)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
 
           {/* CC-style header row */}
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")} data-testid="control-panel-tabs">
-            <div className="rounded-md ring-1 shrink-0 p-1 bg-gray-800/70 ring-gray-600/40">
-              <Sparkles className="w-3 h-3 text-gray-500" />
+            <div className="rounded-md ring-1 shrink-0 p-1 bg-blue-900/55 ring-blue-500/40">
+              <Sparkles className="w-3 h-3 text-blue-200" />
             </div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-blue-200/80">
               {panelTab === 'systems' ? 'Inventory Station' : 'Selling Channels'}
             </h3>
             <div className="flex items-center rounded border border-gray-700/60 bg-black/40 overflow-hidden shrink-0">

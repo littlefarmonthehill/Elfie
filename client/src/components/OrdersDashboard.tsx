@@ -446,9 +446,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             "relative rounded-lg border transition-all",
             isCompact ? "p-3" : "p-2 md:p-3",
             hasAction
-              ? "border-orange-400/60 bg-gradient-to-b from-gray-700/55 to-gray-900/95 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
-              : "border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
+              ? "border-orange-400/60 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
+              : "border-orange-400/30 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
           )}
+          style={{ background: 'linear-gradient(175deg, rgba(60,25,8,0.75) 0%, rgba(12,8,4,0.65) 100%)' }}
           data-testid="section-command-central-orders"
         >
           {/* Top accent bar */}
@@ -636,15 +637,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative rounded-lg border border-orange-400/45 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-orange-400/45 bg-transparent shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-orange-400/40 to-transparent" />
 
           {/* CC-style header row */}
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")} data-testid="control-panel-tabs">
-            <div className="rounded-md ring-1 shrink-0 p-1 bg-gray-800/70 ring-gray-600/40">
-              <Sparkles className="w-3 h-3 text-gray-500" />
+            <div className="rounded-md ring-1 shrink-0 p-1 bg-orange-900/55 ring-orange-500/40">
+              <Sparkles className="w-3 h-3 text-orange-200" />
             </div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-orange-200/80">
               {panelTab === 'systems' ? 'Sales Station' : 'Order Channels'}
             </h3>
             <div className="flex items-center rounded border border-gray-700/60 bg-black/40 overflow-hidden shrink-0">

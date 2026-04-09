@@ -495,13 +495,13 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
-        <div className={cn("relative rounded-lg border border-yellow-400/45 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-marketing-tools">
+        <div className={cn("relative rounded-lg border border-yellow-400/45 bg-transparent shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")}>
-            <div className="rounded-md ring-1 shrink-0 p-1 bg-gray-800/70 ring-gray-600/40">
-              <Sparkles className="w-3 h-3 text-gray-500" />
+            <div className="rounded-md ring-1 shrink-0 p-1 bg-yellow-900/55 ring-yellow-500/40">
+              <Sparkles className="w-3 h-3 text-yellow-200" />
             </div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Marketing Station</h3>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-yellow-200/80">Marketing Station</h3>
           </div>
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
