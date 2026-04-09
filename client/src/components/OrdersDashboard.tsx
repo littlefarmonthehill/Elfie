@@ -519,7 +519,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 className="flex flex-col items-center justify-center rounded-lg border border-green-600/55 px-3 shrink-0 gap-1.5 min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer py-2"
               >
                 <Rocket className="w-4 h-4 text-green-300" />
-                <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-green-200">SHPD</span>
+                <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-green-200">SHIPPED</span>
               </button>
             </div>
 
