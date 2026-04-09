@@ -925,7 +925,7 @@ function PlatformHeader({
       <div className="flex items-center gap-2 min-w-0">
         <img src={elfieRobot} alt="E.L.F.I.E." className="h-7 w-7 object-contain shrink-0 opacity-90" />
         <div className="min-w-0 hidden sm:block">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-lego-purple/80 leading-none">Platform Admin</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-lego-purple/80 leading-none">Administrator</p>
           <p className={cn("text-xs font-semibold", activeTabDef.activeClass)}>{activeTabDef.label}</p>
         </div>
       </div>
