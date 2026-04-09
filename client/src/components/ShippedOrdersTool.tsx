@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -397,135 +397,23 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               return (
                 <div
                   key={order.id}
-                  className={`app-card px-3 py-2 hover-elevate${onItemClick ? ' cursor-pointer' : ''}`}
+                  className={`app-card px-3 py-1.5 relative hover-elevate${onItemClick ? ' cursor-pointer' : ''}`}
                   data-testid={`shipped-order-${order.orderNumber}`}
                   onClick={() => onItemClick?.('order', order.id)}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <h3 className="text-sm font-mono font-bold text-white shrink-0">
-                        {order.orderNumber}
-                      </h3>
-                      {order.marketplace && (
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {order.marketplace}
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'delivered' && (
-                        <Badge className="text-xs bg-green-900/60 text-green-300 border border-green-700/50 gap-1 shrink-0">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Delivered
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'out_for_delivery' && (
-                        <Badge className="text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50 gap-1 shrink-0">
-                          <Truck className="w-3 h-3" />
-                          Out for Delivery
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'in_transit' && (
-                        <Badge className="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 gap-1 shrink-0">
-                          <Truck className="w-3 h-3" />
-                          In Transit
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'return_to_sender' && (
-                        <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
-                          <ArrowLeftRight className="w-3 h-3" />
-                          Return to Sender
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'failure' && (
-                        <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
-                          <AlertTriangle className="w-3 h-3" />
-                          Delivery Issue
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'pre_transit' && (
-                        <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
-                          <Clock className="w-3 h-3" />
-                          Label Created
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'available_for_pickup' && (
-                        <Badge className="text-xs bg-teal-900/60 text-teal-300 border border-teal-700/50 gap-1 shrink-0">
-                          <MapPin className="w-3 h-3" />
-                          Ready for Pickup
-                        </Badge>
-                      )}
-                      {order.trackingStatus === 'unknown' && (
-                        <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
-                          <AlertTriangle className="w-3 h-3" />
-                          Unknown
-                        </Badge>
-                      )}
-                      {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
-                        <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1 shrink-0">
-                          <AlertTriangle className="w-3 h-3" />
-                          Tracking Error
-                        </Badge>
-                      )}
-                      {isReturned && (
-                        <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
-                          <RotateCcw className="w-3 h-3" />
-                          Returned
-                        </Badge>
-                      )}
-                      {isCancelled && !isReturned && (
-                        <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1 shrink-0">
-                          <X className="w-3 h-3" />
-                          Cancelled
-                        </Badge>
-                      )}
-                      {order.isTest && (
-                        <Badge className="text-xs bg-purple-900/60 text-purple-300 border border-purple-700/50 gap-1 shrink-0">
-                          <FlaskConical className="w-3 h-3" />
-                          Test
-                        </Badge>
-                      )}
-                      <span className="text-gray-600 shrink-0">·</span>
-                      <span className="text-xs text-gray-400 shrink-0">{order.customerUsername || shipTo.name || 'Unknown'}</span>
-                      <span className="text-gray-600 shrink-0">·</span>
-                      <span className="text-xs text-gray-400 shrink-0">${order.orderTotal}</span>
-                      <span className="text-gray-600 shrink-0">·</span>
-                      <span className="text-xs text-gray-400 shrink-0">{order.shipDate ? format(new Date(order.shipDate), 'MMM d') : '—'}</span>
-                      {order.carrier && (
-                        <>
-                          <span className="text-gray-600 shrink-0">·</span>
-                          <span className="text-xs text-gray-500 shrink-0">{order.carrier}{order.service ? ` ${order.service}` : ''}</span>
-                        </>
-                      )}
-                      {order.trackingNumber && (
-                        <>
-                          <span className="text-gray-600 shrink-0">·</span>
-                          <a
-                            href={getTrackingUrl(order.trackingNumber, order.carrier)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="font-mono text-xs truncate max-w-[160px] hover:underline underline-offset-2 flex items-center gap-0.5 text-gray-400"
-                            data-testid={`link-tracking-${order.orderNumber}`}
-                          >
-                            {order.trackingNumber}
-                            <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-50" />
-                          </a>
-                        </>
-                      )}
-                    </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => e.stopPropagation()}
-                          data-testid={`button-actions-${order.orderNumber}`}
-                        >
-                          <Printer className="w-3.5 h-3.5 mr-1.5" />
-                          Print
-                          <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                  {/* Ellipsis menu — anchored top-right */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-0.5 right-0.5 h-7 w-7 text-muted-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`button-actions-${order.orderNumber}`}
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem
                           onClick={() => handlePrintPackingSlip(order.id)}
@@ -615,7 +503,106 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           </>
                         )}
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                  </DropdownMenu>
+
+                  {/* Card content — right-padded so it clears the ellipsis button */}
+                  <div className="pr-7 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <h3 className="text-sm font-mono font-bold text-white shrink-0">
+                      {order.orderNumber}
+                    </h3>
+                    {order.marketplace && (
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {order.marketplace}
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'delivered' && (
+                      <Badge className="text-xs bg-green-900/60 text-green-300 border border-green-700/50 gap-1 shrink-0">
+                        <CheckCircle2 className="w-3 h-3" /> Delivered
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'out_for_delivery' && (
+                      <Badge className="text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50 gap-1 shrink-0">
+                        <Truck className="w-3 h-3" /> Out for Delivery
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'in_transit' && (
+                      <Badge className="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 gap-1 shrink-0">
+                        <Truck className="w-3 h-3" /> In Transit
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'return_to_sender' && (
+                      <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
+                        <ArrowLeftRight className="w-3 h-3" /> Return to Sender
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'failure' && (
+                      <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
+                        <AlertTriangle className="w-3 h-3" /> Delivery Issue
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'pre_transit' && (
+                      <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
+                        <Clock className="w-3 h-3" /> Label Created
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'available_for_pickup' && (
+                      <Badge className="text-xs bg-teal-900/60 text-teal-300 border border-teal-700/50 gap-1 shrink-0">
+                        <MapPin className="w-3 h-3" /> Ready for Pickup
+                      </Badge>
+                    )}
+                    {order.trackingStatus === 'unknown' && (
+                      <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
+                        <AlertTriangle className="w-3 h-3" /> Unknown
+                      </Badge>
+                    )}
+                    {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
+                      <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1 shrink-0">
+                        <AlertTriangle className="w-3 h-3" /> Tracking Error
+                      </Badge>
+                    )}
+                    {isReturned && (
+                      <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
+                        <RotateCcw className="w-3 h-3" /> Returned
+                      </Badge>
+                    )}
+                    {isCancelled && !isReturned && (
+                      <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1 shrink-0">
+                        <X className="w-3 h-3" /> Cancelled
+                      </Badge>
+                    )}
+                    {order.isTest && (
+                      <Badge className="text-xs bg-purple-900/60 text-purple-300 border border-purple-700/50 gap-1 shrink-0">
+                        <FlaskConical className="w-3 h-3" /> Test
+                      </Badge>
+                    )}
+                    <span className="text-gray-600 shrink-0">·</span>
+                    <span className="text-xs text-gray-400 shrink-0">{order.customerUsername || shipTo.name || 'Unknown'}</span>
+                    <span className="text-gray-600 shrink-0">·</span>
+                    <span className="text-xs text-gray-400 shrink-0">${order.orderTotal}</span>
+                    <span className="text-gray-600 shrink-0">·</span>
+                    <span className="text-xs text-gray-400 shrink-0">{order.shipDate ? format(new Date(order.shipDate), 'MMM d') : '—'}</span>
+                    {order.carrier && (
+                      <>
+                        <span className="text-gray-600 shrink-0">·</span>
+                        <span className="text-xs text-gray-500 shrink-0">{order.carrier}{order.service ? ` ${order.service}` : ''}</span>
+                      </>
+                    )}
+                    {order.trackingNumber && (
+                      <>
+                        <span className="text-gray-600 shrink-0">·</span>
+                        <a
+                          href={getTrackingUrl(order.trackingNumber, order.carrier)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="font-mono text-xs truncate max-w-[160px] hover:underline underline-offset-2 flex items-center gap-0.5 text-gray-400"
+                          data-testid={`link-tracking-${order.orderNumber}`}
+                        >
+                          {order.trackingNumber}
+                          <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
               );
