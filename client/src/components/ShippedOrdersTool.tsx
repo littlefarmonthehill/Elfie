@@ -71,6 +71,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
+  const [hideNoTracking, setHideNoTracking] = useState(true);
   const [eodPending, setEodPending] = useState<string | null>(null);
 
   // Return dialog state
@@ -620,14 +621,32 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               );
             };
 
+            const noTrackingCount = notDelivered.filter(o => !o.trackingNumber).length;
+            const visibleNotDelivered = hideNoTracking
+              ? notDelivered.filter(o => !!o.trackingNumber)
+              : notDelivered;
+
             return (
               <div className="space-y-3">
                 {notDelivered.length > 0 && (
                   <>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 pb-1">
-                      Not Delivered · {notDelivered.length}
+                    <div className="flex items-center justify-between gap-2 px-1 pb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Not Delivered · {visibleNotDelivered.length}{noTrackingCount > 0 && hideNoTracking ? ` of ${notDelivered.length}` : ''}
+                      </span>
+                      {noTrackingCount > 0 && (
+                        <button
+                          onClick={() => setHideNoTracking(h => !h)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                          data-testid="button-toggle-no-tracking"
+                        >
+                          {hideNoTracking
+                            ? `Show ${noTrackingCount} without tracking`
+                            : 'Hide no-tracking'}
+                        </button>
+                      )}
                     </div>
-                    {notDelivered.map(renderCard)}
+                    {visibleNotDelivered.map(renderCard)}
                   </>
                 )}
                 {delivered.length > 0 && (
