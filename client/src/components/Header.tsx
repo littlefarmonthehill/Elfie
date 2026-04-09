@@ -14,13 +14,10 @@ interface HeaderProps {
 }
 
 export default function Header({ onSettingsClick, onElfieClick, supportNotification, hideSettings }: HeaderProps) {
-  const { user, superAdmin } = useAuth();
+  const { superAdmin } = useAuth();
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
     onSuccess: () => { window.location.href = '/'; },
-  });
-  const { data: org } = useQuery<any>({
-    queryKey: ['/api/org'],
   });
 
   const { data: supportQueueCount } = useQuery<{ count: number }>({
@@ -129,11 +126,6 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
           </button>
 
         </div>
-
-        {/* App Name - Centered */}
-        <h1 className="absolute left-1/2 transform -translate-x-1/2 text-sm md:text-base lg:text-lg font-bold text-foreground">
-          {org?.name ?? 'E.L.F.I.E.'}
-        </h1>
 
         {/* Settings / Sign-out - Right */}
         <div className="flex items-center gap-2">
