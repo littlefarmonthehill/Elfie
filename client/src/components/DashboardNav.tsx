@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Rocket, ToyBrick, Orbit, Sparkles } from "lucide-react";
+import { Rocket, ToyBrick, Orbit, Sparkles, ShieldCheck, Building2 } from "lucide-react";
+import { useLocation } from "wouter";
 
 function InsightsIcon({ className, strokeWidth = 1.5, ...props }: { className?: string; strokeWidth?: number } & React.SVGProps<SVGSVGElement>) {
   return (
@@ -21,6 +22,7 @@ interface DashboardNavProps {
   onSelect: (dashboard: DashboardType) => void;
   hideOpsCentral?: boolean;
   ordersCount?: number;
+  superAdmin?: boolean;
 }
 
 export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
@@ -31,8 +33,9 @@ export const dashboards: { id: DashboardType; label: string; color: string; acti
   { id: 'insights', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-gray-500', icon: InsightsIcon },
 ];
 
-export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersCount = 0 }: DashboardNavProps) {
+export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersCount = 0, superAdmin }: DashboardNavProps) {
   const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
+  const [, setLocation] = useLocation();
 
   return (
     <nav
@@ -97,6 +100,24 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, ordersC
             </button>
           );
         })}
+
+        {/* Super admin platform toggle — far right, only for super admins */}
+        {superAdmin && (
+          <>
+            <div className="w-px self-stretch my-2 bg-white/8 shrink-0" />
+            <button
+              onClick={() => setLocation('/platform')}
+              data-testid="tab-platform-admin"
+              className="relative flex flex-col items-center gap-0.5 pt-2 pb-1 px-3 min-w-0 flex-1 transition-colors duration-200 text-lego-purple/60 hover:text-lego-purple/90"
+            >
+              <div className="relative">
+                <ShieldCheck className="relative w-5 h-5 shrink-0" strokeWidth={1.6} />
+              </div>
+              <span className="text-[10px] font-medium truncate max-w-full">Admin</span>
+              <div className="w-5 h-[2px] mt-0.5" />
+            </button>
+          </>
+        )}
       </div>
     </nav>
   );
@@ -108,75 +129,99 @@ interface DashboardNavRailProps {
   hideOpsCentral?: boolean;
   compact?: boolean;
   ordersCount?: number;
+  superAdmin?: boolean;
 }
 
-export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact, ordersCount = 0 }: DashboardNavRailProps) {
+export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact, ordersCount = 0, superAdmin }: DashboardNavRailProps) {
   const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
+  const [, setLocation] = useLocation();
 
   return (
     <div className="flex flex-col items-center py-2 gap-0.5 h-full overflow-hidden">
-      {filtered.map((dashboard) => {
-        const isActive = active === dashboard.id;
-        const Icon = dashboard.icon;
-        const showOrdersBadge = dashboard.id === 'sales' && ordersCount > 0 && !isActive;
+      <div className="flex flex-col items-center gap-0.5 flex-1 w-full">
+        {filtered.map((dashboard) => {
+          const isActive = active === dashboard.id;
+          const Icon = dashboard.icon;
+          const showOrdersBadge = dashboard.id === 'sales' && ordersCount > 0 && !isActive;
 
-        return (
-          <button
-            key={dashboard.id}
-            onClick={() => onSelect(dashboard.id)}
-            data-testid={`rail-tab-${dashboard.id}`}
-            title={dashboard.label}
-            className={cn(
-              "relative flex flex-col items-center gap-1 w-full transition-colors duration-200 rounded-md",
-              compact ? "py-2 px-1" : "py-2.5 px-1",
-              isActive ? dashboard.activeClass : dashboard.inactiveClass
-            )}
-          >
-            {isActive && (
-              <div className={cn(
-                "absolute left-0 top-2 bottom-2 w-[2px] rounded-full",
-                dashboard.color === 'lego-red' && "bg-lego-red shadow-[0_0_6px_2px] shadow-lego-red/50",
-                dashboard.color === 'lego-blue' && "bg-lego-blue shadow-[0_0_6px_2px] shadow-lego-blue/50",
-                dashboard.color === 'lego-orange' && "bg-lego-orange shadow-[0_0_6px_2px] shadow-lego-orange/50",
-                dashboard.color === 'lego-yellow' && "bg-lego-yellow shadow-[0_0_6px_2px] shadow-lego-yellow/50",
-                dashboard.color === 'lego-green' && "bg-lego-green shadow-[0_0_6px_2px] shadow-lego-green/50",
-              )} />
-            )}
-
-            <div className="relative">
+          return (
+            <button
+              key={dashboard.id}
+              onClick={() => onSelect(dashboard.id)}
+              data-testid={`rail-tab-${dashboard.id}`}
+              title={dashboard.label}
+              className={cn(
+                "relative flex flex-col items-center gap-1 w-full transition-colors duration-200 rounded-md",
+                compact ? "py-2 px-1" : "py-2.5 px-1",
+                isActive ? dashboard.activeClass : dashboard.inactiveClass
+              )}
+            >
               {isActive && (
                 <div className={cn(
-                  "absolute inset-0 rounded-full blur-md scale-[2.5] opacity-30",
-                  dashboard.color === 'lego-red' && "bg-lego-red",
-                  dashboard.color === 'lego-blue' && "bg-lego-blue",
-                  dashboard.color === 'lego-orange' && "bg-lego-orange",
-                  dashboard.color === 'lego-yellow' && "bg-lego-yellow",
-                  dashboard.color === 'lego-green' && "bg-lego-green",
+                  "absolute left-0 top-2 bottom-2 w-[2px] rounded-full",
+                  dashboard.color === 'lego-red' && "bg-lego-red shadow-[0_0_6px_2px] shadow-lego-red/50",
+                  dashboard.color === 'lego-blue' && "bg-lego-blue shadow-[0_0_6px_2px] shadow-lego-blue/50",
+                  dashboard.color === 'lego-orange' && "bg-lego-orange shadow-[0_0_6px_2px] shadow-lego-orange/50",
+                  dashboard.color === 'lego-yellow' && "bg-lego-yellow shadow-[0_0_6px_2px] shadow-lego-yellow/50",
+                  dashboard.color === 'lego-green' && "bg-lego-green shadow-[0_0_6px_2px] shadow-lego-green/50",
                 )} />
               )}
-              <Icon
-                className={cn("relative shrink-0", compact ? "w-4 h-4" : "w-5 h-5")}
-                strokeWidth={isActive ? 2.2 : 1.6}
-              />
-              {showOrdersBadge && (
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lego-orange opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-lego-orange" />
+
+              <div className="relative">
+                {isActive && (
+                  <div className={cn(
+                    "absolute inset-0 rounded-full blur-md scale-[2.5] opacity-30",
+                    dashboard.color === 'lego-red' && "bg-lego-red",
+                    dashboard.color === 'lego-blue' && "bg-lego-blue",
+                    dashboard.color === 'lego-orange' && "bg-lego-orange",
+                    dashboard.color === 'lego-yellow' && "bg-lego-yellow",
+                    dashboard.color === 'lego-green' && "bg-lego-green",
+                  )} />
+                )}
+                <Icon
+                  className={cn("relative shrink-0", compact ? "w-4 h-4" : "w-5 h-5")}
+                  strokeWidth={isActive ? 2.2 : 1.6}
+                />
+                {showOrdersBadge && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lego-orange opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-lego-orange" />
+                  </span>
+                )}
+              </div>
+
+              {!compact && (
+                <span className={cn(
+                  "text-[11px] font-medium leading-tight text-center px-0.5 w-full",
+                  isActive && "font-semibold"
+                )}>
+                  {dashboard.label}
                 </span>
               )}
-            </div>
+            </button>
+          );
+        })}
+      </div>
 
+      {/* Super admin platform toggle — at bottom of rail, only for super admins */}
+      {superAdmin && (
+        <div className="w-full border-t border-white/5 pt-1">
+          <button
+            onClick={() => setLocation('/platform')}
+            data-testid="rail-tab-platform-admin"
+            title="Platform Admin"
+            className={cn(
+              "relative flex flex-col items-center gap-1 w-full rounded-md transition-colors duration-200 text-lego-purple/55 hover:text-lego-purple/85",
+              compact ? "py-2 px-1" : "py-2.5 px-1",
+            )}
+          >
+            <ShieldCheck className={cn("relative shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} strokeWidth={1.6} />
             {!compact && (
-              <span className={cn(
-                "text-[11px] font-medium leading-tight text-center px-0.5 w-full",
-                isActive && "font-semibold"
-              )}>
-                {dashboard.label}
-              </span>
+              <span className="text-[11px] font-medium leading-tight text-center px-0.5 w-full">Admin</span>
             )}
           </button>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }

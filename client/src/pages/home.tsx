@@ -1359,6 +1359,7 @@ export default function Home() {
                     active={activeDashboard}
                     onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
                     ordersCount={fulfillmentStats?.unfulfilled ?? 0}
+                    superAdmin={!!superAdmin}
                   />
                 </div>
 
@@ -1859,6 +1860,7 @@ export default function Home() {
             onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
             hideOpsCentral={false}
             ordersCount={fulfillmentStats?.unfulfilled ?? 0}
+            superAdmin={!!superAdmin}
           />
         </div>
       )}

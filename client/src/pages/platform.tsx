@@ -791,7 +791,7 @@ function PlatformNavRail({
 
 const SWIPE_THRESHOLD = 30;
 
-function PlatformBottomNav({ active, onSelect }: { active: PlatformTab; onSelect: (t: PlatformTab) => void }) {
+function PlatformBottomNav({ active, onSelect, hasOrg, onMyOrg }: { active: PlatformTab; onSelect: (t: PlatformTab) => void; hasOrg?: boolean; onMyOrg?: () => void }) {
   const [isHidden, setIsHidden] = useState(false);
   const touchStartY = useRef<number | null>(null);
 
@@ -888,6 +888,22 @@ function PlatformBottomNav({ active, onSelect }: { active: PlatformTab; onSelect
               </button>
             );
           })}
+
+          {/* Org toggle — far right, only when admin also has an org */}
+          {hasOrg && onMyOrg && (
+            <>
+              <div className="w-px self-stretch my-2 bg-white/8 shrink-0" />
+              <button
+                onClick={onMyOrg}
+                data-testid="tab-platform-my-org"
+                className="relative flex flex-col items-center gap-0.5 pt-2 pb-1 px-2 min-w-0 flex-1 transition-colors duration-200 text-lego-blue/60 hover:text-lego-blue/90"
+              >
+                <Building2 className="relative w-5 h-5 shrink-0" strokeWidth={1.6} />
+                <span className="text-[10px] font-medium truncate max-w-full">My Org</span>
+                <div className="w-5 h-[2px] mt-0.5" />
+              </button>
+            </>
+          )}
         </div>
       </nav>
     </>
@@ -1327,7 +1343,7 @@ export default function PlatformPage() {
 
       {/* Bottom Nav — mobile only */}
       <div className="md:hidden">
-        <PlatformBottomNav active={activeTab} onSelect={setActiveTab} />
+        <PlatformBottomNav active={activeTab} onSelect={setActiveTab} hasOrg={hasOrg} onMyOrg={handleMyOrg} />
       </div>
 
       {/* Settings Modal — reuses existing platform admin sections */}

@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Settings, ShieldCheck, LogOut } from "lucide-react";
+import { Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "wouter";
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -129,19 +128,6 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
             )}
           </button>
 
-          {superAdmin && (
-            <Link href="/platform">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-1.5 text-lego-purple border border-lego-purple/25"
-                data-testid="link-platform-admin"
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Platform</span>
-              </Button>
-            </Link>
-          )}
         </div>
 
         {/* App Name - Centered */}
