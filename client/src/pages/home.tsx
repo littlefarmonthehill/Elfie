@@ -11,6 +11,7 @@ import BrickSpotterWelcome, { hasCompletedBsWelcome } from "@/components/BrickSp
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
+import GlobalSearch from "@/components/GlobalSearch";
 import DashboardNav, { DashboardNavRail, DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
 import InventoryDashboard from "@/components/InventoryDashboard";
@@ -237,6 +238,7 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
@@ -1261,6 +1263,7 @@ export default function Home() {
         <Header 
           onSettingsClick={() => setSettingsOpen(true)} 
           onElfieClick={handleElfieClick}
+          onSearchClick={isBrickspotterOnly ? undefined : () => setSearchOpen(true)}
           supportNotification={supportNotification}
           hideSettings={isBrickspotterOnly}
         />
@@ -1718,6 +1721,12 @@ export default function Home() {
       )}
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); setSettingsFocusTarget(undefined); }} initialSection={settingsInitialSection ?? undefined} focusTarget={settingsFocusTarget} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
+
+      <GlobalSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={(type, id) => { setSearchOpen(false); handleDashboardItemClick(type, id); }}
+      />
       
       {/* Detail modal — mobile always; desktop only for BS-only layout (no center column overlay there) */}
       {(!isDesktop || isBrickspotterOnly) && (

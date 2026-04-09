@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Settings, LogOut } from "lucide-react";
+import { Settings, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -10,11 +10,12 @@ import type { Organization } from "@shared/schema";
 interface HeaderProps {
   onSettingsClick: () => void;
   onElfieClick: () => void;
+  onSearchClick?: () => void;
   supportNotification?: boolean;
   hideSettings?: boolean;
 }
 
-export default function Header({ onSettingsClick, onElfieClick, supportNotification, hideSettings }: HeaderProps) {
+export default function Header({ onSettingsClick, onElfieClick, onSearchClick, supportNotification, hideSettings }: HeaderProps) {
   const { superAdmin } = useAuth();
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const logoutMutation = useMutation({
@@ -137,7 +138,18 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
         )}
 
         {/* Settings / Sign-out - Right */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {onSearchClick && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSearchClick}
+              data-testid="button-global-search"
+              title="Search"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          )}
           {hideSettings ? (
             <Button
               size="icon"

@@ -7391,6 +7391,76 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── Fast Global Search ──────────────────────────────────────────────────────
+  app.get("/api/search", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const q = ((req.query.q as string) || '').trim();
+      if (q.length < 2) return res.json({ inventory: [], orders: [] });
+
+      const isNumeric = /^\d+$/.test(q);
+
+      const invWhere = and(
+        eq(blInventory.orgId, orgId),
+        isNull(blInventory.deletedAt),
+        or(
+          ilike(blInventory.itemNo, `%${q}%`),
+          ilike(blInventory.description, `%${q}%`),
+          ilike(blInventory.remarks, `%${q}%`),
+          ...(isNumeric ? [eq(blInventory.id, parseInt(q))] : []),
+        )
+      );
+
+      const inventoryResults = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          description: blInventory.description,
+          remarks: blInventory.remarks,
+          colorName: blColors.name,
+          newOrUsed: blInventory.newOrUsed,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .where(invWhere)
+        .limit(6);
+
+      const ordWhere = and(
+        eq(orders.orgId, orgId),
+        or(
+          ilike(orders.orderNumber, `%${q}%`),
+          ilike(orders.customerUsername, `%${q}%`),
+          ilike(orders.customerEmail, `%${q}%`),
+          ilike(orders.shipTo, `%${q}%`),
+        )
+      );
+
+      const orderResults = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          customerUsername: orders.customerUsername,
+          customerEmail: orders.customerEmail,
+          shipTo: orders.shipTo,
+          orderTotal: orders.orderTotal,
+          orderStatus: orders.orderStatus,
+          marketplace: orders.marketplace,
+          orderDate: orders.orderDate,
+        })
+        .from(orders)
+        .where(ordWhere)
+        .orderBy(desc(orders.orderDate))
+        .limit(6);
+
+      res.json({ inventory: inventoryResults, orders: orderResults });
+    } catch (err) {
+      console.error('Global search error:', err);
+      res.status(500).json({ inventory: [], orders: [] });
+    }
+  });
+
   // Semantic Search - Inventory
   app.post("/api/search/inventory/semantic", isApproved, async (req, res) => {
     try {
