@@ -361,7 +361,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onClick={() => onButtonClick()}
                 data-testid={testId}
                 style={buttonStyle}
-                className={`flex flex-col items-center justify-center rounded-md border px-3 shrink-0 gap-1 self-stretch min-w-[76px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
+                className={`flex flex-col items-center justify-center rounded-md border px-2 shrink-0 gap-1 self-stretch w-[88px] transition-transform duration-75 active:translate-y-[2px] cursor-pointer ${buttonBorderClass}`}
               >
                 {buttonIcon}
                 <span className="font-mono text-[8px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
