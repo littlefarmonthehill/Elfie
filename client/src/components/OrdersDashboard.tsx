@@ -516,7 +516,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   background: 'linear-gradient(180deg, rgba(21,128,61,0.42) 0%, rgba(13,74,35,0.28) 100%)',
                   boxShadow: '0 4px 0 rgba(4,47,24,0.65), inset 0 1px 0 rgba(74,222,128,0.14), 0 0 14px rgba(34,197,94,0.15)',
                 }}
-                className="flex-1 flex flex-col items-center justify-center rounded-lg border border-green-600/55 px-3 shrink-0 gap-1.5 min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
+                className="flex flex-col items-center justify-center rounded-lg border border-green-600/55 px-3 shrink-0 gap-1.5 min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer py-2"
               >
                 <Rocket className="w-4 h-4 text-green-300" />
                 <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-green-200">SHPD</span>
