@@ -4759,6 +4759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM shipments
         WHERE org_id = ${orgId}
           AND status IN ('purchased', 'manifested')
+          AND tracker_id IS NOT NULL
           AND COALESCE(tracking_status, '') <> 'delivered'
         GROUP BY 1
       `);

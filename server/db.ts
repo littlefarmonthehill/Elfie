@@ -2573,6 +2573,31 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracking_updated_at TIMESTAMP`);
     console.log('[Migration] Phase-111 (EasyPost tracker columns on shipments) complete.');
 
+    // Phase-112: Backfill tracking_status for known-delivered and voided shipments
+    // 11 completed orders whose labels were never refreshed (all delivered)
+    // 3 old/legacy orders also confirmed delivered
+    const deliveredResult = await client.query(
+      `UPDATE shipments
+          SET tracking_status = 'delivered',
+              tracking_updated_at = NOW()
+        WHERE order_id IN (
+          'bl-31236418','bl-31224964','bl-31221153','bl-31224196',
+          'bl-31218289','bl-31220891','bl-31220155','bl-31218709',
+          'bl-31215349','bl-31195548','bl-31196767',
+          '736481217','750653674','236719514'
+        )
+          AND (tracking_status IS NULL OR tracking_status = 'pre_transit')`
+    );
+    // 6 voided EasyPost labels for bl-31256206 (address issue, labels cancelled in EasyPost)
+    const voidedResult = await client.query(
+      `UPDATE shipments
+          SET tracking_status = 'cancelled',
+              tracking_updated_at = NOW()
+        WHERE order_id = 'bl-31256206'
+          AND tracking_status IS NULL`
+    );
+    console.log(`[Migration] Phase-112 (backfill delivered/voided tracking statuses) complete — ${deliveredResult.rowCount} delivered, ${voidedResult.rowCount} voided.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
