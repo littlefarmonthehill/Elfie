@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -415,6 +415,24 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1">
                             <AlertTriangle className="w-3 h-3" />
                             Delivery Issue
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'pre_transit' && (
+                          <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1">
+                            <Clock className="w-3 h-3" />
+                            Label Created
+                          </Badge>
+                        )}
+                        {order.trackingStatus === 'available_for_pickup' && (
+                          <Badge className="text-xs bg-teal-900/60 text-teal-300 border border-teal-700/50 gap-1">
+                            <MapPin className="w-3 h-3" />
+                            Ready for Pickup
+                          </Badge>
+                        )}
+                        {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
+                          <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Tracking Error
                           </Badge>
                         )}
                         {isReturned && (
