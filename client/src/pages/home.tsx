@@ -817,7 +817,7 @@ export default function Home() {
       case 'insights':
         return 'Insights';
       case 'marketing':
-        return 'Market';
+        return 'Marketing';
       default:
         return 'Business';
     }
@@ -1383,7 +1383,7 @@ export default function Home() {
                 { id: 'dashboard' as DashboardType, num: '01', label: 'BRIDGE',    hex: '#DC2626', rgb: '220,38,38'  },
                 { id: 'inventory' as DashboardType, num: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229' },
                 { id: 'sales'     as DashboardType, num: '03', label: 'SALES',     hex: '#E8611C', rgb: '232,97,28'  },
-                { id: 'marketing' as DashboardType, num: '04', label: 'MARKET',    hex: '#F5C200', rgb: '245,194,0'  },
+                { id: 'marketing' as DashboardType, num: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0'  },
                 { id: 'insights'  as DashboardType, num: '05', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60'   },
               ];
               const activeCh  = TV_CHANNELS.find(c => c.id === activeDashboard) ?? TV_CHANNELS[1];
@@ -1752,7 +1752,7 @@ export default function Home() {
                   {activeInventoryDrawer === 'acquisition-evaluator' && <><Package className="w-4 h-4 text-violet-400 flex-shrink-0" /> Acquisition Evaluator</>}
                   {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
-                  {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Market</>}
+                  {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
                   {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
                   {billingOpen && <><CreditCard className="w-4 h-4 text-blue-400 flex-shrink-0" /> Payments & Billing</>}
                 </DrawerTitle>

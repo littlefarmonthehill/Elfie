@@ -468,8 +468,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
-        <div className={cn("relative rounded-lg border border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(255,255,255,0.04)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
-          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-gray-500/30 to-transparent" />
+        <div className={cn("relative rounded-lg border border-blue-400/45 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(59,130,246,0.12)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
 
           {/* CC-style header row */}
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")} data-testid="control-panel-tabs">
@@ -507,8 +507,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* STATION — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("relative rounded-lg border border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(255,255,255,0.04)] grid grid-cols-2", isCompact ? "gap-1.5 p-2" : "gap-2 p-2")} data-testid="section-tools">
-          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-gray-500/30 to-transparent" />
+          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
             <StationTool
               icon={ScanSearch}
