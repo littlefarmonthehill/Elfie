@@ -6,7 +6,7 @@
 
 import { db } from "../db";
 import { shipments } from "@shared/schema";
-import { eq, and, isNotNull, ne } from "drizzle-orm";
+import { eq, and, isNotNull, ne, inArray } from "drizzle-orm";
 
 const STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12 hours
 
@@ -25,7 +25,8 @@ export async function refreshActiveTrackingForOrg(orgId: string): Promise<void> 
     .from(shipments)
     .where(and(
       eq(shipments.orgId, orgId),
-      eq(shipments.status, 'purchased'),
+      // Include 'purchased' and 'manifested' — both are active in-transit shipments
+      inArray(shipments.status, ['purchased', 'manifested']),
       isNotNull(shipments.trackingNumber),
       ne(shipments.trackingStatus as any, 'delivered'),
     ));

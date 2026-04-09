@@ -5036,7 +5036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(shipments.orgId, orgId),
           inArray(shipments.orderId, orderIds),
           isNotNull(shipments.trackingNumber),
-          eq(shipments.status, 'purchased'),
+          // Include 'purchased' and 'manifested' — both are active in-transit shipments
+          inArray(shipments.status, ['purchased', 'manifested']),
         ))
         .orderBy(desc(shipments.createdAt));
 
@@ -5047,7 +5048,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!seen.has(r.orderId)) { seen.add(r.orderId); rows.push(r); }
       }
 
-      const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+      // Manual refresh: only rate-limit if status already known (prevent API hammering).
+      // If trackingStatus is null, always try — don't gate untracked shipments.
+      const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 minutes
       const now = Date.now();
 
       let vendor: any;
@@ -5070,12 +5073,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           continue;
         }
-        // Skip if refreshed recently
-        if (row.trackingUpdatedAt) {
+        // Only skip if we already have a status AND it was refreshed very recently (rate limit)
+        // Never skip if trackingStatus is null — always try to fetch a status for the first time
+        if (row.trackingStatus && row.trackingUpdatedAt) {
           const age = now - new Date(row.trackingUpdatedAt).getTime();
-          if (age < STALE_AFTER_MS) {
+          if (age < RATE_LIMIT_MS) {
             results[row.orderId] = {
-              trackingStatus: row.trackingStatus || 'unknown',
+              trackingStatus: row.trackingStatus,
               trackingStatusDetail: '',
               trackingUpdatedAt: row.trackingUpdatedAt.toISOString(),
             };
