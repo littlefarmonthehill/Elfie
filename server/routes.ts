@@ -4971,6 +4971,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const searchQuery = req.query.search as string;
       const range = req.query.range as string | undefined;
+      // When true: skip date filter and exclude delivered orders (for the "not delivered" panel)
+      const excludeDelivered = req.query.excludeDelivered === 'true';
 
       const tz = await getOrgTimezone(orgId);
       const { start, end } = tzDateBounds(range ?? '', tz);
@@ -4988,11 +4990,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )`
         : sql``;
 
-      const dateWhere = start && end
+      // Date filter only applies to delivered orders panel (skipped when excludeDelivered=true)
+      const dateWhere = !excludeDelivered && (start && end)
         ? sql`AND COALESCE(o.ship_date, o.order_date) >= ${start} AND COALESCE(o.ship_date, o.order_date) < ${end}`
-        : start
+        : !excludeDelivered && start
           ? sql`AND COALESCE(o.ship_date, o.order_date) >= ${start}`
           : sql``;
+
+      // Exclude delivered orders when fetching the "not delivered" panel
+      const deliveredWhere = excludeDelivered
+        ? sql`AND COALESCE(s.tracking_status, '') <> 'delivered'`
+        : sql``;
 
       const rawRows = await db.execute(sql`
         SELECT * FROM (
@@ -5027,6 +5035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           WHERE o.org_id = ${orgId}
             AND o.order_status IN ('shipped', 'completed', 'returned', 'cancelled', 'Cancelled')
             ${dateWhere}
+            ${deliveredWhere}
             ${searchWhere}
           ORDER BY o.id, s.created_at DESC NULLS LAST
         ) sub

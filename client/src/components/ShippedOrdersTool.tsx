@@ -155,8 +155,22 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     queryKey: ['/api/org'],
   });
 
-  const { data: shippedOrders, isLoading } = useQuery<ShippedOrder[]>({
-    queryKey: ['/api/orders/shipped', searchQuery, dateRange],
+  // Not-delivered panel: no date range, backend excludes delivered orders
+  const { data: notDeliveredOrders, isLoading: isLoadingNotDelivered } = useQuery<ShippedOrder[]>({
+    queryKey: ['/api/orders/shipped', searchQuery, 'not-delivered'],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      params.set('excludeDelivered', 'true');
+      const response = await fetch(`/api/orders/shipped?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch shipped orders');
+      return response.json();
+    },
+  });
+
+  // Delivered panel: respects the date range selector
+  const { data: deliveredOrders, isLoading: isLoadingDelivered } = useQuery<ShippedOrder[]>({
+    queryKey: ['/api/orders/shipped', searchQuery, dateRange, 'delivered'],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
@@ -166,6 +180,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       return response.json();
     },
   });
+
+  const isLoading = isLoadingNotDelivered || isLoadingDelivered;
+  // Merge for legacy references (refresh-tracking, etc.)
+  const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders?.filter(o => o.trackingStatus === 'delivered') ?? [])];
 
   const handleRefreshTracking = async () => {
     if (!shippedOrders?.length) return;
@@ -335,16 +353,16 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </Button>
         </div>
 
-        {shippedOrders && shippedOrders.length > 0 && (
+        {shippedOrders.length > 0 && (
           <div className="text-sm text-gray-400 flex items-center gap-2">
             <span>Showing {shippedOrders.length} {shippedOrders.length === 1 ? 'order' : 'orders'}</span>
-            {!searchQuery.trim() && shippedOrders.length >= 200 && (
-              <span className="text-xs text-gray-500">(most recent 200 — search to find older orders)</span>
+            {!searchQuery.trim() && (deliveredOrders?.length ?? 0) >= 200 && (
+              <span className="text-xs text-gray-500">(delivered capped at 200 — search to find older)</span>
             )}
           </div>
         )}
 
-        {!shippedOrders || shippedOrders.length === 0 ? (
+        {shippedOrders.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center text-gray-400">
               <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -355,8 +373,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </div>
         ) : (
           (() => {
-            const notDelivered = shippedOrders.filter(o => o.trackingStatus !== 'delivered');
-            const delivered    = shippedOrders.filter(o => o.trackingStatus === 'delivered');
+            const notDelivered = notDeliveredOrders ?? [];
+            const delivered    = (deliveredOrders ?? []).filter(o => o.trackingStatus === 'delivered');
 
             const renderCard = (order: ShippedOrder) => {
               let shipTo: any = {};
