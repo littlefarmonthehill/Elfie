@@ -495,7 +495,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
-        <div className={cn("relative rounded-lg border border-yellow-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(113,63,18,0.60) 0%, rgba(12,10,4,0.70) 100%)' }} data-testid="section-marketing-tools">
+        <div className={cn("relative rounded-lg border border-yellow-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(113,63,18,0.38) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")}>
             <div className="rounded-md ring-1 shrink-0 p-1 bg-yellow-900/55 ring-yellow-500/40">

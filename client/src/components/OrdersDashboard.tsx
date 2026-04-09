@@ -449,7 +449,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               ? "border-orange-400/60 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(249,115,22,0.25)]"
               : "border-orange-400/30 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(249,115,22,0.10)]"
           )}
-          style={{ background: 'linear-gradient(175deg, rgba(60,25,8,0.75) 0%, rgba(12,8,4,0.65) 100%)' }}
+          style={{ background: 'linear-gradient(175deg, rgba(124,45,18,0.40) 0%, rgba(17,24,39,0.88) 100%)' }}
           data-testid="section-command-central-orders"
         >
           {/* Top accent bar */}
@@ -635,7 +635,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative rounded-lg border border-orange-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(60,25,8,0.75) 0%, rgba(12,8,4,0.65) 100%)' }} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-orange-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(124,45,18,0.40) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-orange-400/40 to-transparent" />
 
           {/* CC-style header row */}
