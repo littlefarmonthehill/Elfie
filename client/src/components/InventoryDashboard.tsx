@@ -230,7 +230,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
         {/* Combined Inventory Info + Values */}
         <div
-          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")}
+          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-2" : "p-2 md:p-3")}
           style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
           data-testid="section-inventory-overview"
         >

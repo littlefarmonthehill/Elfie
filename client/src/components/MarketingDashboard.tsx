@@ -467,7 +467,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Customer Overview ── */}
-        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-customer-overview">
+        <div className={cn("relative bg-gradient-to-b from-yellow-900/38 to-gray-900/88 border border-yellow-400/65 rounded-lg shadow-[0_0_28px_rgba(234,179,8,0.26)]", isCompact ? "p-2" : "p-2 md:p-3")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
@@ -495,7 +495,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── Tools ── */}
-        <div className={cn("relative rounded-lg border border-yellow-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(113,63,18,0.38) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-marketing-tools">
+        <div className={cn("relative rounded-lg border border-yellow-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.12)]", isCompact ? "p-2" : "p-2 md:p-3")} style={{ background: 'linear-gradient(175deg, rgba(113,63,18,0.38) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
           <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")}>
             <div className="rounded-md ring-1 shrink-0 p-1 bg-yellow-900/55 ring-yellow-500/40">

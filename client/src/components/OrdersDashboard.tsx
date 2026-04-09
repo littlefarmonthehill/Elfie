@@ -401,7 +401,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'left') && <>
 
         {/* ── Sales Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", isCompact ? "p-2" : "p-2 md:p-3")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
@@ -635,7 +635,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative rounded-lg border border-orange-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(124,45,18,0.40) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-orange-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-2 md:p-3")} style={{ background: 'linear-gradient(175deg, rgba(124,45,18,0.40) 0%, rgba(17,24,39,0.88) 100%)' }} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-orange-400/40 to-transparent" />
 
           {/* CC-style header row */}
