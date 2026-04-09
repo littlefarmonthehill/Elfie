@@ -4741,6 +4741,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Shipment tracking status counts — used by Command Central to show non-delivered shipment lamps
+  app.get("/api/shipments/tracking-summary", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db.execute(sql`
+        SELECT
+          COALESCE(
+            CASE
+              WHEN tracking_status IS NULL OR tracking_status = 'pre_transit' THEN 'label_created'
+              WHEN tracking_status IN ('failure', 'error', 'cancelled') THEN 'failed'
+              ELSE tracking_status
+            END,
+            'label_created'
+          ) AS status,
+          COUNT(*) AS count
+        FROM shipments
+        WHERE org_id = ${orgId}
+          AND status IN ('purchased', 'manifested')
+          AND COALESCE(tracking_status, '') <> 'delivered'
+        GROUP BY 1
+      `);
+      const byStatus: Record<string, number> = {};
+      for (const row of rows.rows as any[]) {
+        byStatus[row.status] = Number(row.count);
+      }
+      res.json({ byStatus });
+    } catch (err: any) {
+      console.error("Error fetching shipment tracking summary:", err);
+      res.status(500).json({ error: "Failed to fetch shipment tracking summary" });
+    }
+  });
+
   // Customer stats aggregated server-side for Marketing Dashboard
   // Returns one row per customer with order_count, total_revenue, last/first order date, most recent order id & ship_to
   app.get("/api/orders/customer-stats", isApproved, async (req: any, res) => {

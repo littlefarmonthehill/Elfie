@@ -429,6 +429,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                             Ready for Pickup
                           </Badge>
                         )}
+                        {order.trackingStatus === 'unknown' && (
+                          <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Unknown
+                          </Badge>
+                        )}
                         {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
                           <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1">
                             <AlertTriangle className="w-3 h-3" />
