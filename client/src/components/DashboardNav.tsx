@@ -27,7 +27,7 @@ export const dashboards: { id: DashboardType; label: string; color: string; acti
   { id: 'dashboard', label: 'Bridge', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-gray-500', icon: Rocket },
   { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-gray-500', icon: ToyBrick },
   { id: 'sales', label: 'Sales', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-gray-500', icon: Orbit },
-  { id: 'marketing', label: 'Market', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-gray-500', icon: Sparkles },
+  { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-gray-500', icon: Sparkles },
   { id: 'insights', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-gray-500', icon: InsightsIcon },
 ];
 

@@ -230,7 +230,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
         {/* Combined Inventory Info + Values */}
         <div
-          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-2" : "p-3")}
+          className={cn("relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden", isCompact ? "p-2" : "p-1 md:p-2.5")}
           style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
           data-testid="section-inventory-overview"
         >
@@ -238,7 +238,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
-          <div className={cn("flex items-center", isCompact ? "gap-1.5" : "gap-2", isCompact ? "mb-1.5" : "mb-3")}>
+          <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
               <Package className="w-3 h-3 text-blue-200" />
             </div>
