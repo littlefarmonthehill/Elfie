@@ -1,6 +1,6 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
+import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles, Satellite, Zap, RotateCw, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -506,7 +506,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
             <StationTool
-              icon={Megaphone}
+              icon={Satellite}
               label="Attract New Customers"
               hex="#6366f1"
               glowRgb="99,102,241"
@@ -516,7 +516,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             />
 
             <StationTool
-              icon={UserPlus}
+              icon={Zap}
               label="New Customers"
               hex="#06b6d4"
               glowRgb="6,182,212"
@@ -526,7 +526,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             />
 
             <StationTool
-              icon={RefreshCcw}
+              icon={RotateCw}
               label="Repeat Customers"
               hex="#3b82f6"
               glowRgb="59,130,246"
@@ -536,7 +536,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             />
 
             <StationTool
-              icon={Trophy}
+              icon={Crown}
               label="Top Spenders"
               hex="#f59e0b"
               glowRgb="245,158,11"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, PackageCheck, Activity, TrendingUp, Package,
+  ShoppingCart, Radio, Gauge, Zap, Rocket,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -677,7 +677,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
             <StationTool
-              icon={Activity}
+              icon={Radio}
               label="Performance"
               hex="#14b8a6"
               glowRgb="20,184,166"
@@ -687,7 +687,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             />
 
             <StationTool
-              icon={TrendingUp}
+              icon={Gauge}
               label="Operations"
               hex="#3b82f6"
               glowRgb="59,130,246"
@@ -697,7 +697,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             />
 
             <StationTool
-              icon={Package}
+              icon={Zap}
               label="Top Items"
               hex="#a855f7"
               glowRgb="168,85,247"
@@ -707,7 +707,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             />
 
             <StationTool
-              icon={PackageCheck}
+              icon={Rocket}
               label="Shipped"
               hex="#22c55e"
               glowRgb="34,197,94"

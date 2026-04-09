@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp, Rocket, ListOrdered } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp, Rocket, ListOrdered, Gauge, Bot, Atom } from "lucide-react";
 import { StationTool } from "./StationTool";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
@@ -510,7 +510,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
             <StationTool
-              icon={ScanSearch}
+              icon={Crosshair}
               label="Brick Spotter"
               hex="#f59e0b"
               glowRgb="245,158,11"
@@ -520,7 +520,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             />
 
             <StationTool
-              icon={Activity}
+              icon={Gauge}
               label="Inventory Health"
               hex="#06b6d4"
               glowRgb="6,182,212"
@@ -530,7 +530,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             />
 
             <StationTool
-              icon={Layers}
+              icon={Bot}
               label="BundleTron"
               hex="#f97316"
               glowRgb="249,115,22"
@@ -540,7 +540,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             />
 
             <StationTool
-              icon={Package}
+              icon={Atom}
               label="Acquisition Evaluator"
               hex="#8b5cf6"
               glowRgb="139,92,246"

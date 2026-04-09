@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight } from "lucide-react";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight, Radio, Gauge, Zap, Rocket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
 import DateRangeSelector, { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
@@ -1130,7 +1130,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
     return (
       <>
         {activeDrawer === 'performance' && (
-          <ToolDrawer icon={Activity} iconColor="text-green-400" title="Performance" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+          <ToolDrawer icon={Radio} iconColor="text-teal-400" title="Performance" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
               <div className="flex justify-center" data-testid="chart-date-range">
                 <DateRangeSelector value={chartDateRange} onChange={setChartDateRange} compact scaled />
               </div>
@@ -1461,7 +1461,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
         )}
 
         {activeDrawer === 'operations' && (
-          <ToolDrawer icon={Activity} iconColor="text-blue-400" title="Operations" onClose={closeDrawer} closeTestId="button-close-operations" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
+          <ToolDrawer icon={Gauge} iconColor="text-blue-400" title="Operations" onClose={closeDrawer} closeTestId="button-close-operations" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
             {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                 <Activity className="w-8 h-8 mb-2 opacity-40" />
@@ -1555,7 +1555,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
         )}
 
         {activeDrawer === 'top-items' && (
-          <ToolDrawer icon={TrendingUp} iconColor="text-purple-400" title="Top Items" onClose={closeDrawer} closeTestId="button-close-top-items" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+          <ToolDrawer icon={Zap} iconColor="text-purple-400" title="Top Items" onClose={closeDrawer} closeTestId="button-close-top-items" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
             {topItemsLoading ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                 <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mb-2" />
