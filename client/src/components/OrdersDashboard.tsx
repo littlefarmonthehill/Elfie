@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, PackageCheck, BarChart2, Activity,
+  ShoppingCart, PackageCheck, Activity, TrendingUp, Package,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -677,23 +677,33 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
 
             <StationTool
-              icon={BarChart2}
-              label="By Platform"
-              hex="#f97316"
-              glowRgb="249,115,22"
-              isCompact={isCompact}
-              onClick={() => onSalesDrawer?.('platform-perf')}
-              testId="tool-platform-performance"
-            />
-
-            <StationTool
               icon={Activity}
-              label="Sales Chart"
+              label="Performance"
               hex="#14b8a6"
               glowRgb="20,184,166"
               isCompact={isCompact}
-              onClick={() => onSalesDrawer?.('chart')}
-              testId="tool-sales-chart"
+              onClick={() => onSalesDrawer?.('performance')}
+              testId="tool-performance"
+            />
+
+            <StationTool
+              icon={TrendingUp}
+              label="Operations"
+              hex="#3b82f6"
+              glowRgb="59,130,246"
+              isCompact={isCompact}
+              onClick={() => onSalesDrawer?.('operations')}
+              testId="tool-operations"
+            />
+
+            <StationTool
+              icon={Package}
+              label="Top Items"
+              hex="#a855f7"
+              glowRgb="168,85,247"
+              isCompact={isCompact}
+              onClick={() => onSalesDrawer?.('top-items')}
+              testId="tool-top-items"
             />
 
             <StationTool

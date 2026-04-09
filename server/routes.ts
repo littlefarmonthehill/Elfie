@@ -4570,6 +4570,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Top selling items by revenue within a date range
+  app.get("/api/orders/top-items", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const range = req.query.range as string;
+      const tz = await getOrgTimezone(orgId);
+      const { start, end } = tzDateBounds(range ?? '', tz);
+
+      const result = await db.execute(sql`
+        SELECT
+          od.item_no AS "itemNo",
+          od.name,
+          od.condition,
+          SUM(od.quantity)::int AS "totalQty",
+          SUM(od.quantity * od.unit_price::numeric) AS "totalRevenue",
+          COUNT(DISTINCT od.order_id)::int AS "orderCount"
+        FROM ${orderDetails} od
+        JOIN ${orders} o ON o.id = od.order_id
+        WHERE o.org_id = ${orgId}
+          AND o.order_date >= ${start}
+          AND o.order_date <= ${end}
+          AND od.item_no IS NOT NULL
+          AND od.unit_price IS NOT NULL
+        GROUP BY od.item_no, od.name, od.condition
+        ORDER BY "totalRevenue" DESC
+        LIMIT 50
+      `);
+
+      res.json(result.rows.map((row: any) => ({
+        itemNo: row.itemNo,
+        name: row.name,
+        condition: row.condition,
+        totalQty: Number(row.totalQty),
+        totalRevenue: Number(row.totalRevenue),
+        orderCount: Number(row.orderCount),
+      })));
+    } catch (error) {
+      console.error("Error fetching top items:", error);
+      res.status(500).json({ error: "Failed to fetch top items" });
+    }
+  });
+
   // Lightweight stats for Orders Dashboard header
   app.get("/api/orders/stats", isApproved, async (req: any, res) => {
     try {

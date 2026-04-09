@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
 import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/popover";
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
-export type SalesDrawer = 'chart' | 'platform-perf' | 'business-intel' | null;
+export type SalesDrawer = 'performance' | 'operations' | 'top-items' | 'business-intel' | null;
 
 interface BusinessInsight {
   id: string;
@@ -294,13 +294,11 @@ interface Order {
 export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, tvSplit, compact }: SalesDashboardProps) {
   const isCompact = !!(tvSplit || compact);
   const [chartDateRange, setChartDateRange] = useState<DateRangeValue>('mtd');
-  const [perfDateRange, setPerfDateRange] = useState<DateRangeValue>('mtd');
   const [localDateRange, setLocalDateRange] = useState<DateRangeValue>(parentDateRange);
+  const [perfTab, setPerfTab] = useState<'chart' | 'platform'>('chart');
 
   const dateRange = renderDrawerOnly
-    ? (activeDrawer === 'chart' ? chartDateRange
-      : activeDrawer === 'platform-perf' ? perfDateRange
-      : parentDateRange)
+    ? (activeDrawer === 'performance' ? chartDateRange : parentDateRange)
     : localDateRange;
 
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
@@ -397,6 +395,24 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
     staleTime: 60000,
   });
 
+  interface TopItem {
+    itemNo: string | null;
+    name: string;
+    condition: string | null;
+    totalQty: number;
+    totalRevenue: number;
+    orderCount: number;
+  }
+  const { data: topItems = [], isLoading: topItemsLoading } = useQuery<TopItem[]>({
+    queryKey: ['/api/orders/top-items', dateRange],
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/top-items?range=${dateRange}`);
+      if (!response.ok) throw new Error('Failed to fetch top items');
+      return response.json();
+    },
+    enabled: activeDrawer === 'top-items',
+    staleTime: 120000,
+  });
 
   // Get available years from orders
   const availableYears = useMemo(() => {
@@ -484,6 +500,68 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   }, [selectedPlatforms, availablePlatforms]);
 
   const platformOrders = filteredOrders.filter(order => (order.marketplace || 'Unknown') === platformDrawer.platform);
+
+  // Operations metrics derived from filteredOrders
+  const operationsMetrics = useMemo(() => {
+    const statusCounts: Record<string, number> = {};
+    let totalTimeToShip = 0;
+    let shippedWithBothDates = 0;
+    const weeklyData: Record<string, { week: string; orders: number; revenue: number; avgShipDays: number | null; shipCount: number; totalShipDays: number }> = {};
+
+    filteredOrders.forEach(order => {
+      const status = order.orderStatus || 'Unknown';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+      // Time to ship
+      if (order.shipDate && order.orderDate) {
+        try {
+          const shipD = parseISO(order.shipDate);
+          const orderD = parseISO(order.orderDate);
+          const days = (shipD.getTime() - orderD.getTime()) / 86400000;
+          if (days >= 0 && days < 365) {
+            totalTimeToShip += days;
+            shippedWithBothDates++;
+          }
+        } catch { /* skip */ }
+      }
+
+      // Weekly aggregation
+      try {
+        const weekStart = startOfWeek(parseISO(order.orderDate), { weekStartsOn: 1 });
+        const weekKey = format(weekStart, 'MMM d');
+        if (!weeklyData[weekKey]) weeklyData[weekKey] = { week: weekKey, orders: 0, revenue: 0, avgShipDays: null, shipCount: 0, totalShipDays: 0 };
+        weeklyData[weekKey].orders++;
+        weeklyData[weekKey].revenue += parseOrderTotal(order.orderTotal);
+        if (order.shipDate && order.orderDate) {
+          try {
+            const days = (parseISO(order.shipDate).getTime() - parseISO(order.orderDate).getTime()) / 86400000;
+            if (days >= 0 && days < 365) {
+              weeklyData[weekKey].totalShipDays += days;
+              weeklyData[weekKey].shipCount++;
+            }
+          } catch { /* skip */ }
+        }
+      } catch { /* skip */ }
+    });
+
+    const statusData = Object.entries(statusCounts)
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const avgTimeToShip = shippedWithBothDates > 0 ? totalTimeToShip / shippedWithBothDates : null;
+    const cancelReturnCount = (statusCounts['Cancelled'] || 0) + (statusCounts['Returned'] || 0);
+    const cancelReturnRate = filteredOrders.length > 0 ? (cancelReturnCount / filteredOrders.length) * 100 : 0;
+
+    const weeklyTrend = Object.values(weeklyData)
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .map(w => ({
+        ...w,
+        avgShipDays: w.shipCount > 0 ? Math.round((w.totalShipDays / w.shipCount) * 10) / 10 : null,
+      }))
+      .slice(-12);
+
+    return { statusData, avgTimeToShip, cancelReturnRate, cancelReturnCount, weeklyTrend };
+  }, [filteredOrders]);
 
   // Calculate sales data with intelligent granularity based on date range
   const getSalesData = () => {
@@ -1051,12 +1129,40 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   if (renderDrawerOnly) {
     return (
       <>
-        {activeDrawer === 'chart' && (
-          <ToolDrawer icon={Activity} iconColor="text-green-400" title="Sales Chart" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+        {activeDrawer === 'performance' && (
+          <ToolDrawer icon={Activity} iconColor="text-green-400" title="Performance" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
               <div className="flex justify-center" data-testid="chart-date-range">
                 <DateRangeSelector value={chartDateRange} onChange={setChartDateRange} compact scaled />
               </div>
-              <div className="bg-black/20 rounded-lg p-3">
+
+              {/* Internal tabs */}
+              <div className="flex gap-1 bg-black/20 rounded-lg p-1" data-testid="performance-tabs">
+                <button
+                  onClick={() => setPerfTab('chart')}
+                  className={`flex-1 text-xs font-semibold py-1 px-2 rounded transition-all ${perfTab === 'chart' ? 'bg-teal-600/40 text-teal-200 border border-teal-500/40' : 'text-gray-500 hover:text-gray-300'}`}
+                  data-testid="tab-performance-chart"
+                >
+                  Sales Chart
+                </button>
+                <button
+                  onClick={() => setPerfTab('platform')}
+                  className={`flex-1 text-xs font-semibold py-1 px-2 rounded transition-all ${perfTab === 'platform' ? 'bg-orange-600/30 text-orange-200 border border-orange-500/40' : 'text-gray-500 hover:text-gray-300'}`}
+                  data-testid="tab-performance-platform"
+                >
+                  By Platform
+                </button>
+              </div>
+
+              {perfTab === 'platform' && (
+                <PlatformPerformance
+                  orders={filteredOrders}
+                  onPlatformClick={(platform) => {
+                    setPlatformDrawer({ open: true, platform, productLine: undefined });
+                  }}
+                />
+              )}
+
+              {perfTab === 'chart' && <div className="bg-black/20 rounded-lg p-3">
                 {!compareMode ? (
                   <>
                     <div className="mb-1 text-xs text-gray-400">
@@ -1136,8 +1242,9 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                     </ResponsiveContainer>
                   </>
                 )}
-              </div>
+              </div>}
 
+              {perfTab === 'chart' && <>
               {/* Compare Controls */}
               <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
                 <button
@@ -1349,20 +1456,151 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                   </table>
                 </div>
               </div>
+              </>}
           </ToolDrawer>
         )}
 
-        {activeDrawer === 'platform-perf' && (
-          <ToolDrawer icon={BarChart2} iconColor="text-orange-400" title="Platform Performance" onClose={closeDrawer} closeTestId="button-close-platform-performance">
-            <div className="flex justify-center mb-3" data-testid="platform-perf-date-range">
-              <DateRangeSelector value={perfDateRange} onChange={setPerfDateRange} compact scaled />
-            </div>
-            <PlatformPerformance
-              orders={filteredOrders}
-              onPlatformClick={(platform) => {
-                setPlatformDrawer({ open: true, platform, productLine: undefined });
-              }}
-            />
+        {activeDrawer === 'operations' && (
+          <ToolDrawer icon={Activity} iconColor="text-blue-400" title="Operations" onClose={closeDrawer} closeTestId="button-close-operations" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
+            {filteredOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Activity className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm">No orders in this period</p>
+              </div>
+            ) : (
+              <>
+                {/* Key stats row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-black/20 rounded-lg p-3 text-center">
+                    <div className="text-[11px] text-gray-500 mb-1">Avg Ship Time</div>
+                    <div className="text-xl font-mono font-bold text-blue-300">
+                      {operationsMetrics.avgTimeToShip !== null ? `${operationsMetrics.avgTimeToShip.toFixed(1)}d` : '—'}
+                    </div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">order → shipped</div>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-3 text-center">
+                    <div className="text-[11px] text-gray-500 mb-1">Cancel / Return</div>
+                    <div className={`text-xl font-mono font-bold ${operationsMetrics.cancelReturnRate > 5 ? 'text-red-400' : 'text-green-400'}`}>
+                      {operationsMetrics.cancelReturnRate.toFixed(1)}%
+                    </div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">{operationsMetrics.cancelReturnCount} orders</div>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-3 text-center">
+                    <div className="text-[11px] text-gray-500 mb-1">Total Orders</div>
+                    <div className="text-xl font-mono font-bold text-gray-200">{filteredOrders.length}</div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">in period</div>
+                  </div>
+                </div>
+
+                {/* Weekly order volume trend */}
+                {operationsMetrics.weeklyTrend.length > 1 && (
+                  <div className="bg-black/20 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Weekly Order Volume</div>
+                    <ResponsiveContainer width="100%" height={150}>
+                      <BarChart data={operationsMetrics.weeklyTrend} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="week" stroke="#6B7280" style={{ fontSize: '9px' }} />
+                        <YAxis stroke="#6B7280" style={{ fontSize: '9px' }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '11px' }}
+                          formatter={(value: number) => [value, 'Orders']}
+                        />
+                        <Bar dataKey="orders" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Avg ship time trend */}
+                {operationsMetrics.weeklyTrend.some(w => w.avgShipDays !== null) && (
+                  <div className="bg-black/20 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Avg Days to Ship (weekly)</div>
+                    <ResponsiveContainer width="100%" height={130}>
+                      <LineChart data={operationsMetrics.weeklyTrend} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="week" stroke="#6B7280" style={{ fontSize: '9px' }} />
+                        <YAxis stroke="#6B7280" style={{ fontSize: '9px' }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '11px' }}
+                          formatter={(value: number) => [`${value}d`, 'Avg Ship Days']}
+                        />
+                        <Line type="monotone" dataKey="avgShipDays" stroke="#60A5FA" strokeWidth={2} dot={{ fill: '#60A5FA', r: 2 }} connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Status breakdown */}
+                <div className="bg-black/20 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Order Status Breakdown</div>
+                  <div className="space-y-1.5">
+                    {operationsMetrics.statusData.map(({ status, count }) => {
+                      const pct = filteredOrders.length > 0 ? (count / filteredOrders.length) * 100 : 0;
+                      const color = status === 'Shipped' ? 'bg-green-500' : status === 'Pending' ? 'bg-yellow-500' : status === 'Cancelled' ? 'bg-red-500' : status === 'Returned' ? 'bg-orange-500' : 'bg-gray-500';
+                      return (
+                        <div key={status} className="flex items-center gap-2">
+                          <div className="w-20 text-[11px] text-gray-400 truncate flex-shrink-0">{status}</div>
+                          <div className="flex-1 bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                            <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="text-[11px] text-gray-400 w-12 text-right flex-shrink-0">{count} <span className="text-gray-600">({pct.toFixed(0)}%)</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </ToolDrawer>
+        )}
+
+        {activeDrawer === 'top-items' && (
+          <ToolDrawer icon={TrendingUp} iconColor="text-purple-400" title="Top Items" onClose={closeDrawer} closeTestId="button-close-top-items" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+            {topItemsLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mb-2" />
+                <p className="text-sm">Loading top items…</p>
+              </div>
+            ) : topItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Package className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm">No item data in this period</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-xs text-gray-500 mb-1">Top {topItems.length} items by revenue — {dateRange} period</div>
+                <div className="space-y-1.5">
+                  {topItems.slice(0, 30).map((item, idx) => {
+                    const maxRevenue = topItems[0]?.totalRevenue || 1;
+                    const pct = (item.totalRevenue / maxRevenue) * 100;
+                    return (
+                      <div key={`${item.itemNo}-${item.condition}-${idx}`} className="bg-black/20 rounded-lg px-3 py-2" data-testid={`row-top-item-${idx}`}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-mono text-purple-300 truncate">{item.itemNo || '—'}</div>
+                            <div className="text-[11px] text-gray-300 truncate">{item.name}</div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-xs font-mono font-bold text-green-400">${Math.round(item.totalRevenue).toLocaleString()}</div>
+                            <div className="text-[10px] text-gray-500">{item.totalQty} units · {item.orderCount} orders</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          {item.condition && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.condition === 'New' ? 'bg-blue-900/50 text-blue-300' : 'bg-amber-900/50 text-amber-300'}`}>
+                              {item.condition}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </ToolDrawer>
         )}
 
