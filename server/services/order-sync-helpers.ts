@@ -142,22 +142,33 @@ export function resolveOrderStatus(
   //
   // 'completed' (buyer confirmed receipt) must never regress — it may only move
   // to 'returned' or 'cancelled'.
-  const wouldDemoteFromShipped   = existingStatus === 'shipped'   &&
+  //
+  // 'returned' and 'cancelled' are fully terminal — they must never regress to any
+  // earlier state.  A marketplace API can show an old status that pre-dates a manual
+  // local action (mark-as-returned, test-order purge, etc.).  Without this guard the
+  // sync would silently undo that local action on every re-sync.
+  const wouldDemoteFromShipped   = existingStatus === 'shipped'    &&
     !['shipped', 'completed', 'cancelled'].includes(incomingStatus);
-  const wouldDemoteFromCompleted = existingStatus === 'completed' &&
+  const wouldDemoteFromCompleted = existingStatus === 'completed'  &&
     !['completed', 'returned', 'cancelled'].includes(incomingStatus);
-  const wouldDemote = wouldDemoteFromShipped || wouldDemoteFromCompleted;
+  const wouldDemoteFromReturned  = existingStatus === 'returned'   &&
+    !['returned', 'cancelled'].includes(incomingStatus);
+  const wouldDemoteFromCancelled = existingStatus === 'cancelled'  &&
+    !['returned', 'cancelled'].includes(incomingStatus);
+  const wouldDemote = wouldDemoteFromShipped || wouldDemoteFromCompleted
+                    || wouldDemoteFromReturned || wouldDemoteFromCancelled;
 
   if (wouldDemote) {
     // BrickOwl sellers use "cancel" the same way BrickLink uses "return" — the seller
     // cancels a shipped order when items come back.  Allow cancelled to override shipped
     // so we can restore inventory (without pushing to other channels), but block all other
     // backward status movements (e.g. shipped → awaiting_shipment caused by stale BL data).
-    if (incomingStatus === 'cancelled') {
+    // Only trigger isShippedCancellation for the specific shipped→cancelled transition.
+    if (wouldDemoteFromShipped && incomingStatus === 'cancelled') {
       return { status: 'cancelled', wasDemotionBlocked: false, isShippedCancellation: true };
     }
-    // Return the *existing* status (not a hardcoded 'shipped') so completed orders
-    // stay completed rather than reverting to shipped.
+    // Return the *existing* status (not a hardcoded 'shipped') so completed/returned/cancelled
+    // orders stay in their local state rather than reverting to a marketplace-reported status.
     return { status: existingStatus, wasDemotionBlocked: true, isShippedCancellation: false };
   }
   return { status: incomingStatus, wasDemotionBlocked: false, isShippedCancellation: false };

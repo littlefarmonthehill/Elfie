@@ -5179,12 +5179,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!order) return res.status(404).json({ error: "Order not found" });
 
       // Split child orders (parentOrderId set) inherit their parent's refund — skip the check.
-      // Returned orders with no ship date were cancelled before shipment — no money was ever
-      // collected, so no refund record exists. Skip the refund gate for these.
+      // Returned or cancelled orders with no ship date were never shipped — no money was ever
+      // collected or refunded, so no refund record exists. Skip the refund gate for these.
       // For all other orders: must have a refund adjustment and net total ≤ 0.
       const isSplitChild = !!order.parentOrderId;
       const isUnshippedReturn = order.orderStatus === 'returned' && !order.shipDate;
-      if (!order.isTest && !isSplitChild && !isUnshippedReturn) {
+      const isUnshippedCancel = order.orderStatus === 'cancelled' && !order.shipDate;
+      if (!order.isTest && !isSplitChild && !isUnshippedReturn && !isUnshippedCancel) {
         const adjResult = await db.execute(sql`
           SELECT COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total
           FROM order_adjustments WHERE order_id = ${orderId}
