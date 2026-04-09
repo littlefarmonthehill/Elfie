@@ -20,31 +20,27 @@ export function StationTool({
   onClick,
   testId,
 }: StationToolProps) {
-  const dotSize = isCompact ? 20 : 24;
+  const lampSize = isCompact ? 22 : 26;
   const iconSize = isCompact ? 10 : 12;
 
   return (
     <button
       onClick={onClick}
       data-testid={testId}
-      className="group flex items-center w-full hover-elevate active-elevate-2 transition-all"
+      className="group flex items-center gap-2.5 w-full active-elevate-2 transition-all rounded-sm px-2 py-1.5"
       style={{
-        borderRadius: '999px',
-        padding: isCompact ? '5px 12px 5px 5px' : '6px 14px 6px 6px',
-        gap: isCompact ? '8px' : '10px',
-        border: `1px solid rgba(${glowRgb}, 0.32)`,
-        background: `rgba(${glowRgb}, 0.05)`,
+        background: 'rgba(0,0,0,0.18)',
+        border: '1px solid rgba(255,255,255,0.06)',
       }}
     >
-      {/* Indicator light */}
+      {/* Lamp — the interactive focal point */}
       <div
-        className="flex-shrink-0 flex items-center justify-center"
+        className="flex-shrink-0 flex items-center justify-center rounded-full transition-all"
         style={{
-          width: dotSize,
-          height: dotSize,
-          borderRadius: '50%',
-          background: `radial-gradient(circle at 38% 38%, rgba(${glowRgb}, 0.55), rgba(${glowRgb}, 0.12))`,
-          boxShadow: `0 0 10px rgba(${glowRgb}, 0.55), 0 0 3px rgba(${glowRgb}, 0.3), inset 0 0 0 1px rgba(${glowRgb}, 0.5)`,
+          width: lampSize,
+          height: lampSize,
+          background: `radial-gradient(circle at 36% 36%, rgba(${glowRgb}, 0.60), rgba(${glowRgb}, 0.08) 70%)`,
+          boxShadow: `0 0 7px rgba(${glowRgb}, 0.45), 0 0 2px rgba(${glowRgb}, 0.25), inset 0 0 0 1px rgba(${glowRgb}, 0.38)`,
         }}
       >
         <Icon
@@ -52,7 +48,7 @@ export function StationTool({
             width: iconSize,
             height: iconSize,
             color: hex,
-            filter: `drop-shadow(0 0 4px rgba(${glowRgb}, 1))`,
+            filter: `drop-shadow(0 0 3px rgba(${glowRgb}, 0.9))`,
             flexShrink: 0,
           }}
         />
@@ -60,10 +56,11 @@ export function StationTool({
 
       {/* Label */}
       <span
-        className="truncate min-w-0 flex-1 font-mono uppercase tracking-wide leading-none"
+        className="truncate min-w-0 font-mono uppercase tracking-widest leading-none"
         style={{
-          fontSize: '9px',
-          color: `color-mix(in srgb, ${hex} 65%, #ccd8f0)`,
+          fontSize: '8.5px',
+          color: `color-mix(in srgb, ${hex} 55%, #8fa3bf)`,
+          letterSpacing: '0.12em',
         }}
       >
         {label}
