@@ -24,6 +24,8 @@ interface InventoryStats {
   totalCost: number;
   totalColors: number;
   totalCategories: number;
+  newParts: number;
+  usedParts: number;
 }
 
 interface InventoryDashboardProps {
@@ -259,12 +261,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           </div>
 
-          {/* Top row: Lots, Parts, Categories */}
+          {/* Top row: Lots, Parts, New/Used condition split */}
           <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5 mb-1.5" : "gap-1.5 mb-1.5")} data-testid="section-inventory-info">
             {([
               { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '—' },
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
-              { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '—' },
             ] as const).map(({ key, label, value }) => (
               <button
                 key={key}
@@ -279,6 +280,29 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </span>
               </button>
             ))}
+            {/* New / Used condition split — non-clickable info card */}
+            {(() => {
+              const total = (stats?.newParts ?? 0) + (stats?.usedParts ?? 0);
+              const newPct = total > 0 ? Math.round(((stats?.newParts ?? 0) / total) * 100) : null;
+              const usedPct = newPct !== null ? 100 - newPct : null;
+              return (
+                <div
+                  data-testid="metric-condition"
+                  className={cn("flex flex-col rounded-md border border-lego-blue/50 bg-gray-800/70", isCompact ? "p-1.5" : "p-1.5 md:p-2.5")}
+                >
+                  <span className={cn("text-gray-300 mb-0.5 leading-tight", isCompact ? "text-xs" : "text-[11px] md:text-xs")}>N / U</span>
+                  {newPct !== null ? (
+                    <span className={cn("font-semibold font-mono leading-none", isCompact ? "text-sm" : "text-xs md:text-base")}>
+                      <span className="text-lego-blue">{newPct}%</span>
+                      <span className="text-gray-500 mx-0.5">·</span>
+                      <span className="text-yellow-400">{usedPct}%</span>
+                    </span>
+                  ) : (
+                    <span className={cn("font-semibold font-mono text-gray-600 leading-none", isCompact ? "text-sm" : "text-xs md:text-base")}>—</span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Bottom row: My Cost, Listed, Mkt Sold Avg */}
@@ -483,7 +507,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* STATION — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
+          <div className={cn("relative rounded-lg border border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(255,255,255,0.04)] grid grid-cols-2", isCompact ? "gap-1.5 p-2" : "gap-2 p-2")} data-testid="section-tools">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-gray-500/30 to-transparent" />
 
             <StationTool
               icon={ScanSearch}

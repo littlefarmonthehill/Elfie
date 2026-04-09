@@ -10033,6 +10033,8 @@ Format search_web URLs as markdown links.`;
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
           totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
+          newParts: sql<number>`SUM(CASE WHEN ${blInventory.newOrUsed} = 'N' THEN ${blInventory.quantity} ELSE 0 END)`,
+          usedParts: sql<number>`SUM(CASE WHEN ${blInventory.newOrUsed} = 'U' THEN ${blInventory.quantity} ELSE 0 END)`,
         }).from(blInventory).where(eq(blInventory.orgId, orgId)),
 
         db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
@@ -10067,6 +10069,8 @@ Format search_web URLs as markdown links.`;
         totalCost: Number(stats[0]?.totalCost) || 0,
         totalColors: Number(colorCount[0]?.count) || 0,
         totalCategories: Number(categoryCount[0]?.count) || 0,
+        newParts: Number(stats[0]?.newParts) || 0,
+        usedParts: Number(stats[0]?.usedParts) || 0,
         soldAvgValue: Number((soldAvgResult as any).rows[0]?.sold_avg_value) || 0,
       });
     } catch (error) {

@@ -675,7 +675,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
           {/* STATION — Tools grid */}
           {panelTab === 'systems' && (
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-order-tools">
+          <div className={cn("relative rounded-lg border border-gray-600/55 bg-gradient-to-b from-gray-800/50 to-gray-900/92 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(255,255,255,0.04)] grid grid-cols-2", isCompact ? "gap-1.5 p-2" : "gap-2 p-2")} data-testid="section-order-tools">
+          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-gray-500/30 to-transparent" />
 
             <StationTool
               icon={BarChart2}
