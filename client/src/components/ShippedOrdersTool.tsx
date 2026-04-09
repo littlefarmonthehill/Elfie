@@ -354,8 +354,11 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {shippedOrders.map((order) => {
+          (() => {
+            const notDelivered = shippedOrders.filter(o => o.trackingStatus !== 'delivered');
+            const delivered    = shippedOrders.filter(o => o.trackingStatus === 'delivered');
+
+            const renderCard = (order: ShippedOrder) => {
               let shipTo: any = {};
               try {
                 shipTo = typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : order.shipTo;
@@ -598,8 +601,29 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                   </div>
                 </div>
               );
-            })}
-          </div>
+            };
+
+            return (
+              <div className="space-y-3">
+                {notDelivered.length > 0 && (
+                  <>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 pb-1">
+                      Not Delivered · {notDelivered.length}
+                    </div>
+                    {notDelivered.map(renderCard)}
+                  </>
+                )}
+                {delivered.length > 0 && (
+                  <div className={notDelivered.length > 0 ? "border-t border-border/30 pt-3 space-y-3" : "space-y-3"}>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 pb-1">
+                      Delivered · {delivered.length}
+                    </div>
+                    {delivered.map(renderCard)}
+                  </div>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
 
