@@ -233,7 +233,7 @@ export default function Home() {
   }>({
     queryKey: ['/api/billing/status'],
   });
-  const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly;
+  const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly && !superAdmin;
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
