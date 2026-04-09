@@ -8,7 +8,7 @@ import { db } from "../db";
 import { shipments } from "@shared/schema";
 import { eq, and, isNotNull, ne } from "drizzle-orm";
 
-const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+const STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 export async function refreshActiveTrackingForOrg(orgId: string): Promise<void> {
   // Find all active (non-delivered) shipments that have a tracking number and are stale
