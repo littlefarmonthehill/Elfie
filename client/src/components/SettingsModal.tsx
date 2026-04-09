@@ -4134,7 +4134,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     }
   };
 
-  const [openGroup, setOpenGroup] = useState<'company' | 'platform'>('company');
+  const [openGroup] = useState<'company' | 'platform'>(forcePlatformAdmin ? 'platform' : 'company');
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
@@ -4434,26 +4434,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
               {activeSection === null && (
                 <nav className="p-2">
-                  {superAdmin && (
-                    <div className="tool-tab-bar mb-1">
-                      <button
-                        onClick={() => setOpenGroup('company')}
-                        className={`tool-tab-fill ${openGroup === 'company' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                        data-testid="button-company-settings-toggle"
-                      >
-                        <Building2 className="w-3.5 h-3.5 shrink-0" />
-                        Company
-                      </button>
-                      <button
-                        onClick={() => setOpenGroup('platform')}
-                        className={`tool-tab-fill ${openGroup === 'platform' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                        data-testid="button-platform-admin-toggle"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        Platform
-                      </button>
-                    </div>
-                  )}
 
                   {openGroup === 'company' && navigationItems.map((item) => (
                     <button
