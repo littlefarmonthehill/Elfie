@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight, Radio, Gauge, Zap, Rocket } from "lucide-react";
+import { TrendingUp, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight, Radio, Gauge, Zap, Rocket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
 import DateRangeSelector, { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
@@ -270,6 +270,61 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Module-level helpers ────────────────────────────────────────────────────
+
+function computeOpsMetrics(orderList: any[]) {
+  const statusCounts: Record<string, number> = {};
+  let totalTimeToShip = 0;
+  let shippedWithBothDates = 0;
+  const weeklyData: Record<string, { week: string; orders: number; revenue: number; avgShipDays: number | null; shipCount: number; totalShipDays: number }> = {};
+
+  orderList.forEach((order: any) => {
+    const status = order.orderStatus || 'Unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+    if (order.shipDate && order.orderDate) {
+      try {
+        const shipD = parseISO(order.shipDate);
+        const orderD = parseISO(order.orderDate);
+        const days = (shipD.getTime() - orderD.getTime()) / 86400000;
+        if (days >= 0 && days < 365) { totalTimeToShip += days; shippedWithBothDates++; }
+      } catch { /* skip */ }
+    }
+
+    try {
+      const weekStart = startOfWeek(parseISO(order.orderDate), { weekStartsOn: 1 });
+      const weekKey = format(weekStart, 'MMM d');
+      if (!weeklyData[weekKey]) weeklyData[weekKey] = { week: weekKey, orders: 0, revenue: 0, avgShipDays: null, shipCount: 0, totalShipDays: 0 };
+      weeklyData[weekKey].orders++;
+      const gross = parseFloat(String(order.orderTotal ?? '0').replace(/[^0-9.-]/g, '')) || 0;
+      weeklyData[weekKey].revenue += gross;
+      if (order.shipDate && order.orderDate) {
+        try {
+          const days = (parseISO(order.shipDate).getTime() - parseISO(order.orderDate).getTime()) / 86400000;
+          if (days >= 0 && days < 365) { weeklyData[weekKey].totalShipDays += days; weeklyData[weekKey].shipCount++; }
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+  });
+
+  const statusData = Object.entries(statusCounts)
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const avgTimeToShip = shippedWithBothDates > 0 ? totalTimeToShip / shippedWithBothDates : null;
+  const cancelReturnCount = (statusCounts['Cancelled'] || 0) + (statusCounts['Returned'] || 0);
+  const cancelReturnRate = orderList.length > 0 ? (cancelReturnCount / orderList.length) * 100 : 0;
+
+  const weeklyTrend = Object.values(weeklyData)
+    .sort((a, b) => a.week.localeCompare(b.week))
+    .map(w => ({ ...w, avgShipDays: w.shipCount > 0 ? Math.round((w.totalShipDays / w.shipCount) * 10) / 10 : null }))
+    .slice(-12);
+
+  return { statusData, avgTimeToShip, cancelReturnRate, cancelReturnCount, weeklyTrend };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface SalesDashboardProps {
   period: TimePeriod;
   dateRange?: DateRangeValue;
@@ -312,6 +367,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year');
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  // ── Operations drawer independent state ──
+  const [opsDateRange, setOpsDateRange] = useState<DateRangeValue>('mtd');
+  const [opsCompareMode, setOpsCompareMode] = useState(false);
+  const [opsSelectedCompareYears, setOpsSelectedCompareYears] = useState<number[]>([currentYear - 1]);
   
   // Helper function to safely parse dates with fallback
   const safeParseDate = (dateString: string): Date => {
@@ -414,6 +474,30 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
     staleTime: 120000,
   });
 
+  // ── Ops drawer: own date-range query (lazy — only fetches when drawer is open) ──
+  const { data: opsOrders = [] } = useQuery<Order[]>({
+    queryKey: ['/api/orders/summary', opsDateRange],
+    queryFn: async () => {
+      const r = await fetch(`/api/orders/summary?range=${opsDateRange}`);
+      if (!r.ok) throw new Error('Failed to fetch ops orders');
+      return r.json();
+    },
+    enabled: activeDrawer === 'operations',
+    staleTime: 30000,
+  });
+
+  // All-time orders — loaded only when compare mode is on, for multi-year KPI comparison
+  const { data: opsAllOrders = [] } = useQuery<Order[]>({
+    queryKey: ['/api/orders/summary', 'all'],
+    queryFn: async () => {
+      const r = await fetch('/api/orders/summary?range=all');
+      if (!r.ok) throw new Error('Failed to fetch all orders');
+      return r.json();
+    },
+    enabled: opsCompareMode && activeDrawer === 'operations',
+    staleTime: 300000,
+  });
+
   // Get available years from orders
   const availableYears = useMemo(() => {
     const years = new Set<number>();
@@ -501,67 +585,81 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
 
   const platformOrders = filteredOrders.filter(order => (order.marketplace || 'Unknown') === platformDrawer.platform);
 
-  // Operations metrics derived from filteredOrders
-  const operationsMetrics = useMemo(() => {
-    const statusCounts: Record<string, number> = {};
-    let totalTimeToShip = 0;
-    let shippedWithBothDates = 0;
-    const weeklyData: Record<string, { week: string; orders: number; revenue: number; avgShipDays: number | null; shipCount: number; totalShipDays: number }> = {};
+  // ── Ops drawer: filtered orders from the ops-specific date range ──
+  const opsFilteredOrders = useMemo(() => {
+    // Reuse the same filtering logic by calling getFilteredOrders on opsOrders
+    const src = opsOrders;
+    if (opsDateRange === 'all') return src;
+    const now = new Date();
+    if (opsDateRange === 'mtd') {
+      const start = startOfMonth(now);
+      return src.filter(o => { const d = safeParseDate(o.orderDate); return d >= start && d <= now; });
+    }
+    if (opsDateRange === 'lastmonth') {
+      const start = startOfMonth(subMonths(now, 1));
+      const end = startOfMonth(now);
+      return src.filter(o => { const d = safeParseDate(o.orderDate); return d >= start && d < end; });
+    }
+    if (opsDateRange === 'prevyear') {
+      const s = new Date(now.getFullYear() - 1, 0, 1);
+      const e = new Date(now.getFullYear(), 0, 1);
+      return src.filter(o => { const d = safeParseDate(o.orderDate); return d >= s && d < e; });
+    }
+    const months = opsDateRange === '1year' ? 12 : 3;
+    const cutoff = startOfMonth(subMonths(now, months - 1));
+    return src.filter(o => { const d = safeParseDate(o.orderDate); return d >= cutoff && d <= now; });
+  }, [opsOrders, opsDateRange]);
 
-    filteredOrders.forEach(order => {
-      const status = order.orderStatus || 'Unknown';
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
+  // Current ops metrics — derived from ops-specific filtered orders
+  const operationsMetrics = useMemo(() => computeOpsMetrics(opsFilteredOrders), [opsFilteredOrders]);
 
-      // Time to ship
-      if (order.shipDate && order.orderDate) {
-        try {
-          const shipD = parseISO(order.shipDate);
-          const orderD = parseISO(order.orderDate);
-          const days = (shipD.getTime() - orderD.getTime()) / 86400000;
-          if (days >= 0 && days < 365) {
-            totalTimeToShip += days;
-            shippedWithBothDates++;
-          }
-        } catch { /* skip */ }
+  // ── Ops compare: available years from all-time orders ──
+  const opsAvailableYears = useMemo(() => {
+    const src = opsCompareMode ? opsAllOrders : opsOrders;
+    const years = new Set<number>();
+    src.forEach(o => { try { years.add(getYear(safeParseDate(o.orderDate))); } catch {} });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [opsAllOrders, opsOrders, opsCompareMode]);
+
+  const opsValidCompareYears = useMemo(() =>
+    opsSelectedCompareYears.filter(y => opsAvailableYears.includes(y) && y !== currentYear),
+    [opsSelectedCompareYears, opsAvailableYears, currentYear]);
+
+  // Per-year ops metrics for compare mode
+  const opsMetricsByYear = useMemo(() => {
+    if (!opsCompareMode || opsValidCompareYears.length === 0) return {} as Record<number, ReturnType<typeof computeOpsMetrics>>;
+    const result: Record<number, ReturnType<typeof computeOpsMetrics>> = {};
+    const allYears = [currentYear, ...opsValidCompareYears];
+    const now = new Date();
+
+    for (const year of allYears) {
+      const offset = currentYear - year;
+      const offsetNow = new Date(now.getFullYear() - offset, now.getMonth(), now.getDate());
+      let yearOrders: Order[];
+
+      const src = opsAllOrders.length > 0 ? opsAllOrders : opsOrders;
+      if (opsDateRange === 'all') {
+        yearOrders = src.filter(o => { try { return getYear(safeParseDate(o.orderDate)) === year; } catch { return false; } });
+      } else if (opsDateRange === 'mtd') {
+        const start = startOfMonth(offsetNow);
+        yearOrders = src.filter(o => { const d = safeParseDate(o.orderDate); return d >= start && d <= offsetNow; });
+      } else if (opsDateRange === 'lastmonth') {
+        const start = startOfMonth(subMonths(offsetNow, 1));
+        const end = startOfMonth(offsetNow);
+        yearOrders = src.filter(o => { const d = safeParseDate(o.orderDate); return d >= start && d < end; });
+      } else if (opsDateRange === 'prevyear') {
+        const s = new Date(year - 1, 0, 1);
+        const e = new Date(year, 0, 1);
+        yearOrders = src.filter(o => { const d = safeParseDate(o.orderDate); return d >= s && d < e; });
+      } else {
+        const months = opsDateRange === '1year' ? 12 : 3;
+        const cutoff = startOfMonth(subMonths(offsetNow, months - 1));
+        yearOrders = src.filter(o => { const d = safeParseDate(o.orderDate); return d >= cutoff && d <= offsetNow; });
       }
-
-      // Weekly aggregation
-      try {
-        const weekStart = startOfWeek(parseISO(order.orderDate), { weekStartsOn: 1 });
-        const weekKey = format(weekStart, 'MMM d');
-        if (!weeklyData[weekKey]) weeklyData[weekKey] = { week: weekKey, orders: 0, revenue: 0, avgShipDays: null, shipCount: 0, totalShipDays: 0 };
-        weeklyData[weekKey].orders++;
-        weeklyData[weekKey].revenue += parseOrderTotal(order.orderTotal);
-        if (order.shipDate && order.orderDate) {
-          try {
-            const days = (parseISO(order.shipDate).getTime() - parseISO(order.orderDate).getTime()) / 86400000;
-            if (days >= 0 && days < 365) {
-              weeklyData[weekKey].totalShipDays += days;
-              weeklyData[weekKey].shipCount++;
-            }
-          } catch { /* skip */ }
-        }
-      } catch { /* skip */ }
-    });
-
-    const statusData = Object.entries(statusCounts)
-      .map(([status, count]) => ({ status, count }))
-      .sort((a, b) => b.count - a.count);
-
-    const avgTimeToShip = shippedWithBothDates > 0 ? totalTimeToShip / shippedWithBothDates : null;
-    const cancelReturnCount = (statusCounts['Cancelled'] || 0) + (statusCounts['Returned'] || 0);
-    const cancelReturnRate = filteredOrders.length > 0 ? (cancelReturnCount / filteredOrders.length) * 100 : 0;
-
-    const weeklyTrend = Object.values(weeklyData)
-      .sort((a, b) => a.week.localeCompare(b.week))
-      .map(w => ({
-        ...w,
-        avgShipDays: w.shipCount > 0 ? Math.round((w.totalShipDays / w.shipCount) * 10) / 10 : null,
-      }))
-      .slice(-12);
-
-    return { statusData, avgTimeToShip, cancelReturnRate, cancelReturnCount, weeklyTrend };
-  }, [filteredOrders]);
+      result[year] = computeOpsMetrics(yearOrders);
+    }
+    return result;
+  }, [opsAllOrders, opsOrders, opsDateRange, opsValidCompareYears, opsCompareMode, currentYear]);
 
   // Calculate sales data with intelligent granularity based on date range
   const getSalesData = () => {
@@ -1407,90 +1505,158 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                   </div>
                 </div>
               )}
-
-              {/* Orders Table */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-4 h-4 text-green-400" />
-                  <h4 className="text-sm font-semibold text-gray-200">Orders</h4>
-                  <span className="text-xs text-gray-500">{filteredOrders.length} total</span>
-                </div>
-                <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-gray-700">
-                  <table className="w-full text-[11px]">
-                    <thead className="sticky top-0 bg-gray-800 text-gray-400 uppercase">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-medium">Order</th>
-                        <th className="px-2 py-1.5 text-left font-medium">Date</th>
-                        <th className="px-2 py-1.5 text-left font-medium">Customer</th>
-                        <th className="px-2 py-1.5 text-left font-medium">Platform</th>
-                        <th className="px-2 py-1.5 text-left font-medium">Status</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {filteredOrders.map((order) => (
-                        <tr
-                          key={order.id}
-                          className="hover:bg-gray-800/40 cursor-pointer transition-colors"
-                          onClick={() => onItemClick?.('order', order.id)}
-                          data-testid={`row-order-${order.id}`}
-                        >
-                          <td className="px-2 py-1.5 font-mono text-green-300">{order.orderNumber || order.id}</td>
-                          <td className="px-2 py-1.5 text-gray-400">{format(parseISO(order.orderDate), 'MMM d, yyyy')}</td>
-                          <td className="px-2 py-1.5 text-gray-300">{order.customerUsername}</td>
-                          <td className="px-2 py-1.5 text-gray-400">{order.marketplace || '—'}</td>
-                          <td className="px-2 py-1.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                              order.orderStatus === 'Shipped' ? 'bg-green-500/20 text-green-300' :
-                              order.orderStatus === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' :
-                              'bg-gray-500/20 text-gray-300'
-                            }`}>{order.orderStatus}</span>
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-200">${parseFloat(order.orderTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                      ))}
-                      {filteredOrders.length === 0 && (
-                        <tr><td colSpan={6} className="px-2 py-6 text-center text-gray-500">No orders in this period</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
               </>}
           </ToolDrawer>
         )}
 
         {activeDrawer === 'operations' && (
-          <ToolDrawer icon={Gauge} iconColor="text-blue-400" title="Operations" onClose={closeDrawer} closeTestId="button-close-operations" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4">
-            {filteredOrders.length === 0 ? (
+          <ToolDrawer icon={Gauge} iconColor="text-blue-400" title="Operations" onClose={closeDrawer} closeTestId="button-close-operations" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+
+            {/* Date range picker */}
+            <div className="flex justify-center" data-testid="ops-date-range">
+              <DateRangeSelector value={opsDateRange} onChange={(v) => { setOpsDateRange(v); setOpsCompareMode(false); }} compact scaled />
+            </div>
+
+            {opsFilteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                 <Activity className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">No orders in this period</p>
               </div>
             ) : (
               <>
-                {/* Key stats row */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-black/20 rounded-lg p-3 text-center">
-                    <div className="text-[11px] text-gray-500 mb-1">Avg Ship Time</div>
-                    <div className="text-xl font-mono font-bold text-blue-300">
-                      {operationsMetrics.avgTimeToShip !== null ? `${operationsMetrics.avgTimeToShip.toFixed(1)}d` : '—'}
+                {/* Compare controls */}
+                <div className="flex flex-wrap items-center gap-2 border border-blue-500/15 rounded-lg bg-black/15 px-2 py-1.5">
+                  <button
+                    onClick={() => setOpsCompareMode(!opsCompareMode)}
+                    className={`flex items-center gap-1.5 text-xs font-bold py-1 px-2 rounded transition-all ${
+                      opsCompareMode
+                        ? 'bg-blue-600/30 text-blue-200 border border-blue-500/40'
+                        : 'text-gray-400 border border-gray-600/30 hover:border-blue-500/30 hover:text-blue-300'
+                    }`}
+                    data-testid="button-ops-toggle-compare"
+                  >
+                    <GitCompare className="w-3 h-3" />
+                    Compare
+                  </button>
+
+                  {opsCompareMode && (
+                    <div className="flex items-center gap-2 overflow-x-auto w-full">
+                      <span className="text-[11px] text-gray-500 flex-shrink-0">vs</span>
+                      <div className="flex gap-1.5 flex-nowrap">
+                        {(() => {
+                          const nonCurrent = opsAvailableYears.filter(y => y !== currentYear);
+                          return nonCurrent.map(year => {
+                            const isSelected = opsSelectedCompareYears.includes(year);
+                            return (
+                              <button
+                                key={year}
+                                onClick={() => {
+                                  if (isSelected) setOpsSelectedCompareYears(opsSelectedCompareYears.filter(y => y !== year));
+                                  else setOpsSelectedCompareYears([...opsSelectedCompareYears, year].sort((a, b) => b - a));
+                                }}
+                                aria-pressed={isSelected}
+                                className={`text-[11px] font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                                data-testid={`ops-year-toggle-${year}`}
+                              >
+                                {year}
+                              </button>
+                            );
+                          });
+                        })()}
+                        {opsAvailableYears.filter(y => y !== currentYear).length === 0 && (
+                          <span className="text-[11px] text-gray-600">No prior years in data — try a wider range</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-gray-600 mt-0.5">order → shipped</div>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-3 text-center">
-                    <div className="text-[11px] text-gray-500 mb-1">Cancel / Return</div>
-                    <div className={`text-xl font-mono font-bold ${operationsMetrics.cancelReturnRate > 5 ? 'text-red-400' : 'text-green-400'}`}>
-                      {operationsMetrics.cancelReturnRate.toFixed(1)}%
-                    </div>
-                    <div className="text-[10px] text-gray-600 mt-0.5">{operationsMetrics.cancelReturnCount} orders</div>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-3 text-center">
-                    <div className="text-[11px] text-gray-500 mb-1">Total Orders</div>
-                    <div className="text-xl font-mono font-bold text-gray-200">{filteredOrders.length}</div>
-                    <div className="text-[10px] text-gray-600 mt-0.5">in period</div>
-                  </div>
+                  )}
                 </div>
+
+                {/* KPI cards — single or compare mode */}
+                {(!opsCompareMode || opsValidCompareYears.length === 0) ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-black/20 rounded-lg p-3 text-center">
+                      <div className="text-[11px] text-gray-500 mb-1">Avg Ship Time</div>
+                      <div className="text-xl font-mono font-bold text-blue-300">
+                        {operationsMetrics.avgTimeToShip !== null ? `${operationsMetrics.avgTimeToShip.toFixed(1)}d` : '—'}
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">order → shipped</div>
+                    </div>
+                    <div className="bg-black/20 rounded-lg p-3 text-center">
+                      <div className="text-[11px] text-gray-500 mb-1">Cancel / Return</div>
+                      <div className={`text-xl font-mono font-bold ${operationsMetrics.cancelReturnRate > 5 ? 'text-red-400' : 'text-green-400'}`}>
+                        {operationsMetrics.cancelReturnRate.toFixed(1)}%
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">{operationsMetrics.cancelReturnCount} orders</div>
+                    </div>
+                    <div className="bg-black/20 rounded-lg p-3 text-center">
+                      <div className="text-[11px] text-gray-500 mb-1">Total Orders</div>
+                      <div className="text-xl font-mono font-bold text-gray-200">{opsFilteredOrders.length}</div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">in period</div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Year-over-year KPI comparison table */
+                  <div className="bg-black/20 rounded-lg p-3" data-testid="section-ops-yoy-metrics">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1 rounded bg-blue-900/50 ring-1 ring-blue-500/40">
+                        <TrendingUp className="w-3 h-3 text-blue-300" />
+                      </div>
+                      <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Year-over-Year Operations</h3>
+                    </div>
+                    {/* Header row */}
+                    <div className={`grid gap-1 mb-1 text-[10px] text-gray-500 text-center font-semibold uppercase tracking-wide`} style={{ gridTemplateColumns: `1fr repeat(${1 + opsValidCompareYears.length}, 1fr)` }}>
+                      <div className="text-left">Metric</div>
+                      <div className="text-blue-400">{currentYear}</div>
+                      {opsValidCompareYears.map(y => <div key={y}>{y}</div>)}
+                    </div>
+                    {/* Avg Ship Time */}
+                    {(() => {
+                      const allYears = [currentYear, ...opsValidCompareYears];
+                      const rows = [
+                        { label: 'Avg Ship Time', fmt: (m: ReturnType<typeof computeOpsMetrics>) => m.avgTimeToShip !== null ? `${m.avgTimeToShip.toFixed(1)}d` : '—', higherIsBetter: false },
+                        { label: 'Cancel/Return', fmt: (m: ReturnType<typeof computeOpsMetrics>) => `${m.cancelReturnRate.toFixed(1)}%`, higherIsBetter: false },
+                        { label: 'Total Orders', fmt: (m: ReturnType<typeof computeOpsMetrics>, orders?: number) => String(orders ?? m.cancelReturnCount + m.statusData.reduce((s, x) => s + x.count, 0)), higherIsBetter: true },
+                      ];
+                      return rows.map(row => (
+                        <div key={row.label} className={`grid gap-1 py-1.5 border-t border-gray-800/60`} style={{ gridTemplateColumns: `1fr repeat(${allYears.length}, 1fr)` }}>
+                          <div className="text-[11px] text-gray-400">{row.label}</div>
+                          {allYears.map((year, idx) => {
+                            const m = opsMetricsByYear[year];
+                            if (!m) return <div key={year} className="text-[11px] text-gray-600 text-center">—</div>;
+                            const orderCount = row.label === 'Total Orders'
+                              ? m.statusData.reduce((s, x) => s + x.count, 0)
+                              : undefined;
+                            const val = row.label === 'Total Orders' ? String(orderCount) : row.fmt(m);
+                            if (idx === 0) return <div key={year} className="text-[11px] font-mono font-bold text-white text-center">{val}</div>;
+                            // Compute % change vs current year
+                            const curr = opsMetricsByYear[currentYear];
+                            let pct: number | null = null;
+                            if (curr && row.label === 'Avg Ship Time' && curr.avgTimeToShip !== null && m.avgTimeToShip !== null) {
+                              pct = ((curr.avgTimeToShip - m.avgTimeToShip) / m.avgTimeToShip) * 100;
+                            } else if (curr && row.label === 'Cancel/Return' && m.cancelReturnRate > 0) {
+                              pct = ((curr.cancelReturnRate - m.cancelReturnRate) / m.cancelReturnRate) * 100;
+                            } else if (curr && row.label === 'Total Orders' && orderCount != null) {
+                              const currOrders = curr.statusData.reduce((s, x) => s + x.count, 0);
+                              pct = orderCount > 0 ? ((currOrders - orderCount) / orderCount) * 100 : null;
+                            }
+                            const good = pct !== null && (row.higherIsBetter ? pct > 0 : pct < 0);
+                            const bad = pct !== null && (row.higherIsBetter ? pct < 0 : pct > 0);
+                            return (
+                              <div key={year} className="text-center">
+                                <div className="text-[11px] font-mono text-gray-300">{val}</div>
+                                {pct !== null && (
+                                  <div className={`text-[10px] font-semibold ${good ? 'text-green-400' : bad ? 'text-red-400' : 'text-gray-500'}`}>
+                                    {pct > 0 ? '+' : ''}{pct.toFixed(1)}%
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
 
                 {/* Weekly order volume trend */}
                 {operationsMetrics.weeklyTrend.length > 1 && (
@@ -1535,7 +1701,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                   <div className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Order Status Breakdown</div>
                   <div className="space-y-1.5">
                     {operationsMetrics.statusData.map(({ status, count }) => {
-                      const pct = filteredOrders.length > 0 ? (count / filteredOrders.length) * 100 : 0;
+                      const pct = opsFilteredOrders.length > 0 ? (count / opsFilteredOrders.length) * 100 : 0;
                       const color = status === 'Shipped' ? 'bg-green-500' : status === 'Pending' ? 'bg-yellow-500' : status === 'Cancelled' ? 'bg-red-500' : status === 'Returned' ? 'bg-orange-500' : 'bg-gray-500';
                       return (
                         <div key={status} className="flex items-center gap-2">
