@@ -13,7 +13,7 @@ import SettingsModal from "@/components/SettingsModal";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import {
   Rocket, Building2, Headphones, TrendingUp, Cpu, Map,
-  Settings, LogOut, ChevronRight, Users, Activity,
+  Settings, ChevronRight, Users, Activity,
   CheckCircle2, AlertCircle, Clock, Search, Shield,
   RefreshCw, Loader2, BarChart3, DollarSign, Package,
   Zap, Star, GitBranch, MessageSquare, Server,
@@ -913,15 +913,10 @@ function PlatformBottomNav({ active, onSelect, hasOrg, onMyOrg }: { active: Plat
 // ─── Platform Header ─────────────────────────────────────────────────────────
 
 function PlatformHeader({
-  activeTab, hasOrg, onSettings, onMyOrg, onLogout,
+  activeTab, onSettings,
 }: {
-  activeTab: PlatformTab; hasOrg: boolean; onSettings: () => void; onMyOrg: () => void; onLogout: () => void;
+  activeTab: PlatformTab; onSettings: () => void;
 }) {
-  const logoutMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/logout'),
-    onSuccess: () => { window.location.href = '/'; },
-  });
-
   const activeTabDef = PLATFORM_TABS.find(t => t.id === activeTab)!;
 
   return (
@@ -937,20 +932,6 @@ function PlatformHeader({
 
       <div className="flex-1" />
 
-      {/* Back to My Org */}
-      {hasOrg && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs h-8 gap-1.5 text-muted-foreground hover:text-foreground shrink-0"
-          onClick={onMyOrg}
-          data-testid="button-platform-my-org"
-        >
-          <Building2 className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">My Org</span>
-        </Button>
-      )}
-
       {/* Settings */}
       <Button
         size="icon"
@@ -961,19 +942,6 @@ function PlatformHeader({
         title="Platform Settings"
       >
         <Settings className="w-4 h-4" />
-      </Button>
-
-      {/* Logout */}
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
-        onClick={() => logoutMutation.mutate()}
-        disabled={logoutMutation.isPending}
-        data-testid="button-platform-logout"
-        title="Log out"
-      >
-        <LogOut className="w-4 h-4" />
       </Button>
     </div>
   );
@@ -1071,10 +1039,7 @@ export default function PlatformPage() {
       <div className="sticky top-0 z-50">
         <PlatformHeader
           activeTab={activeTab}
-          hasOrg={hasOrg}
           onSettings={() => openSettings()}
-          onMyOrg={handleMyOrg}
-          onLogout={() => {}}
         />
       </div>
 
