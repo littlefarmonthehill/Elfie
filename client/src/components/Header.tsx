@@ -130,26 +130,26 @@ export default function Header({ onSettingsClick, onElfieClick, onSearchClick, s
 
         </div>
 
-        {/* Org name - Center */}
-        {org?.name && (
-          <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-200 tracking-wide truncate max-w-[40%] pointer-events-none" data-testid="text-org-name">
-            {org.name}
-          </span>
-        )}
+        {/* Center — tappable search pill or static org name */}
+        <div className="absolute left-1/2 -translate-x-1/2 max-w-[42%] w-full">
+          {onSearchClick ? (
+            <button
+              onClick={onSearchClick}
+              data-testid="button-global-search"
+              className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/6 border border-white/10 hover:bg-white/10 transition-colors"
+            >
+              <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              <span className="text-sm text-gray-300 truncate">{org?.name ?? 'Search…'}</span>
+            </button>
+          ) : org?.name ? (
+            <span className="block text-center text-sm font-semibold text-gray-200 tracking-wide truncate" data-testid="text-org-name">
+              {org.name}
+            </span>
+          ) : null}
+        </div>
 
         {/* Settings / Sign-out - Right */}
         <div className="flex items-center gap-1">
-          {onSearchClick && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onSearchClick}
-              data-testid="button-global-search"
-              title="Search"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          )}
           {hideSettings ? (
             <Button
               size="icon"
