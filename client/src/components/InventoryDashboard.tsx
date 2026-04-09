@@ -468,7 +468,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* SYSTEMS / UPLINK tab panel */}
-        <div className={cn("relative rounded-lg border border-blue-400/45 bg-transparent shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(59,130,246,0.12)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-blue-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(59,130,246,0.12)]", isCompact ? "p-2" : "p-2.5 xl:p-3")} style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
 
           {/* CC-style header row */}

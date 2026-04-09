@@ -463,14 +463,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           {/* Header */}
           <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <div className={cn(
-              "rounded-md ring-1 shrink-0 p-1",
-              hasAction
-                ? "bg-orange-800/65 ring-orange-500/55 shadow-[0_0_6px_rgba(249,115,22,0.3)]"
-                : "bg-gray-800/70 ring-gray-600/40"
+              "rounded-md ring-1 shrink-0 p-1 bg-orange-900/55 ring-orange-500/40",
+              hasAction && "shadow-[0_0_6px_rgba(249,115,22,0.3)]"
             )}>
-              <Crosshair className={cn("w-3 h-3", hasAction ? "text-orange-300" : "text-gray-500")} />
+              <Crosshair className="w-3 h-3 text-orange-200" />
             </div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-gray-400">Command Central</h3>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide flex-1 text-orange-200/80">Command Central</h3>
             {hasAction ? (
               <div className="flex items-center gap-1 shrink-0">
                 <div className="relative w-1.5 h-1.5 shrink-0">
@@ -637,7 +635,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {(!tvSplit || tvSplit === 'right') && <>
 
         {/* ── SYSTEMS / UPLINK tab panel ── */}
-        <div className={cn("relative rounded-lg border border-orange-400/45 bg-transparent shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} data-testid="section-panel-tabs">
+        <div className={cn("relative rounded-lg border border-orange-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(249,115,22,0.12)]", isCompact ? "p-2" : "p-1 md:p-2.5")} style={{ background: 'linear-gradient(175deg, rgba(60,25,8,0.75) 0%, rgba(12,8,4,0.65) 100%)' }} data-testid="section-panel-tabs">
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-orange-400/40 to-transparent" />
 
           {/* CC-style header row */}
