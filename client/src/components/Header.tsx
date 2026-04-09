@@ -5,6 +5,7 @@ import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import type { Organization } from "@shared/schema";
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -15,6 +16,7 @@ interface HeaderProps {
 
 export default function Header({ onSettingsClick, onElfieClick, supportNotification, hideSettings }: HeaderProps) {
   const { superAdmin } = useAuth();
+  const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
     onSuccess: () => { window.location.href = '/'; },
@@ -126,6 +128,13 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
           </button>
 
         </div>
+
+        {/* Org name - Center */}
+        {org?.name && (
+          <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-gray-200 tracking-wide truncate max-w-[40%] pointer-events-none" data-testid="text-org-name">
+            {org.name}
+          </span>
+        )}
 
         {/* Settings / Sign-out - Right */}
         <div className="flex items-center gap-2">
