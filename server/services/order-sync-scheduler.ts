@@ -179,6 +179,16 @@ async function runScheduledChannelSync(
     retryFailedCrossPlatformSyncs(orgId).catch(err =>
       console.error(`⚠️ Cross-platform retry runner error (non-fatal): ${err.message}`)
     );
+
+    // Refresh active shipment tracking — fire and forget so Shipments view is pre-updated
+    (async () => {
+      try {
+        const { refreshActiveTrackingForOrg } = await import('./tracking-refresh');
+        await refreshActiveTrackingForOrg(orgId);
+      } catch (trackErr: any) {
+        console.warn(`⚠️ Tracking refresh error (non-fatal): ${trackErr.message}`);
+      }
+    })();
   } catch (error: any) {
     retry.count++;
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
