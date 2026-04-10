@@ -95,10 +95,10 @@ router.get('/status', asyncRoute(async (req: any, res) => {
     planStatus,
     planSunsetAt,
     brickspotter: {
-      scansUsed: brickspotterCheck.scansUsed ?? 0,
-      scansLimit: brickspotterCheck.scansLimit ?? -1,
-      apiCallLimit: brickspotterCheck.apiCallLimit ?? 0,
-      brickspotterOnly: brickspotterCheck.isBrickspotterOnly ?? false,
+      scansUsed: (brickspotterCheck as any).scansUsed ?? 0,
+      scansLimit: (brickspotterCheck as any).scansLimit ?? -1,
+      apiCallLimit: (brickspotterCheck as any).apiCallLimit ?? 0,
+      brickspotterOnly: (brickspotterCheck as any).isBrickspotterOnly ?? false,
     },
   });
 }));

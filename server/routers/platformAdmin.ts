@@ -137,7 +137,7 @@ router.get("/platform-admin/org-sync-status", isSuperAdmin, asyncRoute(async (_r
     if (!grouped[oid]) grouped[oid] = { orgName: orgMap.get(oid) || oid, syncs: [], brickspotter: null };
     grouped[oid].brickspotter = { totalScans: (bs as any).total_scans, completed: (bs as any).completed, failed: (bs as any).failed, lastScanAt: (bs as any).last_scan_at };
   }
-  for (const [oid, name] of orgMap) {
+  for (const [oid, name] of Array.from(orgMap.entries())) {
     if (!grouped[oid]) grouped[oid] = { orgName: name, syncs: [], brickspotter: null };
   }
   res.json(Object.entries(grouped).map(([orgId, data]) => ({ orgId, ...data })));
@@ -628,9 +628,9 @@ router.get("/platform-admin/system-health", isSuperAdmin, asyncRoute(async (_req
   const [clipTotal] = await db.select({ count: count() }).from(blCatalogClipEmbeddings);
   const [catalogTotal] = await db.select({ count: count() }).from(blCatalog);
   const clipCatalogStatus = { embedded: Number(clipTotal?.count || 0), total: Number(catalogTotal?.count || 0) };
-  const [pAppSettings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+  const [pAppSettings] = await db.select().from(platformSettingsTable).limit(1);
   const detailFreshDays = pAppSettings?.catalogDetailFreshnessDays ?? 90;
-  const priceFreshDays = pAppSettings?.pomFreshnessDays ?? 180;
+  const priceFreshDays = (pAppSettings as any)?.pomFreshnessDays ?? 180;
   const catalogCoverageResult = await db.execute(sql`
     SELECT
       (SELECT COUNT(*) FROM bl_inventory) AS total_lots,
@@ -680,7 +680,7 @@ router.post("/platform-admin/scheduler/:jobId/trigger", isSuperAdmin, asyncRoute
       const { syncPriceOMagicCache } = await import('../services/bricklink.js');
       const { syncLock } = await import('../services/sync-lock.js');
       if (syncLock.isBlockedFor('Price-o-Matic')) return res.status(409).json({ message: `Blocked by: ${syncLock.getBlockersFor('Price-o-Matic').join(', ')}` });
-      const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+      const [settings] = await db.select().from(platformSettingsTable).limit(1);
       const batchSize = settings?.pomScheduleBatchSize ?? 1500;
       const { setPomIsRunning } = await import('../services/pom-scheduler.js');
       setPomIsRunning(true);
@@ -703,7 +703,7 @@ router.post("/platform-admin/scheduler/:jobId/trigger", isSuperAdmin, asyncRoute
       (async () => {
         try {
           const { imported } = await importFromRebrickable();
-          const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+          const [settings] = await db.select().from(platformSettingsTable).limit(1);
           const reset = await retryStaleItems(settings?.universalCatalogRetryDays ?? 30);
           await startUniversalWorker();
           await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'success', lastSyncTime: new Date(), recordsAdded: imported, recordsUpdated: reset, errorMessage: null }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'success', lastSyncTime: new Date(), recordsAdded: imported, recordsUpdated: reset, errorMessage: null, updatedAt: new Date() } });
@@ -800,7 +800,8 @@ router.post("/platform-admin/org-sync-trigger/:orgId/:type", isSuperAdmin, async
     return res.json({ message: `Channel sync triggered for org ${orgId}` });
   }
   if (type === 'orders') {
-    const { syncOrdersForOrg } = await import('../services/order-sync-service.js').catch(() => ({ syncOrdersForOrg: null })) as any;
+    const syncSvcPath = '../services/order-sync-service' as string;
+    const { syncOrdersForOrg } = await import(syncSvcPath).catch(() => ({ syncOrdersForOrg: null })) as any;
     if (syncOrdersForOrg) {
       syncOrdersForOrg(orgId).catch((e: any) => console.error(`[Admin Trigger] Orders sync failed for ${orgId}:`, e));
       return res.json({ message: `Orders sync triggered for org ${orgId}` });
