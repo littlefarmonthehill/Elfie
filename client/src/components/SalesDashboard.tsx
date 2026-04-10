@@ -157,7 +157,7 @@ function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending 
             )}
           </div>
           <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-gray-700/30">
-            <div className={cn("flex items-center", isCompact ? "gap-1" : "gap-2")}>
+            <div className="flex items-center gap-2">
               <span className={cn("text-[11px] capitalize", catCfg.color)}>{catCfg.label}</span>
               <span className="text-[11px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
             </div>
