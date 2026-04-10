@@ -465,9 +465,10 @@ router.get("/orders/shipped", isApproved, asyncRoute(async (req: any, res) => {
       LEFT JOIN shipments s ON o.id = s.order_id
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed','returned','cancelled','Cancelled')
-        ${dateWhere} ${deliveredWhere} ${searchWhere}
+        ${dateWhere} ${searchWhere}
       ORDER BY o.id, CASE WHEN s.status = 'voided' THEN 1 ELSE 0 END ASC, s.created_at DESC NULLS LAST
     ) sub
+    WHERE true ${deliveredWhere}
     ORDER BY sort_date DESC
     LIMIT ${limit}
   `);
