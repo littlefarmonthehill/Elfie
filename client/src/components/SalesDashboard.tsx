@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight, Radio, Gauge, Zap, Rocket } from "lucide-react";
+import { BarChart2, GitCompare, Info, ArrowRight, X, Activity, Radar, DollarSign, AlertTriangle, Zap, TrendingDown, Eye, EyeOff, ChevronDown, ChevronRight, Radio, Gauge, Rocket, Crosshair, Archive, Layers, Signal, Compass } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
 import DateRangeSelector, { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
@@ -39,19 +39,19 @@ interface BusinessInsight {
 
 const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   pricing: { icon: DollarSign, color: 'text-yellow-400', bg: 'bg-yellow-900/30', label: 'Pricing' },
-  acquisition: { icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-900/30', label: 'Acquisition' },
-  overstock: { icon: Package, color: 'text-orange-400', bg: 'bg-orange-900/30', label: 'Overstock' },
+  acquisition: { icon: Crosshair, color: 'text-blue-400', bg: 'bg-blue-900/30', label: 'Acquisition' },
+  overstock: { icon: Archive, color: 'text-orange-400', bg: 'bg-orange-900/30', label: 'Overstock' },
   restock: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30', label: 'Restock' },
-  revenue: { icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Revenue' },
-  velocity: { icon: Activity, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Velocity' },
-  channel: { icon: BarChart2, color: 'text-indigo-400', bg: 'bg-indigo-900/30', label: 'Channel' },
-  new_customer: { icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'New Customer' },
+  revenue: { icon: BarChart2, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Revenue' },
+  velocity: { icon: Zap, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Velocity' },
+  channel: { icon: Signal, color: 'text-indigo-400', bg: 'bg-indigo-900/30', label: 'Channel' },
+  new_customer: { icon: Compass, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'New Customer' },
   top_spender: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-900/30', label: 'Top Spender' },
   dormant: { icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-900/30', label: 'Dormant' },
-  opportunity: { icon: Lightbulb, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Opportunity' },
+  opportunity: { icon: Zap, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Opportunity' },
   risk: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30', label: 'Risk' },
-  trend: { icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Trend' },
-  customer: { icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'Customer' },
+  trend: { icon: Activity, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Trend' },
+  customer: { icon: Crosshair, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'Customer' },
 };
 
 const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -62,9 +62,9 @@ const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'seco
 
 type OpArea = 'product' | 'sales' | 'customer';
 const OP_AREA_CONFIG: Record<OpArea, { label: string; icon: React.ElementType; color: string; borderColor: string; categories: string[] }> = {
-  product: { label: 'Product & Inventory', icon: Package, color: 'text-yellow-400', borderColor: 'border-yellow-500/30', categories: ['pricing', 'acquisition', 'overstock', 'restock', 'risk'] },
-  sales: { label: 'Orders & Sales', icon: TrendingUp, color: 'text-green-400', borderColor: 'border-green-500/30', categories: ['revenue', 'velocity', 'channel', 'trend', 'opportunity'] },
-  customer: { label: 'Customer Intelligence', icon: Users, color: 'text-cyan-400', borderColor: 'border-cyan-500/30', categories: ['new_customer', 'top_spender', 'dormant', 'customer'] },
+  product: { label: 'Product & Inventory', icon: Layers, color: 'text-yellow-400', borderColor: 'border-yellow-500/30', categories: ['pricing', 'acquisition', 'overstock', 'restock', 'risk'] },
+  sales: { label: 'Orders & Sales', icon: BarChart2, color: 'text-green-400', borderColor: 'border-green-500/30', categories: ['revenue', 'velocity', 'channel', 'trend', 'opportunity'] },
+  customer: { label: 'Customer Intelligence', icon: Crosshair, color: 'text-cyan-400', borderColor: 'border-cyan-500/30', categories: ['new_customer', 'top_spender', 'dormant', 'customer'] },
 };
 
 function getOpArea(category: string): OpArea {
@@ -1454,7 +1454,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics-drawer">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                      <TrendingUp className="w-3 h-3 text-purple-300" />
+                      <BarChart2 className="w-3 h-3 text-purple-300" />
                     </div>
                     <h3 className="text-xs md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
                   </div>
@@ -1483,7 +1483,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics-drawer">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                      <TrendingUp className="w-3 h-3 text-purple-300" />
+                      <BarChart2 className="w-3 h-3 text-purple-300" />
                     </div>
                     <h3 className="text-xs md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
                   </div>
@@ -1599,7 +1599,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                   <div className="bg-black/20 rounded-lg p-3" data-testid="section-ops-yoy-metrics">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-1 rounded bg-blue-900/50 ring-1 ring-blue-500/40">
-                        <TrendingUp className="w-3 h-3 text-blue-300" />
+                        <BarChart2 className="w-3 h-3 text-blue-300" />
                       </div>
                       <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Year-over-Year Operations</h3>
                     </div>
@@ -1729,7 +1729,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
               </div>
             ) : topItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                <Package className="w-8 h-8 mb-2 opacity-40" />
+                <Archive className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">No item data in this period</p>
               </div>
             ) : (

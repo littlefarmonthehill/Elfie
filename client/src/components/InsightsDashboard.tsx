@@ -4,10 +4,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import {
-  Newspaper, Radio, Radar, TrendingUp, ShoppingCart, Package, AlertTriangle,
-  Activity, BarChart2, Users, DollarSign, EyeOff, ExternalLink, X,
-  MessageSquare, Settings, RefreshCw, Truck, Star, Zap, Target, ChevronDown,
-  ChevronUp, ArrowRight, Sparkles,
+  Newspaper, Radio, Radar, BarChart2, AlertTriangle,
+  Activity, Signal, DollarSign, EyeOff, ExternalLink, X,
+  Antenna, Settings, RefreshCw, Rocket, Star, Zap, Target, ChevronDown,
+  ChevronUp, ArrowRight, Sparkles, Layers, Crosshair, Archive, Compass,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ const STRATEGY_AREAS = [
   {
     key: 'inventory',
     label: 'Inventory',
-    icon: Package,
+    icon: Layers,
     color: 'text-blue-400',
     bg: 'bg-blue-900/20',
     border: 'border-blue-500/30',
@@ -86,7 +86,7 @@ const STRATEGY_AREAS = [
   {
     key: 'orders',
     label: 'Orders',
-    icon: Truck,
+    icon: Rocket,
     color: 'text-orange-400',
     bg: 'bg-orange-900/20',
     border: 'border-orange-500/30',
@@ -97,7 +97,7 @@ const STRATEGY_AREAS = [
   {
     key: 'customer',
     label: 'Customer',
-    icon: Users,
+    icon: Crosshair,
     color: 'text-cyan-400',
     bg: 'bg-cyan-900/20',
     border: 'border-cyan-500/30',
@@ -108,7 +108,7 @@ const STRATEGY_AREAS = [
   {
     key: 'market',
     label: 'Market',
-    icon: TrendingUp,
+    icon: BarChart2,
     color: 'text-green-400',
     bg: 'bg-green-900/20',
     border: 'border-green-500/30',
@@ -150,13 +150,13 @@ const URGENCY_CONFIG = {
 
 const CATEGORY_ICON: Record<string, React.ElementType> = {
   pricing: DollarSign,
-  acquisition: ShoppingCart,
-  overstock: Package,
+  acquisition: Crosshair,
+  overstock: Archive,
   restock: AlertTriangle,
-  revenue: TrendingUp,
-  velocity: Activity,
-  channel: BarChart2,
-  new_customer: Users,
+  revenue: BarChart2,
+  velocity: Zap,
+  channel: Signal,
+  new_customer: Compass,
   top_spender: Star,
   dormant: EyeOff,
 };
@@ -672,7 +672,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       ═══════════════════════════════════════════════════════════════════ */}
       <section data-testid="zone-forum-pulse">
         <SectionTitle
-          icon={MessageSquare}
+          icon={Antenna}
           iconBg="bg-purple-900/50 ring-purple-400/30"
           iconColor="text-purple-300"
           label="Forum"
@@ -683,7 +683,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           <HScrollSkeleton />
         ) : posts.length === 0 ? (
           <EmptyHScroll
-            icon={MessageSquare}
+            icon={Antenna}
             message="No recent BrickLink forum topics found. Topics are fetched periodically — try refreshing."
           />
         ) : (

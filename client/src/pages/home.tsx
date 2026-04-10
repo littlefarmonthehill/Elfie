@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard, ShoppingCart, Users, TrendingUp } from "lucide-react";
+import { Layers, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Rocket, Globe, SlidersHorizontal, Info, CreditCard, Satellite, Megaphone, Activity, Bot, Atom, Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -115,7 +115,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
   }> = [
     {
       id: 'inventory', ch: '02', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229',
-      Icon: Package,
+      Icon: Layers,
       stats: [
         { label: 'LOTS', value: dashStats ? fmt(dashStats.totalInventoryItems) : '—' },
         { label: 'PCS',  value: dashStats ? fmt(dashStats.totalInventoryQuantity) : '—' },
@@ -125,7 +125,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
     },
     {
       id: 'sales', ch: '03', label: 'SALES', hex: '#E8611C', rgb: '232,97,28',
-      Icon: ShoppingCart,
+      Icon: Satellite,
       stats: [
         { label: 'PENDING', value: fmt(pendingOrders) },
         { label: 'MTD',     value: orderStats ? fmt(orderStats.totalOrders) : '—' },
@@ -135,7 +135,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
     },
     {
       id: 'marketing', ch: '04', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0',
-      Icon: Users,
+      Icon: Megaphone,
       stats: [
         { label: 'CHANNELS', value: fmt(channelCount) },
         { label: 'REPEAT',   value: fmt(repeatBuyers) },
@@ -145,7 +145,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
     },
     {
       id: 'insights', ch: '05', label: 'INSIGHTS', hex: '#00963C', rgb: '0,150,60',
-      Icon: TrendingUp,
+      Icon: Activity,
       stats: [
         { label: 'THIS WK', value: fmtMoney(thisWeek) },
         { label: 'LAST WK', value: fmtMoney(lastWeek) },
@@ -690,7 +690,7 @@ export default function Home() {
     }
     if (activeOrdersDrawer === 'fulfillment') {
       return (
-        <ToolDrawer icon={Truck} iconColor="text-orange-400" title="Fulfillment & Shipping" onClose={closeActiveDrawer} actions={
+        <ToolDrawer icon={Rocket} iconColor="text-orange-400" title="Fulfillment & Shipping" onClose={closeActiveDrawer} actions={
           <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-fulfillment-settings">
             <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
           </Button>
@@ -701,7 +701,7 @@ export default function Home() {
     }
     if (activeOrdersDrawer === 'shipped') {
       return (
-        <ToolDrawer icon={PackageCheck} iconColor="text-green-400" title="Shipped Orders" onClose={closeActiveDrawer} actions={
+        <ToolDrawer icon={Globe} iconColor="text-green-400" title="Shipped Orders" onClose={closeActiveDrawer} actions={
           <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('platforms')} data-testid="button-shipped-settings">
             <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
           </Button>
@@ -751,7 +751,7 @@ export default function Home() {
     }
     if (activeInventoryDrawer === 'acquisition-evaluator') {
       return (
-        <ToolDrawer icon={Package} iconColor="text-violet-400" title="Acquisition Evaluator" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4">
+        <ToolDrawer icon={Atom} iconColor="text-violet-400" title="Acquisition Evaluator" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4">
           <AcquisitionEvaluator />
         </ToolDrawer>
       );
@@ -1758,12 +1758,12 @@ export default function Home() {
                   {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" /> Price-o-Matic</>}
                   {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-4 h-4 text-green-400 flex-shrink-0" /> List-o-Matic</>}
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
-                  {activeInventoryDrawer === 'bundletron' && <><Package className="w-4 h-4 text-orange-400 flex-shrink-0" /> BundleTron</>}
-                  {activeInventoryDrawer === 'acquisition-evaluator' && <><Package className="w-4 h-4 text-violet-400 flex-shrink-0" /> Acquisition Evaluator</>}
-                  {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
-                  {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
-                  {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
-                  {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
+                  {activeInventoryDrawer === 'bundletron' && <><Bot className="w-4 h-4 text-orange-400 flex-shrink-0" /> BundleTron</>}
+                  {activeInventoryDrawer === 'acquisition-evaluator' && <><Atom className="w-4 h-4 text-violet-400 flex-shrink-0" /> Acquisition Evaluator</>}
+                  {activeOrdersDrawer === 'fulfillment' && <><Rocket className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
+                  {activeOrdersDrawer === 'shipped' && <><Globe className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
+                  {activeMarketingDrawer && <><Megaphone className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
+                  {activeSalesDrawer && <><Radar className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
                   {billingOpen && <><CreditCard className="w-4 h-4 text-blue-400 flex-shrink-0" /> Payments & Billing</>}
                 </DrawerTitle>
                 <button onClick={closeActiveDrawer} className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-tool-drawer">

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, TrendingUp, Rocket, ListOrdered, Gauge, Bot, Atom } from "lucide-react";
+import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom } from "lucide-react";
 import { StationTool } from "./StationTool";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
@@ -240,7 +240,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {/* Header */}
           <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
-              <Package className="w-3 h-3 text-blue-200" />
+              <Layers className="w-3 h-3 text-blue-200" />
             </div>
             <h3 className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
             <div className="ml-auto">
@@ -596,7 +596,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
             {/* Header */}
             <div className="flex-shrink-0 flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              <Package className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              <Layers className="w-4 h-4 text-blue-400 flex-shrink-0" />
               <span className="text-sm font-semibold text-gray-100 flex-1">
                 {browseDrawer === 'lots' ? 'Inventory Lots' : browseDrawer === 'parts' ? 'Parts by Quantity' : 'Categories'}
               </span>
