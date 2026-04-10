@@ -1319,6 +1319,13 @@ router.get("/public-roadmap", isAuthenticated, asyncRoute(async (req: any, res) 
   res.json(enriched);
 }));
 
+router.get("/feature-votes/counts", isAuthenticated, asyncRoute(async (_req, res) => {
+  const voteCounts = await db.select({ capabilityId: featureVotes.capabilityId, votes: count() }).from(featureVotes).groupBy(featureVotes.capabilityId);
+  const map: Record<number, number> = {};
+  voteCounts.forEach(v => { map[v.capabilityId] = Number(v.votes); });
+  res.json(map);
+}));
+
 router.post("/feature-votes/:capabilityId", isAuthenticated, asyncRoute(async (req: any, res) => {
   const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || '';
   const orgId = reqOrgId(req);
