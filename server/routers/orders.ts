@@ -278,7 +278,7 @@ router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed')
         AND o.is_test = false
-      ORDER BY o.id, s.created_at DESC NULLS LAST
+      ORDER BY o.id, CASE WHEN s.status = 'voided' THEN 1 ELSE 0 END ASC, s.created_at DESC NULLS LAST
     ) sub
     GROUP BY status
   `);
@@ -466,7 +466,7 @@ router.get("/orders/shipped", isApproved, asyncRoute(async (req: any, res) => {
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed','returned','cancelled','Cancelled')
         ${dateWhere} ${deliveredWhere} ${searchWhere}
-      ORDER BY o.id, s.created_at DESC NULLS LAST
+      ORDER BY o.id, CASE WHEN s.status = 'voided' THEN 1 ELSE 0 END ASC, s.created_at DESC NULLS LAST
     ) sub
     ORDER BY sort_date DESC
     LIMIT ${limit}
@@ -782,7 +782,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const [items, adjustments, [latestShipment]] = await Promise.all([
     db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId)),
     db.select().from(orderAdjustments).where(eq(orderAdjustments.orderId, orderId)).orderBy(desc(orderAdjustments.createdAt)),
-    db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(desc(shipments.createdAt)).limit(1),
+    db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(sql`CASE WHEN ${shipments.status} = 'voided' THEN 1 ELSE 0 END`, desc(shipments.createdAt)).limit(1),
   ]);
 
   // Parse shipTo JSON into customer object
