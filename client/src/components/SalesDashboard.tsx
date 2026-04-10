@@ -1795,9 +1795,6 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
           {warnings.map((warning, idx) => (
             <div key={idx} className="text-red-300 text-xs font-mono mb-1">{warning}</div>
           ))}
-          <div className="text-red-400 text-xs mt-2">
-            Debug Info: dateRange={dateRange}, orders={orders.length}, filtered={filteredOrders.length}, revenue=${totalRevenue.toFixed(2)}
-          </div>
         </div>
       )}
       

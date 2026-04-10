@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { fmtChangeVal } from "@/lib/utils";
 
 const FIELD_LABELS: Record<string, string> = {
   quantity: 'Qty',
@@ -68,17 +69,6 @@ const FIELD_LABELS: Record<string, string> = {
   tierPrice1: 'Tier Price 1', tierPrice2: 'Tier Price 2', tierPrice3: 'Tier Price 3',
 };
 
-function fmtChangeVal(field: string, value: string | null | undefined): string {
-  if (value == null || value === '' || value === 'null') return '—';
-  if (field === 'unitPrice' || field.includes('Price') || field.includes('price')) {
-    const n = parseFloat(value);
-    return isNaN(n) ? value : `$${n.toFixed(2)}`;
-  }
-  if (value === 'true') return 'Yes';
-  if (value === 'false') return 'No';
-  if (value.length > 32) return value.slice(0, 30) + '…';
-  return value;
-}
 
 function ChangeDiffRows({ changes }: { changes: { field: string; oldValue: string | null; newValue: string | null }[] }) {
   return (

@@ -392,7 +392,11 @@ export const orderDetails = pgTable("order_details", {
   fulfilledAt: timestamp("fulfilled_at"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orderIdIdx:    index("order_details_order_id_idx").on(table.orderId),        // JOIN from orders — most frequent
+  blInvIdx:      index("order_details_bl_inv_idx").on(table.bricklinkInventoryId), // BL inventory lookup
+  fulfilledIdx:  index("order_details_fulfilled_idx").on(table.fulfilled),     // Fulfillment queue filter
+}));
 
 export const insertOrderDetailSchema = createInsertSchema(orderDetails).omit({
   id: true,
@@ -417,7 +421,10 @@ export const orderSplits = pgTable("order_splits", {
   splitSuffix: text("split_suffix").notNull(), // e.g., "-1", "-2"
   reason: text("reason"), // Why the order was split (e.g., "partial shipment", "backorder")
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  parentOrderIdx: index("order_splits_parent_order_idx").on(table.parentOrderId),
+  splitOrderIdx:  index("order_splits_split_order_idx").on(table.splitOrderId),
+}));
 
 export const insertOrderSplitSchema = createInsertSchema(orderSplits).omit({
   id: true,
@@ -434,7 +441,10 @@ export const orderSplitItems = pgTable("order_split_items", {
   orderDetailId: varchar("order_detail_id").notNull(), // Reference to order_details.id
   quantityAssigned: integer("quantity_assigned").notNull(), // How many of this item went to the split
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  splitIdIdx:       index("order_split_items_split_id_idx").on(table.splitId),
+  orderDetailIdIdx: index("order_split_items_detail_id_idx").on(table.orderDetailId),
+}));
 
 export const insertOrderSplitItemSchema = createInsertSchema(orderSplitItems).omit({
   id: true,
@@ -676,7 +686,10 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   notifyAllOrders: boolean("notify_all_orders").notNull().default(true),
   notifyPriorityOrders: boolean("notify_priority_orders").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx:  index("push_subscriptions_org_id_idx").on(table.orgId),
+  userIdIdx: index("push_subscriptions_user_id_idx").on(table.userId),
+}));
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 
 export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
@@ -843,7 +856,10 @@ export const bulkLots = pgTable("bulk_lots", {
   syncError:   text("sync_error"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx:  index("bulk_lots_org_id_idx").on(table.orgId),
+  orgStatusIdx: index("bulk_lots_org_status_idx").on(table.orgId, table.status),
+}));
 export type BulkLot = typeof bulkLots.$inferSelect;
 export const insertBulkLotSchema = createInsertSchema(bulkLots).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertBulkLot = z.infer<typeof insertBulkLotSchema>;
@@ -2098,9 +2114,11 @@ export const inventoryHistory = pgTable("inventory_history", {
   oldValue: text("old_value"),
   newValue: text("new_value"),
 }, (table) => ({
-  orgIdIdx: index("inv_history_org_idx").on(table.orgId),
-  inventoryIdIdx: index("inv_history_inv_idx").on(table.inventoryId),
-  changedAtIdx: index("inv_history_at_idx").on(table.changedAt),
+  orgIdIdx:         index("inv_history_org_idx").on(table.orgId),
+  inventoryIdIdx:   index("inv_history_inv_idx").on(table.inventoryId),
+  changedAtIdx:     index("inv_history_at_idx").on(table.changedAt),
+  orgInventoryIdx:  index("inv_history_org_inv_idx").on(table.orgId, table.inventoryId),   // "show item history for org"
+  orgChangedAtIdx:  index("inv_history_org_at_idx").on(table.orgId, table.changedAt),      // "date-range history for org"
 }));
 
 export type InventoryHistoryRow = typeof inventoryHistory.$inferSelect;
