@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata, shipments } from "@shared/schema";
+import { eq, and, sql, ne } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { getBrickOwlApiKey } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -303,10 +303,31 @@ async function processBrickOwlOrder(
       result.ordersUpdated++;
     }
   } else {
-    const { status: updatedStatus, wasDemotionBlocked, isShippedCancellation } = resolveOrderStatus(
-      existingOrder.orderStatus,
-      normalizedStatus
-    );
+    // If the order is locally 'shipped' but BrickOwl is reporting a lower status,
+    // check whether this order was actually shipped through the app (has a non-voided
+    // shipment record). If there are NO active shipments the 'shipped' status came
+    // from a BrickOwl sync promotion, not from our fulfilment flow — so we trust
+    // BrickOwl to correct it and bypass the demotion guard.
+    const wouldDemoteFromShipped =
+      existingOrder.orderStatus === 'shipped' &&
+      !['shipped', 'completed', 'cancelled'].includes(normalizedStatus);
+
+    let allowDemotion = false;
+    if (wouldDemoteFromShipped) {
+      const activeShipments = await db
+        .select({ id: shipments.id })
+        .from(shipments)
+        .where(and(eq(shipments.orderId, effectiveOrderId), ne(shipments.status, 'voided')))
+        .limit(1);
+      allowDemotion = activeShipments.length === 0;
+      if (allowDemotion) {
+        console.warn(`🔄 BrickOwl order ${effectiveOrderId}: allowing demotion shipped → ${normalizedStatus} (no active shipments — order was sync-promoted, not app-shipped)`);
+      }
+    }
+
+    const { status: updatedStatus, wasDemotionBlocked, isShippedCancellation } = allowDemotion
+      ? { status: normalizedStatus, wasDemotionBlocked: false, isShippedCancellation: false }
+      : resolveOrderStatus(existingOrder.orderStatus, normalizedStatus);
 
     if (wasDemotionBlocked) {
       console.log(`🔒 BrickOwl order ${effectiveOrderId}: Preserving local shipped status (BrickOwl shows: ${normalizedStatus})`);
@@ -321,8 +342,12 @@ async function processBrickOwlOrder(
         previousStatus: existingOrder.orderStatus,
         // Preserve existing note if the sync returns null (wrong field name, blank API response, etc.)
         customerNotes: orderData.customerNotes ?? existingOrder.customerNotes ?? null,
-        // Auto-promote: payment arrived and workflow still 'unpaid' → advance to 'new'
-        ...(existingOrder.workflowStatus === 'unpaid' && !isUnpaid
+        // If we're allowing a demotion from shipped (sync-promoted, no real shipment),
+        // reset workflowStatus to 'new' so the order re-enters the fulfillment queue.
+        ...(allowDemotion && updatedStatus !== 'shipped'
+          ? { workflowStatus: 'new', shipDate: null }
+          // Auto-promote: payment arrived and workflow still 'unpaid' → advance to 'new'
+          : existingOrder.workflowStatus === 'unpaid' && !isUnpaid
           ? { workflowStatus: 'new' }
           // Auto-demote: still unpaid and workflow is at default 'new' → flag as 'unpaid'
           : existingOrder.workflowStatus === 'new' && isUnpaid
