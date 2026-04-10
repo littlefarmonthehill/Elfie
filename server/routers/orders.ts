@@ -444,9 +444,9 @@ router.get("/orders/shipped", isApproved, asyncRoute(async (req: any, res) => {
       ? sql`AND COALESCE(o.ship_date, o.order_date) >= ${start}`
       : sql``;
   const deliveredWhere = excludeDelivered
-    ? sql`AND COALESCE(s.tracking_status, '') <> 'delivered'`
+    ? sql`AND COALESCE("trackingStatus", '') <> 'delivered'`
     : deliveredOnly
-      ? sql`AND COALESCE(s.tracking_status, '') = 'delivered'`
+      ? sql`AND COALESCE("trackingStatus", '') = 'delivered'`
       : sql``;
   const rawRows = await db.execute(sql`
     SELECT * FROM (

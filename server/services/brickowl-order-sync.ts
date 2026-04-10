@@ -341,6 +341,9 @@ async function processBrickOwlOrder(
 
     if (existingOrder.orderStatus !== updatedStatus) {
       console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
+      if (updatedStatus === 'shipped' && existingOrder.orderStatus !== 'shipped') {
+        console.warn(`⚠️ [BrickOwl sync] Order ${effectiveOrderId} promoted to SHIPPED by BrickOwl API (was: ${existingOrder.orderStatus}, BrickOwl status_id: ${boOrder.status_id}). This was NOT shipped through E.L.F.I.E. — verify on BrickOwl's website.`);
+      }
 
       if (isShippedCancellation) {
         // Seller cancelled a shipped order on BrickOwl's side — treat this the same way
