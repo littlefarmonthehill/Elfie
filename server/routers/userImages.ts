@@ -26,7 +26,7 @@ router.post('/upload', upload.single('image'), asyncRoute(async (req: any, res) 
   const record = await uploadUserImage({
     orgId,
     inputBuffer: req.file.buffer,
-    altText: (req.body.altText as string) || null,
+    altText: (req.body.altText as string) || undefined,
   });
   res.json(record);
 }));
