@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
@@ -69,7 +69,12 @@ interface ShippedOrdersToolProps {
 
 export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProps) {
   const { toast } = useToast();
+  const [inputValue, setInputValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(inputValue), 300);
+    return () => clearTimeout(t);
+  }, [inputValue]);
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [hideNoTracking, setHideNoTracking] = useState(true);
   const [eodPending, setEodPending] = useState<string | null>(null);
@@ -346,8 +351,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
             <Input
               type="text"
               placeholder="Search by order number, customer, or tracking number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               className="pl-10"
               data-testid="input-search-shipped-orders"
             />
