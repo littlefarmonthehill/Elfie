@@ -49,6 +49,12 @@ import axios from "axios";
 import OpenAI from "openai";
 import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, checkSeatLimit, checkAutomationLimit } from "./services/tierEnforcement";
 import { stripeClient, createCheckoutSession, createCheckoutSessionByPlan, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
+import billingRouter from "./routers/billing";
+import conversationsRouter from "./routers/conversations";
+import bulkLotsRouter from "./routers/bulkLots";
+import ebayRouter from "./routers/ebay";
+import userImagesRouter from "./routers/userImages";
+import { apiErrorHandler } from "./middleware/errorHandler";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
 // Normalize a note/description for comparison or display — see brickowl.ts for full rationale.
@@ -217,6 +223,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
+
+  // ── Domain sub-routers ────────────────────────────────────────────────────
+  app.use('/api/billing', billingRouter);
+  app.use('/api', conversationsRouter);
+  app.use('/api/bulk-lots', bulkLotsRouter);
+  app.use('/api/ebay', ebayRouter);
+  app.use('/api/user-images', userImagesRouter);
 
   // ── Server-Sent Events ─────────────────────────────────────────────────────
   // One persistent connection per browser tab.  The client (useSSE hook) opens
@@ -20652,6 +20665,8 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
       return res.status(500).json({ error: err.message });
     }
   });
+
+  app.use(apiErrorHandler);
 
   const httpServer = createServer(app);
 
