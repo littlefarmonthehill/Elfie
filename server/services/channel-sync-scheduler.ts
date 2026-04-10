@@ -7,6 +7,7 @@ import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
 import { syncBricklinkData } from "./bricklink";
+import { runPlatformOrderSync } from "./order-sync-core";
 
 const SYNC_ID   = 'channel_sync';
 const SYNC_TYPE = 'channel_sync';
@@ -258,6 +259,26 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
         console.log(`[Channel] Full sync mode: ${forceFullScan ? 'forced full scan' : 'no prior successful sync'}`);
       }
     } catch { /* non-fatal — default to full sync */ }
+
+    // ── Step 0a: Channel order syncs (must run before BL inventory read) ──
+    // Pull any pending orders from all channels first so their sales are
+    // reflected as BL inventory decrements before we read BL quantities.
+    // This prevents a race where the channel push restores a sold qty because
+    // BL hadn't been decremented yet.
+    if (!isManualPerChannel) {
+      console.log('[Channel] → Step 0a: Channel order syncs (pre-decrement BL inventory)');
+      try {
+        await runPlatformOrderSync('all');
+        console.log('[Channel] ✓ Channel order syncs complete');
+      } catch (orderErr: any) {
+        const blocked = orderErr.message?.includes('blocked') || orderErr.message?.includes('already running');
+        if (blocked) {
+          console.log('[Channel] Order sync already in progress — skipping pre-sync (BL inventory will be read as-is)');
+        } else {
+          console.warn('[Channel] ⚠️  Channel order syncs failed (non-fatal, continuing with existing BL data):', orderErr.message);
+        }
+      }
+    }
 
     // ── Step 0: BrickLink inventory sync (source of truth) ──
     // Runs only during the auto-scheduler's full sweep. Manual per-channel triggers
