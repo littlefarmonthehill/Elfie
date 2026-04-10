@@ -778,8 +778,77 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const orderId = req.params.id;
   const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
-  const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
-  res.json({ ...order, items });
+
+  const [items, adjustments, [latestShipment]] = await Promise.all([
+    db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId)),
+    db.select().from(orderAdjustments).where(eq(orderAdjustments.orderId, orderId)).orderBy(desc(orderAdjustments.createdAt)),
+    db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(desc(shipments.createdAt)).limit(1),
+  ]);
+
+  // Parse shipTo JSON into customer object
+  let shipToData: any = {};
+  try { shipToData = order.shipTo ? JSON.parse(order.shipTo) : {}; } catch {}
+
+  // Map orderStatus → component status enum
+  const statusMap: Record<string, string> = {
+    awaiting_payment: 'Pending', unpaid: 'Pending',
+    awaiting_shipment: 'Paid', awaiting_fulfillment: 'Paid', processing: 'Paid',
+    shipped: 'Shipped', completed: 'Shipped',
+    cancelled: 'Cancelled', Cancelled: 'Cancelled',
+    returned: 'Returned', Returned: 'Returned',
+  };
+
+  res.json({
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    platform: order.marketplace === 'BrickOwl' ? 'BrickOwl' : order.marketplace === 'BrickLink' ? 'BrickLink' : 'Other',
+    status: statusMap[order.orderStatus] ?? 'Paid',
+    customer: {
+      name: shipToData.name || order.customerUsername || 'Unknown',
+      email: order.customerEmail || shipToData.email || '',
+      address: shipToData.street1 || '',
+      address2: shipToData.street2 || '',
+      address3: shipToData.street3 || '',
+      city: shipToData.city || '',
+      state: shipToData.state || '',
+      zip: shipToData.postalCode || shipToData.zip || '',
+      country: shipToData.country || '',
+    },
+    orderDate: order.orderDate,
+    shippedDate: order.shipDate,
+    shipping: parseFloat(order.shippingAmount ?? '0'),
+    tax: parseFloat(order.taxAmount ?? '0'),
+    total: parseFloat(order.orderTotal),
+    weight: order.weight ? parseFloat(order.weight) : null,
+    weightUnits: order.weightUnits ?? 'oz',
+    trackingNumber: latestShipment?.trackingNumber ?? null,
+    labelUrl: latestShipment?.labelUrl ?? null,
+    shippingCarrier: latestShipment?.carrier ?? order.carrierCode ?? null,
+    shippingService: latestShipment?.service ?? order.serviceCode ?? null,
+    customerNotes: order.customerNotes ?? null,
+    internalNotes: order.internalNotes ?? null,
+    requestedShippingService: order.requestedShippingService ?? null,
+    insuranceAmount: order.insuranceAmount ? parseFloat(order.insuranceAmount) : null,
+    mergeGroupId: order.mergeGroupId ?? null,
+    items: items.map(item => ({
+      partNumber: item.itemNo || item.sku || '',
+      name: item.name,
+      quantity: item.quantity,
+      price: parseFloat(item.unitPrice ?? '0'),
+      colorId: item.colorId ?? null,
+      blInventoryId: item.bricklinkInventoryId ?? null,
+    })),
+    adjustments: adjustments.map(a => ({
+      id: a.id,
+      type: a.type,
+      amount: parseFloat(a.amount),
+      paymentMethod: a.paymentMethod ?? null,
+      externalTransactionId: a.externalTransactionId ?? null,
+      reason: a.reason ?? null,
+      notes: a.notes ?? null,
+      createdAt: a.createdAt,
+    })),
+  });
 }));
 
 router.post("/orders/backfill-weights", isApproved, asyncRoute(async (req, res) => {
