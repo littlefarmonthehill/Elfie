@@ -185,9 +185,16 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   });
 
   const isLoading = isLoadingNotDelivered || isLoadingDelivered;
-  // Merge for legacy references (refresh-tracking, count display, etc.)
+  // Merge for legacy references (refresh-tracking, etc.)
   // deliveredOrders is already backend-filtered to delivered-only
   const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders ?? [])];
+
+  // Visible counts — these respect the hideNoTracking toggle so the "Showing X" line is accurate
+  const noTrackingCount = (notDeliveredOrders ?? []).filter(o => !o.trackingNumber).length;
+  const visibleNotDeliveredCount = hideNoTracking
+    ? (notDeliveredOrders ?? []).filter(o => !!o.trackingNumber).length
+    : (notDeliveredOrders ?? []).length;
+  const visibleTotal = visibleNotDeliveredCount + (deliveredOrders ?? []).length;
 
   const handleRefreshTracking = async () => {
     if (!shippedOrders?.length) return;
@@ -357,9 +364,9 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </Button>
         </div>
 
-        {shippedOrders.length > 0 && (
+        {visibleTotal > 0 && (
           <div className="text-sm text-gray-400 flex items-center gap-2">
-            <span>Showing {shippedOrders.length} {shippedOrders.length === 1 ? 'order' : 'orders'}</span>
+            <span>Showing {visibleTotal} {visibleTotal === 1 ? 'order' : 'orders'}{noTrackingCount > 0 && hideNoTracking ? ` · ${noTrackingCount} without tracking hidden` : ''}</span>
             {!searchQuery.trim() && (deliveredOrders?.length ?? 0) >= 200 && (
               <span className="text-xs text-gray-500">(delivered capped at 200 — search to find older)</span>
             )}
@@ -608,7 +615,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               );
             };
 
-            const noTrackingCount = notDelivered.filter(o => !o.trackingNumber).length;
             const visibleNotDelivered = hideNoTracking
               ? notDelivered.filter(o => !!o.trackingNumber)
               : notDelivered;
