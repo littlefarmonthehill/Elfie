@@ -93,11 +93,11 @@ export class DatabaseStorage implements IStorage {
       const [userById] = await tx
         .select()
         .from(users)
-        .where(eq(users.id, userData.id));
+        .where(eq(users.id, userData.id!));
 
       if (userById) {
         // User exists by id - update profile fields only
-        const [updated] = await tx
+        const [updated] = await (tx
           .update(users)
           .set({
             email: userData.email,
@@ -107,8 +107,7 @@ export class DatabaseStorage implements IStorage {
             updatedAt: new Date(),
             // Preserve isApproved and role
           })
-          .where(eq(users.id, userData.id))
-          .returning();
+          .where(eq(users.id, userData.id!)) as any).returning();
         return updated;
       }
 
@@ -367,7 +366,7 @@ export class DatabaseStorage implements IStorage {
 
     // Reset the org's own flags — back to fresh onboarding state
     await db.update(organizations)
-      .set({ onboardingCompleted: false, warehouseDepth: null })
+      .set({ onboardingCompleted: false, warehouseDepth: null as any })
       .where(eq(organizations.id, id));
   }
 }

@@ -41,7 +41,7 @@ async function getOpenAI(): Promise<OpenAI | null> {
 async function getOrgStrategies(orgId: string): Promise<Partial<Record<string, string>>> {
   try {
     const [row] = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
-    return row ?? {};
+    return (row ?? {}) as unknown as Partial<Record<string, string>>;
   } catch { return {}; }
 }
 

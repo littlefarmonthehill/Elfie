@@ -129,6 +129,10 @@ async function getOrgSettings(orgId: string) {
   return created;
 }
 
+async function updateOrgSettings(orgId: string, values: Record<string, unknown>) {
+  await db.update(appSettings).set({ ...values as any, updatedAt: new Date() }).where(eq(appSettings.id, orgId));
+}
+
 /** Fetch the org's IANA timezone string (default: 'America/Chicago'). */
 async function getOrgTimezone(orgId: string): Promise<string> {
   const [row] = await db.select({ tz: appSettings.orgTimezone })
@@ -1447,7 +1451,7 @@ E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either
       }
 
       const { getOpenAIClient } = await import('./services/ai-agent');
-      const openai = getOpenAIClient();
+      const openai = await getOpenAIClient();
 
       const defaultPromptBlock = `You are E.L.F.I.E. (Electronic Lifeform For Intelligent Elements) — the business brain behind E.L.F.I.E., a LEGO-exclusive parts reseller platform serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
 
@@ -2035,7 +2039,7 @@ Format search_web URLs as markdown links.`;
       }
       
       const { searchInventorySemantic } = await import('./services/embeddings');
-      const results = await searchInventorySemantic(query, limit, orgId);
+      const results = await searchInventorySemantic(query, limit, Number(orgId));
       
       res.json({ results });
     } catch (error) {
@@ -2057,7 +2061,7 @@ Format search_web URLs as markdown links.`;
       }
       
       const { searchOrders } = await import('./services/embeddings');
-      const results = await searchOrders(query, limit, orgId);
+      const results = await searchOrders(query, limit, Number(orgId));
       
       res.json({ results });
     } catch (error) {
@@ -4094,7 +4098,7 @@ Format search_web URLs as markdown links.`;
       if (!limitCheck.allowed) {
         return res.status(429).json({ 
           error: limitCheck.message,
-          nudge: limitCheck.nudgeLevel,
+          nudge: (limitCheck as any).nudgeLevel,
           upgradeUrl: "/settings?tab=billing" 
         });
       }
@@ -4108,8 +4112,8 @@ Format search_web URLs as markdown links.`;
       await incrementBrickspotterScan(orgId);
 
       // If approaching limit, add nudge header
-      if (limitCheck.nudgeLevel !== 'none') {
-        res.setHeader('X-Tier-Nudge', limitCheck.nudgeLevel);
+      if ((limitCheck as any).nudgeLevel !== 'none') {
+        res.setHeader('X-Tier-Nudge', (limitCheck as any).nudgeLevel);
         res.setHeader('X-Tier-Message', limitCheck.message || '');
       }
 
@@ -6079,6 +6083,8 @@ Format search_web URLs as markdown links.`;
           bulkQty:      bodySyncFields.bulkQty      ?? defaultSyncFields.bulkQty,
           lotWeight:    bodySyncFields.lotWeight     ?? defaultSyncFields.lotWeight,
           stockroomModes: bodySyncFields.stockroomModes ?? defaultSyncFields.stockroomModes,
+          syncItemTypes:  {} as Record<string, boolean>,
+          priceFloor:     null,
         };
       } else {
         const [cfgRow] = await db.select().from(channelSyncConfig)
@@ -6092,6 +6098,8 @@ Format search_web URLs as markdown links.`;
           bulkQty:      cfgRow.syncBulkQty,
           lotWeight:    cfgRow.syncLotWeight,
           stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          syncItemTypes:  (cfgRow.syncItemTypes as Record<string, boolean>) ?? {},
+          priceFloor:     (cfgRow.syncPriceFloor as number | null) ?? null,
         } : { ...defaultSyncFields };
       }
 
@@ -6184,7 +6192,7 @@ Format search_web URLs as markdown links.`;
       let itemTypeExcludedLots = 0;
       if (excludedItemTypes.length > 0) {
         // Exclude stockroom-skip items by checking the per-row stockroom condition
-        const [itRow] = await db.execute(sql`
+        const _itExResult = await db.execute(sql`
           SELECT COUNT(*) AS cnt
           FROM bl_inventory
           WHERE org_id = ${orgId}
@@ -6196,6 +6204,7 @@ Format search_web URLs as markdown links.`;
               AND (${stockroomModesJson}::jsonb->>stock_room_id) = 'skip'
             )
         `);
+        const itRow = (_itExResult as any)?.rows?.[0] ?? (_itExResult as any)?.[0];
         itemTypeExcludedLots = Number((itRow as any)?.cnt ?? 0);
       }
 
@@ -6203,7 +6212,7 @@ Format search_web URLs as markdown links.`;
       const priceFloor = typeof cfgRow?.syncPriceFloor === 'number' ? cfgRow.syncPriceFloor : null;
       let priceFloorExcludedLots = 0;
       if (priceFloor && priceFloor > 0) {
-        const [pfRow] = await db.execute(sql`
+        const _pfExResult = await db.execute(sql`
           SELECT COUNT(*) AS cnt
           FROM bl_inventory
           WHERE org_id = ${orgId}
@@ -6215,6 +6224,7 @@ Format search_web URLs as markdown links.`;
               AND (${stockroomModesJson}::jsonb->>stock_room_id) = 'skip'
             )
         `);
+        const pfRow = (_pfExResult as any)?.rows?.[0] ?? (_pfExResult as any)?.[0];
         priceFloorExcludedLots = Number((pfRow as any)?.cnt ?? 0);
       }
 
@@ -6370,7 +6380,7 @@ Format search_web URLs as markdown links.`;
         const raw = req.body.syncItemTypes;
         if (raw && typeof raw === 'object' && !Array.isArray(raw) &&
             Object.values(raw).every((v: unknown) => typeof v === 'boolean')) {
-          patch.syncItemTypes = raw as Record<string, boolean>;
+          patch.syncItemTypes = raw as any;
         } else {
           console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncItemTypes for ${orgId}:`, JSON.stringify(raw));
         }
@@ -6415,9 +6425,9 @@ Format search_web URLs as markdown links.`;
           syncBulkQty:      (patch.syncBulkQty        as boolean)  ?? true,
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
           syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'|'sync'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
-          syncItemTypes:    (patch.syncItemTypes as Record<string, boolean>) ?? {},
+          syncItemTypes:    (patch.syncItemTypes as unknown as Record<string, boolean>) ?? {},
           syncPriceFloor:   (patch.syncPriceFloor as number | null) ?? null,
-        }).returning();
+        } as any).returning();
         console.log(`[ChannelSyncConfig] PATCH inserted — syncStockroomModes:`, JSON.stringify(inserted?.syncStockroomModes), 'syncItemTypes:', JSON.stringify(inserted?.syncItemTypes));
         return res.json(inserted);
       }
@@ -7133,8 +7143,8 @@ Format search_web URLs as markdown links.`;
               combo.itemType,
               combo.colorId ?? undefined,
               combo.newOrUsed,
-              config.basePremium,
-              config,
+              undefined,
+              undefined,
               true // skipStock — score-only; user fetches pricing on demand
             );
             lotPriceData[combo.key] = pd;
@@ -7624,6 +7634,7 @@ Format search_web URLs as markdown links.`;
       // Parse date range parameter
       const range = req.query.range as string;
       let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
       
       if (range) {
         const now = new Date();
@@ -10109,7 +10120,6 @@ Respond ONLY as JSON: {"wCeiling": 0.00, "wVelocity": 0.00, "wScarcity": 0.00, "
       // Pull relevant market news (trending/retirement signals)
       const recentNews = await db.select({ title: marketNews.title, snippet: marketNews.snippet })
         .from(marketNews)
-        .where(and(eq(marketNews.orgId, orgId)))
         .orderBy(sql`fetched_at DESC`)
         .limit(3);
 
@@ -10666,7 +10676,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         // 1. Price Ceiling Ratio — blended reference (60% sold avg + 40% peak) dampened by
         //    sold-volume confidence to suppress single outlier sales inflating the ratio.
         const soldAvgForCeiling = item.soldAvgPrice ? parseFloat(item.soldAvgPrice) : null;
-        const soldLotsForCeiling = item.soldTotalLots ? parseInt(item.soldTotalLots) : 0;
+        const soldLotsForCeiling = item.soldTotalLots ? parseInt(String(item.soldTotalLots)) : 0;
         const confidenceFactor = Math.min(1, soldLotsForCeiling / 10);
         const blendedRef = (soldAvgForCeiling !== null && marketPeak !== null)
           ? soldAvgForCeiling * 0.6 + marketPeak * 0.4
@@ -10822,7 +10832,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     try {
       const orgId = reqOrgId(req);
       const data = insertWhZoneSchema.parse({ ...req.body, orgId });
-      const [zone] = await db.insert(whZones).values(data).returning();
+      const [zone] = await db.insert(whZones).values(data as any).returning();
       res.json(zone);
     } catch (error) {
       console.error("Error creating zone:", error);

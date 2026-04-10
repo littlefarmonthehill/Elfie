@@ -3671,7 +3671,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                       e.stopPropagation();
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
                                       handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
-                                      markItemScored(`${grp.partNo}__${repCropIndex ?? 'x'}`);
+                                      /* markItemScored no longer tracked */
                                     }}
                                     className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
                                       ${!corrected ? 'bg-yellow-900/40 text-yellow-300 font-semibold' : 'text-gray-400 hover:bg-white/5'}`}

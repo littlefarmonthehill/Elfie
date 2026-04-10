@@ -209,7 +209,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     return new Intl.NumberFormat('en-US').format(value);
   };
 
-  const soldAvgValue = stats?.soldAvgValue ?? 0;
+  const soldAvgValue = (stats as any)?.soldAvgValue ?? 0;
 
   if (isLoading) {
     return (

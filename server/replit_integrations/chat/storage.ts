@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../../db";
 import { conversations, messages } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";

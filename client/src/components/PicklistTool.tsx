@@ -621,7 +621,6 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                         {groupIsShort && (
                           <AlertTriangle
                             className="w-3 h-3 text-amber-400 shrink-0 print:hidden"
-                            title="Insufficient stock for one or more lots"
                           />
                         )}
                         {(rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)) && (
@@ -808,7 +807,6 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                           {item.inventoryQty !== null && item.inventoryQty < item.quantity && (
                             <AlertTriangle
                               className="w-3 h-3 text-amber-400 shrink-0 print:hidden"
-                              title="Insufficient stock"
                             />
                           )}
                           {(item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)) && (

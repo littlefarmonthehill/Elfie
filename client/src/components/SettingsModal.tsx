@@ -297,8 +297,8 @@ function EnrichmentSummary() {
                     </span>
                     <span className="text-[10px] text-gray-500">/ {t.total.toLocaleString()}</span>
                   </div>
-                  <Progress value={t.pct} className="h-1" />
-                  <div className="text-[10px] text-gray-500 text-right">{t.pct.toFixed(0)}%</div>
+                  <Progress value={t.pct ?? 0} className="h-1" />
+                  <div className="text-[10px] text-gray-500 text-right">{(t.pct ?? 0).toFixed(0)}%</div>
                 </>
               ) : (
                 <div className={`text-xl font-bold tabular-nums ${t.color}`}>
@@ -2843,7 +2843,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open,
   });
 
-  const { data: platformSettings } = useQuery<AppSettings>({
+  const { data: platformSettings } = useQuery<any>({
     queryKey: ['/api/platform-admin/settings'],
     enabled: open && superAdmin,
   });
@@ -3120,7 +3120,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: async (data: Partial<AppSettings>) => {
+    mutationFn: async (data: any) => {
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3135,7 +3135,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   });
 
   const updatePlatformSettingsMutation = useMutation({
-    mutationFn: async (data: Partial<AppSettings>) => {
+    mutationFn: async (data: any) => {
       const response = await fetch('/api/platform-admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3643,14 +3643,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     if (settings) {
       setAiEnabled(settings.aiEnabled);
       const unmask = (val: string | null | undefined) => (val && !val.includes('····')) ? val : '';
-      setOpenaiApiKey(unmask(settings.openaiApiKey));
-      setSelectedModel(settings.selectedModel || "gpt-4o-mini");
-      setSystemPrompt(settings.systemPrompt || "");
+      setOpenaiApiKey(unmask((settings as any).openaiApiKey));
+      setSelectedModel((settings as any).selectedModel || "gpt-4o-mini");
+      setSystemPrompt((settings as any).systemPrompt || "");
       setFeedbackPrompt((settings as any).feedbackPrompt || "");
       setOrgBlApiCallLimit((settings as any).blApiCallLimit ?? 4900);
       setBrickowlApiKey(unmask(settings.brickowlApiKey));
-      setStripeSecretKey(unmask(settings.stripeSecretKey));
-      setStripeEnvironment((settings.stripeEnvironment as 'test' | 'live') || 'live');
+      setStripeSecretKey(unmask((settings as any).stripeSecretKey));
+      setStripeEnvironment(((settings as any).stripeEnvironment as 'test' | 'live') || 'live');
       setEasypostApiKey(unmask(settings.easypostApiKey));
       setEasypostTestApiKey(unmask(settings.easypostTestApiKey));
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
@@ -4364,10 +4364,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   ];
 
-  const platformAdminItems = platformAdminGroups.flatMap(g => g.items);
+  const platformAdminItems = (platformAdminGroups as any[]).flatMap((g: any) => g.items);
   const allNavItems = [...navigationItems, ...platformAdminItems];
 
-  const activeNavItem = allNavItems.find(i => i.id === activeSection);
+  const activeNavItem = (allNavItems as any[]).find((i: any) => i.id === activeSection);
 
   const sectionTitle = activeSection === 'platforms' && activePlatform !== null
     ? (() => {
@@ -5281,7 +5281,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     if (blInt) {
                       updateIntegrationMutation.mutate({ id: blInt.id, credentials: newCreds });
                     } else {
-                      createIntegrationMutation.mutate({ channel: 'bricklink', type: 'data_source', displayName: 'BrickLink', credentials: newCreds });
+                      createIntegrationMutation.mutate({ channel: 'bricklink', type: 'data_source' as any, displayName: 'BrickLink', credentials: newCreds });
                     }
                     setBricklinkConsumerKey('');
                     setBricklinkConsumerSecret('');
@@ -11334,8 +11334,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   <span className="sm-label">Run time</span>
                                   <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time-sched" />
                                 </div>
-                                {(rbJob?.recordsAdded > 0 || rbJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob.recordsAdded} added · {rbJob.recordsUpdated} updated</p>
+                                {((rbJob?.recordsAdded ?? 0) > 0 || (rbJob?.recordsUpdated ?? 0) > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob?.recordsAdded ?? 0} added · {rbJob?.recordsUpdated ?? 0} updated</p>
                                 )}
                               </div>
                             )}
@@ -11386,8 +11386,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   </div>
                                   <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updatePlatformSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days-sched" />
                                 </div>
-                                {(ucJob?.recordsAdded > 0 || ucJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob.recordsAdded} added · {ucJob.recordsUpdated} updated</p>
+                                {((ucJob?.recordsAdded ?? 0) > 0 || (ucJob?.recordsUpdated ?? 0) > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob?.recordsAdded ?? 0} added · {ucJob?.recordsUpdated ?? 0} updated</p>
                                 )}
                               </div>
                             )}
@@ -11546,8 +11546,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <span className="sm-hint">min</span>
                                   </div>
                                 </div>
-                                {(fmJob?.recordsAdded > 0 || fmJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{fmJob.recordsAdded} added · {fmJob.recordsUpdated} updated</p>
+                                {((fmJob?.recordsAdded ?? 0) > 0 || (fmJob?.recordsUpdated ?? 0) > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{fmJob?.recordsAdded ?? 0} added · {fmJob?.recordsUpdated ?? 0} updated</p>
                                 )}
                               </div>
                             )}
@@ -11608,8 +11608,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     </div>
                                   ))}
                                 </div>
-                                {(mnJob?.recordsAdded > 0 || mnJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{mnJob.recordsAdded} added · {mnJob.recordsUpdated} updated</p>
+                                {((mnJob?.recordsAdded ?? 0) > 0 || (mnJob?.recordsUpdated ?? 0) > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{mnJob?.recordsAdded ?? 0} added · {mnJob?.recordsUpdated ?? 0} updated</p>
                                 )}
                               </div>
                             )}
@@ -11656,8 +11656,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <span className="sm-hint">min</span>
                                   </div>
                                 </div>
-                                {(biJob?.recordsAdded > 0 || biJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{biJob.recordsAdded} insights · {biJob.recordsUpdated} orgs processed</p>
+                                {((biJob?.recordsAdded ?? 0) > 0 || (biJob?.recordsUpdated ?? 0) > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{biJob?.recordsAdded ?? 0} insights · {biJob?.recordsUpdated ?? 0} orgs processed</p>
                                 )}
                               </div>
                             )}

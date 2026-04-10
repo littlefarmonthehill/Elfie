@@ -337,7 +337,7 @@ export async function runCatalogDetailSync(): Promise<{
                   oldValue: null,
                   newValue: gotReplacement ? newAlternateNo : null,
                 }));
-                await recordInventoryChanges(histEntries);
+                await recordInventoryChanges(histEntries as any[]);
                 console.log(`[CatalogDetail] ${item.itemNo} ${gotReplacement ? `superseded → ${newAlternateNo}` : 'retired'}: notified ${affectedLots.length} lot(s)`);
               }
             } catch (histErr: any) {

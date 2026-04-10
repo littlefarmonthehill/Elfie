@@ -472,7 +472,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !data.loading && !!data.id && !data.isBrickLinkCatalog,
+    enabled: !data.loading && !!data.id && !(data as any).isBrickLinkCatalog,
     staleTime: 0,
     refetchInterval: 60000,
     refetchIntervalInBackground: false,
@@ -726,7 +726,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           >
             {data.itemNo ? (
               <PartImage
-                imageUrl={data.imageUrl}
+                imageUrl={(data as any).imageUrl}
                 partNumber={data.itemNo}
                 colorId={data.colorId ?? null}
                 itemType={itemType}
@@ -745,7 +745,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </DialogHeader>
               <div className="w-full aspect-square bg-gray-900 rounded-lg flex items-center justify-center p-4">
                 <PartImage
-                  imageUrl={data.imageUrl}
+                  imageUrl={(data as any).imageUrl}
                   partNumber={data.itemNo}
                   colorId={data.colorId ?? null}
                   itemType={itemType}
@@ -784,7 +784,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 onClick={() => setInsightsOpen(true)}
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
                 data-testid="button-business-insights"
-                title={data.isBrickLinkCatalog ? "Market Insights" : "AI Business Insights"}
+                title={(data as any).isBrickLinkCatalog ? "Market Insights" : "AI Business Insights"}
               >
                 <Sparkles className="h-3 w-3" />
                 <span className="text-[9px] md:text-xs font-semibold">Insights</span>
@@ -1806,9 +1806,9 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   <Input
                     type="text"
                     maxLength={5}
-                    value={readiness.saleLocation}
+                    value={readiness.saleLocation ?? ''}
                     onChange={e => setReadiness(r => ({ ...r, saleLocation: e.target.value.toUpperCase().slice(0, 5) }))}
-                    onBlur={() => saveReadinessField({ saleLocation: readiness.saleLocation || null })}
+                    onBlur={() => saveReadinessField({ saleLocation: readiness.saleLocation || undefined })}
                     placeholder="e.g. A1-B"
                     data-testid="input-readiness-location"
                     className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600 font-mono"
@@ -1855,9 +1855,9 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 <Input
                   type="text"
                   maxLength={50}
-                  value={readiness.completenessNotes}
+                  value={readiness.completenessNotes ?? ''}
                   onChange={e => setReadiness(r => ({ ...r, completenessNotes: e.target.value.slice(0, 50) }))}
-                  onBlur={() => saveReadinessField({ completenessNotes: readiness.completenessNotes || null })}
+                  onBlur={() => saveReadinessField({ completenessNotes: readiness.completenessNotes || undefined })}
                   placeholder="Brief description of completeness…"
                   data-testid="input-readiness-completeness-notes"
                   className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600"
@@ -2411,7 +2411,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
         </div>
       </div>
 
-      {data.isBrickLinkCatalog ? (
+      {(data as any).isBrickLinkCatalog ? (
         <ItemBusinessInsightsDialog
           mode="catalog"
           itemNo={data.itemNo || ''}

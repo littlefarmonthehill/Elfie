@@ -1354,7 +1354,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                       )}
                                       {/* Insurance indicator (BrickLink only) */}
                                       {order.insuranceAmount && Number(order.insuranceAmount) > 0 && (
-                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" title={`Insurance: $${Number(order.insuranceAmount).toFixed(2)}`} data-testid={`icon-insurance-${order.id}`} />
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" data-testid={`icon-insurance-${order.id}`} />
                                       )}
                                       {/* Order total */}
                                       {order.orderTotal && Number(order.orderTotal) > 0 && (
@@ -1377,7 +1377,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                                       <AlertTriangle
                                         className="w-3 h-3 text-amber-400 shrink-0"
                                         data-testid={`icon-short-stock-${order.id}`}
-                                        title="Competing orders — total demand exceeds stock on hand"
                                       />
                                     )}
                                   </div>

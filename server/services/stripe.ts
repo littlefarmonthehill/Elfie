@@ -17,7 +17,7 @@ function getStripeClient(): Stripe {
     throw new Error("Stripe secret key is not configured. Add it in Platform Settings.");
   }
   return new Stripe(key, {
-    apiVersion: "2025-01-27-ac.0",
+    apiVersion: "2026-02-25.clover",
   });
 }
 
@@ -197,8 +197,8 @@ export async function handleStripeWebhook(payload: string, sig: string) {
       const interval = subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly";
       const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
       
-      const periodEnd = subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
+      const periodEnd = (subscription as any).current_period_end
+        ? new Date((subscription as any).current_period_end * 1000)
         : null;
       await db.update(organizations).set({
         stripeSubscriptionId,

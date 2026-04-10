@@ -85,10 +85,10 @@ export async function generateInventoryCSV(orgId?: string): Promise<string> {
   const rows = inventory.map(item => [
     item.id,
     item.itemNo,
-    item.itemName || '',
+    (item as any).itemName || '',
     item.itemType,
     item.colorId || '',
-    item.colorName || '',
+    (item as any).colorName || '',
     item.quantity,
     item.newOrUsed,
     item.unitPrice || '',

@@ -815,7 +815,7 @@ export async function syncInventoryItem(
       if (untaggedMatches.length === 1) {
         // Exactly one pre-existing lot for this part + condition — safe to adopt it.
         const untaggedLot = untaggedMatches[0];
-        if (mode === 'analysis') {
+        if ((mode as string) === 'analysis') {
           console.log(`[Sync] Analysis: would adopt pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} — skipping write`);
           return { success: true, action: 'skipped' };
         }
@@ -856,7 +856,7 @@ export async function syncInventoryItem(
       };
     }
 
-    if (mode === 'analysis' || mode === 'matched_sync') {
+    if ((mode as string) === 'analysis' || mode === 'matched_sync') {
       // Analysis mode: read-only, never write anything — just build comparison data
       // Matched-sync mode: only update already-matched lots — never create new listings
       console.log(`[Sync] Skipping ${blItem.itemNo} (${mode} mode — no existing BrickOwl lot)`);
@@ -1719,7 +1719,7 @@ export async function syncBrickLinkToBrickOwl(
               blInvId: item.id,
               boid,
               colorId: item.colorId ?? undefined,
-              colorName: item.color ?? undefined,
+              colorName: undefined,
               qty: item.quantity,
               price: item.unitPrice ?? undefined,
               condition: item.newOrUsed,
@@ -1736,7 +1736,7 @@ export async function syncBrickLinkToBrickOwl(
               blInvId: item.id,
               boid,
               colorId: item.colorId ?? undefined,
-              colorName: item.color ?? undefined,
+              colorName: undefined,
               qty: item.quantity,
               price: item.unitPrice ?? undefined,
               condition: item.newOrUsed,
@@ -1761,7 +1761,7 @@ export async function syncBrickLinkToBrickOwl(
   // permanently deleted — this preserves BO sales history and lets operators
   // clean up deliberately via the soft-delete report (or a future cleanup tool).
   // Applies in full_control and matched_sync (not analysis — no writes in analysis).
-  if (mode !== 'analysis') {
+  if ((mode as string) !== 'analysis') {
     const softDeletedBl = await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
       .from(blInventory)
       .where(isNotNull(blInventory.deletedAt));

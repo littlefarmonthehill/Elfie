@@ -217,9 +217,9 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/stats'] });
       setShowFromPicker(false);
-      const fromLabel = opts.sinceDate
-        ? `from ${formatDisplayDate(opts.sinceDate)}`
-        : opts.fullSync ? 'from the beginning' : null;
+      const fromLabel = opts!.sinceDate
+        ? `from ${formatDisplayDate(opts!.sinceDate)}`
+        : opts!.fullSync ? 'from the beginning' : null;
       toast({
         title: `${cfg.label} order sync started`,
         description: fromLabel

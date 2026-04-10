@@ -81,6 +81,7 @@ interface SyncQueueResponse {
 function QtySyncQueuePanel() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const isCompact = false;
 
   const { data, isLoading } = useQuery<SyncQueueResponse>({
     queryKey: ['/api/sync-queue'],

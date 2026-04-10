@@ -634,7 +634,7 @@ function normalizeApiPrice(priceStr: string | null | undefined): number {
   return sign * cents / 100;
 }
 
-export async function syncBricklinkInventory(callComplete = true, orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkInventory(callComplete = true, orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number; softDeleted?: number; restored?: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
     if (callComplete) syncProgressTracker.start();
@@ -1408,6 +1408,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     // Build candidate queue: inventory items needing price guide refresh.
     // Sorted by oldest fetchedAt first (never-fetched items always come first).
     // Staleness window and zero-stock skip come from scheduler settings.
+    const orgFilter = eq(blInventory.orgId, orgId);
     const quantityFilter = zeroStockSkip ? gt(blInventory.quantity, 0) : undefined;
     const inventoryItems = await db
       .select({

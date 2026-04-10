@@ -166,7 +166,7 @@ const SUG_INFLUENCE_WEIGHT = 0.25;
 
 export function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugCfg: SugConfig): number {
   const base = calcScore(lot, scoreCfg);
-  const current = parseFloat(lot.unitPrice || '0');
+  const current = parseFloat((lot as any).unitPrice || '0');
   if (current <= 0) return base;
   const { suggested } = calcSuggested(lot, sugCfg);
   if (suggested == null) return base;
@@ -186,7 +186,7 @@ export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg
   let sugRaw: number | null = null;
   let sugWeighted: number | null = null;
   if (sugCfg) {
-    const current = parseFloat(lot.unitPrice || '0');
+    const current = parseFloat((lot as any).unitPrice || '0');
     const { suggested } = calcSuggested(lot, sugCfg);
     if (suggested != null && current > 0) {
       sugRaw = Math.max(-1, Math.min(1, (suggested - current) / current));
@@ -461,7 +461,7 @@ type CellHL = { sN?: boolean; sU?: boolean; lN?: boolean; lU?: boolean };
 
 const HL_CELL = 'bg-violet-500/[0.18] ring-1 ring-inset ring-violet-400/40';
 
-function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: GroupedInsight; activeSort: SortField; cfg: SugConfig; onOpenSettings?: (lot: PricingInsight) => void }) {
+function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: GroupedInsight; activeSort: SortField; cfg: SugConfig; onOpenSettings?: (lot?: PricingInsight) => void }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
@@ -617,7 +617,7 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   const storePremiumPct = (cfg.storePremium - 1) * 100;
   const suggested = Math.max(cappedRaw * cfg.storePremium, floor);
 
-  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: base * demandAdj, cappedRaw, floor, suggested, storePremiumPct, cfg };
+  const breakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: base * demandAdj, cappedRaw, floor, suggested, storePremiumPct, cfg } as unknown as SugBreakdown;
 
   return {
     suggested: Number(suggested.toFixed(2)),
@@ -1629,10 +1629,10 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
       if (pomSortMode === 'suggested') {
         // Opportunity sort: total dollar impact = sum of (suggested − current) × qty across both lots
         const oppScore = (l: PricingInsight): number => {
-          const current = parseFloat(l.unitPrice || '0');
+          const current = parseFloat((l as any).unitPrice || '0');
           const { suggested } = calcSuggested(l, sugCfg);
           const qty = l.quantity ?? 0;
-          return (suggested - current) * qty;
+          return ((suggested ?? 0) - current) * qty;
         };
         const nOpp = g.newLot ? oppScore(g.newLot) : 0;
         const uOpp = g.usedLot ? oppScore(g.usedLot) : 0;

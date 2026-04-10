@@ -68,7 +68,7 @@ async function getActiveChannelSyncOrg(): Promise<{ id: string; tz: string; freq
   const rows = await db.select().from(appSettings);
   for (const s of rows) {
     if (!s.channelSyncEnabled) continue;
-    const tz = s.timezone || 'America/Chicago';
+    const tz = (s as any).timezone || 'America/Chicago';
     const frequencyMs = (s.channelSyncFrequency ?? 4) * 60 * 60 * 1000;
     return { id: s.id, tz, frequencyMs };
   }

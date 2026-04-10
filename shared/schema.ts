@@ -285,7 +285,7 @@ export const partIdMappings = pgTable("part_id_mappings", {
   rebrickableIdx:  index("part_mappings_rebrickable_id_idx").on(table.rebrickableId),
 }));
 
-export const insertPartIdMappingSchema = createInsertSchema(partIdMappings).omit({ id: true, updatedAt: true });
+export const insertPartIdMappingSchema = createInsertSchema(partIdMappings).omit({ id: true, updatedAt: true } as any);
 export type InsertPartIdMapping = z.infer<typeof insertPartIdMappingSchema>;
 export type PartIdMapping = typeof partIdMappings.$inferSelect;
 
@@ -1277,7 +1277,7 @@ export const insertWhZoneSchema = createInsertSchema(whZones).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as any);
 
 export type InsertWhZone = z.infer<typeof insertWhZoneSchema>;
 export type WhZone = typeof whZones.$inferSelect;

@@ -32,7 +32,7 @@ export function makeOpenAIClient(apiKey: string): OpenAI {
   return new OpenAI({ apiKey });
 }
 
-async function getOpenAIClient(): Promise<OpenAI> {
+export async function getOpenAIClient(): Promise<OpenAI> {
   const apiKey = await getPlatformOpenAIKey();
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please add it in Platform Services settings.');
@@ -124,10 +124,10 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       console.log(`🔧 Assistant wants to call ${assistantMessage.tool_calls.length} tool(s) in parallel`);
 
       const toolPromises = assistantMessage.tool_calls.map(async (toolCall) => {
-        const toolName = toolCall.function.name;
+        const toolName = (toolCall as any).function.name;
         let toolParams: any;
         try {
-          toolParams = JSON.parse(toolCall.function.arguments || '{}');
+          toolParams = JSON.parse((toolCall as any).function.arguments || '{}');
         } catch {
           toolParams = {};
         }

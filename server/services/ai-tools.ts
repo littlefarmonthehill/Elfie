@@ -5,7 +5,7 @@
 
 import { db } from '../db';
 import { blInventory, blColors, blCategories, blCatalog, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
-import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
+import { eq, like, or, sql, and, desc, inArray, isNull, gt } from 'drizzle-orm';
 
 import { generateEmbedding, createInventoryContent, searchInventorySemantic } from './embeddings';
 import axios from 'axios';

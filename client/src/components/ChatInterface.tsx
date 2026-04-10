@@ -1330,7 +1330,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     const userMsg: ChatMessage = { role: 'user', content: description };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = '40px';
+    if (inputRef.current) (inputRef.current as unknown as HTMLTextAreaElement).style.height = '40px';
 
     try {
       const res = await fetch('/api/feature-request/rephrase', {
@@ -1467,7 +1467,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
     
     inputRef.current?.blur();
-    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = '40px';
+    if (inputRef.current) (inputRef.current as unknown as HTMLTextAreaElement).style.height = '40px';
     
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setInput('');

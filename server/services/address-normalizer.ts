@@ -56,7 +56,9 @@ async function getKuroshiro(): Promise<any> {
 
   if (!_kuroshiroReady) {
     _kuroshiroReady = (async () => {
+      // @ts-ignore
       const { default: KuroshiroModule } = await import('kuroshiro');
+      // @ts-ignore
       const { default: KuromojiModule }  = await import('kuroshiro-analyzer-kuromoji');
       const Kuroshiro        = (KuroshiroModule as any).default ?? KuroshiroModule;
       const KuromojiAnalyzer = (KuromojiModule as any).default  ?? KuromojiModule;

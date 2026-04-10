@@ -343,7 +343,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
 
   const isLoading = platformLoading || statusLoading;
 
-  const discrepancyAreas: DiscrepancyArea[] = [
+  const discrepancyAreas = [
     {
       type: 'missing',
       label: 'Missing Lots',
@@ -484,7 +484,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
       count: invalidBoidDiffs,
       description: 'Resolved BOID does not exist on BrickOwl — catalog gap, lot create was skipped',
     },
-  ].filter(a => a.count > 0);
+  ].filter((a: any) => a.count > 0) as DiscrepancyArea[];
 
   const activeArea = discrepancyAreas.find(a => a.type === selectedArea);
 
@@ -590,7 +590,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
               isRunning={isRunning} anyChannelRunning={anyChannelRunning} syncMutation={syncMutation} stopMutation={stopMutation}
               onOpenSettings={onOpenSettings} setDrawerOpen={() => {}}
               discrepancyAreas={discrepancyAreas} totalDiscrepancies={totalDiscrepancies}
-              onSelectArea={(type) => setSelectedArea(type)}
+              onSelectArea={(type: DiscrepancyType) => setSelectedArea(type)}
               onShowAuditReport={() => setShowAuditReport(true)}
               onShowColorRepair={() => setShowColorRepair(true)}
               progressData={progressData} progressPct={progressPct}
@@ -835,7 +835,7 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
                 setDrawerOpen={setDrawerOpen}
                 discrepancyAreas={discrepancyAreas}
                 totalDiscrepancies={totalDiscrepancies}
-                onSelectArea={(type) => setSelectedArea(type)}
+                onSelectArea={(type: DiscrepancyType) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
                 onShowColorRepair={() => setShowColorRepair(true)}
                 progressData={progressData}
@@ -1639,7 +1639,7 @@ function OverviewContent({
       {/* Lot Issues — BrickOwl only */}
       {selectedChannel !== 'ebay' && (() => {
         const LOT_TYPES: DiscrepancyType[] = ['missing', 'type_mismatch', 'unlinked', 'orphaned', 'scheduled_deletion', 'invalid_boid'];
-        const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
+        const lotAreas = discrepancyAreas.filter((a: any) => LOT_TYPES.includes(a.type));
         return (
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Lot Issues</p>
@@ -1647,7 +1647,7 @@ function OverviewContent({
               {isLoading ? (
                 [1, 2].map(i => <div key={i} className="h-16 rounded-lg bg-gray-800/60 animate-pulse" />)
               ) : (
-                lotAreas.map((area) => (
+                lotAreas.map((area: any) => (
                   <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
                 ))
               )}
@@ -1659,12 +1659,12 @@ function OverviewContent({
       {/* Field Issues — BrickOwl only */}
       {selectedChannel !== 'ebay' && (() => {
         const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
-        const fieldAreas = totalDiscrepancies > 0 ? discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type)) : [];
+        const fieldAreas = totalDiscrepancies > 0 ? discrepancyAreas.filter((a: any) => FIELD_TYPES.includes(a.type)) : [];
         return (
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Field Issues</p>
             <div className="space-y-2">
-              {fieldAreas.map((area) => (
+              {fieldAreas.map((area: any) => (
                 <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
               ))}
               <ColorRepairButton onShowColorRepair={onShowColorRepair} />
@@ -2049,8 +2049,8 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
     .filter(t => activeTypes.includes(t.type))
     .map(t => ({
       ...t,
-      items: q[t.type].data?.discrepancies ?? [],
-      total: q[t.type].data?.total ?? 0,
+      items: (q as any)[t.type].data?.discrepancies ?? [],
+      total: (q as any)[t.type].data?.total ?? 0,
     }));
 
   function formatCondition(c: string | undefined) {

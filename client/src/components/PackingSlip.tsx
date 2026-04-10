@@ -703,7 +703,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
   for (let idx = 0; idx < sortedForPrint.length; idx++) {
     const order = sortedForPrint[idx];
     if (idx > 0) doc.addPage();
-    const orderStartPage = doc.internal.getNumberOfPages();
+    const orderStartPage = (doc.internal as any).getNumberOfPages();
     // Explicitly switch to this order's starting page so the footer loop's
     // setPage() calls don't leave the cursor on the wrong page for the next order.
     doc.setPage(orderStartPage);
@@ -917,7 +917,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     });
 
     // ── Footer: Page X of Y on every page for this order ────────────────────
-    const orderEndPage   = doc.internal.getNumberOfPages();
+    const orderEndPage   = (doc.internal as any).getNumberOfPages();
     const orderPageTotal = orderEndPage - orderStartPage + 1;
     const footerLabel    = `${channelLabel(order)} Order # ${order.orderNumber}  \u00b7  Ref ${sc}`;
 

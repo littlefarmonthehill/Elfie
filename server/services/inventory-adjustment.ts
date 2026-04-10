@@ -146,7 +146,7 @@ export async function adjustInventoryForOrder(
           console.log(`⚠️ [AdjInv] Floor-clamp for inv ${item.bricklinkInventoryId} on order ${orderId}: ordered ${qty} but local qty was already 0 — cross-platform delta suppressed to prevent oversell propagation`);
         }
         await recordInventoryChanges([{
-          orgId: order.orgId,
+          orgId: order.orgId ?? '',
           inventoryId: item.bricklinkInventoryId,
           itemNo: currentItem?.itemNo ?? item.sku ?? 'unknown',
           colorId: currentItem?.colorId ?? null,
@@ -169,7 +169,7 @@ export async function adjustInventoryForOrder(
         const oldQty = currentItem?.quantity ?? 0;
         const newQty = oldQty + qty;
         await recordInventoryChanges([{
-          orgId: order.orgId,
+          orgId: order.orgId ?? '',
           inventoryId: item.bricklinkInventoryId,
           itemNo: currentItem?.itemNo ?? item.sku ?? 'unknown',
           colorId: currentItem?.colorId ?? null,
@@ -228,7 +228,7 @@ export async function adjustInventoryForOrder(
               newQuantity: inventoryItem.quantity,       // Absolute — for BrickOwl
               quantityDelta: adj.quantityChange,          // Actual delta — for BrickLink
               sourcePlatform,
-              orgId: order.orgId,                        // Use org credentials, not platform
+              orgId: order.orgId ?? undefined,             // Use org credentials, not platform
             });
           }
         }

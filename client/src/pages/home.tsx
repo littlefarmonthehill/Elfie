@@ -241,7 +241,7 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
-  const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications' | null>(null);
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | undefined>(undefined);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
@@ -1693,7 +1693,7 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
-      {!user?.isAdmin && !isBrickspotterOnly && user?.orgRole === 'owner' && org && !org.onboardingCompleted && !wizardDismissed && (
+      {!(user as any)?.isAdmin && !isBrickspotterOnly && user?.orgRole === 'owner' && org && !org.onboardingCompleted && !wizardDismissed && (
         <OnboardingWizard
           org={org}
           onComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/org'] })}
@@ -1704,7 +1704,7 @@ export default function Home() {
         />
       )}
 
-      {user && user.orgRole !== 'owner' && !user.isAdmin && org && !employeeWelcomeDone && !hasCompletedEmployeeWelcome(user.id) && !isBrickspotterOnly && (
+      {user && user.orgRole !== 'owner' && !(user as any).isAdmin && org && !employeeWelcomeDone && !hasCompletedEmployeeWelcome(user.id) && !isBrickspotterOnly && (
         <EmployeeWelcome
           user={user}
           orgName={org.name}
@@ -1720,7 +1720,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); setSettingsFocusTarget(undefined); }} initialSection={settingsInitialSection ?? undefined} focusTarget={settingsFocusTarget} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); setSettingsFocusTarget(undefined); }} initialSection={settingsInitialSection as any ?? undefined} focusTarget={settingsFocusTarget} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
 
       <GlobalSearch
         open={searchOpen}
