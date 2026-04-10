@@ -4745,22 +4745,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/shipments/tracking-summary", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
+      // Use the most-recent shipment per order (matching the DISTINCT ON used in the shipped orders view)
+      // so orders with multiple shipment rows are not double-counted across status buckets.
       const rows = await db.execute(sql`
         SELECT
           COALESCE(
             CASE
-              WHEN tracking_status IS NULL OR tracking_status = 'pre_transit' THEN 'label_created'
-              WHEN tracking_status IN ('failure', 'error', 'cancelled') THEN 'failed'
-              ELSE tracking_status
+              WHEN s.tracking_status IS NULL OR s.tracking_status = 'pre_transit' THEN 'label_created'
+              WHEN s.tracking_status IN ('failure', 'error', 'cancelled') THEN 'failed'
+              ELSE s.tracking_status
             END,
             'label_created'
           ) AS status,
           COUNT(*) AS count
-        FROM shipments
-        WHERE org_id = ${orgId}
-          AND status IN ('purchased', 'manifested')
-          AND tracker_id IS NOT NULL
-          AND COALESCE(tracking_status, '') <> 'delivered'
+        FROM (
+          SELECT DISTINCT ON (order_id)
+            tracking_status
+          FROM shipments
+          WHERE org_id = ${orgId}
+            AND status IN ('purchased', 'manifested')
+            AND tracker_id IS NOT NULL
+            AND COALESCE(tracking_status, '') <> 'delivered'
+          ORDER BY order_id, created_at DESC
+        ) s
         GROUP BY 1
       `);
       const byStatus: Record<string, number> = {};
