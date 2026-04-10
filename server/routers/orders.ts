@@ -279,11 +279,14 @@ router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any
       AND o.is_test = false
     GROUP BY COALESCE(s.tracking_status, 'unknown')
   `);
-  const summary: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
   for (const row of result.rows as any[]) {
-    summary[row.status] = Number(row.count);
+    let key: string = row.status;
+    if (key === 'pre_transit') key = 'label_created';
+    if (key === 'failure')     key = 'failed';
+    byStatus[key] = (byStatus[key] ?? 0) + Number(row.count);
   }
-  res.json(summary);
+  res.json({ byStatus });
 }));
 
 router.get("/orders/customer-stats", isApproved, asyncRoute(async (req: any, res) => {
