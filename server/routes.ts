@@ -54,6 +54,8 @@ import conversationsRouter from "./routers/conversations";
 import bulkLotsRouter from "./routers/bulkLots";
 import ebayRouter from "./routers/ebay";
 import userImagesRouter from "./routers/userImages";
+import ordersRouter from "./routers/orders";
+import platformAdminRouter from "./routers/platformAdmin";
 import { apiErrorHandler } from "./middleware/errorHandler";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
@@ -230,6 +232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/bulk-lots', bulkLotsRouter);
   app.use('/api/ebay', ebayRouter);
   app.use('/api/user-images', userImagesRouter);
+  app.use('/api', ordersRouter);
+  app.use('/api', platformAdminRouter);
 
   // ── Server-Sent Events ─────────────────────────────────────────────────────
   // One persistent connection per browser tab.  The client (useSSE hook) opens
