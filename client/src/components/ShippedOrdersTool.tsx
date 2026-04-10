@@ -404,116 +404,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               return (
                 <div
                   key={order.id}
-                  className={`app-card px-3 py-1.5 relative hover-elevate${onItemClick ? ' cursor-pointer' : ''}`}
+                  className={`app-card px-3 py-1.5 flex items-start gap-2 hover-elevate${onItemClick ? ' cursor-pointer' : ''}`}
                   data-testid={`shipped-order-${order.orderNumber}`}
                   onClick={() => onItemClick?.('order', order.id)}
                 >
-                  {/* Ellipsis menu — anchored top-right */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute top-0.5 right-0.5 h-7 w-7 text-muted-foreground"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`button-actions-${order.orderNumber}`}
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
-                          onClick={() => handlePrintPackingSlip(order.id)}
-                          data-testid={`menu-print-packing-slip-${order.orderNumber}`}
-                        >
-                          <FileText className="w-4 h-4 mr-2" />
-                          Print Packing Slip
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintPicklistForOrder(order)}
-                          data-testid={`menu-print-picklist-${order.orderNumber}`}
-                        >
-                          <ClipboardList className="w-4 h-4 mr-2" />
-                          Print Picklist
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintShippingLabel(order)}
-                          disabled={!order.labelUrl}
-                          data-testid={`menu-print-shipping-label-${order.orderNumber}`}
-                        >
-                          <Package className="w-4 h-4 mr-2" />
-                          Print Shipping Label
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintLotLabels(order.id)}
-                          data-testid={`menu-print-lot-labels-${order.orderNumber}`}
-                        >
-                          <Tag className="w-4 h-4 mr-2" />
-                          Print Lot Labels
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintEodForm(order.id)}
-                          disabled={eodPending === order.id}
-                          data-testid={`menu-print-eod-form-${order.orderNumber}`}
-                        >
-                          {eodPending === order.id
-                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            : <ScanLine className="w-4 h-4 mr-2" />
-                          }
-                          Print EOD Form
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        {/* Mark as Test — always available; backend enforces refund requirement */}
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); toggleTestMutation.mutate(order.id); }}
-                          disabled={toggleTestMutation.isPending}
-                          data-testid={`menu-toggle-test-${order.orderNumber}`}
-                          className="text-purple-400 focus:text-purple-300"
-                        >
-                          {toggleTestMutation.isPending
-                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            : <FlaskConical className="w-4 h-4 mr-2" />
-                          }
-                          {order.isTest ? "Remove Test Flag" : "Mark as Test Order"}
-                        </DropdownMenuItem>
-
-                        {/* BO-only: manual return (BL returns come via API sync) */}
-                        {isBrickOwl && isShipped && (
-                          <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); openReturnDialog(order); }}
-                            data-testid={`menu-mark-returned-${order.orderNumber}`}
-                            className="text-red-400 focus:text-red-300"
-                          >
-                            <RotateCcw className="w-4 h-4 mr-2" />
-                            Mark as Returned
-                          </DropdownMenuItem>
-                        )}
-
-                        {!isCancelled && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {/* Single "Return to Fulfillment" for all channels */}
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
-                              disabled={returnToFulfillmentMutation.isPending}
-                              data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
-                              className="text-amber-400 focus:text-amber-300"
-                            >
-                              {returnToFulfillmentMutation.isPending
-                                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                : <RotateCcw className="w-4 h-4 mr-2" />
-                              }
-                              Return to Fulfillment
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Card content — right-padded so it clears the ellipsis button */}
-                  <div className="pr-7 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {/* Card content — grows to fill available width */}
+                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <h3 className="text-sm font-mono font-bold text-white shrink-0">
                       {order.orderNumber}
                     </h3>
@@ -611,6 +507,107 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                       </>
                     )}
                   </div>
+
+                  {/* Ellipsis menu — anchored top-right */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="shrink-0 self-start h-7 w-7 text-muted-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`button-actions-${order.orderNumber}`}
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem
+                        onClick={() => handlePrintPackingSlip(order.id)}
+                        data-testid={`menu-print-packing-slip-${order.orderNumber}`}
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Print Packing Slip
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePrintPicklistForOrder(order)}
+                        data-testid={`menu-print-picklist-${order.orderNumber}`}
+                      >
+                        <ClipboardList className="w-4 h-4 mr-2" />
+                        Print Picklist
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePrintShippingLabel(order)}
+                        disabled={!order.labelUrl}
+                        data-testid={`menu-print-shipping-label-${order.orderNumber}`}
+                      >
+                        <Package className="w-4 h-4 mr-2" />
+                        Print Shipping Label
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePrintLotLabels(order.id)}
+                        data-testid={`menu-print-lot-labels-${order.orderNumber}`}
+                      >
+                        <Tag className="w-4 h-4 mr-2" />
+                        Print Lot Labels
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePrintEodForm(order.id)}
+                        disabled={eodPending === order.id}
+                        data-testid={`menu-print-eod-form-${order.orderNumber}`}
+                      >
+                        {eodPending === order.id
+                          ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          : <ScanLine className="w-4 h-4 mr-2" />
+                        }
+                        Print EOD Form
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        onClick={(e) => { e.stopPropagation(); toggleTestMutation.mutate(order.id); }}
+                        disabled={toggleTestMutation.isPending}
+                        data-testid={`menu-toggle-test-${order.orderNumber}`}
+                        className="text-purple-400 focus:text-purple-300"
+                      >
+                        {toggleTestMutation.isPending
+                          ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          : <FlaskConical className="w-4 h-4 mr-2" />
+                        }
+                        {order.isTest ? "Remove Test Flag" : "Mark as Test Order"}
+                      </DropdownMenuItem>
+
+                      {isBrickOwl && isShipped && (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); openReturnDialog(order); }}
+                          data-testid={`menu-mark-returned-${order.orderNumber}`}
+                          className="text-red-400 focus:text-red-300"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Mark as Returned
+                        </DropdownMenuItem>
+                      )}
+
+                      {!isCancelled && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
+                            disabled={returnToFulfillmentMutation.isPending}
+                            data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
+                            className="text-amber-400 focus:text-amber-300"
+                          >
+                            {returnToFulfillmentMutation.isPending
+                              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              : <RotateCcw className="w-4 h-4 mr-2" />
+                            }
+                            Return to Fulfillment
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               );
             };
