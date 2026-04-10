@@ -210,21 +210,43 @@ router.get("/orders/stats", isApproved, asyncRoute(async (req: any, res) => {
   const tz = await getOrgTimezone(orgId);
   const { start, end } = tzDateBounds(range ?? '', tz);
 
-  const result = await db.execute(sql`
+  const summaryResult = await db.execute(sql`
     SELECT
-      DATE_TRUNC('day', o.order_date)::date AS day,
-      COUNT(*) AS order_count,
-      COALESCE(SUM(o.order_total::numeric), 0) AS revenue
+      COUNT(*) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled','returned','Returned') AND o.is_test = false) AS total_orders,
+      COUNT(*) FILTER (WHERE (o.order_status ILIKE '%awaiting_payment%' OR o.order_status ILIKE '%awaiting_fulfillment%' OR o.order_status ILIKE '%awaiting_shipment%') AND o.is_test = false) AS pending_orders,
+      COUNT(*) FILTER (WHERE o.order_status IN ('shipped','Shipped','completed','Completed') AND o.is_test = false) AS shipped_orders,
+      COUNT(*) FILTER (WHERE o.order_status IN ('returned','Returned') AND o.is_test = false) AS returned_orders,
+      COALESCE(SUM(o.order_total::numeric) FILTER (WHERE (o.order_status ILIKE '%awaiting_payment%' OR o.order_status ILIKE '%awaiting_fulfillment%' OR o.order_status ILIKE '%awaiting_shipment%') AND o.is_test = false), 0) AS pending_revenue,
+      COALESCE(SUM(o.order_total::numeric) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled','returned','Returned') AND o.is_test = false), 0) AS month_revenue,
+      COALESCE((
+        SELECT AVG(lot_count) FROM (
+          SELECT od.order_id, COUNT(*) AS lot_count
+          FROM ${orderDetails} od
+          JOIN ${orders} oi ON oi.id = od.order_id
+          WHERE oi.org_id = ${orgId}
+            AND oi.is_test = false
+            AND oi.order_status NOT IN ('cancelled','Cancelled','returned','Returned')
+            ${start ? sql`AND oi.order_date >= ${start}` : sql``}
+            ${end   ? sql`AND oi.order_date < ${end}`   : sql``}
+          GROUP BY od.order_id
+        ) sub
+      ), 0) AS avg_lots_per_order
     FROM ${orders} o
     WHERE o.org_id = ${orgId}
-      AND o.order_status NOT IN ('cancelled', 'Cancelled', 'returned')
-      AND o.is_test = false
       ${start ? sql`AND o.order_date >= ${start}` : sql``}
       ${end   ? sql`AND o.order_date < ${end}`   : sql``}
-    GROUP BY day
-    ORDER BY day ASC
   `);
-  res.json(result.rows);
+
+  const row = (summaryResult.rows[0] as any) ?? {};
+  res.json({
+    totalOrders:      Number(row.total_orders)       || 0,
+    pendingOrders:    Number(row.pending_orders)      || 0,
+    shippedOrders:    Number(row.shipped_orders)      || 0,
+    returnedOrders:   Number(row.returned_orders)     || 0,
+    pendingRevenue:   Number(row.pending_revenue)     || 0,
+    monthRevenue:     Number(row.month_revenue)       || 0,
+    avgLotsPerOrder:  Number(row.avg_lots_per_order)  || 0,
+  });
 }));
 
 router.get("/orders/workflow-summary", isApproved, asyncRoute(async (req: any, res) => {
