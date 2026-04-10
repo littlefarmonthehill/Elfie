@@ -325,53 +325,72 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
     <div className={cn("h-full overflow-y-auto", compact ? "p-1.5 space-y-3" : "p-2 md:p-3 space-y-4")}>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MASTHEAD
+          TOP METRIC CARD — title + strategy filters
       ═══════════════════════════════════════════════════════════════════ */}
       <div
-        className="relative rounded-xl border border-green-500/20 bg-gradient-to-r from-gray-900/95 via-green-950/15 to-gray-900/95 overflow-hidden"
-        data-testid="section-insights-masthead"
+        className={cn("relative rounded-lg border border-green-400/65 shadow-[0_0_30px_rgba(34,197,94,0.22)] overflow-hidden", compact ? "p-2" : "p-2 md:p-3")}
+        style={{ background: 'linear-gradient(175deg, #071a0f 0%, #050d08 100%)' }}
+        data-testid="section-insights-overview"
       >
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/40 to-transparent" />
-        <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap gap-y-1.5">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="rounded-lg bg-green-900/60 ring-1 ring-green-400/30 p-2 shrink-0">
-              <Radio className="w-4 h-4 text-green-300" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-sm font-black text-gray-100 uppercase tracking-widest">Insights</h1>
-                {urgentCount > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-500/40 animate-pulse"
-                    data-testid="badge-urgent-count"
-                  >
-                    <Zap className="w-2.5 h-2.5" />
-                    {urgentCount} urgent
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                {insightsLoading ? 'Loading signals…' : (
-                  <>
-                    {totalSignals} signal{totalSignals !== 1 ? 's' : ''}
-                    {articles.length > 0 && ` · ${articles.length} articles`}
-                    {posts.length > 0 && ` · ${posts.length} topics`}
-                  </>
-                )}
-              </p>
-            </div>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-300/85 to-transparent" />
+        <div className={cn("flex items-center", compact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
+          <div className={cn("rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0", compact ? "p-1.5" : "p-1.5")}>
+            <Radio className={cn("text-green-200", compact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleRefresh}
-            disabled={intelFetching}
-            className="text-xs text-gray-500 gap-1.5 shrink-0"
-            data-testid="button-refresh-insights"
-          >
-            <RefreshCw className={cn("w-3 h-3", intelFetching && "animate-spin")} />
-            Refresh
-          </Button>
+          <h3 className={cn("font-semibold text-green-200 uppercase tracking-wide min-w-0", compact ? "text-xs" : "text-xs md:text-sm")}>Insights</h3>
+          {urgentCount > 0 && (
+            <span
+              className="ml-1 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-500/40 animate-pulse"
+              data-testid="badge-urgent-count"
+            >
+              <Zap className="w-2 h-2" />
+              {urgentCount}
+            </span>
+          )}
+          <div className="ml-auto">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleRefresh}
+              disabled={intelFetching}
+              data-testid="button-refresh-insights"
+              className="text-gray-600"
+            >
+              <RefreshCw className={cn("w-3 h-3", intelFetching && "animate-spin")} />
+            </Button>
+          </div>
+        </div>
+        {/* Strategy filter cells */}
+        <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
+          {areaCounts.map(area => {
+            const isActive = activeFilter === area.key;
+            const Icon = area.icon;
+            return (
+              <button
+                key={area.key}
+                onClick={() => setActiveFilter(isActive ? null : area.key)}
+                data-testid={`filter-strategy-${area.key}`}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-lg border py-2 px-1 transition-all hover-elevate active-elevate-2 text-center",
+                  isActive
+                    ? `${area.bg} ${area.border} ring-1 ${area.ring}`
+                    : "border-gray-700/40 bg-gray-900/60"
+                )}
+              >
+                <div className={cn("flex items-center justify-center gap-1", isActive ? area.color : "text-gray-600")}>
+                  <Icon className="w-3 h-3 shrink-0" />
+                  {area.total > 0 && (
+                    <span className={cn("text-[11px] font-bold", area.urgent > 0 ? 'text-red-400' : (isActive ? area.color : 'text-gray-500'))}>
+                      {area.total}
+                    </span>
+                  )}
+                </div>
+                <span className={cn("text-[9px] font-bold uppercase tracking-wide leading-tight", isActive ? area.color : "text-gray-600")}>
+                  {area.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -403,47 +422,6 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           )}
         </div>
       )}
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY LENS — 5 clickable area filters
-      ═══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
-        {areaCounts.map(area => {
-          const isActive = activeFilter === area.key;
-          const Icon = area.icon;
-          return (
-            <button
-              key={area.key}
-              onClick={() => setActiveFilter(isActive ? null : area.key)}
-              data-testid={`filter-strategy-${area.key}`}
-              className={cn(
-                "flex flex-col items-center gap-1 rounded-xl border py-2 px-1 transition-all hover-elevate active-elevate-2 text-center",
-                isActive
-                  ? `${area.bg} ${area.border} ring-1 ${area.ring}`
-                  : "border-gray-700/40 bg-gray-900/60"
-              )}
-            >
-              <div className={cn("flex items-center justify-center gap-1", isActive ? area.color : "text-gray-600")}>
-                <Icon className="w-3 h-3 shrink-0" />
-                {area.total > 0 && (
-                  <span className={cn(
-                    "text-[11px] font-bold",
-                    area.urgent > 0 ? 'text-red-400' : (isActive ? area.color : 'text-gray-500')
-                  )}>
-                    {area.total}
-                  </span>
-                )}
-              </div>
-              <span className={cn(
-                "text-[9px] font-bold uppercase tracking-wide leading-tight",
-                isActive ? area.color : "text-gray-600"
-              )}>
-                {area.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Strategy context banner */}
       {activeArea && (
@@ -511,16 +489,14 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          STRATEGY INTEL — horizontal scroll carousel
+          STRATEGY — horizontal scroll carousel
       ═══════════════════════════════════════════════════════════════════ */}
       <section data-testid="zone-strategy-intel">
         <SectionTitle
           icon={Radar}
           iconBg="bg-cyan-900/50 ring-cyan-400/30"
           iconColor="text-cyan-300"
-          label="Strategy Intel"
-          count={sortedInsights.length}
-          unit={sortedInsights.length === 1 ? 'signal' : 'signals'}
+          label="Strategy"
           accent="text-cyan-200"
         />
 
@@ -631,16 +607,14 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MARKET WIRE — horizontal scroll carousel
+          NEWS — horizontal scroll carousel
       ═══════════════════════════════════════════════════════════════════ */}
       <section data-testid="zone-market-wire">
         <SectionTitle
           icon={Newspaper}
           iconBg="bg-blue-900/50 ring-blue-400/30"
           iconColor="text-blue-300"
-          label="Market Wire"
-          count={articles.length}
-          unit={articles.length === 1 ? 'article' : 'articles'}
+          label="News"
           accent="text-blue-200"
         />
         {intelLoading ? (
@@ -694,16 +668,14 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          FORUM PULSE — horizontal scroll carousel
+          FORUM — horizontal scroll carousel
       ═══════════════════════════════════════════════════════════════════ */}
       <section data-testid="zone-forum-pulse">
         <SectionTitle
           icon={MessageSquare}
           iconBg="bg-purple-900/50 ring-purple-400/30"
           iconColor="text-purple-300"
-          label="Forum Pulse"
-          count={posts.length}
-          unit={posts.length === 1 ? 'topic' : 'topics'}
+          label="Forum"
           accent="text-purple-200"
         />
 
