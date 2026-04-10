@@ -526,77 +526,68 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             {/* ── Lamp panels column ── */}
             <div className="flex-1 flex flex-col gap-1.5">
 
-              {/* Order status lamps */}
-              <div className="flex-1 relative pt-1 pb-1.5 flex flex-col gap-1.5">
-
-                {/* ROW 1: happy path — Unpaid → teal divider → New • Prog • Fdbk */}
-                <div className="relative">
-                  <div className="absolute left-0 right-0 top-[19px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
-                  <div className="flex items-start">
-                    {([
-                      { key: 'unpaid', label: 'Unpaid', lampColor: 'rgba(45,212,191,0.9)' },
-                    ] as const).map(({ key, label, lampColor }) => {
-                      const count = workflowSummary?.byStatus?.[key] ?? 0;
-                      const isActive = count > 0;
-                      return (
-                        <div key={key} data-testid={`directive-status-${key}`} className="flex-1 flex flex-col items-center gap-0.5 py-0">
-                          <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                          <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
-                            className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
-                          <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{workflowSummary ? count : '—'}</span>
-                        </div>
-                      );
-                    })}
-                    <div className="self-stretch relative px-1.5 shrink-0">
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-teal-900/40" />
-                      <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-teal-900/60 ring-1 ring-teal-500/35 z-10" />
-                    </div>
-                    {([
-                      { key: 'new',        label: 'New',  lampColor: 'rgba(74,222,128,0.9)',  isFeedback: false },
-                      { key: 'processing', label: 'Prog', lampColor: 'rgba(167,139,250,0.9)', isFeedback: false },
-                      { key: 'feedback',   label: 'Fdbk', lampColor: 'rgba(96,165,250,0.9)',  isFeedback: true  },
-                    ] as const).map(({ key, label, lampColor, isFeedback }) => {
-                      const count = isFeedback ? (fulfillmentStats?.feedbackPending ?? 0) : (workflowSummary?.byStatus?.[key] ?? 0);
-                      const isActive = count > 0;
-                      return (
-                        <div key={key} data-testid={`directive-status-${key}`} className="flex-1 flex flex-col items-center gap-0.5 py-0">
-                          <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                          <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
-                            className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
-                          <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{(workflowSummary || isFeedback) ? count : '—'}</span>
-                        </div>
-                      );
-                    })}
+              {/* Order status lamps — single row: Unpaid → teal divider → New • Prog • Fdbk → red divider → Flagged */}
+              <div className="flex-1 relative pt-1 pb-1.5 flex items-center">
+                <div className="absolute left-0 right-0 top-[19px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/35 to-gray-700/10 pointer-events-none" />
+                <div className="flex items-start w-full">
+                  {/* Unpaid */}
+                  {(() => {
+                    const count = workflowSummary?.byStatus?.unpaid ?? 0;
+                    const isActive = count > 0;
+                    const lampColor = 'rgba(45,212,191,0.9)';
+                    return (
+                      <div data-testid="directive-status-unpaid" className="flex-1 flex flex-col items-center gap-0.5">
+                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>Unpaid</span>
+                        <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
+                          className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{workflowSummary ? count : '—'}</span>
+                      </div>
+                    );
+                  })()}
+                  {/* Teal divider */}
+                  <div className="self-stretch relative px-1.5 shrink-0">
+                    <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-teal-900/40" />
+                    <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-teal-900/60 ring-1 ring-teal-500/35 z-10" />
                   </div>
-                </div>
-
-                {/* ROW 2: exception zone — red divider → Hold • Issue • Bump */}
-                <div className="relative">
-                  <div className="absolute left-0 right-0 top-[19px] h-px bg-gradient-to-r from-red-900/30 via-red-800/20 to-gray-700/10 pointer-events-none" />
-                  <div className="flex items-start">
-                    <div className="self-stretch relative px-1.5 shrink-0">
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-red-900/40" />
-                      <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
-                    </div>
-                    {([
-                      { key: 'on_hold', label: 'Hold',  lampColor: 'rgba(248,113,113,0.9)' },
-                      { key: 'issue',   label: 'Issue', lampColor: 'rgba(251,146,60,0.9)'  },
-                      { key: 'bump',    label: 'Bump',  lampColor: 'rgba(250,204,21,0.9)'  },
-                    ] as const).map(({ key, label, lampColor }) => {
-                      const count = workflowSummary?.byStatus?.[key] ?? 0;
-                      const isActive = count > 0;
-                      return (
-                        <div key={key} data-testid={`directive-status-${key}`} className="flex-1 flex flex-col items-center gap-0.5 py-0">
-                          <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
-                          <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
-                            className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
-                          <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{workflowSummary ? count : '—'}</span>
-                        </div>
-                      );
-                    })}
+                  {/* New • Prog • Fdbk */}
+                  {([
+                    { key: 'new',        label: 'New',  lampColor: 'rgba(74,222,128,0.9)',  isFeedback: false },
+                    { key: 'processing', label: 'Prog', lampColor: 'rgba(167,139,250,0.9)', isFeedback: false },
+                    { key: 'feedback',   label: 'Fdbk', lampColor: 'rgba(96,165,250,0.9)',  isFeedback: true  },
+                  ] as const).map(({ key, label, lampColor, isFeedback }) => {
+                    const count = isFeedback ? (fulfillmentStats?.feedbackPending ?? 0) : (workflowSummary?.byStatus?.[key] ?? 0);
+                    const isActive = count > 0;
+                    return (
+                      <div key={key} data-testid={`directive-status-${key}`} className="flex-1 flex flex-col items-center gap-0.5">
+                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
+                        <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
+                          className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{(workflowSummary || isFeedback) ? count : '—'}</span>
+                      </div>
+                    );
+                  })}
+                  {/* Red divider */}
+                  <div className="self-stretch relative px-1.5 shrink-0">
+                    <div className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-red-900/40" />
+                    <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-900/60 ring-1 ring-red-500/35 z-10" />
                   </div>
+                  {/* Flagged — sum of on_hold + issue + bump */}
+                  {(() => {
+                    const count = (workflowSummary?.byStatus?.on_hold ?? 0)
+                      + (workflowSummary?.byStatus?.issue ?? 0)
+                      + (workflowSummary?.byStatus?.bump ?? 0);
+                    const isActive = count > 0;
+                    const lampColor = 'rgba(248,113,113,0.9)';
+                    return (
+                      <div data-testid="directive-status-flagged" className="flex-1 flex flex-col items-center gap-0.5">
+                        <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-300" : "text-gray-400")}>Flagd</span>
+                        <div style={isActive ? { '--lamp-color': lampColor, backgroundColor: lampColor, boxShadow: `0 0 8px ${lampColor}, 0 0 18px ${lampColor}55` } as React.CSSProperties : undefined}
+                          className={cn("w-3 h-3 rounded-full z-10 ring-1 shrink-0", isActive ? "panel-lamp-active ring-white/20" : "bg-gray-600/50 ring-gray-500/40")} />
+                        <span className={cn("font-mono text-[10px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{workflowSummary ? count : '—'}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
-
               </div>
 
               {/* ── Separator ── */}
