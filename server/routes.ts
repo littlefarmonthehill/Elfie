@@ -4726,8 +4726,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM orders
         WHERE org_id = ${orgId}
           AND is_test = false
-          AND order_status NOT IN ('cancelled', 'Cancelled', 'purged', 'completed', 'shipped', 'returned')
           AND COALESCE(workflow_status, 'new') <> 'done'
+          AND (
+            COALESCE(workflow_status, 'new') IN ('on_hold', 'issue', 'bump')
+            OR order_status NOT IN ('cancelled', 'Cancelled', 'purged', 'completed', 'shipped', 'returned')
+          )
         GROUP BY COALESCE(workflow_status, 'new')
       `);
       const byStatus: Record<string, number> = {};
