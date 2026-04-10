@@ -269,15 +269,18 @@ router.get("/orders/workflow-summary", isApproved, asyncRoute(async (req: any, r
 router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const result = await db.execute(sql`
-    SELECT
-      COALESCE(s.tracking_status, 'unknown') AS status,
-      COUNT(DISTINCT o.id) AS count
-    FROM ${orders} o
-    LEFT JOIN ${shipments} s ON s.order_id = o.id
-    WHERE o.org_id = ${orgId}
-      AND o.order_status IN ('shipped','completed')
-      AND o.is_test = false
-    GROUP BY COALESCE(s.tracking_status, 'unknown')
+    SELECT status, COUNT(*) AS count
+    FROM (
+      SELECT DISTINCT ON (o.id)
+        COALESCE(s.tracking_status, 'unknown') AS status
+      FROM ${orders} o
+      INNER JOIN ${shipments} s ON s.order_id = o.id
+      WHERE o.org_id = ${orgId}
+        AND o.order_status IN ('shipped','completed')
+        AND o.is_test = false
+      ORDER BY o.id, s.created_at DESC NULLS LAST
+    ) sub
+    GROUP BY status
   `);
   const byStatus: Record<string, number> = {};
   for (const row of result.rows as any[]) {
