@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  ShoppingCart, Radio, Gauge, Zap, Rocket,
+  Satellite, Radio, Gauge, Zap, Rocket,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
@@ -411,7 +411,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className={cn("flex items-center", isCompact ? "gap-1.5 mb-1.5" : "gap-2 mb-2")}>
             <div className={cn("rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0", isCompact ? "p-1.5" : "p-1.5")}>
-              <ShoppingCart className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
+              <Satellite className={cn("text-orange-200", isCompact ? "w-3.5 h-3.5" : "w-3 h-3 md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("font-semibold text-orange-200 uppercase tracking-wide min-w-0", isCompact ? "text-xs" : "text-xs md:text-sm")}>Sales</h3>
             <CollapsibleDatePicker
@@ -503,7 +503,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 }}
                 className="flex-1 flex flex-col items-center justify-center rounded-lg border border-orange-500/55 px-3 shrink-0 gap-1.5 min-w-[50px] transition-transform duration-75 active:translate-y-[3px] cursor-pointer"
               >
-                <ShoppingCart className="w-4 h-4 text-orange-300" />
+                <Satellite className="w-4 h-4 text-orange-300" />
                 <span className="font-mono text-[7px] font-bold uppercase tracking-[0.18em] text-orange-200">ORDERS</span>
               </button>
               {/* Separator spacer — aligns with the horizontal rule in the lamp column */}
