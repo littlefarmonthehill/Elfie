@@ -274,7 +274,7 @@ router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any
       SELECT DISTINCT ON (o.id)
         COALESCE(s.tracking_status, 'unknown') AS status
       FROM ${orders} o
-      LEFT JOIN ${shipments} s ON s.order_id = o.id
+      INNER JOIN ${shipments} s ON s.order_id = o.id
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed')
         AND o.is_test = false
