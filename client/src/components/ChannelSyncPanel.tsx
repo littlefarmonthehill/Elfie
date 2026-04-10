@@ -647,6 +647,9 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
           </div>
           <div className="flex items-center gap-2">
             <SyncModeBadge mode={selectedTarget?.syncMode} size="sm" />
+            {!isLoading && tileDiscrepancies > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" data-testid="channel-discrepancy-indicator" />
+            )}
             <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
           </div>
         </div>
@@ -705,25 +708,6 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
             {!lastSync && (
               <span className="text-[10px] text-gray-500">Never synced</span>
             )}
-          </div>
-        )}
-
-        {!isLoading && tileDiscrepancies > 0 && (
-          <div
-            className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/25 rounded px-2 py-1.5"
-            data-testid="channel-discrepancy-indicator"
-          >
-            <AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" />
-            <span className="text-[10px] font-semibold text-orange-300">
-              {tileDiscrepancies} discrepanc{tileDiscrepancies === 1 ? 'y' : 'ies'} detected
-            </span>
-          </div>
-        )}
-
-        {!isLoading && selectedTarget?.enabled && tileDiscrepancies === 0 && lastSync?.lastSyncStatus === 'success' && (
-          <div className="flex items-center gap-1.5 text-[10px] text-green-400/70">
-            <CheckCircle2 className="w-2.5 h-2.5" />
-            <span>{selectedChannelData?.label ?? 'Channel'} is in sync</span>
           </div>
         )}
       </button>
