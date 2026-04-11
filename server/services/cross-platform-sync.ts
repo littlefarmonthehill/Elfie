@@ -3,42 +3,9 @@ import { adjustBrickLinkInventoryDelta } from './bricklink';
 import { recordSyncIssue } from './sync-issue-service';
 import { db } from '../db';
 import { channelLotLinks, crossPlatformSyncQueue, blInventory } from '@shared/schema';
-import { eq, and, inArray, isNotNull, sql, desc } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 const BO_CHANNEL = 'brickowl' as const;
-
-/**
- * Infer the org's default BrickLink stockroom from their own inventory history.
- *
- * BL's store-wide sold-out preference (which stockroom A/B/C) is only configurable
- * in the BL web UI and is NOT exposed via the API. When we send a delta that brings
- * a lot to qty=0 we must explicitly specify is_stock_room + stock_room_id, so we
- * derive the seller's default by looking at which stockroom holds the most of their
- * already-sold-out lots. Falls back to 'A' (BL's own default) for new orgs with no data.
- */
-async function inferDefaultStockroom(orgId: string): Promise<'A' | 'B' | 'C'> {
-  const rows = await db
-    .select({
-      stockRoomId: blInventory.stockRoomId,
-      count: sql<number>`COUNT(*)::int`,
-    })
-    .from(blInventory)
-    .where(
-      and(
-        eq(blInventory.orgId, orgId),
-        eq(blInventory.isStockRoom, true),
-        isNotNull(blInventory.stockRoomId),
-        eq(blInventory.quantity, 0),
-      )
-    )
-    .groupBy(blInventory.stockRoomId)
-    .orderBy(desc(sql`COUNT(*)`))
-    .limit(1);
-
-  const top = rows[0]?.stockRoomId;
-  if (top === 'A' || top === 'B' || top === 'C') return top;
-  return 'A'; // BL's documented default when stock_room_id is omitted
-}
 
 /**
  * Cross-Platform Inventory Synchronization Service
@@ -248,12 +215,13 @@ async function updateBrickLinkQuantityDelta(
     let effectiveStockRoomId = stockRoomId;
     if (isRetain && !isStockRoom && localQty <= 0) {
       // BL rejects qty=0 with is_retain=true + is_stock_room=false.
-      // The seller's default stockroom is not exposed via BL's API — infer it from their
-      // existing sold-out lots (whichever stockroom holds the most of them).
-      const defaultStockroom = await inferDefaultStockroom(orgId);
+      // Fix: send is_stock_room=true WITHOUT stock_room_id — per BL API docs, omitting
+      // stock_room_id when is_stock_room=true causes BL to apply the seller's own configured
+      // default stockroom (set in their BL store preferences). This respects whatever the
+      // seller has chosen without us needing to know or store that preference.
       effectiveStockRoom = true;
-      effectiveStockRoomId = defaultStockroom;
-      console.log(`⚠️  [BL-DELTA] Inventory ${inventoryId} would reach 0 qty — overriding is_stock_room=true (stockroom ${defaultStockroom}, inferred from org history) so BL moves lot to stockroom instead of rejecting`);
+      effectiveStockRoomId = null;
+      console.log(`⚠️  [BL-DELTA] Inventory ${inventoryId} would reach 0 qty — sending is_stock_room=true (no stock_room_id) so BL applies seller's configured default stockroom`);
     }
 
     console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain}, is_stock_room=${effectiveStockRoom}${effectiveStockRoomId ? `, stock_room_id=${effectiveStockRoomId}` : ''})${orderId ? ` (order ${orderId})` : ''}`);
