@@ -118,11 +118,11 @@ router.delete("/orders/closed", isApproved, asyncRoute(async (req: any, res) => 
 router.get("/orders/test-preview", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const [countResult, activeResult] = await Promise.all([
-    db.select({ count: sql<number>`count(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true))),
+    db.select({ count: sql<number>`count(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true), sql`${orders.orderStatus} != 'purged'`)),
     db.execute(sql`
       SELECT DISTINCT o.id FROM ${orders} o
       INNER JOIN order_details od ON od.order_id = o.id
-      WHERE o.org_id = ${orgId} AND o.is_test = true
+      WHERE o.org_id = ${orgId} AND o.is_test = true AND o.order_status != 'purged'
     `),
   ]);
   res.json({
@@ -133,7 +133,14 @@ router.get("/orders/test-preview", isApproved, asyncRoute(async (req: any, res) 
 
 router.delete("/orders/test", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const result = await db.delete(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true))).returning({ id: orders.id });
+  // Soft-delete: set order_status = 'purged' instead of deleting the row.
+  // This prevents the BrickLink/BrickOwl sync from re-importing the orders on
+  // the next run — the sync skips any order whose local status is 'purged'.
+  const result = await db
+    .update(orders)
+    .set({ orderStatus: 'purged', updatedAt: new Date() })
+    .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true), sql`${orders.orderStatus} != 'purged'`))
+    .returning({ id: orders.id });
   res.json({ deleted: result.length });
 }));
 
@@ -398,7 +405,7 @@ router.get("/orders", isApproved, asyncRoute(async (req: any, res) => {
   const tz = await getOrgTimezone(orgId);
   const { start, end } = tzDateBounds(range ?? '', tz);
 
-  const conditions: any[] = [eq(orders.orgId, orgId)];
+  const conditions: any[] = [eq(orders.orgId, orgId), sql`${orders.orderStatus} != 'purged'`];
   if (status && status !== 'all') {
     if (status === 'active') {
       conditions.push(or(eq(orders.orderStatus, 'awaiting_payment'), eq(orders.orderStatus, 'awaiting_fulfillment'), eq(orders.orderStatus, 'awaiting_shipment')));
