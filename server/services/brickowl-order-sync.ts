@@ -314,14 +314,22 @@ async function processBrickOwlOrder(
 
     let allowDemotion = false;
     if (wouldDemoteFromShipped) {
-      const activeShipments = await db
-        .select({ id: shipments.id })
-        .from(shipments)
-        .where(and(eq(shipments.orderId, effectiveOrderId), ne(shipments.status, 'voided')))
-        .limit(1);
-      allowDemotion = activeShipments.length === 0;
-      if (allowDemotion) {
-        console.warn(`🔄 BrickOwl order ${effectiveOrderId}: allowing demotion shipped → ${normalizedStatus} (no active shipments — order was sync-promoted, not app-shipped)`);
+      // Never demote if workflowStatus is 'shipped' — this means the order was explicitly
+      // marked shipped (either via the fulfillment flow or a migration). Orders in this
+      // state are authoritative: BrickOwl API latency or a momentary lower-status response
+      // must never clobber them even if there are no app-created shipment records.
+      if (existingOrder.workflowStatus === 'shipped') {
+        console.log(`🔒 BrickOwl order ${effectiveOrderId}: demotion blocked — workflowStatus is 'shipped' (explicitly marked shipped, no active shipments check needed)`);
+      } else {
+        const activeShipments = await db
+          .select({ id: shipments.id })
+          .from(shipments)
+          .where(and(eq(shipments.orderId, effectiveOrderId), ne(shipments.status, 'voided')))
+          .limit(1);
+        allowDemotion = activeShipments.length === 0;
+        if (allowDemotion) {
+          console.warn(`🔄 BrickOwl order ${effectiveOrderId}: allowing demotion shipped → ${normalizedStatus} (no active shipments — order was sync-promoted, not app-shipped)`);
+        }
       }
     }
 
