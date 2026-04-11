@@ -1690,6 +1690,11 @@ function DiscrepancyDetail({ area, data, isLoading }: {
   isLoading: boolean;
 }) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
   const items: any[] = data?.discrepancies ?? [];
   const total: number = data?.total ?? 0;
 
@@ -1718,7 +1723,7 @@ function DiscrepancyDetail({ area, data, isLoading }: {
   const isMissing = area.type === 'missing';
 
   // Filter by search (part number or lot id) — only for missing type
-  const q = search.trim().toLowerCase();
+  const q = debouncedSearch.trim().toLowerCase();
   const filtered = isMissing && q
     ? items.filter((item: any) =>
         item.itemNo?.toLowerCase().includes(q) ||

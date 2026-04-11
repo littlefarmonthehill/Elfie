@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -1275,6 +1275,11 @@ function sortSets(sets: SetGroup[], key: SetSortKey): SetGroup[] {
 
 function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?: (id: number) => void }) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
   const [sortKey, setSortKey] = useState<SetSortKey>('name');
   const [noLocationOnly, setNoLocationOnly] = useState(false);
   const [pomRunning, setPomRunning] = useState(false);
@@ -1289,7 +1294,7 @@ function SetsReadinessView({ open, onItemClick }: { open: boolean; onItemClick?:
 
   const filtered = sortSets(
     (sets ?? []).filter(s => {
-      if (search && !s.itemNo.toLowerCase().includes(search.toLowerCase()) && !s.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      if (debouncedSearch && !s.itemNo.toLowerCase().includes(debouncedSearch.toLowerCase()) && !s.itemName.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       if (noLocationOnly && !s.lots.some(l => !l.binNames)) return false;
       return true;
     }),

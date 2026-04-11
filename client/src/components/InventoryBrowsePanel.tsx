@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Package, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { Package, Search, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -17,19 +17,20 @@ export default function InventoryBrowsePanel({ type, onItemClick }: InventoryBro
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 350);
+    const t = setTimeout(() => setSearch(searchInput), 200);
     return () => clearTimeout(t);
   }, [searchInput]);
 
   useEffect(() => { setPage(0); }, [search, type]);
 
-  const { data, isLoading } = useQuery<{ rows: any[]; total: number; page: number; limit: number }>({
+  const { data, isLoading, isFetching } = useQuery<{ rows: any[]; total: number; page: number; limit: number }>({
     queryKey: ['/api/inventory/browse', type, page, search],
     queryFn: () => {
       const params = new URLSearchParams({ type, page: String(page), search });
       return fetch(`/api/inventory/browse?${params}`).then(r => r.json());
     },
     staleTime: 30000,
+    placeholderData: keepPreviousData,
   });
 
   const title = type === 'lots' ? 'Inventory Lots' : type === 'parts' ? 'Parts by Quantity' : 'Categories';
@@ -44,7 +45,10 @@ export default function InventoryBrowsePanel({ type, onItemClick }: InventoryBro
 
       <div className="flex-shrink-0 px-4 pt-3 pb-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+          {isFetching
+            ? <Loader2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 animate-spin pointer-events-none" />
+            : <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+          }
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -61,7 +65,7 @@ export default function InventoryBrowsePanel({ type, onItemClick }: InventoryBro
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-2 min-h-0">
-        {isLoading ? (
+        {!data && isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>

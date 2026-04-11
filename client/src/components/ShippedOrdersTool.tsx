@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const [inputValue, setInputValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   useEffect(() => {
-    const t = setTimeout(() => setSearchQuery(inputValue), 300);
+    const t = setTimeout(() => setSearchQuery(inputValue), 200);
     return () => clearTimeout(t);
   }, [inputValue]);
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
@@ -164,7 +164,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   });
 
   // Not-delivered panel: no date range, backend excludes delivered orders
-  const { data: notDeliveredOrders, isLoading: isLoadingNotDelivered } = useQuery<ShippedOrder[]>({
+  const { data: notDeliveredOrders, isLoading: isLoadingNotDelivered, isFetching: isFetchingNotDelivered } = useQuery<ShippedOrder[]>({
     queryKey: ['/api/orders/shipped', searchQuery, 'not-delivered'],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -174,11 +174,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       if (!response.ok) throw new Error('Failed to fetch shipped orders');
       return response.json();
     },
+    placeholderData: keepPreviousData,
   });
 
   // Delivered panel: backend filters to delivered-only + applies date range
   // (deliveredOnly=true ensures the 200-cap is spent only on delivered rows)
-  const { data: deliveredOrders, isLoading: isLoadingDelivered } = useQuery<ShippedOrder[]>({
+  const { data: deliveredOrders, isLoading: isLoadingDelivered, isFetching: isFetchingDelivered } = useQuery<ShippedOrder[]>({
     queryKey: ['/api/orders/shipped', searchQuery, dateRange, 'delivered'],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -189,9 +190,11 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       if (!response.ok) throw new Error('Failed to fetch shipped orders');
       return response.json();
     },
+    placeholderData: keepPreviousData,
   });
 
-  const isLoading = isLoadingNotDelivered || isLoadingDelivered;
+  const isFetchingSearch = isFetchingNotDelivered || isFetchingDelivered;
+  const isLoading = (!notDeliveredOrders && isLoadingNotDelivered) || (!deliveredOrders && isLoadingDelivered);
   // Merge for legacy references (refresh-tracking, etc.)
   // deliveredOrders is already backend-filtered to delivered-only
   const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders ?? [])];
@@ -350,7 +353,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {isFetchingSearch
+              ? <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              : <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            }
             <Input
               type="text"
               placeholder="Search by order number, customer, or tracking number..."
