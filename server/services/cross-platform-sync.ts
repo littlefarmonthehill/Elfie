@@ -2,7 +2,7 @@ import { updateBrickOwlLot, getBrickOwlInventory } from './brickowl';
 import { adjustBrickLinkInventoryDelta } from './bricklink';
 import { recordSyncIssue } from './sync-issue-service';
 import { db } from '../db';
-import { channelLotLinks, crossPlatformSyncQueue } from '@shared/schema';
+import { channelLotLinks, crossPlatformSyncQueue, blInventory } from '@shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const BO_CHANNEL = 'brickowl' as const;
@@ -183,8 +183,17 @@ async function updateBrickLinkQuantityDelta(
       return { success: false, error: errMsg };
     }
 
-    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId}${orderId ? ` (order ${orderId})` : ''}`);
-    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId);
+    // Look up is_retain from local inventory so BL doesn't delete the lot when qty hits 0.
+    // Per BL API docs, is_retain is per-call — it must be included on every request.
+    const [localLot] = await db
+      .select({ isRetain: blInventory.isRetain })
+      .from(blInventory)
+      .where(eq(blInventory.id, numericId))
+      .limit(1);
+    const isRetain = localLot?.isRetain ?? true; // default true: safer to retain than delete
+
+    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain})${orderId ? ` (order ${orderId})` : ''}`);
+    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId, isRetain);
     if (!result.success && result.error) {
       await recordSyncIssue({
         syncType: 'cross_platform_sync',

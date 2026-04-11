@@ -418,17 +418,22 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
 export async function adjustBrickLinkInventoryDelta(
   inventoryId: number,
   delta: number,
-  orgId: string = PLATFORM_ORG_ID
+  orgId: string = PLATFORM_ORG_ID,
+  isRetain?: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (delta === 0) return { success: true };
     const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-    console.log(`Adjusting BrickLink inventory ${inventoryId} by ${deltaStr}...`);
-    
-    await bricklinkPutRequest(`/inventories/${inventoryId}`, {
-      quantity: deltaStr,
-    }, orgId);
-    
+    console.log(`Adjusting BrickLink inventory ${inventoryId} by ${deltaStr} (is_retain=${isRetain ?? 'not set'})...`);
+
+    // Always include is_retain when provided. Per BL API docs, is_retain is per-call
+    // (not a persistent lot setting). Without it, BL may reject or delete the lot when
+    // the resulting quantity hits zero.
+    const body: Record<string, unknown> = { quantity: deltaStr };
+    if (isRetain !== undefined) body.is_retain = isRetain;
+
+    await bricklinkPutRequest(`/inventories/${inventoryId}`, body, orgId);
+
     console.log(`✓ BrickLink: Adjusted inventory ${inventoryId} by ${deltaStr}`);
     return { success: true };
   } catch (error: any) {
