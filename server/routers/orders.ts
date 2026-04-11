@@ -803,6 +803,39 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
     db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(sql`CASE WHEN ${shipments.status} = 'voided' THEN 1 ELSE 0 END`, desc(shipments.createdAt)).limit(1),
   ]);
 
+  // Enrich order items with imageUrl, part number, and colorId by looking up
+  // the BrickLink inventory record (and joined bl_catalog entry) for each line item.
+  // BrickOwl orders use bricklinkInventoryId; BrickLink orders use the numeric sku.
+  const isBrickOwl = order.marketplace === 'BrickOwl';
+  const invLookupIds = Array.from(new Set(
+    items.map(item => {
+      const id = isBrickOwl
+        ? item.bricklinkInventoryId
+        : (item.sku ? parseInt(item.sku, 10) : NaN);
+      return id && !isNaN(Number(id)) ? Number(id) : null;
+    }).filter((id): id is number => id !== null)
+  ));
+
+  const invDataMap = new Map<number, { itemNo: string; colorId: number | null; imageUrl: string | null; itemType: string | null }>();
+  if (invLookupIds.length > 0) {
+    const rows = await db
+      .select({
+        id: blInventory.id,
+        itemNo: blInventory.itemNo,
+        colorId: blInventory.colorId,
+        itemType: blInventory.itemType,
+        imageUrl: blCatalog.imageUrl,
+      })
+      .from(blInventory)
+      .leftJoin(blCatalog, and(
+        eq(blInventory.itemNo, blCatalog.itemNo),
+        eq(blInventory.itemType, blCatalog.itemType),
+        eq(blInventory.colorId, blCatalog.colorId),
+      ))
+      .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, invLookupIds)));
+    for (const row of rows) invDataMap.set(row.id, row);
+  }
+
   // Parse shipTo JSON into customer object
   let shipToData: any = {};
   try { shipToData = order.shipTo ? JSON.parse(order.shipTo) : {}; } catch {}
@@ -848,14 +881,31 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
     requestedShippingService: order.requestedShippingService ?? null,
     insuranceAmount: order.insuranceAmount ? parseFloat(order.insuranceAmount) : null,
     mergeGroupId: order.mergeGroupId ?? null,
-    items: items.map(item => ({
-      partNumber: item.itemNo || item.sku || '',
-      name: item.name,
-      quantity: item.quantity,
-      price: parseFloat(item.unitPrice ?? '0'),
-      colorId: item.colorId ?? null,
-      blInventoryId: item.bricklinkInventoryId ?? null,
-    })),
+    items: items.map(item => {
+      const invId = isBrickOwl
+        ? item.bricklinkInventoryId
+        : (item.sku ? parseInt(item.sku, 10) : null);
+      const inv = invId ? invDataMap.get(Number(invId)) : undefined;
+
+      // Part number: prefer inventory itemNo, then stored itemNo, then extract from name (BrickOwl)
+      let partNumber = inv?.itemNo || item.itemNo || '';
+      if (!partNumber && isBrickOwl) {
+        const m = (item.name ?? '').match(/\((\d[0-9a-zA-Z]*)/);
+        if (m) partNumber = m[1];
+      }
+      if (!partNumber) partNumber = item.sku || '';
+
+      return {
+        partNumber,
+        name: item.name,
+        quantity: item.quantity,
+        price: parseFloat(item.unitPrice ?? '0'),
+        colorId: inv?.colorId ?? item.colorId ?? null,
+        blInventoryId: item.bricklinkInventoryId ?? null,
+        imageUrl: inv?.imageUrl ?? null,
+        itemType: inv?.itemType ?? null,
+      };
+    }),
     adjustments: adjustments.map(a => ({
       id: a.id,
       type: a.type,
