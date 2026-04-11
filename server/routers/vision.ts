@@ -464,6 +464,98 @@ router.post("/brickanalyzer/segment", brickanalyzerUpload.single('image'), isApp
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+// ── POST /api/brickanalyzer/detect-at-point ───────────────────────────────────
+// Accepts: multipart with optional 'image', tapX, tapY (all in % 0-100),
+// and optional cropX/Y/W/H hint. Returns { box: {x,y,w,h} | null }.
+router.post("/brickanalyzer/detect-at-point", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
+  try {
+    const tapX = parseFloat(req.body?.tapX ?? '50');
+    const tapY = parseFloat(req.body?.tapY ?? '50');
+
+    const { default: sharp } = await import('sharp');
+
+    let imageBuffer: Buffer | undefined;
+    if (req.file) {
+      try { imageBuffer = await sharp(req.file.buffer).rotate().toBuffer(); } catch { imageBuffer = req.file.buffer; }
+    }
+    if (!imageBuffer) {
+      const latestScanId = [...brickanalyzerImageCache.keys()].sort((a, b) => b - a)[0];
+      if (latestScanId !== undefined) imageBuffer = brickanalyzerImageCache.get(latestScanId);
+    }
+    if (!imageBuffer) return res.json({ box: null });
+
+    const imgMeta = await sharp(imageBuffer).metadata();
+    const imgWidth = imgMeta.width ?? 1000;
+    const imgHeight = imgMeta.height ?? 1000;
+
+    const cropX = parseFloat(req.body?.cropX ?? 'NaN');
+    const cropY = parseFloat(req.body?.cropY ?? 'NaN');
+    const cropW = parseFloat(req.body?.cropW ?? 'NaN');
+    const cropH = parseFloat(req.body?.cropH ?? 'NaN');
+
+    let regionBuffer = imageBuffer;
+    let regionOffsetX = 0, regionOffsetY = 0;
+    let regionW = 100, regionH = 100;
+
+    if (!isNaN(cropX) && !isNaN(cropY) && !isNaN(cropW) && !isNaN(cropH)) {
+      const px = Math.max(0, Math.round((cropX / 100) * imgWidth));
+      const py = Math.max(0, Math.round((cropY / 100) * imgHeight));
+      const pw = Math.min(imgWidth - px, Math.round((cropW / 100) * imgWidth));
+      const ph = Math.min(imgHeight - py, Math.round((cropH / 100) * imgHeight));
+      regionBuffer = await sharp(imageBuffer).extract({ left: px, top: py, width: pw, height: ph }).toBuffer();
+      regionOffsetX = cropX; regionOffsetY = cropY;
+      regionW = cropW; regionH = cropH;
+    } else {
+      const windowW = 50, windowH = 50;
+      const wx = Math.max(0, Math.min(tapX - windowW / 2, 100 - windowW));
+      const wy = Math.max(0, Math.min(tapY - windowH / 2, 100 - windowH));
+      const px = Math.round((wx / 100) * imgWidth);
+      const py = Math.round((wy / 100) * imgHeight);
+      const pw = Math.round((windowW / 100) * imgWidth);
+      const ph = Math.round((windowH / 100) * imgHeight);
+      regionBuffer = await sharp(imageBuffer).extract({ left: px, top: py, width: pw, height: ph }).toBuffer();
+      regionOffsetX = wx; regionOffsetY = wy;
+      regionW = windowW; regionH = windowH;
+    }
+
+    const { segmentImageWithCandidates } = await import('../services/segmentClient.js');
+    const result = await segmentImageWithCandidates(regionBuffer, {});
+
+    const tapInRegionX = ((tapX - regionOffsetX) / regionW) * 100;
+    const tapInRegionY = ((tapY - regionOffsetY) / regionH) * 100;
+
+    const toFullImg = (box: { x: number; y: number; w: number; h: number }) => ({
+      x: regionOffsetX + (box.x / 100) * regionW,
+      y: regionOffsetY + (box.y / 100) * regionH,
+      w: (box.w / 100) * regionW,
+      h: (box.h / 100) * regionH,
+    });
+
+    const boxes: { x: number; y: number; w: number; h: number }[] = result.boxes ?? [];
+    let bestBox: { x: number; y: number; w: number; h: number } | null = null;
+
+    for (const box of boxes) {
+      if (tapInRegionX >= box.x && tapInRegionX <= box.x + box.w &&
+          tapInRegionY >= box.y && tapInRegionY <= box.y + box.h) {
+        bestBox = toFullImg(box);
+        break;
+      }
+    }
+
+    if (!bestBox && boxes.length > 0) {
+      let nearestDist = Infinity;
+      for (const box of boxes) {
+        const cx = box.x + box.w / 2;
+        const cy = box.y + box.h / 2;
+        const d = Math.hypot(tapInRegionX - cx, tapInRegionY - cy);
+        if (d < nearestDist) { nearestDist = d; bestBox = toFullImg(box); }
+      }
+    }
+
+    res.json({ box: bestBox });
+  } catch { res.json({ box: null }); }
+});
+
 router.post("/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
   try {
     const orgId = reqOrgId(req);
@@ -476,7 +568,7 @@ router.post("/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApprov
 
     const [scan] = await db.insert(brickanalyzerScans).values({ orgId, status: 'pending' }).returning();
     processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration, previewBoxes, orgId);
-    res.json(scan);
+    res.json({ ...scan, scanId: scan.id });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
