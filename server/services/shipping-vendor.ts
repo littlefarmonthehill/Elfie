@@ -17,6 +17,7 @@ export interface Address {
   country: string;
   phone?: string;
   email?: string;
+  federalTaxId?: string;  // Recipient tax ID — e.g. Mexico RFC/CURP (SAT)
 }
 
 export interface Parcel {

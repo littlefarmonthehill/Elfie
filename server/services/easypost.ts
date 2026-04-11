@@ -224,6 +224,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
           country: toNorm.country,
           phone:   toNorm.phone,
           email:   toNorm.email,
+          // Recipient tax ID for countries that require it on the label (e.g. Mexico SAT RFC/CURP)
+          ...(request.toAddress.federalTaxId ? { federal_tax_id: request.toAddress.federalTaxId } : {}),
         },
         from_address: (() => {
           const isIntl = (toNorm.country || 'US').toUpperCase() !== 'US';
@@ -263,6 +265,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
           label_size: '4x6',
           // print_custom_1 is EasyPost's "Customer Reference" field — prints visibly on USPS labels
           ...(request.reference ? { print_custom_1: request.reference } : {}),
+          // print_custom_2: SAT tax ID (RFC/CURP) for Mexico — ensures it's printed on the physical label
+          ...(request.toAddress.federalTaxId ? { print_custom_2: `RFC: ${request.toAddress.federalTaxId}` } : {}),
         },
         reference: request.reference,
         // Customs info for international shipments

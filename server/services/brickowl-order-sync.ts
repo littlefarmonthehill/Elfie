@@ -209,25 +209,36 @@ async function processBrickOwlOrder(
     previousStatus: existingOrder?.orderStatus || null,
     customerUsername: brickOwlOrderData.buyer_name || null,
     customerEmail: brickOwlOrderData.buyer_email || null,
-    shipTo: JSON.stringify({
+    shipTo: JSON.stringify((() => {
       // Prefer ship_first_name + ship_last_name (actual recipient name).
       // ship_name on BrickOwl's API is the SELLER's store name, not the buyer's name.
       // Fall back to buyer_name (display name) if the split fields are missing.
-      name: (
-        [brickOwlOrderData.ship_first_name, brickOwlOrderData.ship_last_name]
-          .filter(Boolean).join(' ').trim()
-      ) || brickOwlOrderData.buyer_name || '',
-      address1: brickOwlOrderData.ship_street_1 || '',
-      address2: brickOwlOrderData.ship_street_2 || '',
-      city: brickOwlOrderData.ship_city || '',
-      // BrickOwl API has used ship_region, ship_state, and ship_province across versions.
-      state: brickOwlOrderData.ship_region
-          || brickOwlOrderData.ship_state
-          || brickOwlOrderData.ship_province
-          || '',
-      postalCode: brickOwlOrderData.ship_post_code || '',
-      country: brickOwlOrderData.ship_country_code || '',
-    }),
+      const data: Record<string, string> = {
+        name: (
+          [brickOwlOrderData.ship_first_name, brickOwlOrderData.ship_last_name]
+            .filter(Boolean).join(' ').trim()
+        ) || brickOwlOrderData.buyer_name || '',
+        address1: brickOwlOrderData.ship_street_1 || '',
+        address2: brickOwlOrderData.ship_street_2 || '',
+        city: brickOwlOrderData.ship_city || '',
+        // BrickOwl API has used ship_region, ship_state, and ship_province across versions.
+        state: brickOwlOrderData.ship_region
+            || brickOwlOrderData.ship_state
+            || brickOwlOrderData.ship_province
+            || '',
+        postalCode: brickOwlOrderData.ship_post_code || '',
+        country: brickOwlOrderData.ship_country_code || '',
+      };
+      // Capture SAT tax ID (RFC/CURP) — BrickOwl API may return it under several field names
+      const taxId = brickOwlOrderData.buyer_tax_identifier
+        || brickOwlOrderData.ship_tax_identifier
+        || brickOwlOrderData.tax_identifier
+        || brickOwlOrderData.buyer_tax_id
+        || brickOwlOrderData.tax_id
+        || '';
+      if (taxId) data.taxId = String(taxId).trim();
+      return data;
+    })()),
     billTo: null,
     shipByDate: null,
     // BrickOwl's base_order_total IS the full order total (items + shipping already included).

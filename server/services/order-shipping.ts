@@ -24,6 +24,38 @@ function orderShortCode(orderNumber: string): string {
   return code;
 }
 
+/**
+ * Extract the Mexico SAT tax ID (RFC/CURP) from raw shipTo data.
+ *
+ * Priority order:
+ *   1. Dedicated taxId field stored during order sync (most reliable)
+ *   2. "RFC: <value>" or "CURP: <value>" pattern anywhere in the address lines
+ *   3. address1 ends with "RFC:" and address2 is an alphanumeric code (BrickOwl layout)
+ */
+function extractSatTaxId(shipToData: Record<string, any>): string | null {
+  // 1. Dedicated field stored by sync
+  if (shipToData.taxId) return String(shipToData.taxId).trim();
+
+  // Concatenate all possible address line fields
+  const allLines = [
+    shipToData.address1, shipToData.address2, shipToData.address3,
+    shipToData.street1,  shipToData.street2,
+  ].filter(Boolean).join(' ');
+
+  // 2. "RFC: XXXXXXX" or "CURP: XXXXXXXXXXXXXXXXXX" inline in address text
+  const labeled = allLines.match(/\b(?:RFC|CURP)\s*:?\s*([A-Z0-9]{12,18})\b/i);
+  if (labeled) return labeled[1].toUpperCase();
+
+  // 3. address1 ends with "RFC:" and address2 is the bare value (common BrickOwl layout)
+  const a1 = (shipToData.address1 || shipToData.street1 || '').trim();
+  const a2 = (shipToData.address2 || shipToData.street2 || '').trim();
+  if (/RFC\s*:?\s*$/i.test(a1) && /^[A-Z0-9]{12,18}$/i.test(a2)) {
+    return a2.toUpperCase();
+  }
+
+  return null;
+}
+
 // EU member states (ISO 3166-1 alpha-2) — IOSS applies for B2C shipments under €150
 const EU_COUNTRIES = new Set([
   'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI',
@@ -363,6 +395,12 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       resolvedStreet2 = rawAddr1;
     }
   }
+  // Extract SAT tax ID (RFC/CURP) for Mexico shipments
+  const rawCountry = (shipToData.country || 'US').toUpperCase();
+  const satTaxId = (rawCountry === 'MX' || rawCountry === 'MEXICO')
+    ? extractSatTaxId(shipToData)
+    : null;
+
   const baseShipTo: Address = {
     name:    shipToData.name    || '',
     company: resolvedCompany,
@@ -372,6 +410,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     state:   shipToData.state   || '',
     zip:     shipToData.postalCode || shipToData.zip || '',
     country: shipToData.country || 'US',
+    ...(satTaxId ? { federalTaxId: satTaxId } : {}),
   };
   const shipTo: Address = request.overrideToAddress
     ? {
@@ -383,6 +422,8 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
         state:   request.overrideToAddress.state   || baseShipTo.state,
         zip:     request.overrideToAddress.zip     || baseShipTo.zip,
         country: request.overrideToAddress.country || baseShipTo.country || 'US',
+        // Preserve SAT tax ID through address override (unless caller explicitly clears it)
+        federalTaxId: (request.overrideToAddress as any).federalTaxId ?? baseShipTo.federalTaxId,
       }
     : baseShipTo;
 
@@ -417,7 +458,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       customsInfo = intlShipping.customsInfo;
       taxIdentifiers = intlShipping.taxIdentifiers.length > 0 ? intlShipping.taxIdentifiers : undefined;
     }
-    console.log(`🌍 International shipment to ${destCountry} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}`);
+    console.log(`🌍 International shipment to ${destCountry} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}${shipTo.federalTaxId ? `, SAT RFC/CURP: ${shipTo.federalTaxId}` : ''}`);
   }
 
   // Build the order reference string: "[AB] BO.8362106"
