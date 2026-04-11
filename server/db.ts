@@ -142,25 +142,7 @@ export async function runMigrations() {
 
     console.log('[Migration] Phase-4 (credentials) complete.');
 
-    // ── Phase-5: Merge legacy 'default' row credentials into per-org row ───────
-    // When the org row was created (id=org_id), BrickLink credentials and other
-    // settings may have only been stored in the old id='default' row.
-    // Copy any missing credential fields from 'default' → org row, then delete
-    // the 'default' row so all future reads hit the correct row by primary key.
-    await client.query(`
-      UPDATE app_settings AS target
-      SET
-        bricklink_consumer_key    = COALESCE(NULLIF(target.bricklink_consumer_key, ''),    source.bricklink_consumer_key),
-        bricklink_consumer_secret = COALESCE(NULLIF(target.bricklink_consumer_secret, ''), source.bricklink_consumer_secret),
-        bricklink_token_value     = COALESCE(NULLIF(target.bricklink_token_value, ''),     source.bricklink_token_value),
-        bricklink_token_secret    = COALESCE(NULLIF(target.bricklink_token_secret, ''),    source.bricklink_token_secret)
-      FROM app_settings AS source
-      WHERE source.id     = 'default'
-        AND target.id     = source.org_id
-        AND target.id    != 'default'
-    `);
-    await client.query(`DELETE FROM app_settings WHERE id = 'default'`);
-    console.log('[Migration] Phase-5 (merge default credentials) complete.');
+    console.log('[Migration] Phase-5 (merge default credentials) — removed, skipped.');
 
     // ── Phase-6: Backfill bl_catalog from price_guide_cache ──────────────────
     // bl_catalog is the SOT for item names and categories. It gets populated by
@@ -369,66 +351,9 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-15 (per-guide freshness timestamps) complete.');
 
-    // ── Phase-16: Copy scoring weights/thresholds from platform row to org rows ──
-    // These settings were previously saved to the platform row but should be
-    // per-org. Copy them once so existing values aren't lost.
-    const platformRow = await client.query(`SELECT
-      pom_weight_ceiling, pom_weight_velocity, pom_weight_scarcity, pom_weight_undercut,
-      pom_velocity_high, pom_velocity_low, pom_scarcity_high, pom_scarcity_low,
-      pom_undercut_high, pom_undercut_low
-      FROM app_settings WHERE id = '__platform__' LIMIT 1`);
-    if (platformRow.rows.length > 0) {
-      const p = platformRow.rows[0];
-      const hasValues = p.pom_weight_ceiling != null || p.pom_velocity_high != null || p.pom_scarcity_high != null || p.pom_undercut_high != null;
-      if (hasValues) {
-        await client.query(`
-          UPDATE app_settings SET
-            pom_weight_ceiling  = COALESCE(pom_weight_ceiling,  $1),
-            pom_weight_velocity = COALESCE(pom_weight_velocity, $2),
-            pom_weight_scarcity = COALESCE(pom_weight_scarcity, $3),
-            pom_weight_undercut = COALESCE(pom_weight_undercut, $4),
-            pom_velocity_high   = COALESCE(pom_velocity_high,   $5),
-            pom_velocity_low    = COALESCE(pom_velocity_low,    $6),
-            pom_scarcity_high   = COALESCE(pom_scarcity_high,   $7),
-            pom_scarcity_low    = COALESCE(pom_scarcity_low,    $8),
-            pom_undercut_high   = COALESCE(pom_undercut_high,   $9),
-            pom_undercut_low    = COALESCE(pom_undercut_low,    $10)
-          WHERE id != '__platform__'
-        `, [p.pom_weight_ceiling, p.pom_weight_velocity, p.pom_weight_scarcity, p.pom_weight_undercut,
-            p.pom_velocity_high, p.pom_velocity_low, p.pom_scarcity_high, p.pom_scarcity_low,
-            p.pom_undercut_high, p.pom_undercut_low]);
-      }
-    }
-    console.log('[Migration] Phase-16 (scoring settings to org level) complete.');
+    console.log('[Migration] Phase-16 (scoring settings to org level) — removed, skipped.');
 
-    // ── Phase-17: Copy scheduler settings from org rows to platform row ──────
-    // Forum sync, rebrickable set sync, and universal catalog scheduler settings
-    // were previously saved to org rows but the schedulers read from the platform row.
-    // Guard: after Phase-74, these columns moved to platform_settings — skip entirely.
-    if (!phase74Ran) {
-      const orgRow = await client.query(`SELECT
-        forum_sync_enabled, forum_sync_frequency,
-        rebrickable_set_sync_enabled, rebrickable_set_sync_time,
-        universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days
-        FROM app_settings WHERE id != '__platform__' ORDER BY updated_at DESC LIMIT 1`);
-      if (orgRow.rows.length > 0) {
-        const o = orgRow.rows[0];
-        await client.query(`
-          UPDATE app_settings SET
-            forum_sync_enabled                = COALESCE(forum_sync_enabled,                $1),
-            forum_sync_frequency              = COALESCE(forum_sync_frequency,              $2),
-            rebrickable_set_sync_enabled      = COALESCE(rebrickable_set_sync_enabled,      $3),
-            rebrickable_set_sync_time         = COALESCE(rebrickable_set_sync_time,         $4),
-            universal_catalog_schedule_enabled = COALESCE(universal_catalog_schedule_enabled, $5),
-            universal_catalog_refresh_months   = COALESCE(universal_catalog_refresh_months,   $6),
-            universal_catalog_retry_days       = COALESCE(universal_catalog_retry_days,       $7)
-          WHERE id = '__platform__'
-        `, [o.forum_sync_enabled, o.forum_sync_frequency,
-            o.rebrickable_set_sync_enabled, o.rebrickable_set_sync_time,
-            o.universal_catalog_schedule_enabled, o.universal_catalog_refresh_months, o.universal_catalog_retry_days]);
-      }
-    }
-    console.log('[Migration] Phase-17 (scheduler settings to platform level) complete.');
+    console.log('[Migration] Phase-17 (scheduler settings to platform level) — removed, skipped.');
 
     // Phase 18: Normalize price_guide_cache for simple unique constraint
     // 1. Uppercase all item_no values (so we don't need upper() in the index)
@@ -670,9 +595,7 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-28 (product management tables) complete.');
 
-    // Phase-29: Update org name from PlanetBrick to E.L.F.I.E.
-    await pool.query(`UPDATE organizations SET name = 'E.L.F.I.E.' WHERE id = 'org_planetbrick' AND name = 'PlanetBrick'`);
-    console.log('[Migration] Phase-29 (org rename to E.L.F.I.E.) complete.');
+    console.log('[Migration] Phase-29 (org rename to E.L.F.I.E.) — removed, skipped.');
 
     // Phase-30: Vision statement column + capabilities table
     await pool.query(`ALTER TABLE product_vision ADD COLUMN IF NOT EXISTS vision_statement TEXT NOT NULL DEFAULT ''`);
@@ -694,11 +617,9 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE product_backlog_items ADD COLUMN IF NOT EXISTS capability_id INTEGER`);
     console.log('[Migration] Phase-31 (capability status + backlog capability link) complete.');
 
-    // Phase-32: Backlog status alignment with roadmap (new/next/now/later/done)
-    await pool.query(`UPDATE product_backlog_items SET status = 'next' WHERE status = 'open'`);
-    await pool.query(`UPDATE product_backlog_items SET status = 'now' WHERE status = 'in-progress'`);
+    // Phase-32: schema — ensure default is 'new' (data renames already done, removed)
     await pool.query(`ALTER TABLE product_backlog_items ALTER COLUMN status SET DEFAULT 'new'`);
-    console.log('[Migration] Phase-32 (backlog status alignment: open→next, in-progress→now) complete.');
+    console.log('[Migration] Phase-32 (backlog status alignment) complete.');
 
     // Phase-33: Comprehensive capability tree seed (idempotent — skips if data exists)
     const capCount = await pool.query(`SELECT COUNT(*) as cnt FROM product_capabilities`);
@@ -898,44 +819,9 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-37 (pricing_model table) complete.');
 
-    // Phase-38: Backfill sold_quantity + sold_qty_avg_price for rows added before Phase-19
-    // 9,491 rows have sold_avg_price but were synced before the qty columns existed.
-    // Use sold_total_lots (best available proxy) and sold_avg_price (reasonable fallback).
-    // Always stamp sold_fetched_at = NOW() so backfilled rows aren't immediately stale.
-    const p38 = await client.query(`
-      UPDATE price_guide_cache
-      SET
-        sold_quantity      = sold_total_lots,
-        sold_qty_avg_price = sold_avg_price::text,
-        sold_fetched_at    = NOW()
-      WHERE sold_avg_price IS NOT NULL
-        AND (sold_quantity IS NULL OR sold_qty_avg_price IS NULL)
-    `);
-    console.log(`[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) complete — ${p38.rowCount ?? 0} rows updated.`);
-
-    // Phase-39: Backfill stock_quantity + stock_qty_avg_price for rows added before Phase-19
-    // Mirror of Phase-38 but for the stock (supply) guide side.
-    await client.query(`
-      UPDATE price_guide_cache
-      SET
-        stock_quantity      = stock_total_lots,
-        stock_qty_avg_price = stock_avg_price::text,
-        stock_fetched_at    = COALESCE(stock_fetched_at, NOW())
-      WHERE stock_avg_price IS NOT NULL
-        AND (stock_quantity IS NULL OR stock_qty_avg_price IS NULL)
-    `);
-    console.log('[Migration] Phase-39 (backfill stock_quantity + stock_qty_avg_price) complete.');
-
-    // Phase-40: One-time reset of universal_catalog_queue rows that failed with the OLD
-    // BL CDN URL format (/ItemImage/PL/{partNo}.png returning 404). Scoped to items
-    // attempted BEFORE 2026-03-16 so re-runs (restarts) don't undo fresh work.
-    await client.query(`
-      UPDATE universal_catalog_queue
-      SET status = 'pending', attempted_at = NULL, error_msg = NULL
-      WHERE status IN ('no_image', 'failed')
-        AND (attempted_at IS NULL OR attempted_at < '2026-03-16'::date)
-    `);
-    console.log('[Migration] Phase-40 (reset universal catalog no_image/failed for CDN URL fix) complete.');
+    console.log('[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) — removed, skipped.');
+    console.log('[Migration] Phase-39 (backfill stock_quantity + stock_qty_avg_price) — removed, skipped.');
+    console.log('[Migration] Phase-40 (reset universal catalog no_image/failed for CDN URL fix) — removed, skipped.');
 
     // Phase-41: Index part_id_mappings.rebrickable_id — the universal catalog worker now
     // looks up bl_id by rebrickable_id on every part processed; without this index that
@@ -982,16 +868,7 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-43 (billing_start_date on organizations) complete — ${p43.rowCount ?? 0} orgs set from first inventory sync.`);
 
-    // Phase-44: Reset no_image rows queued since 2026-03-16 back to pending.
-    // These were marked no_image with an incorrect Rebrickable CDN URL format
-    // (missing the _{colorId} suffix). Fixed in universal-clip-catalog.ts — retry them.
-    const p44 = await client.query(`
-      UPDATE universal_catalog_queue
-      SET status = 'pending', attempted_at = NULL, error_msg = 'reset-phase-44-url-fix'
-      WHERE status = 'no_image'
-        AND attempted_at >= '2026-03-16'::date
-    `);
-    console.log(`[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) complete — ${p44.rowCount ?? 0} rows reset to pending.`);
+    console.log('[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) — removed, skipped.');
 
     // Phase-45: Sales-percentage billing plans.
     // Creates the `plans` table, seeds the default "Pay As You Grow" plan,
@@ -1037,27 +914,9 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-46 (password reset tokens) complete.');
 
-    // ── Phase-47: Remove Stripe/PayPal refund adjustments ────────────────────
-    // Returns are now detected directly from BrickLink (payment.status === 'Returned')
-    // and recorded with payment_method='bricklink'. Old Stripe/PayPal refund records
-    // must be removed to prevent double-counting when the BrickLink order sync runs.
-    // Merchant fee records (type='merchant_fee') are kept as historical data.
-    await client.query(`
-      DELETE FROM order_adjustments
-      WHERE type = 'refund'
-        AND payment_method IN ('stripe', 'paypal')
-    `);
-    console.log('[Migration] Phase-47 (remove Stripe/PayPal refund adjustments) complete.');
+    console.log('[Migration] Phase-47 (remove Stripe/PayPal refund adjustments) — removed, skipped.');
 
-    // ── Phase-48: Remove merchant fees + drop PayPal/Stripe columns ──────────
-    // Merchant fee records from Stripe/PayPal are no longer collected — returns
-    // come straight from BrickLink. Remove historical merchant_fee adjustments
-    // and drop the now-unused credential columns from app_settings.
-    await client.query(`
-      DELETE FROM order_adjustments
-      WHERE type = 'merchant_fee'
-        AND payment_method IN ('stripe', 'paypal')
-    `);
+    // ── Phase-48: Drop now-unused PayPal credential columns from app_settings ─
     for (const col of [
       'paypal_client_id', 'paypal_client_secret', 'paypal_environment',
     ]) {
@@ -1065,7 +924,7 @@ export async function runMigrations() {
         ALTER TABLE app_settings DROP COLUMN IF EXISTS ${col}
       `);
     }
-    console.log('[Migration] Phase-48 (merchant fees + PayPal/Stripe columns removed) complete.');
+    console.log('[Migration] Phase-48 (PayPal/Stripe columns removed) complete.');
 
     // ── Phase-49: Restore Stripe billing columns ─────────────────────────────
     // stripe_secret_key and stripe_environment are still needed for the platform
@@ -1165,24 +1024,7 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-55 (plans is_default column) complete.');
 
-    // ── Phase-56: Move trial orgs onto default plan if one exists ─────────────
-    // Any org still on 'trial' with no Stripe subscription should be activated on the default plan.
-    const defaultPlanResult = await client.query(`SELECT id, name FROM plans WHERE is_default = true LIMIT 1`);
-    if (defaultPlanResult.rows.length > 0) {
-      const dp = defaultPlanResult.rows[0];
-      const migrated = await client.query(`
-        UPDATE organizations
-        SET plan_id = $1,
-            plan = $2,
-            subscription_status = 'active',
-            trial_ends_at = NULL
-        WHERE subscription_status = 'trial'
-          AND stripe_subscription_id IS NULL
-      `, [dp.id, dp.name]);
-      console.log(`[Migration] Phase-56 (trial→default plan migration) complete — ${migrated.rowCount} org(s) moved to default plan "${dp.name}".`);
-    } else {
-      console.log('[Migration] Phase-56 (trial→default plan migration) complete — no default plan set, nothing to migrate.');
-    }
+    console.log('[Migration] Phase-56 (trial→default plan migration) — removed, skipped.');
 
     // ── Phase-57: Backfill bl_catalog.image_url for all null rows ─────────────
     // Every row gets the canonical BrickLink CDN URL constructed from its own
@@ -1298,19 +1140,12 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-65 (is_test on shipments) complete.');
 
-    // ── Phase-66: enable sync_sale_percent on existing channel_sync_config rows ─
-    // Default was incorrectly false; existing rows need to be flipped to true so
-    // the sync clears per-lot BrickOwl sale_percent fields when BL saleRate is 0.
+    // ── Phase-66: ensure sync_sale_percent defaults to true ──────────────────
     await client.query(`
       ALTER TABLE channel_sync_config
         ALTER COLUMN sync_sale_percent SET DEFAULT true
     `);
-    await client.query(`
-      UPDATE channel_sync_config
-         SET sync_sale_percent = true
-       WHERE sync_sale_percent = false
-    `);
-    console.log('[Migration] Phase-66 (enable sync_sale_percent on channel_sync_config) complete.');
+    console.log('[Migration] Phase-66 (sync_sale_percent default = true) complete.');
 
     // ── Phase-67/68/69: migrate channel_sync_config stockroom columns ──────────
     // Guard: only run the full transition if the final column (sync_stockroom_modes)
@@ -2070,28 +1905,7 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-88 (pricing_strategy_preset on ie_strategies) complete.');
 
-    // Phase-89: Reset incorrectly backfilled sold_quantity / stock_quantity.
-    // Phases 38 & 39 set sold_quantity = sold_total_lots and stock_quantity = stock_total_lots as
-    // a temporary proxy (lot count, not piece count). Items that were later partially re-fetched
-    // ended up with a real piece count on one side and a lot count on the other, producing
-    // nonsense STR values like 23000%+. Reset those rows to NULL so they get proper values on
-    // the next price guide fetch. Rows where the value is genuinely equal to the lot count are
-    // indistinguishable but are vanishingly rare (every seller would need exactly 1 piece).
-    await client.query(`
-      UPDATE price_guide_cache
-      SET sold_quantity = NULL
-      WHERE sold_quantity IS NOT NULL
-        AND sold_total_lots IS NOT NULL
-        AND sold_quantity = sold_total_lots
-    `);
-    await client.query(`
-      UPDATE price_guide_cache
-      SET stock_quantity = NULL
-      WHERE stock_quantity IS NOT NULL
-        AND stock_total_lots IS NOT NULL
-        AND stock_quantity = stock_total_lots
-    `);
-    console.log('[Migration] Phase-89 (reset lot-count-backfilled sold_quantity / stock_quantity) complete.');
+    console.log('[Migration] Phase-89 (reset lot-count-backfilled sold_quantity / stock_quantity) — removed, skipped.');
 
     // Phase-90: Add is_public column to plan_configs and plans tables.
     // Private plans (is_public = false) can be assigned by an admin but are hidden from
@@ -2502,30 +2316,7 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tracking_updated_at TIMESTAMP`);
     console.log('[Migration] Phase-111 (EasyPost tracker columns on shipments) complete.');
 
-    // Phase-112: Backfill tracking_status for known-delivered and voided shipments
-    // 11 completed orders whose labels were never refreshed (all delivered)
-    // 3 old/legacy orders also confirmed delivered
-    const deliveredResult = await client.query(
-      `UPDATE shipments
-          SET tracking_status = 'delivered',
-              tracking_updated_at = NOW()
-        WHERE order_id IN (
-          'bl-31236418','bl-31224964','bl-31221153','bl-31224196',
-          'bl-31218289','bl-31220891','bl-31220155','bl-31218709',
-          'bl-31215349','bl-31195548','bl-31196767',
-          '736481217','750653674','236719514'
-        )
-          AND (tracking_status IS NULL OR tracking_status = 'pre_transit')`
-    );
-    // 6 voided EasyPost labels for bl-31256206 (address issue, labels cancelled in EasyPost)
-    const voidedResult = await client.query(
-      `UPDATE shipments
-          SET tracking_status = 'cancelled',
-              tracking_updated_at = NOW()
-        WHERE order_id = 'bl-31256206'
-          AND tracking_status IS NULL`
-    );
-    console.log(`[Migration] Phase-112 (backfill delivered/voided tracking statuses) complete — ${deliveredResult.rowCount} delivered, ${voidedResult.rowCount} voided.`);
+    console.log('[Migration] Phase-112 (backfill delivered/voided tracking statuses) — removed, skipped.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 
