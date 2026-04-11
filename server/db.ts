@@ -1896,82 +1896,8 @@ export async function runMigrations() {
       console.log('[Migration] Phase-76 (duplicate bo- BrickOwl orders) — none found, skipped.');
     }
 
-    // Phase-77: Restore inventory and mark old bo- BrickOwl orders (no numeric counterpart) as shipped.
-    // These orders pre-date the app — inventory was managed externally before they were inserted,
-    // so the deduction on insertion was incorrect and must be reversed.
-    // IMPORTANT: Only target orders older than 60 days to avoid incorrectly marking recent
-    // unfulfilled orders as shipped.  Legitimate in-progress orders are always fulfilled
-    // within a few days; anything still unshipped after 60 days must pre-date the integration.
-    const unmatchedBoIds = await client.query(`
-      SELECT bo.id
-      FROM orders bo
-      WHERE LEFT(bo.id::text, 3) = 'bo-'
-        AND bo.marketplace = 'BrickOwl'
-        AND bo.order_status != 'shipped'
-        AND bo.order_date < NOW() - INTERVAL '60 days'
-        AND NOT EXISTS (
-          SELECT 1 FROM orders old_rec
-          WHERE old_rec.marketplace = 'BrickOwl'
-            AND LEFT(old_rec.id::text, 3) != 'bo-'
-            AND old_rec.order_number = bo.order_number
-        )
-    `);
-    const unmatchedCount = unmatchedBoIds.rowCount ?? 0;
-    if (unmatchedCount > 0) {
-      const ids = (unmatchedBoIds.rows as any[]).map(r => r.id as string);
-      // Step 1: Restore bl_inventory quantities (these items were deducted incorrectly)
-      await client.query(`
-        UPDATE bl_inventory bi
-        SET quantity = bi.quantity + od.quantity
-        FROM order_details od
-        WHERE od.bricklink_inventory_id = bi.id
-          AND od.order_id = ANY($1::text[])
-      `, [ids]);
-      // Step 2: Mark as shipped — keep inventory_deducted=true so automated code never re-adjusts
-      await client.query(`
-        UPDATE orders
-        SET order_status = 'shipped', workflow_status = 'shipped'
-        WHERE id = ANY($1::text[])
-      `, [ids]);
-      console.log(`[Migration] Phase-77 (restored inventory + marked ${unmatchedCount} old unmatched bo- BrickOwl orders as shipped) complete.`);
-    } else {
-      console.log('[Migration] Phase-77 (old unmatched bo- orders) — none needed fixing, skipped.');
-    }
-
-    // Phase-78: Restore inventory and mark old numeric-ID BrickOwl orders as shipped.
-    // These pre-date the app and were confirmed shipped externally. Same logic as Phase-77
-    // but targets old-format orders that use numeric IDs instead of the bo- prefix.
-    const oldNumericBoResult = await client.query(`
-      SELECT id
-      FROM orders
-      WHERE marketplace = 'BrickOwl'
-        AND LEFT(id::text, 3) != 'bo-'
-        AND order_status NOT IN ('shipped', 'cancelled', 'returned')
-        AND order_date < CURRENT_DATE
-    `);
-    const oldNumericCount = oldNumericBoResult.rowCount ?? 0;
-    if (oldNumericCount > 0) {
-      const ids = (oldNumericBoResult.rows as any[]).map(r => String(r.id));
-      // Restore bl_inventory for orders where inventory was previously deducted
-      await client.query(`
-        UPDATE bl_inventory bi
-        SET quantity = bi.quantity + od.quantity
-        FROM order_details od
-        JOIN orders o ON o.id = od.order_id
-        WHERE od.bricklink_inventory_id = bi.id
-          AND od.order_id = ANY($1::text[])
-          AND o.inventory_deducted = true
-      `, [ids]);
-      // Mark all as shipped — keep inventory_deducted=true as a permanent lock
-      await client.query(`
-        UPDATE orders
-        SET order_status = 'shipped', workflow_status = 'shipped'
-        WHERE id = ANY($1::text[])
-      `, [ids]);
-      console.log(`[Migration] Phase-78 (restored inventory + marked ${oldNumericCount} old numeric-ID BrickOwl orders as shipped) complete.`);
-    } else {
-      console.log('[Migration] Phase-78 (old numeric-ID BrickOwl orders) — none needed fixing, skipped.');
-    }
+    console.log('[Migration] Phase-77 (old unmatched bo- orders) — removed, skipped.');
+    console.log('[Migration] Phase-78 (old numeric-ID BrickOwl orders) — removed, skipped.');
 
     // ── Phase-79: Copy platform row from app_settings → platform_settings, then delete the platform org row ──
     // Idempotency: only runs while app_settings still has a 'platform' row.
@@ -2600,35 +2526,6 @@ export async function runMigrations() {
           AND tracking_status IS NULL`
     );
     console.log(`[Migration] Phase-112 (backfill delivered/voided tracking statuses) complete — ${deliveredResult.rowCount} delivered, ${voidedResult.rowCount} voided.`);
-
-    // Phase-113: Correct recent BrickOwl orders incorrectly marked as shipped by Phase-77.
-    // Phase-77 used `order_date < CURRENT_DATE` which incorrectly swept up recent unfulfilled
-    // orders (e.g. orders placed yesterday).  The signature of these bad rows is:
-    //   - workflow_status = 'shipped'  (only Phase-77/78 set this value; real app fulfilment sets 'done')
-    //   - no corresponding shipment record (order was never shipped through the app)
-    //   - order placed within the last 60 days (too recent to be a pre-app legacy order)
-    // Reset them to awaiting_shipment / new so they re-enter the fulfilment queue and the
-    // BrickOwl sync can reconcile their true status on the next cycle.
-    const { rowCount: p113Fixed } = await client.query(`
-      UPDATE orders o
-      SET order_status    = 'awaiting_shipment',
-          workflow_status = 'new',
-          previous_status = 'shipped',
-          updated_at      = NOW()
-      WHERE o.marketplace   = 'BrickOwl'
-        AND o.workflow_status = 'shipped'
-        AND o.order_date     > NOW() - INTERVAL '60 days'
-        AND NOT EXISTS (
-          SELECT 1 FROM shipments s
-          WHERE s.order_id = o.id
-            AND s.status != 'voided'
-        )
-    `);
-    if ((p113Fixed ?? 0) > 0) {
-      console.log(`[Migration] Phase-113 (reset ${p113Fixed} recent BrickOwl orders incorrectly marked shipped by Phase-77) complete.`);
-    } else {
-      console.log('[Migration] Phase-113 (Phase-77 mis-marked recent orders) — none found, skipped.');
-    }
 
     console.log('[Migration] All startup migrations finished successfully.');
 
