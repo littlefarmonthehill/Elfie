@@ -419,18 +419,22 @@ export async function adjustBrickLinkInventoryDelta(
   inventoryId: number,
   delta: number,
   orgId: string = PLATFORM_ORG_ID,
-  isRetain?: boolean
+  isRetain?: boolean,
+  isStockRoom?: boolean,
+  stockRoomId?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (delta === 0) return { success: true };
     const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-    console.log(`Adjusting BrickLink inventory ${inventoryId} by ${deltaStr} (is_retain=${isRetain ?? 'not set'})...`);
+    console.log(`Adjusting BrickLink inventory ${inventoryId} by ${deltaStr} (is_retain=${isRetain ?? 'not set'}, is_stock_room=${isStockRoom ?? 'not set'})...`);
 
-    // Always include is_retain when provided. Per BL API docs, is_retain is per-call
-    // (not a persistent lot setting). Without it, BL may reject or delete the lot when
-    // the resulting quantity hits zero.
+    // Per BL API docs, is_retain, is_stock_room, and stock_room_id are all per-call
+    // (not persistent lot settings). All three must be included so BL honours the seller's
+    // configured sold-out behaviour — retain in store, move to stockroom, or delete the lot.
     const body: Record<string, unknown> = { quantity: deltaStr };
-    if (isRetain !== undefined) body.is_retain = isRetain;
+    if (isRetain    !== undefined) body.is_retain    = isRetain;
+    if (isStockRoom !== undefined) body.is_stock_room = isStockRoom;
+    if (isStockRoom && stockRoomId) body.stock_room_id = stockRoomId;
 
     await bricklinkPutRequest(`/inventories/${inventoryId}`, body, orgId);
 

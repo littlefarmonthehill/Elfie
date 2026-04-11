@@ -183,17 +183,24 @@ async function updateBrickLinkQuantityDelta(
       return { success: false, error: errMsg };
     }
 
-    // Look up is_retain from local inventory so BL doesn't delete the lot when qty hits 0.
-    // Per BL API docs, is_retain is per-call — it must be included on every request.
+    // Look up retention settings from local inventory. Per BL API docs, is_retain,
+    // is_stock_room, and stock_room_id are all per-call — they must be included on
+    // every request or BL will use its own defaults (which may delete or misplace the lot).
     const [localLot] = await db
-      .select({ isRetain: blInventory.isRetain })
+      .select({
+        isRetain:    blInventory.isRetain,
+        isStockRoom: blInventory.isStockRoom,
+        stockRoomId: blInventory.stockRoomId,
+      })
       .from(blInventory)
       .where(eq(blInventory.id, numericId))
       .limit(1);
-    const isRetain = localLot?.isRetain ?? true; // default true: safer to retain than delete
+    const isRetain    = localLot?.isRetain    ?? true;  // default true: safer to retain than delete
+    const isStockRoom = localLot?.isStockRoom ?? false;
+    const stockRoomId = localLot?.stockRoomId ?? null;
 
-    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain})${orderId ? ` (order ${orderId})` : ''}`);
-    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId, isRetain);
+    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain}, is_stock_room=${isStockRoom}${stockRoomId ? `, stock_room_id=${stockRoomId}` : ''})${orderId ? ` (order ${orderId})` : ''}`);
+    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId, isRetain, isStockRoom, stockRoomId);
     if (!result.success && result.error) {
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
