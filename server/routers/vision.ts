@@ -480,7 +480,39 @@ router.post("/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApprov
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-router.get("/brickanalyzer/status/:id", isApproved, async (req, res) => {
+// ── GET /api/brickanalyzer/scans  — history (all non-dismissed) ──────────────
+router.get("/brickanalyzer/scans", isApproved, async (req, res) => {
+  const orgId = reqOrgId(req);
+  const rows = await db.select()
+    .from(brickanalyzerScans)
+    .where(and(eq(brickanalyzerScans.orgId, orgId), ne(brickanalyzerScans.status, 'dismissed')))
+    .orderBy(sql`${brickanalyzerScans.createdAt} DESC`)
+    .limit(50);
+  res.json(rows);
+});
+
+// ── GET /api/brickanalyzer/scans/latest ──────────────────────────────────────
+router.get("/brickanalyzer/scans/latest", isApproved, async (req, res) => {
+  const orgId = reqOrgId(req);
+  const [latest] = await db.select()
+    .from(brickanalyzerScans)
+    .where(and(eq(brickanalyzerScans.orgId, orgId), ne(brickanalyzerScans.status, 'dismissed')))
+    .orderBy(sql`${brickanalyzerScans.createdAt} DESC`)
+    .limit(1);
+  if (!latest) return res.status(404).json({ error: "No scans found" });
+  res.json(latest);
+});
+
+// ── GET /api/brickanalyzer/scan/:id — fetch a single scan ────────────────────
+router.get("/brickanalyzer/scan/:id", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.id);
+  const [scan] = await db.select().from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
+  if (!scan) return res.status(404).json({ error: "Scan not found" });
+  res.json(scan);
+});
+
+// ── GET /api/brickanalyzer/scan/:id/progress ─────────────────────────────────
+router.get("/brickanalyzer/scan/:id/progress", isApproved, async (req, res) => {
   const scanId = parseInt(req.params.id);
   const progress = brickanalyzerProgressMap.get(scanId);
   const [scan] = await db.select().from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
@@ -488,17 +520,8 @@ router.get("/brickanalyzer/status/:id", isApproved, async (req, res) => {
   res.json({ status: scan.status, progress: progress || (scan.status === 'complete' ? { pct: 100, step: 'Complete' } : null), scan });
 });
 
-router.get("/brickanalyzer/latest", isApproved, async (req, res) => {
-  const orgId = reqOrgId(req);
-  const [latest] = await db.select()
-    .from(brickanalyzerScans)
-    .where(and(eq(brickanalyzerScans.orgId, orgId), ne(brickanalyzerScans.status, 'dismissed')))
-    .orderBy(sql`${brickanalyzerScans.createdAt} DESC`)
-    .limit(1);
-  res.json(latest || null);
-});
-
-router.post("/brickanalyzer/dismiss/:id", isApproved, async (req, res) => {
+// ── DELETE /api/brickanalyzer/scan/:id — dismiss ─────────────────────────────
+router.delete("/brickanalyzer/scan/:id", isApproved, async (req, res) => {
   const scanId = parseInt(req.params.id);
   await db.update(brickanalyzerScans).set({ status: 'dismissed' }).where(eq(brickanalyzerScans.id, scanId));
   brickanalyzerCropCache.delete(scanId);
@@ -508,7 +531,39 @@ router.post("/brickanalyzer/dismiss/:id", isApproved, async (req, res) => {
   res.json({ ok: true });
 });
 
-router.get("/brickanalyzer/crop/:scanId/:cropIndex", isApproved, async (req, res) => {
+// ── POST /api/brickanalyzer/scan/:id/retry ───────────────────────────────────
+router.post("/brickanalyzer/scan/:id/retry", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.id);
+  const [scan] = await db.select().from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
+  if (!scan) return res.status(404).json({ error: "Scan not found" });
+  const cachedImage = brickanalyzerImageCache.get(scanId);
+  if (!cachedImage) {
+    // Image no longer in memory — check DB
+    const [withImg] = await db.select({ imageData: brickanalyzerScans.imageData }).from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
+    if (!withImg?.imageData) return res.status(410).json({ error: "Image no longer available — please re-upload" });
+    await db.update(brickanalyzerScans).set({ status: 'pending', errorMessage: null, completedAt: null }).where(eq(brickanalyzerScans.id, scanId));
+    const previewBoxes = (scan.results as any[])?.length ? undefined : undefined;
+    processBrickanalyzerScan(scanId, withImg.imageData as Buffer, {}, false, undefined, scan.orgId || 'org_planetbrick');
+    return res.json({ ok: true, scanId });
+  }
+  await db.update(brickanalyzerScans).set({ status: 'pending', errorMessage: null, completedAt: null }).where(eq(brickanalyzerScans.id, scanId));
+  processBrickanalyzerScan(scanId, cachedImage, {}, false, undefined, scan.orgId || 'org_planetbrick');
+  res.json({ ok: true, scanId });
+});
+
+// ── GET /api/brickanalyzer/scan/:scanId/image ─────────────────────────────────
+router.get("/brickanalyzer/scan/:scanId/image", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.scanId);
+  const cached = brickanalyzerImageCache.get(scanId);
+  if (cached) { res.setHeader('Content-Type', 'image/jpeg'); return res.send(cached); }
+  const [scan] = await db.select({ imageData: brickanalyzerScans.imageData }).from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
+  if (!scan?.imageData) return res.status(404).json({ error: "Image not found" });
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.send(scan.imageData);
+});
+
+// ── GET /api/brickanalyzer/scan/:scanId/crop/:cropIndex ───────────────────────
+router.get("/brickanalyzer/scan/:scanId/crop/:cropIndex", isApproved, async (req, res) => {
   const scanId = parseInt(req.params.scanId);
   const cropIdx = parseInt(req.params.cropIndex);
   const crops = brickanalyzerCropCache.get(scanId);
@@ -517,22 +572,44 @@ router.get("/brickanalyzer/crop/:scanId/:cropIndex", isApproved, async (req, res
     if (!scan?.results) return res.status(404).json({ error: "Crop not in memory and no scan results" });
     const piece = (scan.results as any[]).find(p => p.cropIndex === cropIdx);
     if (!piece || piece.bboxX == null) return res.status(404).json({ error: "Crop not found" });
-    const [fullScan] = await db.select({ imageData: brickanalyzerScans.results }).from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
-    // Logic for re-cropping from saved image could go here
     return res.status(404).json({ error: "Crop expired from memory" });
   }
   res.setHeader('Content-Type', 'image/jpeg');
   res.send(crops[cropIdx]);
 });
 
+// ── Keep old aliases for backward compatibility ───────────────────────────────
+router.get("/brickanalyzer/status/:id", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.id);
+  const progress = brickanalyzerProgressMap.get(scanId);
+  const [scan] = await db.select().from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
+  if (!scan) return res.status(404).json({ error: "Scan not found" });
+  res.json({ status: scan.status, progress: progress || (scan.status === 'complete' ? { pct: 100, step: 'Complete' } : null), scan });
+});
+router.get("/brickanalyzer/latest", isApproved, async (req, res) => {
+  const orgId = reqOrgId(req);
+  const [latest] = await db.select().from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), ne(brickanalyzerScans.status, 'dismissed'))).orderBy(sql`${brickanalyzerScans.createdAt} DESC`).limit(1);
+  res.json(latest || null);
+});
+router.post("/brickanalyzer/dismiss/:id", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.id);
+  await db.update(brickanalyzerScans).set({ status: 'dismissed' }).where(eq(brickanalyzerScans.id, scanId));
+  brickanalyzerCropCache.delete(scanId); brickanalyzerImageCache.delete(scanId); brickanalyzerImageMeta.delete(scanId); brickanalyzerProgressMap.delete(scanId);
+  res.json({ ok: true });
+});
 router.get("/brickanalyzer/image/:scanId", isApproved, async (req, res) => {
   const scanId = parseInt(req.params.scanId);
   const cached = brickanalyzerImageCache.get(scanId);
   if (cached) { res.setHeader('Content-Type', 'image/jpeg'); return res.send(cached); }
   const [scan] = await db.select({ imageData: brickanalyzerScans.imageData }).from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
   if (!scan?.imageData) return res.status(404).json({ error: "Image not found" });
-  res.setHeader('Content-Type', 'image/jpeg');
-  res.send(scan.imageData);
+  res.setHeader('Content-Type', 'image/jpeg'); res.send(scan.imageData);
+});
+router.get("/brickanalyzer/crop/:scanId/:cropIndex", isApproved, async (req, res) => {
+  const scanId = parseInt(req.params.scanId); const cropIdx = parseInt(req.params.cropIndex);
+  const crops = brickanalyzerCropCache.get(scanId);
+  if (!crops || !crops[cropIdx]) return res.status(404).json({ error: "Crop expired from memory" });
+  res.setHeader('Content-Type', 'image/jpeg'); res.send(crops[cropIdx]);
 });
 
 router.get("/brickspotter/python-status", isApproved, async (_req, res) => {
