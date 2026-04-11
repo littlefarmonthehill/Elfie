@@ -326,7 +326,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
   const updateWorkflowStatus = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: WorkflowStatus }) =>
       apiRequest('PUT', `/api/fulfillment/order/${orderId}/workflow-status`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+    },
   });
 
   const updateWorkflowStatusBulk = useMutation({
@@ -337,6 +341,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
   });
 
@@ -394,6 +400,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
       setShipFreeDialog(null);
       setShipFreeTracking('');
       setShipFreeNote('');
@@ -429,6 +436,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
       setMergeShipDialog(null);
       setMergeShipSelected(new Set());
       toast({
@@ -1054,6 +1062,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     queryClient.invalidateQueries({ queryKey: ["/api/orders/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/orders/shipped"] });
     queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/shipments/tracking-summary"] });
 
     const successes = results.filter(r => r.trackingNumber).length;
     toast({

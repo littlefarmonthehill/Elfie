@@ -102,6 +102,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
     },
     onError: (err: any) => {
       toast({ title: "Failed to return order", description: err.message, variant: "destructive" });
@@ -142,6 +143,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
     },
     onError: (err: any) => {
       let msg = "Failed to mark order as returned";
@@ -216,6 +218,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       const count = Object.keys(res as object).length;
       toast({ title: "Tracking refreshed", description: `Updated ${count} shipment${count !== 1 ? 's' : ''}.` });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
     } catch (e: any) {
       const msg = e?.message || '';
       if (msg.includes('not configured')) {
