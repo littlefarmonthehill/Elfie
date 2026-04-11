@@ -519,6 +519,11 @@ router.get("/brickanalyzer/image/:scanId", isApproved, async (req, res) => {
   res.send(scan.imageData);
 });
 
+router.get("/brickspotter/python-status", isApproved, async (_req, res) => {
+  const { isPythonServiceReady } = await import('../services/segmentClient.js');
+  res.json({ ready: isPythonServiceReady() });
+});
+
 router.get("/brickspotter/history", isApproved, async (req, res) => {
   const orgId = reqOrgId(req);
   const rows = await db.select()
