@@ -287,16 +287,32 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
       lastBqCallAt = Date.now();
 
       try {
+        // Each request needs its OWN FormData instance so the boundary in the
+        // Content-Type header matches the boundary actually written into the body.
+        // Calling makeBqForm() a second time to get headers creates a different
+        // boundary, causing a multipart mismatch that hangs the remote server.
         const makeBqForm = (buf: Buffer) => {
           const f = new FormData();
           f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
           return f;
         };
 
+        const bqTimeout = (ms: number) => {
+          const ctrl = new AbortController();
+          const id = setTimeout(() => ctrl.abort(), ms);
+          return { signal: ctrl.signal, clear: () => clearTimeout(id) };
+        };
+
+        const figsForm  = makeBqForm(cropBuffer);
+        const partsForm = makeBqForm(cropBuffer);
+        const ft = bqTimeout(8000);
+        const pt = bqTimeout(8000);
         const [figsRes, partsRes] = await Promise.all([
-          axios.post('https://api.brickognize.com/predict/figs/', makeBqForm(cropBuffer), { headers: makeBqForm(cropBuffer).getHeaders(), timeout: 8000 }).catch(() => null),
-          axios.post('https://api.brickognize.com/predict/parts/', makeBqForm(cropBuffer), { headers: makeBqForm(cropBuffer).getHeaders(), timeout: 8000 }).catch(() => null),
+          axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 8000, signal: ft.signal }).catch(() => null),
+          axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 8000, signal: pt.signal }).catch(() => null),
         ]);
+        ft.clear();
+        pt.clear();
 
         const results: any[] = [];
         const topFig = figsRes?.data?.items?.[0];
