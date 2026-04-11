@@ -1466,7 +1466,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       )}
 
       {/* ── Main layout ── */}
-      <div>
+      <div className="overflow-x-hidden">
 
 
         {/* ── Customer note banner — all visible orders that have buyer notes ── */}
