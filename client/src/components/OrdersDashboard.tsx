@@ -384,8 +384,22 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
     `${value.toFixed(1)}%`;
 
   const aov = stats && stats.totalOrders > 0 ? stats.monthRevenue / stats.totalOrders : 0;
-  const fulfilledOrders = stats ? stats.shippedOrders + (stats.returnedOrders ?? 0) : 0;
-  const fulfillmentRate = stats && stats.totalOrders > 0 ? (fulfilledOrders / stats.totalOrders) * 100 : 0;
+
+  // Days in the selected date range — used for avg orders/day
+  const daysInRange = (() => {
+    const now = new Date();
+    switch (dateRange) {
+      case 'mtd':       return now.getDate();
+      case 'lastmonth': { const d = new Date(now.getFullYear(), now.getMonth(), 0); return d.getDate(); }
+      case '3months':   return 91;
+      case '1year':     return 365;
+      case 'prevyear':  { const y = now.getFullYear() - 1; return (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365; }
+      default:          return null; // 'all' — can't meaningfully average
+    }
+  })();
+  const avgOrdersPerDay = stats && daysInRange ? stats.totalOrders / daysInRange : null;
+  const formatAvgOrders = (v: number) => v >= 10 ? v.toFixed(0) : v.toFixed(1);
+
   const returnRate = stats && stats.totalOrders > 0 && adjustments
     ? (adjustments.refundedOrderCount / stats.totalOrders) * 100
     : 0;
@@ -433,7 +447,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className={cn("grid grid-cols-4", isCompact ? "gap-1.5" : "gap-1.5")} data-testid="section-orders-ops">
             <MetricCard label="Total Orders" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" compact={isCompact} data-testid="metric-total-orders" />
             <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" compact={isCompact} data-testid="metric-avg-lots" />
-            <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" compact={isCompact} data-testid="metric-fulfillment-rate" />
+            <MetricCard label="Orders/Day" value={avgOrdersPerDay !== null ? formatAvgOrders(avgOrdersPerDay) : '—'} color="green" compact={isCompact} data-testid="metric-orders-per-day" />
             <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} compact={isCompact} data-testid="metric-return-rate" />
           </div>
         </div>
