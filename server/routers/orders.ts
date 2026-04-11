@@ -259,11 +259,11 @@ router.get("/orders/workflow-summary", isApproved, asyncRoute(async (req: any, r
       AND is_test = false
     GROUP BY workflow_status
   `);
-  const summary: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
   for (const row of result.rows as any[]) {
-    summary[row.workflow_status ?? 'new'] = Number(row.count);
+    byStatus[row.workflow_status ?? 'new'] = Number(row.count);
   }
-  res.json(summary);
+  res.json({ byStatus });
 }));
 
 router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any, res) => {
