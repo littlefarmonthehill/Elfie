@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata, shipments } from "@shared/schema";
-import { eq, and, sql, ne } from "drizzle-orm";
+import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata, shipments, blInventory } from "@shared/schema";
+import { eq, and, sql, ne, inArray } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { getBrickOwlApiKey } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -478,6 +478,31 @@ async function processBrickOwlOrder(
   const items = brickOwlOrderData.items || [];
   console.log(`🦉 Order ${effectiveOrderId}: Processing ${items.length} items`);
 
+  // Batch-resolve bl_inventory item_no for all items in this order.
+  // Prefer the boLotToBlInvId channel-lot map; fall back to external_lot_ids.other.
+  // This avoids a per-item DB query and ensures item_no is written at insert time,
+  // rather than relying on a one-time backfill migration.
+  const potentialBlInvIds = items
+    .map((item: any) => {
+      const fromMap = boLotToBlInvId.get(String(item.lot_id));
+      if (fromMap) return fromMap;
+      if (item.external_lot_ids?.other) {
+        const parsed = parseInt(item.external_lot_ids.other, 10);
+        if (!isNaN(parsed)) return parsed;
+      }
+      return null;
+    })
+    .filter((id: number | null): id is number => id !== null);
+
+  const invItemNoMap = new Map<number, string>();
+  if (potentialBlInvIds.length > 0) {
+    const invRows = await db
+      .select({ id: blInventory.id, itemNo: blInventory.itemNo })
+      .from(blInventory)
+      .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, potentialBlInvIds)));
+    for (const row of invRows) invItemNoMap.set(row.id, row.itemNo);
+  }
+
   let itemsChanged = false;
 
   // Collect incremental items produced by a merge:
@@ -508,6 +533,14 @@ async function processBrickOwlOrder(
         const newQty = item.ordered_quantity != null
           ? parseInt(String(item.ordered_quantity), 10)
           : existingItem.quantity;
+        // Backfill item_no for existing rows that were inserted before this lookup was added.
+        if (!existingItem.itemNo && existingItem.bricklinkInventoryId) {
+          const resolvedItemNo = invItemNoMap.get(existingItem.bricklinkInventoryId) ?? null;
+          if (resolvedItemNo) {
+            await db.update(orderDetails).set({ itemNo: resolvedItemNo }).where(eq(orderDetails.id, existingItem.id));
+          }
+        }
+
         if (existingItem.quantity !== newQty) {
           const deltaQty = newQty - existingItem.quantity;
           // Update the existing item to the new total so future syncs don't re-detect this change.
@@ -554,12 +587,17 @@ async function processBrickOwlOrder(
           // Same BL inventory item already exists with a different lot_id.
           // This is a lot_id rotation on BrickOwl's side, not a customer-requested merge.
           // Refresh the key columns so future lookups hit the new lot_id.
+          const rotationUpdate: Record<string, any> = {
+            lineItemKey,
+            boLotId: item.lot_id != null ? String(item.lot_id) : null,
+          };
+          if (!existingByInvId.itemNo) {
+            const resolvedItemNo = invItemNoMap.get(brickLinkInvId) ?? null;
+            if (resolvedItemNo) rotationUpdate.itemNo = resolvedItemNo;
+          }
           await db
             .update(orderDetails)
-            .set({
-              lineItemKey,
-              boLotId: item.lot_id != null ? String(item.lot_id) : null,
-            })
+            .set(rotationUpdate)
             .where(eq(orderDetails.id, existingByInvId.id));
           console.log(`🔄 Order ${effectiveOrderId}: lot ${item.lot_id} replaced lot_id for BL inv ${brickLinkInvId} — lot_id rotation, not a merge`);
           continue; // Do NOT set itemsChanged — this is not a real merge
@@ -568,6 +606,7 @@ async function processBrickOwlOrder(
 
       // Genuinely new item — insert it into the existing order so future syncs don't
       // re-detect it, and record it as a delta item for the new merge order.
+      const itemNo = brickLinkInvId ? (invItemNoMap.get(brickLinkInvId) ?? null) : null;
       await db.insert(orderDetails).values([{
         orderId: effectiveOrderId,
         lineItemKey,
@@ -585,6 +624,7 @@ async function processBrickOwlOrder(
         customField3: null,
         bricklinkInventoryId: brickLinkInvId,
         boLotId: item.lot_id != null ? String(item.lot_id) : null,
+        itemNo,
         colorId: null,
         condition: null,
         fulfilled: false,
