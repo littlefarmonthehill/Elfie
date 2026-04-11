@@ -410,6 +410,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     state:   shipToData.state   || '',
     zip:     shipToData.postalCode || shipToData.zip || '',
     country: shipToData.country || 'US',
+    ...(shipToData.phone ? { phone: shipToData.phone } : {}),
     ...(satTaxId ? { federalTaxId: satTaxId } : {}),
   };
   const shipTo: Address = request.overrideToAddress
@@ -422,6 +423,8 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
         state:   request.overrideToAddress.state   || baseShipTo.state,
         zip:     request.overrideToAddress.zip     || baseShipTo.zip,
         country: request.overrideToAddress.country || baseShipTo.country || 'US',
+        // Preserve phone through address override
+        phone: (request.overrideToAddress as any).phone || baseShipTo.phone,
         // Preserve SAT tax ID through address override (unless caller explicitly clears it)
         federalTaxId: (request.overrideToAddress as any).federalTaxId ?? baseShipTo.federalTaxId,
       }

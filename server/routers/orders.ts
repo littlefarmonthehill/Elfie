@@ -949,7 +949,7 @@ router.post("/orders/backfill-weights", isApproved, asyncRoute(async (req, res) 
 router.patch("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const orderId = req.params.id;
   const orgId = reqOrgId(req);
-  const { street1, street2, street3, city, state, postalCode, country, weight, weightUnits, packageType, packageLength, packageWidth, packageHeight } = req.body;
+  const { street1, street2, street3, city, state, postalCode, country, phone, weight, weightUnits, packageType, packageLength, packageWidth, packageHeight } = req.body;
   const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
   let shipToData: any = {};
@@ -961,6 +961,7 @@ router.patch("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   if (state !== undefined) shipToData.state = state;
   if (postalCode !== undefined) shipToData.postalCode = postalCode;
   if (country !== undefined) shipToData.country = country;
+  if (phone !== undefined) shipToData.phone = phone || undefined;
   const updateData: any = { shipTo: JSON.stringify(shipToData) };
   if (weight !== undefined) updateData.weight = weight !== null && weight !== '' ? weight.toString() : null;
   if (weightUnits !== undefined) updateData.weightUnits = weightUnits;
@@ -1438,7 +1439,7 @@ router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async 
     savedPackageWidth: order.packageWidth ? Number(order.packageWidth) : null,
     savedPackageHeight: order.packageHeight ? Number(order.packageHeight) : null,
     weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10, weightEstimateOz: totalWeightOz,
-    address: { name: shipToData.name || "", company: shipToData.company || "", street1: shipToData.street1 || shipToData.address1 || "", street2: shipToData.street2 || shipToData.address2 || "", city: shipToData.city || "", state: shipToData.state || "", zip: shipToData.postalCode || "", country: shipToData.country || "US" },
+    address: { name: shipToData.name || "", company: shipToData.company || "", street1: shipToData.street1 || shipToData.address1 || "", street2: shipToData.street2 || shipToData.address2 || "", city: shipToData.city || "", state: shipToData.state || "", zip: shipToData.postalCode || "", country: shipToData.country || "US", phone: shipToData.phone || "" },
   });
 }));
 

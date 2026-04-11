@@ -98,6 +98,7 @@ type ShipAddress = {
   state: string;
   zip: string;
   country: string;
+  phone?: string;
 };
 
 type OrderShippingSummary = {
@@ -481,6 +482,15 @@ export default function InlineShippingCard({
     setEditingAddress(false);
     validateAddress(editAddress);
     fetchRates(editAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
+    apiRequest("PATCH", `/api/orders/${orderId}`, {
+      street1: editAddress.street1,
+      street2: editAddress.street2,
+      city: editAddress.city,
+      state: editAddress.state,
+      postalCode: editAddress.zip,
+      country: editAddress.country,
+      phone: editAddress.phone || "",
+    }).catch(() => {});
   };
 
   const selectedRate = rates.find(r => r.id === selectedRateId);
@@ -1090,6 +1100,10 @@ export default function InlineShippingCard({
                 {currentAddress?.street1 && <div>{currentAddress.street1}</div>}
                 {currentAddress?.street2 && <div>{currentAddress.street2}</div>}
                 <div>{[currentAddress?.city, currentAddress?.state, currentAddress?.zip].filter(Boolean).join(", ")}</div>
+                {currentAddress?.phone && <div className="text-gray-400">{currentAddress.phone}</div>}
+                {currentAddress?.country && currentAddress.country !== 'US' && !currentAddress.phone && (
+                  <div className="mt-1 text-xs text-yellow-400">Phone required for international shipments — click Edit to add</div>
+                )}
                 {addressStatus === "invalid" && addressErrors.length > 0 && (
                   <div className="mt-1 text-xs text-yellow-400">{addressErrors[0]}</div>
                 )}
@@ -1120,6 +1134,7 @@ export default function InlineShippingCard({
                     { label: "State", field: "state", span: 1 },
                     { label: "ZIP", field: "zip", span: 1 },
                     { label: "Country", field: "country", span: 1 },
+                    { label: "Phone", field: "phone", span: 2 },
                   ].map(({ label, field, span }) => (
                     <div key={field} className={span === 2 ? "col-span-2" : ""}>
                       <Label className="text-xs text-gray-500">{label}</Label>
