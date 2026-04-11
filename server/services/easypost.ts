@@ -227,18 +227,31 @@ export class EasyPostShippingVendor implements IShippingVendor {
           // Recipient tax ID for countries that require it on the label (e.g. Mexico SAT RFC/CURP)
           ...(request.toAddress.federalTaxId ? { federal_tax_id: request.toAddress.federalTaxId } : {}),
         },
-        from_address: {
-          name: request.fromAddress.name,
-          company: request.fromAddress.company,
-          street1: request.fromAddress.street1,
-          street2: request.fromAddress.street2,
-          city: request.fromAddress.city,
-          state: request.fromAddress.state,
-          zip: request.fromAddress.zip,
-          country: request.fromAddress.country,
-          phone: request.fromAddress.phone,
-          email: request.fromAddress.email,
-        },
+        from_address: (() => {
+          const isIntl = (toNorm.country || 'US').toUpperCase() !== 'US';
+          const fromCountry = (request.fromAddress.country || 'US').toUpperCase();
+          // EasyPost suppresses the country field on US-origin FROM blocks even for international
+          // labels. The only way to get it to appear is to inject it into street2. When street2 is
+          // already in use we leave it as-is to avoid overwriting real address data.
+          // Known limitation: EasyPost renders street2 before city/state/zip, so "United States"
+          // appears above the city line rather than below it — no EasyPost field supports post-city
+          // injection in the FROM block.
+          const street2 = isIntl && !request.fromAddress.street2
+            ? (fromCountry === 'US' ? 'United States' : request.fromAddress.country)
+            : request.fromAddress.street2;
+          return {
+            name: request.fromAddress.name,
+            company: request.fromAddress.company,
+            street1: request.fromAddress.street1,
+            street2,
+            city: request.fromAddress.city,
+            state: request.fromAddress.state,
+            zip: request.fromAddress.zip,
+            country: request.fromAddress.country,
+            phone: request.fromAddress.phone,
+            email: request.fromAddress.email,
+          };
+        })(),
         parcel: {
           length: request.parcel.length.toString(),
           width: request.parcel.width.toString(),
