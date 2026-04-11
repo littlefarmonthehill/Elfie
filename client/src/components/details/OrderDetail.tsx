@@ -33,7 +33,7 @@ interface OrderDetailProps {
     loading?: boolean;
     orderId?: string;
     orderNumber?: string;
-    platform?: 'BrickLink' | 'BrickOwl' | 'Other';
+    marketplace?: string;
     status?: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled' | 'Returned';
     customer?: {
       name: string;
@@ -278,7 +278,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <h3 className="text-[10px] md:text-sm font-black text-white font-mono">
-              {(data as any).marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(data.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+              {data.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(data.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
             </h3>
             <Badge className={getStatusColor(data.status!) + ' text-[9px] md:text-xs h-5 px-2 font-bold'}>{data.status!}</Badge>
             {data.mergeGroupId && (() => {

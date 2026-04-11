@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, orgIntegrations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, orgIntegrations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions, crossPlatformSyncQueue } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -868,6 +868,42 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           const existing = existingMap.get(Number(item.inventory_id));
           // Use normalizeApiPrice here too so history records the stored (2-decimal) value
           const apiUnitPrice = normalizeApiPrice(item.unit_price);
+
+          // Guard: if BL API reports a higher quantity than local, check whether this
+          // inventory lot is associated with a completed order (inventoryDeducted=true).
+          // If so, BL's value is stale (Bug 2 left BL at the pre-sale qty). Skip the
+          // local overwrite and instead enqueue a cross-platform push so the next retry
+          // cycle sends the correct (lower) quantity back to BL.
+          if (existing && item.quantity > existing.quantity) {
+            const deductedDetail = await db
+              .select({ orderId: orderDetails.orderId })
+              .from(orderDetails)
+              .innerJoin(orders, eq(orders.id, orderDetails.orderId))
+              .where(and(
+                eq(orderDetails.bricklinkInventoryId, Number(item.inventory_id)),
+                eq(orders.inventoryDeducted, true),
+              ))
+              .limit(1);
+
+            if (deductedDetail.length > 0) {
+              const delta = existing.quantity - item.quantity; // negative: local is lower
+              console.warn(
+                `⚠️ [BL Sync] Stale restoration blocked for inventory ${item.inventory_id} ` +
+                `(BL=${item.quantity} > local=${existing.quantity}, order ${deductedDetail[0].orderId} already deducted). ` +
+                `Enqueuing BL push with delta=${delta}.`
+              );
+              await db.insert(crossPlatformSyncQueue).values({
+                orgId,
+                blInventoryId: Number(item.inventory_id),
+                targetPlatform: 'BrickLink',
+                sourcePlatform: 'BrickOwl',
+                sourceOrderId: deductedDetail[0].orderId,
+                quantityDelta: delta,
+                lastError: `Stale BL restoration blocked during sync: BL=${item.quantity} local=${existing.quantity}`,
+              }).onConflictDoNothing();
+              continue; // skip the local overwrite and history write for this item
+            }
+          }
 
           await db.update(blInventory)
             .set({ 

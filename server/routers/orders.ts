@@ -802,7 +802,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   res.json({
     orderId: order.id,
     orderNumber: order.orderNumber,
-    platform: order.marketplace === 'BrickOwl' ? 'BrickOwl' : order.marketplace === 'BrickLink' ? 'BrickLink' : 'Other',
+    marketplace: order.marketplace,
     status: statusMap[order.orderStatus] ?? 'Paid',
     customer: {
       name: shipToData.name || order.customerUsername || 'Unknown',

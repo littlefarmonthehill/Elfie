@@ -75,7 +75,7 @@ export async function retryFailedCrossPlatformSyncs(orgId: string): Promise<void
 
       if (!inv) throw new Error(`Local inventory ${item.blInventoryId} not found — lot may have been deleted`);
 
-      await syncInventoryItemAcrossPlatforms(
+      const result = await syncInventoryItemAcrossPlatforms(
         {
           inventoryId: String(item.blInventoryId),
           newQuantity: inv.quantity,         // current local qty (correct for BO absolute)
@@ -92,6 +92,14 @@ export async function retryFailedCrossPlatformSyncs(orgId: string): Promise<void
         },
         { boInventoryMap },
       );
+
+      if (!result.success) {
+        const platformErrors = result.platforms
+          .filter(p => !p.success)
+          .map(p => `${p.platform}: ${p.errors.join(', ')}`)
+          .join('; ');
+        throw new Error(platformErrors || `${item.targetPlatform} sync returned failure without details`);
+      }
 
       await db
         .update(crossPlatformSyncQueue)
