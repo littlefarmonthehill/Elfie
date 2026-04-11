@@ -8463,11 +8463,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       variant="outline"
                       size="sm"
                       className="w-full justify-start text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                      onClick={handleOpenClosedOrdersDialog}
-                      data-testid="button-remove-closed-orders"
+                      onClick={handleOpenTestOrdersDialog}
+                      data-testid="button-remove-test-orders"
                     >
                       <Trash2 className="h-3 w-3 mr-2" />
-                      Remove All Test Orders
+                      Remove Test Orders
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
                       <p className="text-xs text-red-300">
