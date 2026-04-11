@@ -17,6 +17,7 @@ import { z } from 'zod';
 import OpenAI from 'openai';
 import { getPlatformOpenAIKey, getPlatformSettings } from '../routes';
 import { processImageFromUrl, getProcessedPartImage } from '../services/image-proxy';
+import { getImagesForLot, readFromStorage } from '../services/user-image-store';
 import { 
   syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, 
   bricklinkCatalogRequest, calculateSuggestedPriceWithSupply 
@@ -792,6 +793,49 @@ router.get("/images/parts/:partNum/:colorId", asyncRoute(async (req, res) => {
   if (!imageBuffer) {
     return res.status(404).json({ error: "Image not found" });
   }
+
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(imageBuffer);
+}));
+
+// GET /images/lot/:lotId — global image resolver
+// Priority: user-assigned images (lot-level → item-type-level) → catalog image
+// This is the single source of truth for displaying an image for any BL inventory lot.
+router.get("/images/lot/:lotId", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const lotId = parseInt(req.params.lotId, 10);
+  if (isNaN(lotId)) return res.status(400).json({ error: 'Invalid lot ID' });
+
+  const [lot] = await db
+    .select({ itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorId: blInventory.colorId })
+    .from(blInventory)
+    .where(and(eq(blInventory.id, lotId), eq(blInventory.orgId, orgId)))
+    .limit(1);
+
+  if (!lot) return res.status(404).json({ error: 'Lot not found' });
+
+  // Check user-assigned images first (lot-level, then item-type-level)
+  try {
+    const { lotLevel, itemTypeLevel } = await getImagesForLot({
+      orgId,
+      blInventoryId: lotId,
+      itemNo: lot.itemNo,
+      itemType: lot.itemType,
+    });
+    const userImg = lotLevel[0] ?? itemTypeLevel[0] ?? null;
+    if (userImg) {
+      const bytes = await readFromStorage(userImg.storageKey);
+      if (bytes) {
+        res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400' });
+        return res.end(bytes);
+      }
+    }
+  } catch { /* fall through to catalog */ }
+
+  // Fall back to catalog image
+  const imageBuffer = await getProcessedPartImage(lot.itemNo, lot.colorId ?? 0);
+  if (!imageBuffer) return res.status(404).json({ error: 'Image not found' });
 
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Cache-Control', 'public, max-age=86400');

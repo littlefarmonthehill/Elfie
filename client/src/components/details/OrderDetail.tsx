@@ -116,6 +116,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
     imageUrl?: string | null;
     itemType?: string | null;
     colorId?: number | null;
+    blInventoryId?: number | null;
   } | null>(null);
   const [editForm, setEditForm] = useState({
     street1: data.customer?.address || '',
@@ -571,7 +572,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                   className="col-span-1 flex items-center justify-center"
                   onClick={e => {
                     e.stopPropagation();
-                    setLightboxItem({ partNumber: item.partNumber, name: item.name, imageUrl: item.imageUrl, itemType: item.itemType, colorId: item.colorId });
+                    setLightboxItem({ partNumber: item.partNumber, name: item.name, imageUrl: item.imageUrl, itemType: item.itemType, colorId: item.colorId, blInventoryId: item.blInventoryId });
                   }}
                   data-testid={`order-item-thumb-${index}`}
                   title="View full image"
@@ -582,6 +583,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                       partNumber={item.partNumber}
                       colorId={item.colorId}
                       itemType={item.itemType}
+                      lotId={item.blInventoryId}
                       className="w-full h-full object-contain"
                       fallbackClassName="w-3.5 h-3.5 text-gray-600"
                     />
@@ -812,6 +814,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                 partNumber={lightboxItem.partNumber}
                 colorId={lightboxItem.colorId}
                 itemType={lightboxItem.itemType}
+                lotId={lightboxItem.blInventoryId}
                 className="max-w-full max-h-64 object-contain"
                 fallbackClassName="w-16 h-16 text-gray-600"
               />

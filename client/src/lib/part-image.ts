@@ -2,6 +2,11 @@
  * Shared image resolution for LEGO parts across all views.
  *
  * Priority order for every inventory item:
+ *   0. Global lot resolver  /api/images/lot/:lotId
+ *        → single source of truth when a BL inventory lot ID is available
+ *        → checks user-assigned images (lot-level → item-type-level) first,
+ *          then falls back to catalog image (object storage → CDN → processed PNG).
+ *        → works for ALL channels: BrickLink orders, BrickOwl orders, inventory, picklist.
  *   1. Server proxy  /api/images/parts/:partNum/:colorId
  *        → checks object storage (L2) first, falls back to BL CDN (L3),
  *          processes PNG (white-bg removal), and caches permanently.
@@ -31,8 +36,14 @@ export function partImageSources(
   partNumber: string | null | undefined,
   colorId: number | null | undefined,
   itemType?: string | null,
+  lotId?: number | null,
 ): string[] {
   const srcs: string[] = [];
+
+  // 0. Global lot resolver — user images + catalog, single entry point by lot ID.
+  if (lotId) {
+    srcs.push(`/api/images/lot/${lotId}`);
+  }
 
   if (partNumber && colorId != null) {
     // 1. Server proxy — object storage (persistent) → CDN → processed PNG.
@@ -68,7 +79,8 @@ export function resolvePartImageUrl(
   partNumber?: string | null,
   colorId?: number | null,
   itemType?: string | null,
+  lotId?: number | null,
 ): string | null {
-  const srcs = partImageSources(imageUrl, partNumber, colorId, itemType);
+  const srcs = partImageSources(imageUrl, partNumber, colorId, itemType, lotId);
   return srcs[0] ?? null;
 }

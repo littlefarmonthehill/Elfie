@@ -730,6 +730,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 partNumber={data.itemNo}
                 colorId={data.colorId ?? null}
                 itemType={itemType}
+                lotId={data.id}
                 fallbackClassName="w-12 h-12 text-gray-600"
               />
             ) : (
@@ -749,6 +750,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   partNumber={data.itemNo}
                   colorId={data.colorId ?? null}
                   itemType={itemType}
+                  lotId={data.id}
                   className="w-full h-full object-contain"
                   fallbackClassName="w-24 h-24 text-gray-600"
                 />

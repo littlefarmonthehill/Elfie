@@ -7,28 +7,32 @@ interface PartImageProps {
   partNumber?: string | null;
   colorId?: number | null;
   itemType?: string | null;
+  lotId?: number | null;
   className?: string;
   fallbackClassName?: string;
 }
 
 /**
- * Shared part image component used across Showroom, Inventory Detail, and Picklist.
+ * Shared part image component used across inventory, orders, picklist, and all channels.
  *
  * Tries each source URL in order until one loads:
- *   1. Database imageUrl (Rebrickable, proxied through our server)
- *   2. BrickLink color-specific CDN
- *   3. BrickLink shape-only CDN
- *   4. Package icon placeholder
+ *   0. /api/images/lot/:lotId  — global resolver (user images → catalog) when lotId is provided
+ *   1. /api/images/parts/:partNum/:colorId  — catalog image via server proxy
+ *   2. Database imageUrl (Rebrickable or BL CDN URL), proxied if needed
+ *   3. BrickLink CDN direct
+ *   4. BrickLink shape-only CDN
+ *   5. Package icon placeholder
  */
 export default function PartImage({
   imageUrl,
   partNumber,
   colorId,
   itemType,
+  lotId,
   className = "w-full h-full object-contain",
   fallbackClassName,
 }: PartImageProps) {
-  const srcs = partImageSources(imageUrl, partNumber, colorId, itemType);
+  const srcs = partImageSources(imageUrl, partNumber, colorId, itemType, lotId);
   const [level, setLevel] = useState(0);
 
   if (level >= srcs.length) {
