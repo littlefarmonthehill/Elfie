@@ -314,12 +314,15 @@ async function processBrickOwlOrder(
 
     let allowDemotion = false;
     if (wouldDemoteFromShipped) {
-      // Never demote if workflowStatus is 'shipped' — this means the order was explicitly
-      // marked shipped (either via the fulfillment flow or a migration). Orders in this
-      // state are authoritative: BrickOwl API latency or a momentary lower-status response
-      // must never clobber them even if there are no app-created shipment records.
-      if (existingOrder.workflowStatus === 'shipped') {
-        console.log(`🔒 BrickOwl order ${effectiveOrderId}: demotion blocked — workflowStatus is 'shipped' (explicitly marked shipped, no active shipments check needed)`);
+      // Allow demotion only when there are no active app-created shipments AND the order
+      // was not shipped through the fulfillment flow (workflowStatus !== 'done').
+      // workflowStatus 'done' is set exclusively by the shipping service when a label is
+      // purchased or shipWithoutLabel is called — it is the definitive proof the order was
+      // shipped in-app.  workflowStatus 'shipped' is set only by legacy migrations for
+      // pre-app orders and must NOT block demotion here, so that BrickOwl can still
+      // correct a stale status if needed.
+      if (existingOrder.workflowStatus === 'done') {
+        console.log(`🔒 BrickOwl order ${effectiveOrderId}: demotion blocked — workflowStatus is 'done' (shipped via app fulfillment flow)`);
       } else {
         const activeShipments = await db
           .select({ id: shipments.id })
