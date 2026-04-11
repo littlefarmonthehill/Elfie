@@ -609,7 +609,19 @@ router.get("/brickanalyzer/scan/:id/progress", isApproved, async (req, res) => {
   const progress = brickanalyzerProgressMap.get(scanId);
   const [scan] = await db.select().from(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId)).limit(1);
   if (!scan) return res.status(404).json({ error: "Scan not found" });
-  res.json({ status: scan.status, progress: progress || (scan.status === 'complete' ? { pct: 100, step: 'Complete' } : null), scan });
+  const isActive = scan.status === 'pending' || scan.status === 'processing';
+  const isComplete = scan.status === 'complete';
+  res.json({
+    status: scan.status,
+    step: progress?.step ?? (isComplete ? 'Complete' : 'Starting…'),
+    detail: progress?.detail ?? '',
+    pct: progress?.pct ?? (isComplete ? 100 : 0),
+    stepAt: progress?.stepAt ?? null,
+    startedAt: progress?.startedAt ?? (scan.createdAt ? new Date(scan.createdAt).getTime() : null),
+    now: Date.now(),
+    active: isActive,
+    scan,
+  });
 });
 
 // ── DELETE /api/brickanalyzer/scan/:id — dismiss ─────────────────────────────
