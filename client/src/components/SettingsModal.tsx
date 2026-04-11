@@ -12832,10 +12832,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <p className="text-xs text-gray-500">
                     Inventory quantities will <strong className="text-gray-300">not</strong> be changed — this only removes the order records.
                   </p>
-                  {testOrdersPreview.withActiveInventory.length > 0 && (
+                  {(testOrdersPreview.withActiveInventory?.length ?? 0) > 0 && (
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded p-3 space-y-1">
                       <p className="text-xs font-medium text-amber-300">
-                        {testOrdersPreview.withActiveInventory.length} order{testOrdersPreview.withActiveInventory.length !== 1 ? 's have' : ' has'} inventory that was not returned
+                        {testOrdersPreview.withActiveInventory?.length ?? 0} order{(testOrdersPreview.withActiveInventory?.length ?? 0) !== 1 ? 's have' : ' has'} inventory that was not returned
                       </p>
                       <p className="text-xs text-amber-400/80">
                         These orders still have quantities deducted from your inventory. Since no quantities will be restored on delete, those lots may be under-counted after removal. Consider manually returning these orders first if you need accurate stock counts.

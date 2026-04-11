@@ -117,8 +117,18 @@ router.delete("/orders/closed", isApproved, asyncRoute(async (req: any, res) => 
 
 router.get("/orders/test-preview", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const count = await db.select({ count: sql<number>`count(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)));
-  res.json({ count: Number(count[0]?.count) || 0 });
+  const [countResult, activeResult] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true))),
+    db.execute(sql`
+      SELECT DISTINCT o.id FROM ${orders} o
+      INNER JOIN order_details od ON od.order_id = o.id
+      WHERE o.org_id = ${orgId} AND o.is_test = true
+    `),
+  ]);
+  res.json({
+    count: Number(countResult[0]?.count) || 0,
+    withActiveInventory: (activeResult.rows as any[]).map(r => r.id),
+  });
 }));
 
 router.delete("/orders/test", isApproved, asyncRoute(async (req: any, res) => {
