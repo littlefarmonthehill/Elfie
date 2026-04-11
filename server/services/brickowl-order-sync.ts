@@ -533,14 +533,6 @@ async function processBrickOwlOrder(
         const newQty = item.ordered_quantity != null
           ? parseInt(String(item.ordered_quantity), 10)
           : existingItem.quantity;
-        // Backfill item_no for existing rows that were inserted before this lookup was added.
-        if (!existingItem.itemNo && existingItem.bricklinkInventoryId) {
-          const resolvedItemNo = invItemNoMap.get(existingItem.bricklinkInventoryId) ?? null;
-          if (resolvedItemNo) {
-            await db.update(orderDetails).set({ itemNo: resolvedItemNo }).where(eq(orderDetails.id, existingItem.id));
-          }
-        }
-
         if (existingItem.quantity !== newQty) {
           const deltaQty = newQty - existingItem.quantity;
           // Update the existing item to the new total so future syncs don't re-detect this change.
@@ -587,17 +579,12 @@ async function processBrickOwlOrder(
           // Same BL inventory item already exists with a different lot_id.
           // This is a lot_id rotation on BrickOwl's side, not a customer-requested merge.
           // Refresh the key columns so future lookups hit the new lot_id.
-          const rotationUpdate: Record<string, any> = {
-            lineItemKey,
-            boLotId: item.lot_id != null ? String(item.lot_id) : null,
-          };
-          if (!existingByInvId.itemNo) {
-            const resolvedItemNo = invItemNoMap.get(brickLinkInvId) ?? null;
-            if (resolvedItemNo) rotationUpdate.itemNo = resolvedItemNo;
-          }
           await db
             .update(orderDetails)
-            .set(rotationUpdate)
+            .set({
+              lineItemKey,
+              boLotId: item.lot_id != null ? String(item.lot_id) : null,
+            })
             .where(eq(orderDetails.id, existingByInvId.id));
           console.log(`🔄 Order ${effectiveOrderId}: lot ${item.lot_id} replaced lot_id for BL inv ${brickLinkInvId} — lot_id rotation, not a merge`);
           continue; // Do NOT set itemsChanged — this is not a real merge
