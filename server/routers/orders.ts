@@ -1268,7 +1268,7 @@ router.get("/orders/:orderId/eod-form", isApproved, asyncRoute(async (req: any, 
 router.get("/fulfillment/stats", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const [unfulfilledRows, feedbackRows] = await Promise.all([
-    db.select({ count: sql<number>`count(DISTINCT ${orders.id})` }).from(orders).where(and(eq(orders.orgId, orgId), or(eq(orders.orderStatus, 'awaiting_payment'), eq(orders.orderStatus, 'awaiting_fulfillment'), eq(orders.orderStatus, 'awaiting_shipment')))),
+    db.select({ count: sql<number>`count(DISTINCT ${orders.id})` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, false), or(eq(orders.orderStatus, 'awaiting_payment'), eq(orders.orderStatus, 'awaiting_fulfillment'), eq(orders.orderStatus, 'awaiting_shipment')))),
     db.select({ count: sql<number>`count(DISTINCT ${orders.id})` }).from(orders).innerJoin(shipments, eq(shipments.orderId, orders.id)).where(and(eq(orders.orgId, orgId), eq(orders.isTest, false), isNull(orders.feedbackLeftAt), inArray(orders.orderStatus, ['shipped', 'completed']))),
   ]);
   res.json({ unfulfilled: Number(unfulfilledRows[0]?.count || 0), feedbackPending: Number(feedbackRows[0]?.count || 0) });
@@ -1277,7 +1277,7 @@ router.get("/fulfillment/stats", isApproved, asyncRoute(async (req: any, res) =>
 router.get("/fulfillment", isApproved, asyncRoute(async (req: any, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const orgId = reqOrgId(req);
-  const fulfillmentOrders = await db.select().from(orders).where(and(eq(orders.orgId, orgId), or(eq(orders.orderStatus, 'awaiting_payment'), eq(orders.orderStatus, 'awaiting_fulfillment'), eq(orders.orderStatus, 'awaiting_shipment')))).orderBy(orders.orderNumber);
+  const fulfillmentOrders = await db.select().from(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, false), or(eq(orders.orderStatus, 'awaiting_payment'), eq(orders.orderStatus, 'awaiting_fulfillment'), eq(orders.orderStatus, 'awaiting_shipment')))).orderBy(orders.orderNumber);
   if (fulfillmentOrders.length === 0) { res.json({ orders: [], items: [] }); return; }
   const orderIds = fulfillmentOrders.map(o => o.id);
   const allItems = await db.select({
