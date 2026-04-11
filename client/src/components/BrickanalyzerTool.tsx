@@ -2579,7 +2579,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                 setHeatmapCropFocus(null);
                                 if (onItemClick && r.partNo) {
                                   sessionStorage.setItem(`bl-itemtype-${r.partNo}`, r.itemType ?? 'PART');
-                                  const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
+                                  // Resolve effective colorId the same way the card display does:
+                                  // prefer user color-correction, fall back to detected colorId.
+                                  const grp = groupedResults.find(g => g.partNo === r.partNo);
+                                  const repCropIndex = grp?.entries[0]?.cropIndex ?? null;
+                                  const correctedKey = `${r.partNo}__${repCropIndex ?? 'x'}`;
+                                  const corrected = colorCorrectedClips.get(correctedKey);
+                                  const effectiveColorId = corrected?.colorId ?? r.colorId;
+                                  const colorSuffix = effectiveColorId != null ? `__c${effectiveColorId}` : '';
                                   await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
                                 } else {
                                   setFocusedDetailCropIndex(r.cropIndex ?? null);
