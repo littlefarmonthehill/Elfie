@@ -383,8 +383,8 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`BrickLink PUT error (${response.status}):`, errorText);
-      throw new Error(`BrickLink API error: ${response.statusText}`);
+      console.error(`BrickLink PUT error (${response.status}) on ${endpoint}:`, errorText);
+      throw new Error(`BrickLink API error ${response.status} on ${endpoint}: ${errorText}`);
     }
 
     const rawText = await response.text();

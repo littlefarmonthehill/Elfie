@@ -211,6 +211,7 @@ async function updateBrickLinkQuantityDelta(
     //
     // localQty is already the post-deduction value, so localQty <= 0 means BL would also
     // reach 0 after this delta (assuming BL and local are in sync).
+    console.log(`🔍 [BL-DELTA] Inventory ${inventoryId} — localQty=${localQty}, isRetain=${isRetain}, isStockRoom=${isStockRoom}, stockRoomId=${stockRoomId}, delta=${quantityDelta}`);
     let effectiveStockRoom = isStockRoom;
     let effectiveStockRoomId = stockRoomId;
     if (isRetain && !isStockRoom && localQty <= 0) {
