@@ -191,16 +191,37 @@ async function updateBrickLinkQuantityDelta(
         isRetain:    blInventory.isRetain,
         isStockRoom: blInventory.isStockRoom,
         stockRoomId: blInventory.stockRoomId,
+        quantity:    blInventory.quantity,
       })
       .from(blInventory)
       .where(eq(blInventory.id, numericId))
       .limit(1);
-    const isRetain    = localLot?.isRetain    ?? true;  // default true: safer to retain than delete
+    let isRetain    = localLot?.isRetain    ?? true;
     const isStockRoom = localLot?.isStockRoom ?? false;
     const stockRoomId = localLot?.stockRoomId ?? null;
+    const localQty    = localLot?.quantity    ?? 0;
 
-    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain}, is_stock_room=${isStockRoom}${stockRoomId ? `, stock_room_id=${stockRoomId}` : ''})${orderId ? ` (order ${orderId})` : ''}`);
-    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId, isRetain, isStockRoom, stockRoomId);
+    // BL rejects "Update would result in 0 quantity in your inventory without being in
+    // stockroom" when is_retain=true but is_stock_room=false and the result would be qty=0.
+    //
+    // Root cause: is_stock_room from GET means "lot is currently in stockroom" (always false
+    // for an active lot). On PUT it means "move to stockroom when qty hits 0". We must not
+    // echo the GET value back — when the lot is about to hit 0 we need to signal the
+    // desired sold-out behaviour explicitly.
+    //
+    // localQty is already the post-deduction value, so localQty <= 0 means BL would also
+    // reach 0 after this delta (assuming BL and local are in sync).
+    let effectiveStockRoom = isStockRoom;
+    let effectiveStockRoomId = stockRoomId;
+    if (isRetain && !isStockRoom && localQty <= 0) {
+      // Store is configured to move sold-out lots to stockroom. Default to 'A'.
+      effectiveStockRoom = true;
+      effectiveStockRoomId = 'A';
+      console.log(`⚠️  [BL-DELTA] Inventory ${inventoryId} would reach 0 qty — overriding is_stock_room=true (stockroom A) so BL moves lot to stockroom instead of rejecting`);
+    }
+
+    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId} (is_retain=${isRetain}, is_stock_room=${effectiveStockRoom}${effectiveStockRoomId ? `, stock_room_id=${effectiveStockRoomId}` : ''})${orderId ? ` (order ${orderId})` : ''}`);
+    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId, isRetain, effectiveStockRoom, effectiveStockRoomId);
     if (!result.success && result.error) {
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
