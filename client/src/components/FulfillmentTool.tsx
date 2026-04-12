@@ -260,6 +260,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [visualPanelHeight, setVisualPanelHeight] = useState<number | null>(null);
+  const [visualPanelTop, setVisualPanelTop] = useState<number>(0);
   const initialDrawerChecked = useRef(false);
   const drawerPanelRef = useRef<HTMLDivElement>(null);
   const actionRowRef = useRef<HTMLDivElement>(null);
@@ -278,6 +280,23 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       localStorage.setItem('elfie-fulfillment-selected', JSON.stringify([...selectedOrders]));
     } catch { /* ignore */ }
   }, [selectedOrders]);
+
+  // Track visualViewport so the panel shrinks correctly when the iOS keyboard appears
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setVisualPanelHeight(vv.height);
+      setVisualPanelTop(vv.offsetTop);
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
 
   // Slide-in animation: one frame delay so CSS transition has something to transition from
   useEffect(() => {
@@ -1156,9 +1175,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           {/* Panel — slides in from the right */}
           <div
             ref={drawerPanelRef}
-            className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
+            className="fixed right-0 z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
             style={{
               width: 'min(320px, 90vw)',
+              top: visualPanelTop,
+              height: visualPanelHeight ?? '100dvh',
               transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)',
               willChange: 'transform',
             }}
