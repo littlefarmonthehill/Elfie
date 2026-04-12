@@ -2577,6 +2577,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [editIntApiKey, setEditIntApiKey] = useState('');
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
   const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
+  // Shipping weight defaults
+  const [defaultWeightMode, setDefaultWeightMode] = useState<'none' | 'order' | 'order_plus'>('none');
+  const [defaultWeightPlusAmount, setDefaultWeightPlusAmount] = useState("");
   // Printing configuration
   const [printMethod, setPrintMethod] = useState<'browser' | 'direct_zpl' | 'pdf_download'>('browser');
   const [labelPrinterIp, setLabelPrinterIp] = useState("");
@@ -3654,6 +3657,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setEasypostApiKey(unmask(settings.easypostApiKey));
       setEasypostTestApiKey(unmask(settings.easypostTestApiKey));
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
+      setDefaultWeightMode(((settings as any).defaultWeightMode as 'none' | 'order' | 'order_plus') || 'none');
+      setDefaultWeightPlusAmount(String((settings as any).defaultWeightPlusAmount ?? ''));
       setPrintMethod((settings.printMethod as any) || 'browser');
       setLabelPrinterIp(settings.labelPrinterIp || "");
       setLabelPrinterPort(settings.labelPrinterPort ?? 9100);
@@ -4314,6 +4319,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'team' as const, label: 'Team', icon: Users, bsVisible: false },
     { id: 'platforms' as const, label: 'Services', icon: Layers, bsVisible: false },
     { id: 'printing' as const, label: 'Printing', icon: Printer, bsVisible: false },
+    { id: 'shipping' as const, label: 'Shipping', icon: Package, bsVisible: false },
     { id: 'autoSync' as const, label: 'Auto-Sync Schedule', icon: RefreshCw, bsVisible: false },
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
@@ -12514,6 +12520,100 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <p className="text-xs font-medium text-gray-200 mb-1">How it works</p>
                     <p className="sm-description">When direct printing is active, new shipping labels are requested in ZPL format from EasyPost. When you tap "Print Label" on a shipped order, the app sends the label directly to your printer — no browser dialog needed.</p>
                     <p className="sm-description mt-1.5 text-amber-400/80">Labels purchased before enabling this setting are in PDF format and will open in the browser instead.</p>
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {activeSection === 'shipping' && (
+              <div className="p-4 space-y-5">
+
+                {/* Default Weight Mode */}
+                <div>
+                  <p className="sm-group-label mb-2 px-1">Default Package Weight</p>
+                  <p className="text-[11px] text-gray-500 mb-3 px-1">When you open the weight editor on an order, the weight field can be pre-populated automatically. Choose how you want it to behave.</p>
+                  <div className="sm-card divide-y divide-gray-700/60">
+
+                    {/* None */}
+                    <button
+                      onClick={() => { setDefaultWeightMode('none'); updateSettingsMutation.mutate({ defaultWeightMode: 'none' } as any); }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="weight-mode-none"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${defaultWeightMode === 'none' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`}>
+                        {defaultWeightMode === 'none' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100">Enter manually each time</p>
+                        <p className="sm-description mt-0.5">Weight field starts empty. You type the weight yourself when purchasing a label.</p>
+                      </div>
+                    </button>
+
+                    {/* Order weight */}
+                    <button
+                      onClick={() => { setDefaultWeightMode('order'); updateSettingsMutation.mutate({ defaultWeightMode: 'order' } as any); }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="weight-mode-order"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${defaultWeightMode === 'order' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`}>
+                        {defaultWeightMode === 'order' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100">Use order weight</p>
+                        <p className="sm-description mt-0.5">Pre-fills with the total parts weight calculated from your catalog. Good if your packaging weight is negligible.</p>
+                      </div>
+                    </button>
+
+                    {/* Order weight + extra */}
+                    <button
+                      onClick={() => { setDefaultWeightMode('order_plus'); updateSettingsMutation.mutate({ defaultWeightMode: 'order_plus' } as any); }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
+                      data-testid="weight-mode-order-plus"
+                    >
+                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${defaultWeightMode === 'order_plus' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`}>
+                        {defaultWeightMode === 'order_plus' && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-100">Order weight + packaging</p>
+                        <p className="sm-description mt-0.5">Adds a fixed packaging allowance on top of the parts weight. Recommended for sellers who use consistent poly-mailers or small boxes.</p>
+                      </div>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Extra packaging weight — only shown when order_plus is selected */}
+                {defaultWeightMode === 'order_plus' && (
+                  <div>
+                    <p className="sm-group-label mb-2 px-1">Packaging Allowance</p>
+                    <div className="sm-card px-4 py-3 space-y-3">
+                      <p className="sm-description">Enter the weight of your typical packaging material (poly-mailer, bubble wrap, box, etc.) in grams. This is added on top of the catalog parts weight.</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32">
+                          <Label className="text-[10px] text-gray-500 mb-1 block">Extra weight (g)</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={defaultWeightPlusAmount}
+                            onChange={e => {
+                              const v = e.target.value;
+                              if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightPlusAmount(v);
+                            }}
+                            onBlur={() => {
+                              const parsed = parseFloat(defaultWeightPlusAmount);
+                              const val = isNaN(parsed) ? 0 : parsed;
+                              setDefaultWeightPlusAmount(String(val));
+                              updateSettingsMutation.mutate({ defaultWeightPlusAmount: String(val) } as any);
+                            }}
+                            placeholder="e.g. 28"
+                            className="h-8 text-xs bg-gray-900 border-gray-600"
+                            data-testid="input-default-weight-plus"
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-4">≈ {defaultWeightPlusAmount ? (parseFloat(defaultWeightPlusAmount) / 28.35).toFixed(2) : '0'} oz</p>
+                      </div>
+                    </div>
                   </div>
                 )}
 

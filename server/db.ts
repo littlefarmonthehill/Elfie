@@ -2337,6 +2337,11 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS marketing_outreach_customer_idx ON marketing_outreach(org_id, customer_username)`);
     console.log('[Migration] Phase-113 (marketing_outreach table) complete.');
 
+    // Phase-114: Shipping weight defaults in app_settings
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_mode TEXT DEFAULT 'none'`);
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_plus_amount DECIMAL(10,2) DEFAULT 0`);
+    console.log('[Migration] Phase-114 (shipping weight defaults) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

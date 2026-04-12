@@ -660,6 +660,9 @@ export const appSettings = pgTable("app_settings", {
   labelPrinterPort: integer("label_printer_port").default(9100), // Raw print port (default 9100)
   labelSize: text("label_size").default('4x6'),               // '4x6' | '2x7'
   printSetupDone: boolean("print_setup_done").default(false), // Has user been through first-time prompt
+  // Shipping weight defaults
+  defaultWeightMode: text("default_weight_mode").default('none'),           // 'none' | 'order' | 'order_plus'
+  defaultWeightPlusAmount: decimal("default_weight_plus_amount", { precision: 10, scale: 2 }).default('0'), // Extra weight added to order weight for packaging
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

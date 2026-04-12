@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 
 import { shortCode } from "@/components/PackingSlip";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +110,8 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingWeight, setIsLoadingWeight] = useState(false);
+  const { data: orgSettings } = useQuery<any>({ queryKey: ['/api/orders/settings'] });
   const [showCustomerNote, setShowCustomerNote] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<{
     partNumber: string;
@@ -130,7 +133,31 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
     weightUnits: data.weightUnits || 'oz',
   });
 
-  const handleEditStart = () => {
+  const handleEditStart = async () => {
+    const mode: 'none' | 'order' | 'order_plus' = orgSettings?.defaultWeightMode || 'none';
+    let defaultWeight = data.weight != null ? String(data.weight) : '';
+    let defaultUnit = data.weightUnits || 'oz';
+
+    // If no saved weight, apply the org default weight mode
+    if (data.weight == null && mode !== 'none' && data.orderId) {
+      setIsLoadingWeight(true);
+      try {
+        const res = await apiRequest('GET', `/api/orders/fulfillment/order-shipping/${data.orderId}`);
+        const est = await res.json();
+        const weightGrams: number = est.weightEstimateGrams || 0;
+        const extra = mode === 'order_plus' ? (parseFloat(orgSettings?.defaultWeightPlusAmount) || 0) : 0;
+        const totalGrams = weightGrams + extra;
+        if (totalGrams > 0) {
+          defaultWeight = String(Math.round(totalGrams * 10) / 10);
+          defaultUnit = 'g';
+        }
+      } catch {
+        // silently fall through — weight stays empty
+      } finally {
+        setIsLoadingWeight(false);
+      }
+    }
+
     setEditForm({
       street1: data.customer?.address || '',
       street2: data.customer?.address2 || '',
@@ -139,8 +166,8 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
       state: data.customer?.state || '',
       postalCode: data.customer?.zip || '',
       country: data.customer?.country || '',
-      weight: data.weight != null ? String(data.weight) : '',
-      weightUnits: data.weightUnits || 'oz',
+      weight: defaultWeight,
+      weightUnits: defaultUnit,
     });
     setIsEditing(true);
   };
@@ -323,10 +350,14 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                 size="icon"
                 variant="ghost"
                 onClick={handleEditStart}
+                disabled={isLoadingWeight}
                 data-testid="button-edit-order"
                 title="Edit address & weight"
               >
-                <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                {isLoadingWeight
+                  ? <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
+                  : <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                }
               </Button>
             )}
           </div>
@@ -491,11 +522,13 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
               <div className="flex-1">
                 <Label className="text-[9px] text-gray-500">Weight</Label>
                 <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={editForm.weight}
-                  onChange={e => setEditForm(f => ({ ...f, weight: e.target.value }))}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) setEditForm(f => ({ ...f, weight: v }));
+                  }}
                   onFocus={e => e.target.select()}
                   className="h-8 text-xs bg-gray-900 border-gray-600"
                   placeholder="e.g. 8.5"
