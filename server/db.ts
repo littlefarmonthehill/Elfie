@@ -2342,6 +2342,10 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_plus_amount DECIMAL(10,2) DEFAULT 0`);
     console.log('[Migration] Phase-114 (shipping weight defaults) complete.');
 
+    // Phase-115: Item packaging percentage for shipping weight defaults
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_items_pct DECIMAL(10,2) DEFAULT 0`);
+    console.log('[Migration] Phase-115 (default_weight_items_pct) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

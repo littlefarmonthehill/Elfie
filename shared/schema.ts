@@ -661,8 +661,9 @@ export const appSettings = pgTable("app_settings", {
   labelSize: text("label_size").default('4x6'),               // '4x6' | '2x7'
   printSetupDone: boolean("print_setup_done").default(false), // Has user been through first-time prompt
   // Shipping weight defaults
-  defaultWeightMode: text("default_weight_mode").default('none'),           // 'none' | 'order' | 'order_plus'
-  defaultWeightPlusAmount: decimal("default_weight_plus_amount", { precision: 10, scale: 2 }).default('0'), // Extra weight added to order weight for packaging
+  defaultWeightMode: text("default_weight_mode").default('none'),           // 'none' | 'order'
+  defaultWeightItemsPct: decimal("default_weight_items_pct", { precision: 10, scale: 2 }).default('0'),    // % of catalog weight to add for per-item packaging (bags, bubble wrap)
+  defaultWeightPlusAmount: decimal("default_weight_plus_amount", { precision: 10, scale: 2 }).default('0'), // Fixed oz to add for overall packaging (envelope, label, tape)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

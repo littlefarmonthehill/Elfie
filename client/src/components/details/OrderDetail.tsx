@@ -134,7 +134,8 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
   });
 
   const handleEditStart = async () => {
-    const mode: 'none' | 'order' | 'order_plus' = orgSettings?.defaultWeightMode || 'none';
+    const rawMode = orgSettings?.defaultWeightMode || 'none';
+    const mode: 'none' | 'order' = (rawMode === 'order' || rawMode === 'order_plus') ? 'order' : 'none';
     let defaultWeight = data.weight != null ? String(data.weight) : '';
     let defaultUnit = data.weightUnits || 'oz';
 
@@ -146,8 +147,9 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
         const est = await res.json();
         const weightGrams: number = est.weightEstimateGrams || 0;
         const catalogOz = weightGrams * 0.035274;
-        const extraOz = mode === 'order_plus' ? (parseFloat(orgSettings?.defaultWeightPlusAmount) || 0) : 0;
-        const totalOz = catalogOz + extraOz;
+        const itemsPct = parseFloat(orgSettings?.defaultWeightItemsPct) || 0;
+        const extraOz = parseFloat(orgSettings?.defaultWeightPlusAmount) || 0;
+        const totalOz = catalogOz + (catalogOz * itemsPct / 100) + extraOz;
         if (totalOz > 0) {
           defaultWeight = String(Math.round(totalOz * 10) / 10);
           defaultUnit = 'oz';

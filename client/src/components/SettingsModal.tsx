@@ -2578,7 +2578,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
   const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
   // Shipping weight defaults
-  const [defaultWeightMode, setDefaultWeightMode] = useState<'none' | 'order' | 'order_plus'>('none');
+  const [defaultWeightMode, setDefaultWeightMode] = useState<'none' | 'order'>('none');
+  const [defaultWeightItemsPct, setDefaultWeightItemsPct] = useState("");
   const [defaultWeightPlusAmount, setDefaultWeightPlusAmount] = useState("");
   // Printing configuration
   const [printMethod, setPrintMethod] = useState<'browser' | 'direct_zpl' | 'pdf_download'>('browser');
@@ -3657,7 +3658,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setEasypostApiKey(unmask(settings.easypostApiKey));
       setEasypostTestApiKey(unmask(settings.easypostTestApiKey));
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
-      setDefaultWeightMode(((settings as any).defaultWeightMode as 'none' | 'order' | 'order_plus') || 'none');
+      const wMode = (settings as any).defaultWeightMode;
+      setDefaultWeightMode((wMode === 'order' || wMode === 'order_plus') ? 'order' : 'none');
+      setDefaultWeightItemsPct(String((settings as any).defaultWeightItemsPct ?? ''));
       setDefaultWeightPlusAmount(String((settings as any).defaultWeightPlusAmount ?? ''));
       setPrintMethod((settings.printMethod as any) || 'browser');
       setLabelPrinterIp(settings.labelPrinterIp || "");
@@ -12532,7 +12535,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 {/* Default Weight Mode */}
                 <div>
                   <p className="sm-group-label mb-2 px-1">Default Package Weight</p>
-                  <p className="text-[11px] text-gray-500 mb-3 px-1">When you open the weight editor on an order, the weight field can be pre-populated automatically. Choose how you want it to behave.</p>
+                  <p className="text-[11px] text-gray-500 mb-3 px-1">Choose whether the weight field is pre-filled automatically when you open the shipping screen on an order.</p>
                   <div className="sm-card divide-y divide-gray-700/60">
 
                     {/* None */}
@@ -12546,11 +12549,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-100">Enter manually each time</p>
-                        <p className="sm-description mt-0.5">Weight field starts empty. You type the weight yourself when purchasing a label.</p>
+                        <p className="sm-description mt-0.5">Weight field starts empty. You enter it yourself for each order.</p>
                       </div>
                     </button>
 
-                    {/* Order weight */}
+                    {/* Auto-calculate */}
                     <button
                       onClick={() => { setDefaultWeightMode('order'); updateSettingsMutation.mutate({ defaultWeightMode: 'order' } as any); }}
                       className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
@@ -12560,59 +12563,108 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         {defaultWeightMode === 'order' && <div className="w-2 h-2 rounded-full bg-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-100">Use order weight</p>
-                        <p className="sm-description mt-0.5">Pre-fills with the total parts weight calculated from your catalog. Good if your packaging weight is negligible.</p>
-                      </div>
-                    </button>
-
-                    {/* Order weight + extra */}
-                    <button
-                      onClick={() => { setDefaultWeightMode('order_plus'); updateSettingsMutation.mutate({ defaultWeightMode: 'order_plus' } as any); }}
-                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-700/30 transition-colors text-left"
-                      data-testid="weight-mode-order-plus"
-                    >
-                      <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${defaultWeightMode === 'order_plus' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`}>
-                        {defaultWeightMode === 'order_plus' && <div className="w-2 h-2 rounded-full bg-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-100">Order weight + packaging</p>
-                        <p className="sm-description mt-0.5">Adds a fixed packaging allowance on top of the parts weight. Recommended for sellers who use consistent poly-mailers or small boxes.</p>
+                        <p className="text-xs font-medium text-gray-100">Auto-calculate from order</p>
+                        <p className="sm-description mt-0.5">Adds together the three weight components below to pre-fill the field.</p>
                       </div>
                     </button>
 
                   </div>
                 </div>
 
-                {/* Extra packaging weight — only shown when order_plus is selected */}
-                {defaultWeightMode === 'order_plus' && (
+                {/* Weight components — only shown when auto-calculate is selected */}
+                {defaultWeightMode === 'order' && (
                   <div>
-                    <p className="sm-group-label mb-2 px-1">Packaging Allowance</p>
-                    <div className="sm-card px-4 py-3 space-y-3">
-                      <p className="sm-description">Enter the weight of your typical packaging material (poly-mailer, bubble wrap, box, etc.) in ounces. This is added on top of the catalog parts weight.</p>
-                      <div className="flex items-center gap-3">
-                        <div className="w-32">
-                          <Label className="text-[10px] text-gray-500 mb-1 block">Extra weight (oz)</Label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={defaultWeightPlusAmount}
-                            onChange={e => {
-                              const v = e.target.value;
-                              if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightPlusAmount(v);
-                            }}
-                            onBlur={() => {
-                              const parsed = parseFloat(defaultWeightPlusAmount);
-                              const val = isNaN(parsed) ? 0 : parsed;
-                              setDefaultWeightPlusAmount(String(val));
-                              updateSettingsMutation.mutate({ defaultWeightPlusAmount: String(val) } as any);
-                            }}
-                            placeholder="e.g. 1.5"
-                            className="h-8 text-xs bg-gray-900 border-gray-600"
-                            data-testid="input-default-weight-plus"
-                          />
+                    <p className="sm-group-label mb-2 px-1">Weight Components</p>
+                    <div className="sm-card divide-y divide-gray-700/60">
+
+                      {/* 1. Order weight (read-only) */}
+                      <div className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-100">Order weight</p>
+                            <p className="sm-description mt-0.5">The total item weight pulled from the sales channel API — calculated per order, not configurable here.</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span className="text-[10px] text-gray-500 font-mono">auto</span>
+                          </div>
                         </div>
                       </div>
+
+                      {/* 2. Item packaging % */}
+                      <div className="px-4 py-3 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-100">Item packaging</p>
+                            <p className="sm-description mt-0.5">Extra weight for per-item packaging such as poly bags or bubble wrap — as a percentage of the order weight.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={defaultWeightItemsPct}
+                              onChange={e => {
+                                const v = e.target.value;
+                                if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightItemsPct(v);
+                              }}
+                              onBlur={() => {
+                                const parsed = parseFloat(defaultWeightItemsPct);
+                                const val = isNaN(parsed) ? 0 : Math.min(parsed, 100);
+                                setDefaultWeightItemsPct(String(val));
+                                updateSettingsMutation.mutate({ defaultWeightItemsPct: String(val) } as any);
+                              }}
+                              placeholder="e.g. 10"
+                              className="h-8 text-xs bg-gray-900 border-gray-600"
+                              data-testid="input-default-weight-items-pct"
+                            />
+                          </div>
+                          <span className="text-xs text-gray-400">%</span>
+                          {defaultWeightItemsPct && parseFloat(defaultWeightItemsPct) > 0 && (
+                            <span className="text-[11px] text-gray-500">adds {defaultWeightItemsPct}% of order weight</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 3. Overall packaging oz */}
+                      <div className="px-4 py-3 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-100">Overall packaging</p>
+                            <p className="sm-description mt-0.5">Fixed weight for the outer packaging — padded envelope, label, tape, etc.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={defaultWeightPlusAmount}
+                              onChange={e => {
+                                const v = e.target.value;
+                                if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightPlusAmount(v);
+                              }}
+                              onBlur={() => {
+                                const parsed = parseFloat(defaultWeightPlusAmount);
+                                const val = isNaN(parsed) ? 0 : parsed;
+                                setDefaultWeightPlusAmount(String(val));
+                                updateSettingsMutation.mutate({ defaultWeightPlusAmount: String(val) } as any);
+                              }}
+                              placeholder="e.g. 1.5"
+                              className="h-8 text-xs bg-gray-900 border-gray-600"
+                              data-testid="input-default-weight-plus"
+                            />
+                          </div>
+                          <span className="text-xs text-gray-400">oz</span>
+                        </div>
+                      </div>
+
                     </div>
+
+                    {/* Formula preview */}
+                    <p className="text-[11px] text-gray-600 mt-2 px-1">
+                      Default = order weight + ({defaultWeightItemsPct || '0'}% of order weight) + {defaultWeightPlusAmount || '0'} oz
+                    </p>
                   </div>
                 )}
 
