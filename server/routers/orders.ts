@@ -332,6 +332,34 @@ router.get("/orders/customer-stats", isApproved, asyncRoute(async (req: any, res
   res.json(result.rows);
 }));
 
+router.get("/marketing/stock-matches", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const result = await db.execute(sql`
+    SELECT
+      o.customer_username,
+      COUNT(DISTINCT od.item_no) AS match_count
+    FROM orders o
+    JOIN order_details od ON od.order_id = o.id
+    JOIN bl_inventory bi
+      ON  bi.item_no  = od.item_no
+      AND bi.org_id   = ${orgId}
+      AND bi.quantity > 0
+      AND bi.deleted_at IS NULL
+    WHERE o.org_id   = ${orgId}
+      AND o.is_test  = false
+      AND o.order_status NOT IN ('cancelled', 'Cancelled')
+      AND od.item_no IS NOT NULL
+      AND od.item_no != ''
+    GROUP BY o.customer_username
+    HAVING COUNT(DISTINCT od.item_no) > 0
+    ORDER BY match_count DESC
+  `);
+  res.json(result.rows.map((r: any) => ({
+    customerUsername: r.customer_username,
+    matchCount: Number(r.match_count),
+  })));
+}));
+
 router.get("/orders/dashboard", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const withAdjustments = sql`

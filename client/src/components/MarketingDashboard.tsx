@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   UserPlus, RefreshCcw, Search, X, Calendar, Mail, MapPin,
   Users, Sparkles, Crosshair, RotateCw, Crown, Activity, Tag,
-  BookOpen, Share2, ArrowRight, Heart, Zap, Send, CheckCircle, Clock,
+  BookOpen, Share2, ArrowRight, Heart, Zap, Send, CheckCircle, Clock, Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -50,6 +50,7 @@ export type MarketingDrawer =
   | 'engage-new'
   | 'engage-repeat'
   | 'engage-top'
+  | 'engage-matches'
   | 'customer-health'
   | 'part-preferences'
   | 'campaign-log'
@@ -77,6 +78,11 @@ interface MarketingOutreachRecord {
   loggedAt: string;
   attributedOrderId: string | null;
   attributedRevenue: string | null;
+}
+
+interface StockMatch {
+  customerUsername: string;
+  matchCount: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1079,6 +1085,7 @@ export default function MarketingDashboard({
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
+  const [matchesSearch, setMatchesSearch] = useState('');
 
   const [newDateRange, setNewDateRange] = useState<DateRangeValue>('mtd');
   const [repeatDateRange, setRepeatDateRange] = useState<DateRangeValue>('mtd');
@@ -1155,13 +1162,6 @@ export default function MarketingDashboard({
     [topSpenders]
   );
 
-  const totalSignals = (winBackCandidates.length > 0 ? 1 : 0)
-    + (lapsingCandidates.length > 0 ? 1 : 0)
-    + (newFollowUp.length > 0 ? 1 : 0)
-    + (vipAttention.length > 0 ? 1 : 0);
-
-  const hasSignals = totalSignals > 0;
-
   // ── Loyalty metrics ────────────────────────────────────────────────────────
 
   const loyaltyAvgGap = useMemo(() => {
@@ -1184,6 +1184,34 @@ export default function MarketingDashboard({
   }, [topSpenders]);
 
   const vipInactiveCount = vipAttention.length;
+
+  // ── Stock Match (inventory × order history) ────────────────────────────────
+
+  const { data: stockMatchRaw = [] } = useQuery<StockMatch[]>({
+    queryKey: ['/api/marketing/stock-matches'],
+    staleTime: 300000,
+  });
+
+  const stockMatchMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of stockMatchRaw) m[r.customerUsername] = r.matchCount;
+    return m;
+  }, [stockMatchRaw]);
+
+  const stockMatchCustomers = useMemo(() =>
+    customerData
+      .filter(c => daysSince(c.lastOrderDate) >= 30 && (stockMatchMap[c.customerUsername] ?? 0) > 0)
+      .sort((a, b) => (stockMatchMap[b.customerUsername] ?? 0) - (stockMatchMap[a.customerUsername] ?? 0)),
+    [customerData, stockMatchMap]
+  );
+
+  const totalSignals = (winBackCandidates.length > 0 ? 1 : 0)
+    + (lapsingCandidates.length > 0 ? 1 : 0)
+    + (newFollowUp.length > 0 ? 1 : 0)
+    + (vipAttention.length > 0 ? 1 : 0)
+    + (stockMatchCustomers.length > 0 ? 1 : 0);
+
+  const hasSignals = totalSignals > 0;
 
   const handleCustomerClick = (customer: CustomerData) => {
     onDrawerChange(null);
@@ -1251,6 +1279,28 @@ export default function MarketingDashboard({
           emptyMessage="No customer data in this date range."
           isLoading={isLoading}
           dateRangeSlot={<DateRangeSelector value={topDateRange} onChange={setTopDateRange} compact scaled />}
+        />
+        <CustomerListPanel
+          open={activeDrawer === 'engage-matches'}
+          onClose={() => onDrawerChange(null)}
+          title="Stock Match"
+          icon={Package}
+          accentColor="text-emerald-400"
+          customers={stockMatchCustomers}
+          renderSubtitle={c => {
+            const n = stockMatchMap[c.customerUsername] ?? 0;
+            return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`;
+          }}
+          renderBadge={c => {
+            const n = stockMatchMap[c.customerUsername] ?? 0;
+            return n > 0 ? `${n} match${n !== 1 ? 'es' : ''}` : undefined;
+          }}
+          searchQuery={matchesSearch}
+          onSearchChange={setMatchesSearch}
+          onCustomerClick={handleCustomerClick}
+          onLogOutreach={c => setOutreachModal({ customer: c, signal: 'lapsing' })}
+          emptyMessage="No inactive customers with current stock matches."
+          isLoading={isLoading}
         />
         <CustomerHealthDrawer
           open={activeDrawer === 'customer-health'}
@@ -1410,6 +1460,16 @@ export default function MarketingDashboard({
               isActive={vipInactiveCount > 0}
               onAction={() => onDrawerChange('engage-top')}
               testId="signal-vip-attention"
+            />
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-700/40 to-transparent" />
+            <SignalRow
+              label="Stock Match"
+              description="Inactive buyers · parts they ordered now in stock"
+              count={stockMatchCustomers.length}
+              lampColor="rgba(52,211,153,0.9)"
+              isActive={stockMatchCustomers.length > 0}
+              onAction={() => onDrawerChange('engage-matches')}
+              testId="signal-stock-matches"
             />
           </div>
         </div>
@@ -1615,6 +1675,28 @@ export default function MarketingDashboard({
         emptyMessage="No customer data in this date range."
         isLoading={isLoading}
         dateRangeSlot={<DateRangeSelector value={topDateRange} onChange={setTopDateRange} compact scaled />}
+      />
+      <CustomerListPanel
+        open={activeDrawer === 'engage-matches'}
+        onClose={() => onDrawerChange(null)}
+        title="Stock Match"
+        icon={Package}
+        accentColor="text-emerald-400"
+        customers={stockMatchCustomers}
+        renderSubtitle={c => {
+          const n = stockMatchMap[c.customerUsername] ?? 0;
+          return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`;
+        }}
+        renderBadge={c => {
+          const n = stockMatchMap[c.customerUsername] ?? 0;
+          return n > 0 ? `${n} match${n !== 1 ? 'es' : ''}` : undefined;
+        }}
+        searchQuery={matchesSearch}
+        onSearchChange={setMatchesSearch}
+        onCustomerClick={handleCustomerClick}
+        onLogOutreach={c => setOutreachModal({ customer: c, signal: 'lapsing' })}
+        emptyMessage="No inactive customers with current stock matches."
+        isLoading={isLoading}
       />
       <CustomerHealthDrawer
         open={activeDrawer === 'customer-health'}
