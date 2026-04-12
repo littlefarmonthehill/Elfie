@@ -148,8 +148,9 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
         const extra = mode === 'order_plus' ? (parseFloat(orgSettings?.defaultWeightPlusAmount) || 0) : 0;
         const totalGrams = weightGrams + extra;
         if (totalGrams > 0) {
-          defaultWeight = String(Math.round(totalGrams * 10) / 10);
-          defaultUnit = 'g';
+          const totalOz = Math.round(totalGrams * 0.035274 * 10) / 10;
+          defaultWeight = String(totalOz);
+          defaultUnit = 'oz';
         }
       } catch {
         // silently fall through — weight stays empty
