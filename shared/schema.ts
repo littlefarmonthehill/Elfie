@@ -2229,3 +2229,29 @@ export const xmlBackups = pgTable("xml_backups", {
 ]);
 
 export type XmlBackup = typeof xmlBackups.$inferSelect;
+
+// ─── Marketing Outreach Log ───────────────────────────────────────────────────
+export const marketingOutreach = pgTable("marketing_outreach", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  customerUsername: varchar("customer_username").notNull(),
+  customerEmail: varchar("customer_email"),
+  signal: varchar("signal").notNull(),   // 'win-back' | 'lapsing' | 'new-follow-up' | 'vip' | 'manual'
+  channel: varchar("channel").notNull(), // 'email' | 'bl-message' | 'phone' | 'in-person' | 'other'
+  notes: text("notes"),
+  loggedAt: timestamp("logged_at").defaultNow().notNull(),
+  attributedOrderId: varchar("attributed_order_id"),
+  attributedRevenue: decimal("attributed_revenue", { precision: 10, scale: 2 }),
+}, (t) => [
+  index("marketing_outreach_org_idx").on(t.orgId),
+  index("marketing_outreach_customer_idx").on(t.orgId, t.customerUsername),
+]);
+
+export const insertMarketingOutreachSchema = createInsertSchema(marketingOutreach).omit({
+  id: true,
+  loggedAt: true,
+  attributedOrderId: true,
+  attributedRevenue: true,
+});
+export type InsertMarketingOutreach = z.infer<typeof insertMarketingOutreachSchema>;
+export type MarketingOutreach = typeof marketingOutreach.$inferSelect;

@@ -2318,6 +2318,25 @@ export async function runMigrations() {
 
     console.log('[Migration] Phase-112 (backfill delivered/voided tracking statuses) — removed, skipped.');
 
+    // Phase-113: Marketing outreach log table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS marketing_outreach (
+        id SERIAL PRIMARY KEY,
+        org_id VARCHAR NOT NULL,
+        customer_username VARCHAR NOT NULL,
+        customer_email VARCHAR,
+        signal VARCHAR NOT NULL,
+        channel VARCHAR NOT NULL,
+        notes TEXT,
+        logged_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        attributed_order_id VARCHAR,
+        attributed_revenue DECIMAL(10,2)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS marketing_outreach_org_idx ON marketing_outreach(org_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS marketing_outreach_customer_idx ON marketing_outreach(org_id, customer_username)`);
+    console.log('[Migration] Phase-113 (marketing_outreach table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

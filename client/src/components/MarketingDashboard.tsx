@@ -1,15 +1,23 @@
 import { useState, useMemo, useDeferredValue } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  UserPlus, RefreshCcw, Trophy, Search, X, Calendar, Mail, MapPin,
+  UserPlus, RefreshCcw, Search, X, Calendar, Mail, MapPin,
   Users, Sparkles, Crosshair, RotateCw, Crown, Activity, Tag,
-  BookOpen, Share2, ArrowRight, Heart, Zap,
+  BookOpen, Share2, ArrowRight, Heart, Zap, Send, CheckCircle, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import { StationTool } from "./StationTool";
 import MetricCard from "./MetricCard";
 import DateRangeSelector, { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
+import { apiRequest } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +64,19 @@ interface MarketingDashboardProps {
   renderDrawerOnly?: boolean;
   tvSplit?: 'left' | 'right';
   compact?: boolean;
+}
+
+interface MarketingOutreachRecord {
+  id: number;
+  orgId: string;
+  customerUsername: string;
+  customerEmail: string | null;
+  signal: string;
+  channel: string;
+  notes: string | null;
+  loggedAt: string;
+  attributedOrderId: string | null;
+  attributedRevenue: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,6 +161,7 @@ function CustomerRow({
   badge,
   accentClass,
   onClick,
+  onLogOutreach,
 }: {
   customer: CustomerData;
   rank?: number;
@@ -147,49 +169,68 @@ function CustomerRow({
   badge?: string;
   accentClass: string;
   onClick: () => void;
+  onLogOutreach?: () => void;
 }) {
   const hasLocation = customer.shipCity || customer.shipCountry;
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left flex items-start gap-3 px-4 py-3 hover-elevate active-elevate-2 border-b border-gray-700/40 last:border-0 transition-colors"
+    <div
+      className="flex items-stretch border-b border-gray-700/40 last:border-0"
       data-testid={`customer-row-${customer.customerUsername}`}
     >
-      {rank !== undefined && (
-        <span className={`shrink-0 mt-0.5 text-[11px] font-bold w-5 text-center ${accentClass}`}>
-          #{rank}
-        </span>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-gray-100 truncate">{customer.customerUsername}</span>
-          {badge && (
-            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${accentClass} bg-transparent border-current/30`}>
-              {badge}
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
-        <div className="flex items-center gap-3 mt-1 flex-wrap">
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <Calendar className="h-2.5 w-2.5 shrink-0" />
-            {fmtDaysSince(customer.lastOrderDate)}
+      {/* Main clickable area */}
+      <button
+        onClick={onClick}
+        className="flex-1 text-left flex items-start gap-3 px-4 py-3 min-w-0 hover-elevate active-elevate-2 transition-colors"
+      >
+        {rank !== undefined && (
+          <span className={`shrink-0 mt-0.5 text-[11px] font-bold w-5 text-center ${accentClass}`}>
+            #{rank}
           </span>
-          {customer.customerEmail && (
-            <span className="flex items-center gap-1 text-xs text-gray-600">
-              <Mail className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate max-w-[160px]">{customer.customerEmail}</span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-gray-100 truncate">{customer.customerUsername}</span>
+            {badge && (
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${accentClass} bg-transparent border-current/30`}>
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <Calendar className="h-2.5 w-2.5 shrink-0" />
+              {fmtDaysSince(customer.lastOrderDate)}
             </span>
-          )}
-          {hasLocation && (
-            <span className="flex items-center gap-1 text-xs text-gray-600">
-              <MapPin className="h-2.5 w-2.5 shrink-0" />
-              {[customer.shipCity, customer.shipState, customer.shipCountry].filter(Boolean).join(', ')}
-            </span>
-          )}
+            {customer.customerEmail && (
+              <span className="flex items-center gap-1 text-xs text-gray-600">
+                <Mail className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate max-w-[160px]">{customer.customerEmail}</span>
+              </span>
+            )}
+            {hasLocation && (
+              <span className="flex items-center gap-1 text-xs text-gray-600">
+                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                {[customer.shipCity, customer.shipState, customer.shipCountry].filter(Boolean).join(', ')}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+
+      {/* Log outreach action */}
+      {onLogOutreach && (
+        <button
+          onClick={onLogOutreach}
+          title="Log outreach"
+          data-testid={`button-log-outreach-${customer.customerUsername}`}
+          className="shrink-0 flex flex-col items-center justify-center px-3 gap-1 text-gray-600 hover:text-cyan-400 border-l border-gray-700/40 transition-colors"
+        >
+          <Send className="w-3 h-3" />
+          <span className="text-[9px] font-mono font-bold uppercase">Log</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -208,6 +249,7 @@ function CustomerListPanel({
   searchQuery,
   onSearchChange,
   onCustomerClick,
+  onLogOutreach,
   emptyMessage,
   isLoading,
   dateRangeSlot,
@@ -224,6 +266,7 @@ function CustomerListPanel({
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onCustomerClick: (c: CustomerData) => void;
+  onLogOutreach?: (c: CustomerData) => void;
   emptyMessage: string;
   isLoading?: boolean;
   dateRangeSlot?: React.ReactNode;
@@ -315,6 +358,7 @@ function CustomerListPanel({
               badge={renderBadge?.(c)}
               accentClass={accentColor}
               onClick={() => onCustomerClick(c)}
+              onLogOutreach={onLogOutreach ? () => onLogOutreach(c) : undefined}
             />
           ))}
           {hasMore && (
@@ -513,10 +557,272 @@ function PartPreferencesDrawer({ open, onClose, topSpenders }: {
   );
 }
 
+// ── Log Outreach Modal ────────────────────────────────────────────────────────
+
+const SIGNAL_LABELS: Record<string, string> = {
+  'win-back':     'Win-Back Window',
+  'lapsing':      'Lapsing Soon',
+  'new-follow-up':'New Follow-Up',
+  'vip':          'VIP Attention',
+  'manual':       'Manual',
+};
+
+const CHANNEL_OPTIONS = [
+  { value: 'email',      label: 'Email' },
+  { value: 'bl-message', label: 'BrickLink Message' },
+  { value: 'phone',      label: 'Phone' },
+  { value: 'in-person',  label: 'In Person' },
+  { value: 'other',      label: 'Other' },
+];
+
+function LogOutreachModal({
+  target,
+  onClose,
+}: {
+  target: { customer: CustomerData; signal: string } | null;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [signalOverride, setSignalOverride] = useState<string | null>(null);
+  const [channel, setChannel] = useState('email');
+  const [notes, setNotes] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const open = !!target;
+  const currentSignal = signalOverride ?? (target?.signal ?? 'manual');
+
+  const mutation = useMutation({
+    mutationFn: (data: object) => apiRequest('POST', '/api/marketing/outreach', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/marketing/outreach'] });
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        setChannel('email');
+        setNotes('');
+        setSignalOverride(null);
+        onClose();
+      }, 900);
+    },
+  });
+
+  function handleOpen(isOpen: boolean) {
+    if (!isOpen) {
+      mutation.reset();
+      setSaved(false);
+      setChannel('email');
+      setNotes('');
+      setSignalOverride(null);
+      onClose();
+    }
+  }
+
+  function handleSubmit() {
+    if (!target) return;
+    mutation.mutate({
+      customerUsername: target.customer.customerUsername,
+      customerEmail: target.customer.customerEmail || null,
+      signal: currentSignal,
+      channel,
+      notes: notes.trim() || null,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpen}>
+      <DialogContent className="bg-gray-900 border-gray-700 text-gray-100 max-w-sm" data-testid="modal-log-outreach">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+            <Send className="w-4 h-4 text-cyan-400" />
+            Log Outreach
+          </DialogTitle>
+        </DialogHeader>
+
+        {saved ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <CheckCircle className="w-8 h-8 text-green-400" />
+            <p className="text-sm font-semibold text-green-300">Outreach logged</p>
+          </div>
+        ) : (
+          <div className="space-y-4 py-1">
+            {/* Customer */}
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 mb-1 block">Customer</label>
+              <p className="text-sm font-semibold text-gray-200">{target?.customer.customerUsername}</p>
+              {target?.customer.customerEmail && (
+                <p className="text-[11px] text-gray-500 mt-0.5">{target.customer.customerEmail}</p>
+              )}
+            </div>
+
+            {/* Signal */}
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 mb-1.5 block">Signal</label>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(SIGNAL_LABELS).map(([val, lbl]) => (
+                  <button
+                    key={val}
+                    onClick={() => setSignalOverride(val)}
+                    data-testid={`signal-option-${val}`}
+                    className={cn(
+                      "text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border transition-colors",
+                      currentSignal === val
+                        ? "bg-cyan-900/60 border-cyan-500/60 text-cyan-300"
+                        : "border-gray-700 text-gray-500 hover:text-gray-300"
+                    )}
+                  >{lbl}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Channel */}
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 mb-1.5 block">Channel</label>
+              <div className="flex flex-wrap gap-1.5">
+                {CHANNEL_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setChannel(opt.value)}
+                    data-testid={`channel-option-${opt.value}`}
+                    className={cn(
+                      "text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border transition-colors",
+                      channel === opt.value
+                        ? "bg-yellow-900/60 border-yellow-500/60 text-yellow-300"
+                        : "border-gray-700 text-gray-500 hover:text-gray-300"
+                    )}
+                  >{opt.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 mb-1.5 block">Notes <span className="normal-case text-gray-600">(optional)</span></label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="What did you say, offer, or follow up on?"
+                rows={3}
+                className="w-full text-xs bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-none"
+                data-testid="input-outreach-notes"
+              />
+            </div>
+          </div>
+        )}
+
+        {!saved && (
+          <DialogFooter className="gap-2">
+            <button
+              onClick={() => handleOpen(false)}
+              className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5"
+              data-testid="button-cancel-outreach"
+            >Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={mutation.isPending}
+              data-testid="button-submit-outreach"
+              className="flex items-center gap-1.5 text-xs font-semibold bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-1.5 rounded-md transition-colors disabled:opacity-50"
+            >
+              <Send className="w-3 h-3" />
+              {mutation.isPending ? 'Logging…' : 'Log Outreach'}
+            </button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Campaign Log Drawer ───────────────────────────────────────────────────────
 
+const SIGNAL_COLORS: Record<string, string> = {
+  'win-back':     'bg-orange-900/50 text-orange-300 border-orange-700/50',
+  'lapsing':      'bg-yellow-900/50 text-yellow-300 border-yellow-700/50',
+  'new-follow-up':'bg-cyan-900/50 text-cyan-300 border-cyan-700/50',
+  'vip':          'bg-amber-900/50 text-amber-300 border-amber-700/50',
+  'manual':       'bg-gray-800 text-gray-400 border-gray-700',
+};
+
+const CHANNEL_COLORS: Record<string, string> = {
+  'email':      'bg-blue-900/40 text-blue-300 border-blue-700/40',
+  'bl-message': 'bg-indigo-900/40 text-indigo-300 border-indigo-700/40',
+  'phone':      'bg-green-900/40 text-green-300 border-green-700/40',
+  'in-person':  'bg-purple-900/40 text-purple-300 border-purple-700/40',
+  'other':      'bg-gray-800 text-gray-400 border-gray-700',
+};
+
+function timeAgo(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = Date.now();
+  const diff = Math.floor((now - d.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function dayBucket(dateStr: string): 'today' | 'week' | 'older' {
+  const d = new Date(dateStr);
+  const now = Date.now();
+  const diff = now - d.getTime();
+  if (diff < 86400000) return 'today';
+  if (diff < 86400000 * 7) return 'week';
+  return 'older';
+}
+
 function CampaignLogDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: records = [], isLoading } = useQuery<MarketingOutreachRecord[]>({
+    queryKey: ['/api/marketing/outreach'],
+    enabled: open,
+  });
+
   if (!open) return null;
+
+  const today = records.filter(r => dayBucket(r.loggedAt) === 'today');
+  const week  = records.filter(r => dayBucket(r.loggedAt) === 'week');
+  const older = records.filter(r => dayBucket(r.loggedAt) === 'older');
+
+  const channelCounts = records.reduce<Record<string, number>>((acc, r) => {
+    acc[r.channel] = (acc[r.channel] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  function OutreachEntry({ r }: { r: MarketingOutreachRecord }) {
+    return (
+      <div className="flex items-start gap-3 px-4 py-3 border-b border-gray-700/40 last:border-0">
+        <div className="shrink-0 mt-0.5">
+          <div className="w-6 h-6 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
+            <Send className="w-2.5 h-2.5 text-gray-500" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-gray-200">{r.customerUsername}</span>
+            <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", SIGNAL_COLORS[r.signal] ?? SIGNAL_COLORS['manual'])}>
+              {SIGNAL_LABELS[r.signal] ?? r.signal}
+            </span>
+            <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", CHANNEL_COLORS[r.channel] ?? CHANNEL_COLORS['other'])}>
+              {CHANNEL_OPTIONS.find(o => o.value === r.channel)?.label ?? r.channel}
+            </span>
+          </div>
+          {r.notes && <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{r.notes}</p>}
+          <p className="text-[10px] text-gray-600 mt-0.5 flex items-center gap-1">
+            <Clock className="w-2.5 h-2.5" />{timeAgo(r.loggedAt)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function Section({ label, items }: { label: string; items: MarketingOutreachRecord[] }) {
+    if (items.length === 0) return null;
+    return (
+      <div>
+        <div className="px-4 py-1.5 text-[10px] uppercase tracking-widest font-semibold text-gray-600 border-b border-gray-700/40 bg-gray-900/50">{label}</div>
+        {items.map(r => <OutreachEntry key={r.id} r={r} />)}
+      </div>
+    );
+  }
 
   return (
     <ToolDrawer
@@ -525,35 +831,57 @@ function CampaignLogDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       title="Campaign Log"
       onClose={onClose}
       closeTestId="button-close-campaign-log"
-      contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4"
+      contentClassName="flex-1 overflow-y-auto min-h-0"
     >
-      <p className="text-xs text-gray-500 leading-relaxed">
-        A running history of every marketing campaign you've run — who was reached, what was sent, and what came back.
-      </p>
-
-      <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-cyan-900/30 border border-cyan-500/20 flex items-center justify-center">
-          <BookOpen className="w-6 h-6 text-cyan-500/50" />
+      {/* Summary strip */}
+      <div className="px-4 py-3 border-b border-gray-700/40 flex items-center gap-4 shrink-0">
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-100 font-mono">{records.length}</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Total</p>
         </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-100 font-mono">{today.length}</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Today</p>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-100 font-mono">{week.length + today.length}</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest">This week</p>
+        </div>
+        {Object.keys(channelCounts).length > 0 && (
+          <div className="flex-1 flex flex-wrap gap-1 justify-end">
+            {Object.entries(channelCounts).map(([ch, n]) => (
+              <span key={ch} className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", CHANNEL_COLORS[ch] ?? CHANNEL_COLORS['other'])}>
+                {CHANNEL_OPTIONS.find(o => o.value === ch)?.label ?? ch} {n}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-4 border-cyan-500/40 border-t-cyan-500" />
+          <p className="text-xs text-gray-500">Loading log…</p>
+        </div>
+      ) : records.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-4 px-6">
+          <div className="w-12 h-12 rounded-full bg-cyan-900/30 border border-cyan-500/20 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-cyan-500/50" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-300 mb-1">No outreach logged yet</p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Use the Log button on any customer row in Win-Back, Lapsing, New Follow-Up, or VIP to start tracking your outreach here.
+            </p>
+          </div>
+        </div>
+      ) : (
         <div>
-          <p className="text-sm font-semibold text-gray-300 mb-1">No campaigns logged yet</p>
-          <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
-            Once you run your first Top of Mind, Win-Back, or New Customer campaign, results will appear here — reach, responses, and any orders attributed.
-          </p>
+          <Section label="Today" items={today} />
+          <Section label="Last 7 days" items={week} />
+          <Section label="Older" items={older} />
         </div>
-      </div>
-
-      <div className="border border-gray-700/40 bg-gray-800/30 rounded-lg p-3">
-        <div className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-2">Tracked per campaign</div>
-        <div className="space-y-1.5">
-          {['Customers reached & channel used', 'Orders placed after outreach (7-day window)', 'Revenue attributed', 'Win-Back conversion rate', 'Days since last campaign per segment'].map(item => (
-            <div key={item} className="flex items-start gap-2">
-              <div className="w-1 h-1 rounded-full bg-gray-600 mt-1.5 shrink-0" />
-              <span className="text-[11px] text-gray-400">{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </ToolDrawer>
   );
 }
@@ -752,6 +1080,7 @@ export default function MarketingDashboard({
 }: MarketingDashboardProps) {
   const isCompact = !!(tvSplit || compact);
   const [panelTab, setPanelTab] = useState<'station' | 'segments'>('station');
+  const [outreachModal, setOutreachModal] = useState<{ customer: CustomerData; signal: string } | null>(null);
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
@@ -888,6 +1217,7 @@ export default function MarketingDashboard({
           searchQuery={newSearch}
           onSearchChange={setNewSearch}
           onCustomerClick={handleCustomerClick}
+          onLogOutreach={c => setOutreachModal({ customer: c, signal: 'new-follow-up' })}
           emptyMessage="No new customers in this date range."
           isLoading={isLoading}
           dateRangeSlot={<DateRangeSelector value={newDateRange} onChange={setNewDateRange} compact scaled />}
@@ -904,6 +1234,7 @@ export default function MarketingDashboard({
           searchQuery={repeatSearch}
           onSearchChange={setRepeatSearch}
           onCustomerClick={handleCustomerClick}
+          onLogOutreach={c => setOutreachModal({ customer: c, signal: 'lapsing' })}
           emptyMessage="No repeat customers in this date range."
           isLoading={isLoading}
           dateRangeSlot={<DateRangeSelector value={repeatDateRange} onChange={setRepeatDateRange} compact scaled />}
@@ -921,6 +1252,7 @@ export default function MarketingDashboard({
           searchQuery={topSearch}
           onSearchChange={setTopSearch}
           onCustomerClick={handleCustomerClick}
+          onLogOutreach={c => setOutreachModal({ customer: c, signal: 'vip' })}
           emptyMessage="No customer data in this date range."
           isLoading={isLoading}
           dateRangeSlot={<DateRangeSelector value={topDateRange} onChange={setTopDateRange} compact scaled />}
@@ -939,6 +1271,7 @@ export default function MarketingDashboard({
           open={activeDrawer === 'campaign-log'}
           onClose={() => onDrawerChange(null)}
         />
+        <LogOutreachModal target={outreachModal} onClose={() => setOutreachModal(null)} />
         <ReferralProgramDrawer
           open={activeDrawer === 'referral-program'}
           onClose={() => onDrawerChange(null)}
@@ -1252,6 +1585,7 @@ export default function MarketingDashboard({
         searchQuery={newSearch}
         onSearchChange={setNewSearch}
         onCustomerClick={handleCustomerClick}
+        onLogOutreach={c => setOutreachModal({ customer: c, signal: 'new-follow-up' })}
         emptyMessage="No new customers in this date range."
         isLoading={isLoading}
         dateRangeSlot={<DateRangeSelector value={newDateRange} onChange={setNewDateRange} compact scaled />}
@@ -1268,6 +1602,7 @@ export default function MarketingDashboard({
         searchQuery={repeatSearch}
         onSearchChange={setRepeatSearch}
         onCustomerClick={handleCustomerClick}
+        onLogOutreach={c => setOutreachModal({ customer: c, signal: 'lapsing' })}
         emptyMessage="No repeat customers in this date range."
         isLoading={isLoading}
         dateRangeSlot={<DateRangeSelector value={repeatDateRange} onChange={setRepeatDateRange} compact scaled />}
@@ -1285,6 +1620,7 @@ export default function MarketingDashboard({
         searchQuery={topSearch}
         onSearchChange={setTopSearch}
         onCustomerClick={handleCustomerClick}
+        onLogOutreach={c => setOutreachModal({ customer: c, signal: 'vip' })}
         emptyMessage="No customer data in this date range."
         isLoading={isLoading}
         dateRangeSlot={<DateRangeSelector value={topDateRange} onChange={setTopDateRange} compact scaled />}
@@ -1308,6 +1644,7 @@ export default function MarketingDashboard({
         onClose={() => onDrawerChange(null)}
         topSpenders={topSpenders}
       />
+      <LogOutreachModal target={outreachModal} onClose={() => setOutreachModal(null)} />
     </div>
   );
 }

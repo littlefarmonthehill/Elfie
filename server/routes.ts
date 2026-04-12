@@ -39,7 +39,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, getBrickOw
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup, saveXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whZones, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhZoneSchema, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whZones, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhZoneSchema, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages, insertMarketingOutreachSchema } from "@shared/schema";
 import { uploadUserImage, deleteUserImage, assignImageToLot, assignImageToItemType, getImagesForLot, readFromStorage } from "./services/user-image-store";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -1163,6 +1163,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("BrickLink comparison error:", error);
       res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // ── Marketing Outreach ────────────────────────────────────────────────────────
+  app.get('/api/marketing/outreach', isAuthenticated, isApproved, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      const records = await storage.getMarketingOutreach(orgId);
+      res.json(records);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/marketing/outreach', isAuthenticated, isApproved, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      const parsed = insertMarketingOutreachSchema.safeParse({ ...req.body, orgId });
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
+      const record = await storage.createMarketingOutreach(parsed.data);
+      res.json(record);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

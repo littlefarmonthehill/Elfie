@@ -42,13 +42,16 @@ import {
   lotImages,
   itemTypeImages,
   xmlBackups,
+  marketingOutreach,
   type User,
   type UpsertUser,
   type Organization,
   type InsertOrganization,
+  type InsertMarketingOutreach,
+  type MarketingOutreach,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, ilike, or } from "drizzle-orm";
+import { eq, inArray, sql, ilike, or, desc } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -72,6 +75,9 @@ export interface IStorage {
   updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
   deleteOrganization(id: string): Promise<void>;
   factoryResetOrganization(id: string): Promise<void>;
+  // Marketing outreach
+  createMarketingOutreach(data: InsertMarketingOutreach): Promise<MarketingOutreach>;
+  getMarketingOutreach(orgId: string): Promise<MarketingOutreach[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -368,6 +374,18 @@ export class DatabaseStorage implements IStorage {
     await db.update(organizations)
       .set({ onboardingCompleted: false, warehouseDepth: null as any })
       .where(eq(organizations.id, id));
+  }
+
+  async createMarketingOutreach(data: InsertMarketingOutreach): Promise<MarketingOutreach> {
+    const [record] = await db.insert(marketingOutreach).values(data).returning();
+    return record;
+  }
+
+  async getMarketingOutreach(orgId: string): Promise<MarketingOutreach[]> {
+    return db.select().from(marketingOutreach)
+      .where(eq(marketingOutreach.orgId, orgId))
+      .orderBy(desc(marketingOutreach.loggedAt))
+      .limit(200);
   }
 }
 
