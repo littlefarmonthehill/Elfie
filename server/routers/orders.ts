@@ -152,44 +152,35 @@ router.get("/orders/summary", isApproved, asyncRoute(async (req: any, res) => {
   const tz = await getOrgTimezone(orgId);
   const { start, end } = tzDateBounds(range ?? '', tz);
 
-  const dateWhere = start && end
-    ? sql`AND ${orders.orderDate} >= ${start} AND ${orders.orderDate} < ${end}`
-    : start
-      ? sql`AND ${orders.orderDate} >= ${start}`
-      : sql``;
-
   const result = await db.execute(sql`
-    WITH adj AS (
-      SELECT order_id,
-        COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total,
-        COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'merchant_fee'), 0) AS fee_total,
-        COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'shipping_cost'), 0) AS shipping_total
-      FROM order_adjustments GROUP BY order_id
-    )
     SELECT
-      COUNT(*) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false) AS total_orders,
-      COUNT(*) FILTER (WHERE o.order_status IN ('awaiting_payment','awaiting_fulfillment','awaiting_shipment') AND o.is_test = false) AS pending_orders,
-      COUNT(*) FILTER (WHERE o.order_status IN ('shipped','completed') AND o.is_test = false) AS shipped_orders,
-      COALESCE(SUM(o.order_total::numeric) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false), 0) AS gross_revenue,
-      COALESCE(SUM(GREATEST(0, o.order_total::numeric - COALESCE(a.refund_total,0) - COALESCE(a.fee_total,0))) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false), 0) AS net_revenue,
-      COALESCE(SUM(a.refund_total) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false), 0) AS total_refunds,
-      COALESCE(SUM(a.fee_total) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false), 0) AS total_fees,
-      COALESCE(SUM(a.shipping_total) FILTER (WHERE o.order_status NOT IN ('cancelled','Cancelled') AND o.is_test = false), 0) AS total_shipping_cost
+      o.id,
+      o.order_number   AS order_number,
+      o.marketplace,
+      o.order_date     AS order_date,
+      o.order_status   AS order_status,
+      o.order_total    AS order_total,
+      o.customer_username AS customer_username,
+      o.ship_date      AS ship_date
     FROM ${orders} o
-    LEFT JOIN adj a ON a.order_id = o.id
-    WHERE o.org_id = ${orgId} ${dateWhere}
+    WHERE o.org_id = ${orgId}
+      AND o.is_test = false
+      AND o.order_status != 'purged'
+      ${start ? sql`AND o.order_date >= ${start}` : sql``}
+      ${end   ? sql`AND o.order_date < ${end}`   : sql``}
+    ORDER BY o.order_date DESC
+    LIMIT 10000
   `);
-  const row = result.rows[0] as any;
-  res.json({
-    totalOrders: Number(row.total_orders),
-    pendingOrders: Number(row.pending_orders),
-    shippedOrders: Number(row.shipped_orders),
-    grossRevenue: Number(row.gross_revenue),
-    netRevenue: Number(row.net_revenue),
-    totalRefunds: Number(row.total_refunds),
-    totalFees: Number(row.total_fees),
-    totalShippingCost: Number(row.total_shipping_cost),
-  });
+  res.json(result.rows.map((r: any) => ({
+    id:               r.id,
+    orderNumber:      r.order_number,
+    marketplace:      r.marketplace,
+    orderDate:        r.order_date,
+    orderStatus:      r.order_status,
+    orderTotal:       r.order_total,
+    customerUsername: r.customer_username,
+    shipDate:         r.ship_date,
+  })));
 }));
 
 router.get("/orders/top-items", isApproved, asyncRoute(async (req: any, res) => {
@@ -200,11 +191,12 @@ router.get("/orders/top-items", isApproved, asyncRoute(async (req: any, res) => 
 
   const result = await db.execute(sql`
     SELECT
-      od.sku,
+      bi.item_no AS item_no,
       COALESCE(bc.item_name, od.name) AS name,
-      SUM(od.quantity) AS total_qty,
+      CASE WHEN bi.new_or_used = 'N' THEN 'New' WHEN bi.new_or_used = 'U' THEN 'Used' ELSE NULL END AS condition,
+      SUM(od.quantity)::integer AS total_qty,
       SUM(od.quantity * COALESCE(od.unit_price::numeric, 0)) AS total_revenue,
-      COUNT(DISTINCT od.order_id) AS order_count
+      COUNT(DISTINCT od.order_id)::integer AS order_count
     FROM ${orderDetails} od
     JOIN ${orders} o ON od.order_id = o.id
     LEFT JOIN ${blInventory} bi ON CAST(bi.id AS TEXT) = od.sku
@@ -214,11 +206,18 @@ router.get("/orders/top-items", isApproved, asyncRoute(async (req: any, res) => 
       AND o.is_test = false
       ${start ? sql`AND o.order_date >= ${start}` : sql``}
       ${end   ? sql`AND o.order_date < ${end}`   : sql``}
-    GROUP BY od.sku, COALESCE(bc.item_name, od.name)
+    GROUP BY bi.item_no, COALESCE(bc.item_name, od.name), bi.new_or_used
     ORDER BY total_revenue DESC
-    LIMIT 25
+    LIMIT 30
   `);
-  res.json(result.rows);
+  res.json(result.rows.map((r: any) => ({
+    itemNo:       r.item_no,
+    name:         r.name,
+    condition:    r.condition,
+    totalQty:     Number(r.total_qty),
+    totalRevenue: Number(r.total_revenue),
+    orderCount:   Number(r.order_count),
+  })));
 }));
 
 router.get("/orders/stats", isApproved, asyncRoute(async (req: any, res) => {
