@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   UserPlus, RefreshCcw, Trophy, Search, X, Calendar, Mail, MapPin,
   Users, Sparkles, Crosshair, RotateCw, Crown, Activity, Tag,
-  BookOpen, Share2, ArrowRight, Heart, Zap, ShieldCheck,
+  BookOpen, Share2, ArrowRight, Heart, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -751,6 +751,7 @@ export default function MarketingDashboard({
   compact,
 }: MarketingDashboardProps) {
   const isCompact = !!(tvSplit || compact);
+  const [panelTab, setPanelTab] = useState<'station' | 'segments'>('station');
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
@@ -995,74 +996,6 @@ export default function MarketingDashboard({
           </div>
         </div>
 
-        {/* Segment Campaign Cards */}
-        <div
-          className={cn("relative rounded-lg border border-yellow-400/45 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_14px_rgba(245,194,0,0.10)]", isCompact ? "p-2" : "p-2 md:p-3")}
-          style={{ background: 'linear-gradient(175deg, rgba(113,63,18,0.35) 0%, rgba(17,24,39,0.88) 100%)' }}
-          data-testid="section-segment-cards"
-        >
-          <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-yellow-400/35 to-transparent" />
-          <div className={cn("flex items-center gap-1.5", isCompact ? "mb-2" : "mb-2.5")}>
-            <div className="rounded bg-yellow-900/60 ring-1 ring-yellow-500/50 shrink-0 p-1">
-              <ShieldCheck className="w-3 h-3 text-yellow-200" />
-            </div>
-            <h3 className="text-[10px] font-semibold text-yellow-200/80 uppercase tracking-widest flex-1">Customer Campaigns</h3>
-          </div>
-          <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-segment-campaign-grid">
-
-            <SegmentCard
-              icon={UserPlus}
-              label="New"
-              campaignName="Welcome & Service"
-              count={newCustomers.length}
-              metric={`${newLast30}`}
-              metricLabel="in 30d"
-              accentBorder="border-cyan-500/35"
-              accentBg="linear-gradient(175deg, rgba(8,145,178,0.20) 0%, rgba(17,24,39,0.85) 100%)"
-              accentIcon="bg-cyan-900/60 ring-cyan-500/40 text-cyan-300"
-              accentText="text-cyan-400/80"
-              accentDot="bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent"
-              onClick={() => onDrawerChange('engage-new')}
-              testId="card-segment-new"
-              isCompact={isCompact}
-            />
-
-            <SegmentCard
-              icon={RotateCw}
-              label="Loyalty"
-              campaignName="We Know You"
-              count={repeatCustomers.length}
-              metric={loyaltyAvgGap !== null ? `${loyaltyAvgGap}d` : '—'}
-              metricLabel="avg gap"
-              accentBorder="border-blue-500/35"
-              accentBg="linear-gradient(175deg, rgba(37,99,235,0.20) 0%, rgba(17,24,39,0.85) 100%)"
-              accentIcon="bg-blue-900/60 ring-blue-500/40 text-blue-300"
-              accentText="text-blue-400/80"
-              accentDot="bg-gradient-to-r from-transparent via-blue-400/40 to-transparent"
-              onClick={() => onDrawerChange('engage-repeat')}
-              testId="card-segment-loyalty"
-              isCompact={isCompact}
-            />
-
-            <SegmentCard
-              icon={Crown}
-              label="VIP"
-              campaignName="Concierge"
-              count={Math.min(topSpenders.length, 10)}
-              metric={fmtCurrency(vipAvgSpend)}
-              metricLabel="avg LTV"
-              accentBorder="border-amber-500/35"
-              accentBg="linear-gradient(175deg, rgba(180,83,9,0.22) 0%, rgba(17,24,39,0.85) 100%)"
-              accentIcon="bg-amber-900/60 ring-amber-500/40 text-amber-300"
-              accentText="text-amber-400/80"
-              accentDot="bg-gradient-to-r from-transparent via-amber-400/40 to-transparent"
-              onClick={() => onDrawerChange('engage-top')}
-              testId="card-segment-vip"
-              isCompact={isCompact}
-            />
-
-          </div>
-        </div>
       </>}
 
       {/* ── RIGHT: Marketing Signals + Station ── */}
@@ -1164,55 +1097,141 @@ export default function MarketingDashboard({
           data-testid="section-marketing-station"
         >
           <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-lg bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
-          <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")}>
+
+          {/* CC-style header row with tab toggle */}
+          <div className={cn("flex items-center gap-2", isCompact ? "mb-2" : "mb-2.5")} data-testid="control-marketing-tabs">
             <div className="rounded-md ring-1 shrink-0 p-1 bg-yellow-900/55 ring-yellow-500/40">
               <Sparkles className="w-3 h-3 text-yellow-200" />
             </div>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-yellow-200/80">Marketing Station</h3>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-yellow-200/80 flex-1">
+              {panelTab === 'station' ? 'Marketing Station' : 'Market Segments'}
+            </h3>
+            <div className="flex items-center rounded border border-gray-700/60 bg-black/40 overflow-hidden shrink-0">
+              <button
+                onClick={() => setPanelTab('station')}
+                data-testid="tab-marketing-station"
+                className={cn(
+                  "font-mono text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 transition-colors duration-150",
+                  panelTab === 'station' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
+                )}
+              >Station</button>
+              <div className="w-px self-stretch bg-gray-700/60" />
+              <button
+                onClick={() => setPanelTab('segments')}
+                data-testid="tab-market-segments"
+                className={cn(
+                  "font-mono text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 transition-colors duration-150",
+                  panelTab === 'segments' ? "bg-gray-700/80 text-gray-200" : "text-gray-600 hover:text-gray-400"
+                )}
+              >Segments</button>
+            </div>
           </div>
-          <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")}>
 
-            <StationTool
-              icon={Activity}
-              label="Customer Health"
-              hex="#22c55e"
-              glowRgb="34,197,94"
-              isCompact={isCompact}
-              onClick={() => onDrawerChange('customer-health')}
-              testId="tool-customer-health"
-            />
+          {/* STATION — Tools grid */}
+          {panelTab === 'station' && (
+            <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-station-tools">
 
-            <StationTool
-              icon={Tag}
-              label="Part Preferences"
-              hex="#a855f7"
-              glowRgb="168,85,247"
-              isCompact={isCompact}
-              onClick={() => onDrawerChange('part-preferences')}
-              testId="tool-part-preferences"
-            />
+              <StationTool
+                icon={Activity}
+                label="Customer Health"
+                hex="#22c55e"
+                glowRgb="34,197,94"
+                isCompact={isCompact}
+                onClick={() => onDrawerChange('customer-health')}
+                testId="tool-customer-health"
+              />
 
-            <StationTool
-              icon={BookOpen}
-              label="Campaign Log"
-              hex="#06b6d4"
-              glowRgb="6,182,212"
-              isCompact={isCompact}
-              onClick={() => onDrawerChange('campaign-log')}
-              testId="tool-campaign-log"
-            />
+              <StationTool
+                icon={Tag}
+                label="Part Preferences"
+                hex="#a855f7"
+                glowRgb="168,85,247"
+                isCompact={isCompact}
+                onClick={() => onDrawerChange('part-preferences')}
+                testId="tool-part-preferences"
+              />
 
-            <StationTool
-              icon={Share2}
-              label="Referral Program"
-              hex="#ec4899"
-              glowRgb="236,72,153"
-              isCompact={isCompact}
-              onClick={() => onDrawerChange('referral-program')}
-              testId="tool-referral-program"
-            />
+              <StationTool
+                icon={BookOpen}
+                label="Campaign Log"
+                hex="#06b6d4"
+                glowRgb="6,182,212"
+                isCompact={isCompact}
+                onClick={() => onDrawerChange('campaign-log')}
+                testId="tool-campaign-log"
+              />
 
-          </div>
+              <StationTool
+                icon={Share2}
+                label="Referral Program"
+                hex="#ec4899"
+                glowRgb="236,72,153"
+                isCompact={isCompact}
+                onClick={() => onDrawerChange('referral-program')}
+                testId="tool-referral-program"
+              />
+
+            </div>
+          )}
+
+          {/* SEGMENTS — Market segment cards */}
+          {panelTab === 'segments' && (
+            <div className={cn("grid grid-cols-3", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-market-segments">
+
+              <SegmentCard
+                icon={UserPlus}
+                label="New"
+                campaignName="Welcome & Service"
+                count={newCustomers.length}
+                metric={`${newLast30}`}
+                metricLabel="in 30d"
+                accentBorder="border-cyan-500/35"
+                accentBg="linear-gradient(175deg, rgba(8,145,178,0.20) 0%, rgba(17,24,39,0.85) 100%)"
+                accentIcon="bg-cyan-900/60 ring-cyan-500/40 text-cyan-300"
+                accentText="text-cyan-400/80"
+                accentDot="bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent"
+                onClick={() => onDrawerChange('engage-new')}
+                testId="card-segment-new"
+                isCompact={isCompact}
+              />
+
+              <SegmentCard
+                icon={RotateCw}
+                label="Loyalty"
+                campaignName="We Know You"
+                count={repeatCustomers.length}
+                metric={loyaltyAvgGap !== null ? `${loyaltyAvgGap}d` : '—'}
+                metricLabel="avg gap"
+                accentBorder="border-blue-500/35"
+                accentBg="linear-gradient(175deg, rgba(37,99,235,0.20) 0%, rgba(17,24,39,0.85) 100%)"
+                accentIcon="bg-blue-900/60 ring-blue-500/40 text-blue-300"
+                accentText="text-blue-400/80"
+                accentDot="bg-gradient-to-r from-transparent via-blue-400/40 to-transparent"
+                onClick={() => onDrawerChange('engage-repeat')}
+                testId="card-segment-loyalty"
+                isCompact={isCompact}
+              />
+
+              <SegmentCard
+                icon={Crown}
+                label="VIP"
+                campaignName="Concierge"
+                count={Math.min(topSpenders.length, 10)}
+                metric={fmtCurrency(vipAvgSpend)}
+                metricLabel="avg LTV"
+                accentBorder="border-amber-500/35"
+                accentBg="linear-gradient(175deg, rgba(180,83,9,0.22) 0%, rgba(17,24,39,0.85) 100%)"
+                accentIcon="bg-amber-900/60 ring-amber-500/40 text-amber-300"
+                accentText="text-amber-400/80"
+                accentDot="bg-gradient-to-r from-transparent via-amber-400/40 to-transparent"
+                onClick={() => onDrawerChange('engage-top')}
+                testId="card-segment-vip"
+                isCompact={isCompact}
+              />
+
+            </div>
+          )}
+
         </div>
 
       </>}
