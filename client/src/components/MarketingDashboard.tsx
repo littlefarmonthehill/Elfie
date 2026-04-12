@@ -1027,7 +1027,6 @@ function SignalRow({
   lampColor,
   isActive,
   onAction,
-  actionLabel,
   testId,
 }: {
   label: string;
@@ -1036,13 +1035,16 @@ function SignalRow({
   lampColor: string;
   isActive: boolean;
   onAction: () => void;
-  actionLabel: string;
   testId: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5" data-testid={testId}>
+    <button
+      onClick={onAction}
+      data-testid={testId}
+      className="w-full flex items-center gap-2.5 text-left hover-elevate active-elevate-2 rounded transition-colors py-0.5 px-0.5"
+    >
       <div
-        className={cn("w-2.5 h-2.5 rounded-full shrink-0 ring-1", isActive ? "ring-white/20" : "bg-gray-600/50 ring-gray-500/40")}
+        className={cn("w-2.5 h-2.5 rounded-full shrink-0 ring-1 transition-all", isActive ? "ring-white/20" : "bg-gray-600/50 ring-gray-500/40")}
         style={isActive ? {
           backgroundColor: lampColor,
           boxShadow: `0 0 7px ${lampColor}, 0 0 14px ${lampColor}55`,
@@ -1052,18 +1054,11 @@ function SignalRow({
         <div className={cn("font-mono text-[9px] uppercase tracking-wide leading-none", isActive ? "text-gray-200" : "text-gray-500")}>{label}</div>
         <div className="text-[10px] text-gray-600 mt-0.5 truncate">{description}</div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         <span className={cn("font-mono text-[10px] font-bold", isActive ? "text-white" : "text-gray-500")}>{count}</span>
-        {isActive && (
-          <button
-            onClick={onAction}
-            className="font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 rounded border border-gray-600/60 bg-gray-800/60 text-gray-400 hover-elevate active-elevate-2 transition-all"
-          >
-            {actionLabel}
-          </button>
-        )}
+        <ArrowRight className={cn("w-3 h-3 transition-colors", isActive ? "text-gray-400" : "text-gray-700")} />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -1384,7 +1379,6 @@ export default function MarketingDashboard({
               lampColor="rgba(251,146,60,0.9)"
               isActive={winBackCandidates.length > 0}
               onAction={() => onDrawerChange('engage-repeat')}
-              actionLabel="View"
               testId="signal-win-back"
             />
             <div className="h-px bg-gradient-to-r from-transparent via-gray-700/40 to-transparent" />
@@ -1395,7 +1389,6 @@ export default function MarketingDashboard({
               lampColor="rgba(250,204,21,0.9)"
               isActive={lapsingCandidates.length > 0}
               onAction={() => onDrawerChange('engage-repeat')}
-              actionLabel="View"
               testId="signal-lapsing"
             />
             <div className="h-px bg-gradient-to-r from-transparent via-gray-700/40 to-transparent" />
@@ -1406,7 +1399,6 @@ export default function MarketingDashboard({
               lampColor="rgba(6,182,212,0.9)"
               isActive={newFollowUp.length > 0}
               onAction={() => onDrawerChange('engage-new')}
-              actionLabel="View"
               testId="signal-new-followup"
             />
             <div className="h-px bg-gradient-to-r from-transparent via-gray-700/40 to-transparent" />
@@ -1417,7 +1409,6 @@ export default function MarketingDashboard({
               lampColor="rgba(167,139,250,0.9)"
               isActive={vipInactiveCount > 0}
               onAction={() => onDrawerChange('engage-top')}
-              actionLabel="View"
               testId="signal-vip-attention"
             />
           </div>
