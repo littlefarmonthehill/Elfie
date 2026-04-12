@@ -12588,10 +12588,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <div>
                     <p className="sm-group-label mb-2 px-1">Packaging Allowance</p>
                     <div className="sm-card px-4 py-3 space-y-3">
-                      <p className="sm-description">Enter the weight of your typical packaging material (poly-mailer, bubble wrap, box, etc.) in grams. This is added on top of the catalog parts weight.</p>
+                      <p className="sm-description">Enter the weight of your typical packaging material (poly-mailer, bubble wrap, box, etc.) in ounces. This is added on top of the catalog parts weight.</p>
                       <div className="flex items-center gap-3">
                         <div className="w-32">
-                          <Label className="text-[10px] text-gray-500 mb-1 block">Extra weight (g)</Label>
+                          <Label className="text-[10px] text-gray-500 mb-1 block">Extra weight (oz)</Label>
                           <Input
                             type="text"
                             inputMode="decimal"
@@ -12606,12 +12606,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               setDefaultWeightPlusAmount(String(val));
                               updateSettingsMutation.mutate({ defaultWeightPlusAmount: String(val) } as any);
                             }}
-                            placeholder="e.g. 28"
+                            placeholder="e.g. 1.5"
                             className="h-8 text-xs bg-gray-900 border-gray-600"
                             data-testid="input-default-weight-plus"
                           />
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-4">≈ {defaultWeightPlusAmount ? (parseFloat(defaultWeightPlusAmount) / 28.35).toFixed(2) : '0'} oz</p>
                       </div>
                     </div>
                   </div>

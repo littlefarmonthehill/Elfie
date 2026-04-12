@@ -145,11 +145,11 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
         const res = await apiRequest('GET', `/api/orders/fulfillment/order-shipping/${data.orderId}`);
         const est = await res.json();
         const weightGrams: number = est.weightEstimateGrams || 0;
-        const extra = mode === 'order_plus' ? (parseFloat(orgSettings?.defaultWeightPlusAmount) || 0) : 0;
-        const totalGrams = weightGrams + extra;
-        if (totalGrams > 0) {
-          const totalOz = Math.round(totalGrams * 0.035274 * 10) / 10;
-          defaultWeight = String(totalOz);
+        const catalogOz = weightGrams * 0.035274;
+        const extraOz = mode === 'order_plus' ? (parseFloat(orgSettings?.defaultWeightPlusAmount) || 0) : 0;
+        const totalOz = catalogOz + extraOz;
+        if (totalOz > 0) {
+          defaultWeight = String(Math.round(totalOz * 10) / 10);
           defaultUnit = 'oz';
         }
       } catch {
