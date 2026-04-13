@@ -1558,10 +1558,10 @@ router.post("/orders/:orderId/split", isApproved, asyncRoute(async (req, res) =>
 }));
 
 router.post("/shipments/create", isApproved, asyncRoute(async (req, res) => {
-  const { orderId, fromAddress, parcel, itemIdsToShip, overrideToAddress, customsDescription } = req.body;
+  const { orderId, fromAddress, parcel, itemIdsToShip, overrideToAddress, customsDescription, contentsType } = req.body;
   if (!orderId || !fromAddress || !parcel) return res.status(400).json({ error: "orderId, fromAddress, and parcel are required" });
   const { createShipment } = await import('../services/order-shipping');
-  const result = await createShipment({ orderId, itemIdsToShip: itemIdsToShip || [], fromAddress, parcel, overrideToAddress: overrideToAddress || undefined, customsDescription: typeof customsDescription === 'string' ? customsDescription : undefined });
+  const result = await createShipment({ orderId, itemIdsToShip: itemIdsToShip || [], fromAddress, parcel, overrideToAddress: overrideToAddress || undefined, customsDescription: typeof customsDescription === 'string' ? customsDescription : undefined, contentsType: typeof contentsType === 'string' ? contentsType as any : undefined });
   res.json(result);
 }));
 

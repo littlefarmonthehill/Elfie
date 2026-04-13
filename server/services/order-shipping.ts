@@ -89,6 +89,7 @@ async function buildInternationalShipping(
   totalQty: number,
   orgId: string,
   customsDescription?: string,
+  contentsTypeOverride?: string,
 ): Promise<{ customsInfo: CustomsInfo; taxIdentifiers: TaxIdentifier[] } | null> {
   const country = (destinationCountry || 'US').toUpperCase();
   if (country === 'US') return null;
@@ -117,9 +118,10 @@ async function buildInternationalShipping(
   const eelPfc = itemSubtotal < 2500 ? 'NOEEI 30.37(a)' : 'EEI';
 
   const contentsDesc = (customsDescription || '').trim() || 'Plastic toy parts';
+  const resolvedContentsType = (contentsTypeOverride as any) || 'merchandise';
 
   const customsInfo: CustomsInfo = {
-    contentsType: 'merchandise',
+    contentsType: resolvedContentsType,
     contentsExplanation: contentsDesc,
     eelPfc,
     customsCertify: true,
@@ -158,6 +160,7 @@ export interface ShipOrderRequest {
   parcel: Parcel;
   overrideToAddress?: OverrideAddress;
   customsDescription?: string; // Override for customs "description of contents" (defaults to "Plastic toy parts")
+  contentsType?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'other'; // Override customs contents type (default: 'merchandise')
 }
 
 export interface ShipmentPreview {
@@ -475,6 +478,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       totalQty,
       order.orgId,
       request.customsDescription,
+      request.contentsType,
     );
     if (intlShipping) {
       customsInfo = intlShipping.customsInfo;

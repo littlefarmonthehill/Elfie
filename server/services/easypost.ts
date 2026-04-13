@@ -336,7 +336,7 @@ export class EasyPostShippingVendor implements IShippingVendor {
     });
 
     // Map EasyPost rates to our interface
-    const rates: ShippingRate[] = (response.rates || []).map((rate: any) => ({
+    let rates: ShippingRate[] = (response.rates || []).map((rate: any) => ({
       id: rate.id,
       carrier: rate.carrier,
       service: rate.service,
@@ -345,6 +345,19 @@ export class EasyPostShippingVendor implements IShippingVendor {
       deliveryDate: rate.delivery_date,
       deliveryDateGuaranteed: rate.delivery_date_guaranteed,
     }));
+
+    // USPS First Class Mail International (FCMI) only allows letters/documents.
+    // Merchandise shipments must use FCPIS, PMI, or PMEI. If we have a customs
+    // declaration with contents_type !== 'documents', drop FCMI to prevent
+    // EasyPost from rejecting the label purchase after the rate is selected.
+    const isMerchandiseIntl = request.customsInfo && request.customsInfo.contentsType !== 'documents';
+    if (isMerchandiseIntl) {
+      const beforeCount = rates.length;
+      rates = rates.filter(r => !(r.carrier === 'USPS' && r.service === 'FirstClassMailInternational'));
+      if (rates.length < beforeCount) {
+        console.log(`[EasyPost] Filtered FCMI from rates (merchandise customs declaration — FCMI is documents-only)`);
+      }
+    }
 
     console.log('📦 Transformed rates:', { count: rates.length, rates });
 

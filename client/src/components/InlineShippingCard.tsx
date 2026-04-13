@@ -245,6 +245,7 @@ export default function InlineShippingCard({
   type AddrChange = { field: string; original: string; normalized: string };
   const [addrChanges, setAddrChanges] = useState<AddrChange[]>([]);
   const [customsDescription, setCustomsDescription] = useState('Plastic toy parts');
+  const [declareAsLetter, setDeclareAsLetter] = useState(false);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
@@ -449,6 +450,7 @@ export default function InlineShippingCard({
         parcel: buildParcel(pkg, l, w_, h, w, wu),
         overrideToAddress: address,
         customsDescription,
+        ...(declareAsLetter ? { contentsType: 'documents' } : {}),
       });
       setShipmentId(result.shipmentId);
       setAddrChanges(result.addressNormalization?.changes ?? []);
@@ -950,19 +952,44 @@ export default function InlineShippingCard({
 
         {/* ── Contents description (international + military overseas) ── */}
         {((currentAddress?.country || 'US').toUpperCase() !== 'US' || isMilitaryAddress(currentAddress?.country, currentAddress?.state)) && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">Contents</span>
-            <input
-              type="text"
-              value={customsDescription}
-              onChange={e => setCustomsDescription(e.target.value)}
-              placeholder="Plastic toy parts"
-              maxLength={60}
-              className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 h-7 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/60 min-w-0"
-              style={{ fontSize: '16px' }}
-              data-testid={`input-customs-description-${orderId}`}
-            />
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">Contents</span>
+              <input
+                type="text"
+                value={customsDescription}
+                onChange={e => setCustomsDescription(e.target.value)}
+                placeholder="Plastic toy parts"
+                maxLength={60}
+                className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 h-7 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/60 min-w-0"
+                style={{ fontSize: '16px' }}
+                data-testid={`input-customs-description-${orderId}`}
+              />
+            </div>
+            {/* Flat letter toggle — non-military international only.
+                Declares contents_type=documents so USPS FCMI rates appear. */}
+            {(currentAddress?.country || 'US').toUpperCase() !== 'US' && (
+              <label
+                className="flex items-center gap-2 cursor-pointer select-none"
+                data-testid={`label-declare-as-letter-${orderId}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={declareAsLetter}
+                  onChange={e => {
+                    setDeclareAsLetter(e.target.checked);
+                    setRates([]);
+                    setSelectedRateId(null);
+                    setShipmentId(null);
+                  }}
+                  className="w-3.5 h-3.5 accent-blue-500"
+                  data-testid={`checkbox-declare-as-letter-${orderId}`}
+                />
+                <span className="text-[11px] text-gray-400">Send as flat letter</span>
+                <span className="text-[10px] text-gray-600 italic">(thin stickers, printed sheets — enables FCMI $2 rate)</span>
+              </label>
+            )}
+          </>
         )}
 
         {/* ── Row 4: Service selector ── */}
