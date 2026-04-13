@@ -1120,9 +1120,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; white-space: nowrap; display: inline-block; align-self: flex-start; padding: 0.06em 0.22em; border-radius: 4px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      .sub { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #fff; background: #000; white-space: nowrap; display: inline-block; align-self: flex-start; padding: 0.05em 0.2em; border-radius: 3px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+      .main { display: flex; align-items: center; align-self: flex-start; white-space: nowrap; gap: 0; }
+      .sub  { display: flex; align-items: center; align-self: flex-start; white-space: nowrap; gap: 0; }
+      .badge { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; display: inline-block; padding: 0.06em 0.22em; border-radius: 4px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #fff; background: #000; display: inline-block; padding: 0.05em 0.2em; border-radius: 3px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .sep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; display: inline-block; padding: 0 0.1em; }
+      .subsep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #000; display: inline-block; padding: 0 0.15em; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
     const waitScript = `<script>
@@ -1135,6 +1139,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       window.addEventListener('afterprint', function() { window.close(); });
     <\/script>`;
 
+    const renderMainBadges = (name: string) =>
+      name.split('-').map(p => `<span class="badge">${p}</span>`).join('<span class="sep">-</span>');
+
+    const renderSubBadges = (sub: string) =>
+      sub.split('→').map(p => `<span class="subbadge">${p.trim()}</span>`).join('<span class="subsep">→</span>');
+
     let html: string;
 
     if (isDymo) {
@@ -1146,8 +1156,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         return `<div class="label"${breakStyle}>
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main">${item.name}</div>
-            ${sub ? `<div class="sub">${sub}</div>` : ''}
+            <div class="main">${renderMainBadges(item.name)}</div>
+            ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -1165,8 +1175,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         return `<div class="label">
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main">${item.name}</div>
-            ${sub ? `<div class="sub">${sub}</div>` : ''}
+            <div class="main">${renderMainBadges(item.name)}</div>
+            ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
           </div>
         </div>`;
       }).join('');
