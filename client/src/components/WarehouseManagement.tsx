@@ -1120,9 +1120,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; overflow: hidden; }
-      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .sub { font-family: Arial, sans-serif; font-size: ${tmpl.sub}; color: #111; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+      .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; padding: 0.05em 0.2em; border-radius: 3px; line-height: 1.15; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .sub { font-family: Arial, sans-serif; font-size: ${tmpl.sub}; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
     const waitScript = `<script>
