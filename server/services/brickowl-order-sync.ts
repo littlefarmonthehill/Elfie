@@ -229,6 +229,10 @@ async function processBrickOwlOrder(
         postalCode: brickOwlOrderData.ship_post_code || '',
         country: brickOwlOrderData.ship_country_code || '',
       };
+      // BrickOwl provides ship_phone when the buyer supplies one at checkout.
+      // BrickLink does not expose buyer phone numbers (privacy policy).
+      const boPhone = (brickOwlOrderData.ship_phone || brickOwlOrderData.buyer_phone || '').trim();
+      if (boPhone) data.phone = boPhone;
       // Capture SAT tax ID (RFC/CURP) — BrickOwl API may return it under several field names
       const taxId = brickOwlOrderData.buyer_tax_identifier
         || brickOwlOrderData.ship_tax_identifier
