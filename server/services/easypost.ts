@@ -107,7 +107,26 @@ export class EasyPostShippingVendor implements IShippingVendor {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(`${EASYPOST_API_URL}${endpoint}`, options);
+    // 50-second timeout so international label purchases (which involve customs
+    // form processing) don't hang indefinitely and kill the server request.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.error(`[EasyPost] Request timed out after 50s: ${method} ${endpoint}`);
+    }, 50_000);
+
+    let response: Response;
+    try {
+      response = await fetch(`${EASYPOST_API_URL}${endpoint}`, { ...options, signal: controller.signal });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`EasyPost request timed out after 50 seconds (${method} ${endpoint}). International labels may take longer — please retry.`);
+      }
+      console.error(`[EasyPost] Network error on ${method} ${endpoint}: ${fetchError.message}`);
+      throw fetchError;
+    }
+    clearTimeout(timeoutId);
 
     // Retry with exponential backoff on rate-limit (429) or server error (5xx).
     // On 429, respect the Retry-After header if present; otherwise use a much

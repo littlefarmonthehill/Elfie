@@ -28,6 +28,7 @@ function countryFlag(code: string | null | undefined): string {
 type BatchResult = {
   orderId: string;
   orderNumber: string;
+  error?: string;
 } & PurchasedLabelResult;
 
 type PicklistBinItem = {
@@ -1034,6 +1035,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           labelMap.set(orderId, label);
           results.push({ orderId, orderNumber: order?.orderNumber || orderId, ...label });
         } catch (e: any) {
+          const errMsg: string = e.message || 'Unknown error';
           results.push({
             orderId,
             orderNumber: order?.orderNumber || orderId,
@@ -1041,8 +1043,9 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             carrier: ready.selectedRate.carrier,
             service: ready.selectedRate.service,
             rate: ready.selectedRate.rate,
+            error: errMsg,
           });
-          toast({ title: `Failed: ${order?.orderNumber}`, description: e.message, variant: "destructive" });
+          toast({ title: `Failed: ${order?.orderNumber}`, description: errMsg, variant: "destructive" });
         }
       })
     );
@@ -2044,7 +2047,9 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                         {result.trackingNumber ? (
                           <p className="text-[11px] font-mono text-gray-300 mt-0.5">{result.trackingNumber}</p>
                         ) : (
-                          <p className="text-[11px] text-red-400 mt-0.5">Purchase failed</p>
+                          <p className="text-[11px] text-red-400 mt-0.5" title={result.error}>
+                            {result.error ? `Failed: ${result.error.length > 60 ? result.error.slice(0, 60) + '…' : result.error}` : 'Purchase failed'}
+                          </p>
                         )}
                       </div>
                       {result.labelUrl && (

@@ -94,7 +94,7 @@ async function buildInternationalShipping(
   if (country === 'US') return null;
 
   // Fetch app settings for customs signer + IOSS/VAT numbers
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   const signer = settings?.customsSigner || 'Shipper';
   const isBrickLink = marketplace === 'BrickLink';
 

@@ -1570,8 +1570,22 @@ router.post("/shipments/purchase", isApproved, asyncRoute(async (req: any, res) 
   if (!orderId || !shipmentId || !rateId) return res.status(400).json({ error: "orderId, shipmentId, and rateId are required" });
   const orgId = reqOrgId(req);
   const { purchaseLabel } = await import('../services/order-shipping');
-  const result = await purchaseLabel(orderId, shipmentId, rateId, orgId, insurance);
-  res.json(result);
+  try {
+    const result = await purchaseLabel(orderId, shipmentId, rateId, orgId, insurance);
+    res.json(result);
+  } catch (err: any) {
+    const errorMessage = err.message || 'Unknown error purchasing label';
+    console.error(`[Purchase Failed] orderId=${orderId} shipmentId=${shipmentId} rateId=${rateId} orgId=${orgId}: ${errorMessage}`);
+    // Record the failed attempt in the shipments table for later diagnosis
+    try {
+      const { shipments: shipmentsTable } = await import('@shared/schema');
+      await db.insert(shipmentsTable).values({
+        orderId, orgId, vendorCode: 'easypost', vendorShipmentId: shipmentId,
+        status: 'failed', errorMessage,
+      });
+    } catch (_dbErr) {}
+    return res.status(500).json({ error: errorMessage });
+  }
 }));
 
 router.post("/orders/:orderId/retrigger-platform-sync", isApproved, asyncRoute(async (req: any, res) => {
