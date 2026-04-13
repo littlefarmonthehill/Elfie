@@ -1065,6 +1065,24 @@ export default function InlineShippingCard({
                     Test rates are simulated — switch to Live key in Settings for real pricing.
                   </p>
                 )}
+                {/* Phone-required warning for non-USPS international shipments */}
+                {(() => {
+                  if (!selectedRateId || !currentAddress) return null;
+                  const selRate = rates.find(r => r.id === selectedRateId);
+                  const isUsps = selRate?.carrier?.toUpperCase().includes('USPS');
+                  if (isUsps) return null;
+                  const isIntl = currentAddress.country?.toUpperCase() !== 'US';
+                  const isMilitary = currentAddress.country?.toUpperCase() === 'US' &&
+                    ['AE','AP','AA'].includes((currentAddress.state ?? '').toUpperCase());
+                  if (!isIntl && !isMilitary) return null;
+                  if (currentAddress.phone) return null;
+                  return (
+                    <p className="text-[11px] text-amber-400/90 mt-0.5 flex items-start gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                      <span>{selRate?.carrier ?? 'This carrier'} requires a phone number for international shipments — add it via Edit Address.</span>
+                    </p>
+                  );
+                })()}
               </div>
             );
           })()

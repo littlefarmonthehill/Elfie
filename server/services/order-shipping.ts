@@ -63,6 +63,20 @@ const EU_COUNTRIES = new Set([
   'NL','PL','PT','RO','SE','SI','SK',
 ]);
 
+// US military overseas addresses — require a customs form despite country='US'.
+// State codes: AE (Europe/Middle East/Africa/Canada), AP (Pacific), AA (Americas).
+// City names: APO, FPO, DPO (Diplomatic Pouch Office).
+// Reference: https://www.usps.com/international/customs-forms.htm
+const MILITARY_STATE_CODES = new Set(['AE','AP','AA']);
+const MILITARY_CITY_RE = /^(APO|FPO|DPO)\b/i;
+
+function isOverseasMilitary(country: string, state?: string, city?: string): boolean {
+  if (country.toUpperCase() !== 'US') return false;
+  if (state && MILITARY_STATE_CODES.has(state.toUpperCase())) return true;
+  if (city && MILITARY_CITY_RE.test(city.trim())) return true;
+  return false;
+}
+
 /**
  * Build customs info and tax identifiers for international shipments.
  * Returns null for domestic (US) shipments.
@@ -430,11 +444,16 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       }
     : baseShipTo;
 
-  // Build customs info for international shipments
+  // Build customs info for international shipments AND US overseas military addresses.
+  // APO/FPO/DPO destinations have country='US' but still require customs forms per USPS.
   let customsInfo: CustomsInfo | undefined;
   let taxIdentifiers: TaxIdentifier[] | undefined;
   const destCountry = (shipTo.country || 'US').toUpperCase();
-  if (destCountry !== 'US') {
+  const militaryOverride = destCountry === 'US' && isOverseasMilitary(destCountry, shipTo.state, shipTo.city);
+  // Use 'MILITARY' as effective country so buildInternationalShipping skips the country==='US' early-return
+  const effectiveCountry = militaryOverride ? 'MILITARY' : destCountry;
+
+  if (effectiveCountry !== 'US') {
     // Fetch order items for declared value and quantity
     const items = await db
       .select({ quantity: orderDetails.quantity, unitPrice: orderDetails.unitPrice, weight: orderDetails.weight })
@@ -449,7 +468,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     const totalWeightOz = request.parcel.weight;
 
     const intlShipping = await buildInternationalShipping(
-      destCountry,
+      effectiveCountry,
       order.marketplace,
       itemSubtotal,
       totalWeightOz,
@@ -461,7 +480,10 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       customsInfo = intlShipping.customsInfo;
       taxIdentifiers = intlShipping.taxIdentifiers.length > 0 ? intlShipping.taxIdentifiers : undefined;
     }
-    console.log(`🌍 International shipment to ${destCountry} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}${shipTo.federalTaxId ? `, SAT RFC/CURP: ${shipTo.federalTaxId}` : ''}`);
+    const label = militaryOverride
+      ? `🪖 Military overseas (${shipTo.state ?? shipTo.city})`
+      : `🌍 International (${destCountry})`;
+    console.log(`${label} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}${shipTo.federalTaxId ? `, SAT RFC/CURP: ${shipTo.federalTaxId}` : ''}`);
   }
 
   // Build the order reference string: "[AB] BO.8362106"
