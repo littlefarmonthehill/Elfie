@@ -1118,11 +1118,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
     const commonCss = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
+      body { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
       .info { flex: 1; min-width: 0; overflow: hidden; }
-      .main { font-size: ${tmpl.font}; font-weight: 900; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
-      .sub { font-size: ${tmpl.sub}; color: #333; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sub { font-family: Arial, sans-serif; font-size: ${tmpl.sub}; color: #111; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
     const waitScript = `<script>
