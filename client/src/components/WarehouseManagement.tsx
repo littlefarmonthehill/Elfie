@@ -1168,39 +1168,45 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         .label { width: 100%; height: 100%; display: flex; align-items: center; gap: 5px; overflow: hidden; }
       </style>${waitScript}</head><body>${labelHtml}</body></html>`;
     } else {
-      const rows: any[][] = [];
-      for (let i = 0; i < printItems.length; i += tmpl.cols) {
-        rows.push(printItems.slice(i, i + tmpl.cols));
-      }
-      const tableHtml = rows.map(row => {
-        const cells = Array.from({ length: tmpl.cols }, (_, ci) => {
-          const item = row[ci];
-          if (!item) return `<td style="width:${tmpl.w};"></td>`;
-          const qrData = getLabelQrData(item);
-          const sub = getLabelSubtext(item);
-          const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-          return `<td class="label">
-            <div class="inner">
-              <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
-              <div class="info">
-                <div class="main">${renderMainBadges(item.name)}</div>
-                ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
-              </div>
+      const cellsHtml = Array.from({ length: Math.ceil(printItems.length / tmpl.cols) * tmpl.cols }, (_, i) => {
+        const item = printItems[i];
+        if (!item) return `<div class="label empty"></div>`;
+        const qrData = getLabelQrData(item);
+        const sub = getLabelSubtext(item);
+        const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+        return `<div class="label">
+          <div class="inner">
+            <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
+            <div class="info">
+              <div class="main">${renderMainBadges(item.name)}</div>
+              ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
             </div>
-          </td>`;
-        }).join('');
-        return `<tr>${cells}</tr>`;
+          </div>
+        </div>`;
       }).join('');
 
       html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         ${commonCss}
         @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
-        table { border-collapse: collapse; table-layout: fixed; width: 100%; }
-        tr { height: ${tmpl.h}; }
-        .label { width: ${tmpl.w}; vertical-align: middle; text-align: center; padding: 4px; }
-        .inner { display: inline-flex; align-items: center; justify-content: center; gap: 12px; }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w});
+          grid-auto-rows: ${tmpl.h};
+          column-gap: ${tmpl.colGap};
+          row-gap: ${tmpl.rowGap};
+        }
+        .label {
+          width: ${tmpl.w};
+          height: ${tmpl.h};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+        .inner { display: flex; align-items: center; justify-content: center; gap: 12px; }
         .inner .info { flex: none; text-align: left; }
-      </style>${waitScript}</head><body><table>${tableHtml}</table></body></html>`;
+      </style>${waitScript}</head><body><div class="grid">${cellsHtml}</div></body></html>`;
     }
 
     const win = window.open('', '_blank', 'width=800,height=600');
