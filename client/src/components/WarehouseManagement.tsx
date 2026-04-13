@@ -1173,11 +1173,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
         return `<div class="label">
-          <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
             <div class="main">${renderMainBadges(item.name)}</div>
             ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
           </div>
+          <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
         </div>`;
       }).join('');
 
