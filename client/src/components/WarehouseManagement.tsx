@@ -1185,7 +1185,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         ${commonCss}
         @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
         .grid { display: grid; grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w}); column-gap: ${tmpl.colGap}; row-gap: ${tmpl.rowGap}; }
-        .label { width: ${tmpl.w}; height: ${tmpl.h}; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 14px; page-break-inside: avoid; background: white; overflow: hidden; }
+        .label { width: ${tmpl.w}; height: ${tmpl.h}; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px; page-break-inside: avoid; background: white; overflow: hidden; }
       </style>${waitScript}</head><body><div class="grid">${labelHtml}</div></body></html>`;
     }
 
