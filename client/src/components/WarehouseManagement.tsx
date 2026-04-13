@@ -1077,10 +1077,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       previewH: 'h-10', previewQr: 32, mode: 'sheet',
     },
     avery5163: {
-      name: 'Avery 5163 / 8163', desc: '2" × 4"', perSheet: 10,
-      w: '4in', h: '2in', cols: 2,
-      pageMarginV: '0.5in', pageMarginH: '0.15625in',
-      colGap: '0.1875in', rowGap: '0in',
+      name: 'Avery 5371 Business Cards', desc: '2" × 3½"', perSheet: 10,
+      w: '3.5in', h: '2in', cols: 2,
+      pageMarginV: '0.5in', pageMarginH: '0.75in',
+      colGap: '0in', rowGap: '0in',
       qr: 88, font: '62px', sub: '22px',
       previewH: 'h-16', previewQr: 52, mode: 'sheet',
     },
@@ -1168,26 +1168,39 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         .label { width: 100%; height: 100%; display: flex; align-items: center; gap: 5px; overflow: hidden; }
       </style>${waitScript}</head><body>${labelHtml}</body></html>`;
     } else {
-      const labelHtml = printItems.map((item: any) => {
-        const qrData = getLabelQrData(item);
-        const sub = getLabelSubtext(item);
-        const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-        return `<div class="label">
-          <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
-          <div class="info">
-            <div class="main">${renderMainBadges(item.name)}</div>
-            ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
-          </div>
-        </div>`;
+      const rows: any[][] = [];
+      for (let i = 0; i < printItems.length; i += tmpl.cols) {
+        rows.push(printItems.slice(i, i + tmpl.cols));
+      }
+      const tableHtml = rows.map(row => {
+        const cells = Array.from({ length: tmpl.cols }, (_, ci) => {
+          const item = row[ci];
+          if (!item) return `<td style="width:${tmpl.w};"></td>`;
+          const qrData = getLabelQrData(item);
+          const sub = getLabelSubtext(item);
+          const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+          return `<td class="label">
+            <div class="inner">
+              <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
+              <div class="info">
+                <div class="main">${renderMainBadges(item.name)}</div>
+                ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
+              </div>
+            </div>
+          </td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
       }).join('');
 
       html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         ${commonCss}
         @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
-        .grid { display: grid; grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w}); grid-auto-rows: ${tmpl.h}; column-gap: ${tmpl.colGap}; row-gap: ${tmpl.rowGap}; }
-        .label { width: ${tmpl.w}; height: 100%; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px; page-break-inside: avoid; background: white; overflow: hidden; box-sizing: border-box; }
-        .label .info { flex: none; }
-      </style>${waitScript}</head><body><div class="grid">${labelHtml}</div></body></html>`;
+        table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+        tr { height: ${tmpl.h}; }
+        .label { width: ${tmpl.w}; vertical-align: middle; text-align: center; padding: 4px; }
+        .inner { display: inline-flex; align-items: center; justify-content: center; gap: 12px; }
+        .inner .info { flex: none; text-align: left; }
+      </style>${waitScript}</head><body><table>${tableHtml}</table></body></html>`;
     }
 
     const win = window.open('', '_blank', 'width=800,height=600');
