@@ -288,7 +288,7 @@ router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any
     SELECT status, COUNT(*) AS count
     FROM (
       SELECT DISTINCT ON (o.id)
-        COALESCE(s.tracking_status, 'unknown') AS status
+        COALESCE(NULLIF(s.tracking_status, 'unknown'), 'pre_transit') AS status
       FROM ${orders} o
       INNER JOIN ${shipments} s ON s.order_id = o.id
       WHERE o.org_id = ${orgId}

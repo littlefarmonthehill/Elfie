@@ -574,6 +574,7 @@ export async function purchaseLabel(
       cost: label.cost.toString(),
       currency: label.currency,
       status: 'purchased',
+      trackingStatus: 'pre_transit',
       isTest: isTestMode,
       metadata: JSON.stringify(label.metadata),
       purchasedAt: new Date(),

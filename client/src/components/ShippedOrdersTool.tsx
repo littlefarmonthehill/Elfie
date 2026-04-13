@@ -457,7 +457,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         <AlertTriangle className="w-3 h-3" /> Delivery Issue
                       </Badge>
                     )}
-                    {order.trackingStatus === 'pre_transit' && (
+                    {(order.trackingStatus === 'pre_transit' || order.trackingStatus === 'unknown' || !order.trackingStatus) && (
                       <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
                         <Clock className="w-3 h-3" /> Label Created
                       </Badge>
@@ -465,11 +465,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     {order.trackingStatus === 'available_for_pickup' && (
                       <Badge className="text-xs bg-teal-900/60 text-teal-300 border border-teal-700/50 gap-1 shrink-0">
                         <MapPin className="w-3 h-3" /> Ready for Pickup
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'unknown' && (
-                      <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
-                        <AlertTriangle className="w-3 h-3" /> Unknown
                       </Badge>
                     )}
                     {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
