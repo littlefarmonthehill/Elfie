@@ -1081,7 +1081,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '4in', h: '2in', cols: 2,
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
-      qr: 88, font: '46px', sub: '18px',
+      qr: 88, font: '62px', sub: '22px',
       previewH: 'h-16', previewQr: 52, mode: 'sheet',
     },
     avery5164: {
