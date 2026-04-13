@@ -1073,7 +1073,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '2.625in', h: '1in', cols: 3,
       pageMarginV: '0.5in', pageMarginH: '0.1875in',
       colGap: '0.125in', rowGap: '0in',
-      qr: 48, font: '16px', sub: '10px',
+      qr: 48, font: '20px', sub: '12px',
       previewH: 'h-10', previewQr: 32, mode: 'sheet',
     },
     avery5163: {
@@ -1081,7 +1081,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '4in', h: '2in', cols: 2,
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
-      qr: 88, font: '36px', sub: '15px',
+      qr: 88, font: '46px', sub: '18px',
       previewH: 'h-16', previewQr: 52, mode: 'sheet',
     },
     avery5164: {
@@ -1089,7 +1089,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '4in', h: '3.333in', cols: 2,
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
-      qr: 140, font: '52px', sub: '20px',
+      qr: 140, font: '64px', sub: '24px',
       previewH: 'h-24', previewQr: 72, mode: 'sheet',
     },
     dymo30252: {
@@ -1097,7 +1097,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '3.5in', h: '1.125in', cols: 1,
       pageMarginV: '0.06in', pageMarginH: '0.06in',
       colGap: '0in', rowGap: '0in',
-      qr: 62, font: '24px', sub: '13px',
+      qr: 62, font: '30px', sub: '16px',
       previewH: 'h-10', previewQr: 40, mode: 'dymo',
     },
     dymo30336: {
@@ -1105,7 +1105,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '2.125in', h: '1in', cols: 1,
       pageMarginV: '0.05in', pageMarginH: '0.05in',
       colGap: '0in', rowGap: '0in',
-      qr: 48, font: '16px', sub: '10px',
+      qr: 48, font: '20px', sub: '12px',
       previewH: 'h-10', previewQr: 32, mode: 'dymo',
     },
   };
@@ -1121,7 +1121,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       body { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
       .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; padding: 0.05em 0.2em; border-radius: 3px; line-height: 1.15; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .main { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; white-space: nowrap; display: inline-block; align-self: flex-start; padding: 0.06em 0.22em; border-radius: 4px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .sub { font-family: Arial, sans-serif; font-size: ${tmpl.sub}; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
