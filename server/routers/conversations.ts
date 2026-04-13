@@ -8,10 +8,9 @@ import { getPlatformSettings } from '../routes';
 import { count } from 'drizzle-orm';
 
 const router = Router();
-router.use(isAuthenticated);
 
 // POST /api/support/escalate
-router.post('/support/escalate', asyncRoute(async (req: any, res) => {
+router.post('/support/escalate', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
   if (!org) return res.status(404).json({ message: "Organization not found" });
@@ -41,7 +40,7 @@ router.post('/support/escalate', asyncRoute(async (req: any, res) => {
 }));
 
 // GET /api/support/session
-router.get('/support/session', asyncRoute(async (req: any, res) => {
+router.get('/support/session', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const sessionId = req.query.sessionId as string;
   if (!sessionId) return res.status(400).json({ message: "sessionId required" });
@@ -95,7 +94,7 @@ router.get('/support/session', asyncRoute(async (req: any, res) => {
 }));
 
 // GET /api/conversations/threads
-router.get('/conversations/threads', asyncRoute(async (req: any, res) => {
+router.get('/conversations/threads', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const threads = await db.select().from(conversationThreads)
     .where(eq(conversationThreads.orgId, orgId))
@@ -105,7 +104,7 @@ router.get('/conversations/threads', asyncRoute(async (req: any, res) => {
 }));
 
 // POST /api/conversations/threads
-router.post('/conversations/threads', asyncRoute(async (req: any, res) => {
+router.post('/conversations/threads', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ message: "sessionId required" });
@@ -122,7 +121,7 @@ router.post('/conversations/threads', asyncRoute(async (req: any, res) => {
 }));
 
 // PATCH /api/conversations/threads/:sessionId/title
-router.patch('/conversations/threads/:sessionId/title', asyncRoute(async (req: any, res) => {
+router.patch('/conversations/threads/:sessionId/title', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { sessionId } = req.params;
   const { title } = req.body;
@@ -134,7 +133,7 @@ router.patch('/conversations/threads/:sessionId/title', asyncRoute(async (req: a
 }));
 
 // DELETE /api/conversations/threads/:sessionId
-router.delete('/conversations/threads/:sessionId', asyncRoute(async (req: any, res) => {
+router.delete('/conversations/threads/:sessionId', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { sessionId } = req.params;
   await db.delete(conversations)
@@ -145,7 +144,7 @@ router.delete('/conversations/threads/:sessionId', asyncRoute(async (req: any, r
 }));
 
 // POST /api/conversations/threads/:sessionId/generate-title
-router.post('/conversations/threads/:sessionId/generate-title', asyncRoute(async (req: any, res) => {
+router.post('/conversations/threads/:sessionId/generate-title', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { sessionId } = req.params;
   const firstMessages = await db.select({ content: conversations.content, role: conversations.role })
@@ -185,7 +184,7 @@ router.post('/conversations/threads/:sessionId/generate-title', asyncRoute(async
 }));
 
 // GET /api/support/ticket-status
-router.get('/support/ticket-status', asyncRoute(async (req: any, res) => {
+router.get('/support/ticket-status', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const sessionId = req.query.sessionId as string;
   if (!sessionId) return res.status(400).json({ message: "sessionId required" });
@@ -197,7 +196,7 @@ router.get('/support/ticket-status', asyncRoute(async (req: any, res) => {
 }));
 
 // GET /api/support/messages
-router.get('/support/messages', asyncRoute(async (req: any, res) => {
+router.get('/support/messages', isAuthenticated, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const sessionId = req.query.sessionId as string;
   const since = req.query.since as string;
