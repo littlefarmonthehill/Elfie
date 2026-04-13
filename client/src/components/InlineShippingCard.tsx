@@ -1077,10 +1077,18 @@ export default function InlineShippingCard({
                   if (!isIntl && !isMilitary) return null;
                   if (currentAddress.phone) return null;
                   return (
-                    <p className="text-[11px] text-amber-400/90 mt-0.5 flex items-start gap-1">
+                    <button
+                      className="text-[11px] text-amber-400/90 mt-0.5 flex items-start gap-1 text-left w-full hover:text-amber-300 transition-colors"
+                      onClick={() => {
+                        setDetailsOpen(true);
+                        setEditAddress(currentAddress!);
+                        setEditingAddress(true);
+                      }}
+                      data-testid={`button-add-phone-${orderId}`}
+                    >
                       <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                      <span>{selRate?.carrier ?? 'This carrier'} requires a phone number for international shipments — add it via Edit Address.</span>
-                    </p>
+                      <span>{selRate?.carrier ?? 'This carrier'} requires a phone number — <span className="underline">tap to add</span></span>
+                    </button>
                   );
                 })()}
               </div>
