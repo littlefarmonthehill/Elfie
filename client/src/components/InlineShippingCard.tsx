@@ -28,6 +28,12 @@ const EU_COUNTRIES = new Set([
   'NL','PL','PT','RO','SE','SI','SK',
 ]);
 
+// US military overseas state codes — require customs forms despite country='US'
+const MILITARY_STATES = new Set(['AE','AP','AA']);
+function isMilitaryAddress(country?: string, state?: string): boolean {
+  return (country ?? 'US').toUpperCase() === 'US' && MILITARY_STATES.has((state ?? '').toUpperCase());
+}
+
 // EasyPost returns short USPS service codes — map them to full USPS names
 const USPS_SERVICE_LABELS: Record<string, string> = {
   First:                'First Class Mail',
@@ -733,7 +739,8 @@ export default function InlineShippingCard({
         {/* ── International shipment banner ── */}
         {(() => {
           const destCountry = (currentAddress?.country || 'US').toUpperCase();
-          if (destCountry === 'US') return null;
+          const isMilitary = isMilitaryAddress(currentAddress?.country, currentAddress?.state);
+          if (destCountry === 'US' && !isMilitary) return null;
 
           const isEU = EU_COUNTRIES.has(destCountry);
           const isUK = destCountry === 'GB';
@@ -747,14 +754,16 @@ export default function InlineShippingCard({
           if (isUK && isBL && !appSettings?.blUkVatNumber) missingFlags.push('BrickLink UK VAT number');
           if (isUK && !isBL && !appSettings?.boUkVatNumber) missingFlags.push('BrickOwl UK VAT number');
 
+          const bannerLabel = isMilitary
+            ? `Military Overseas (${currentAddress?.state ?? 'APO/FPO/DPO'}) — Customs Form Required`
+            : `International Shipment — ${destCountry}${isEU ? ' (EU)' : ''}${isUK ? ' (UK)' : ''}`;
+
           return (
             <div className={`rounded-md border px-2.5 py-2 space-y-1 ${missingFlags.length > 0 ? 'border-amber-500/50 bg-amber-950/20' : 'border-blue-500/40 bg-blue-950/20'}`}>
               <div className="flex items-center gap-1.5">
                 <Globe className={`w-3.5 h-3.5 shrink-0 ${missingFlags.length > 0 ? 'text-amber-400' : 'text-blue-400'}`} />
                 <span className={`text-[11px] font-semibold ${missingFlags.length > 0 ? 'text-amber-300' : 'text-blue-300'}`}>
-                  International Shipment — {destCountry}
-                  {isEU && ' (EU)'}
-                  {isUK && ' (UK)'}
+                  {bannerLabel}
                 </span>
               </div>
               <p className="text-xs text-gray-400 leading-snug">
@@ -939,8 +948,8 @@ export default function InlineShippingCard({
           ) : null;
         })()}
 
-        {/* ── Contents description (international only) ── */}
-        {(currentAddress?.country || 'US').toUpperCase() !== 'US' && (
+        {/* ── Contents description (international + military overseas) ── */}
+        {((currentAddress?.country || 'US').toUpperCase() !== 'US' || isMilitaryAddress(currentAddress?.country, currentAddress?.state)) && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">Contents</span>
             <input
