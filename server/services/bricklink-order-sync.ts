@@ -354,6 +354,8 @@ async function processBrickLinkOrder(
       state: resolvedState,
       postalCode: addr.postal_code || '',
       country: addr.country_code || '',
+      // BrickLink provides phone_number only when the buyer includes it with their shipping address.
+      ...(addr.phone_number ? { phone: addr.phone_number } : {}),
     }),
     billTo: null,
     shipByDate: null,
