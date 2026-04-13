@@ -1168,47 +1168,63 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         .label { width: 100%; height: 100%; display: flex; align-items: center; gap: 5px; overflow: hidden; }
       </style>${waitScript}</head><body>${labelHtml}</body></html>`;
     } else {
-      const cellsHtml = Array.from({ length: Math.ceil(printItems.length / tmpl.cols) * tmpl.cols }, (_, i) => {
-        const item = printItems[i];
-        if (!item) return `<div class="label empty"></div>`;
-        const qrData = getLabelQrData(item);
-        const sub = getLabelSubtext(item);
-        const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-        return `<div class="label">
-          <div class="inner">
+      // Use absolute positioning so each card's position is calculated independently
+      // from the page origin — eliminating any accumulated layout drift across rows.
+      const parseIn = (s: string) => parseFloat(s); // all values are in "in" units
+      const marginV = parseIn(tmpl.pageMarginV);
+      const marginH = parseIn(tmpl.pageMarginH);
+      const cardW = parseIn(tmpl.w);
+      const cardH = parseIn(tmpl.h);
+      const colGapVal = parseIn(tmpl.colGap);
+      const rowGapVal = parseIn(tmpl.rowGap);
+      const pageH = 11; // letter height in inches
+      const pageW = 8.5; // letter width in inches
+      const perSheet = tmpl.perSheet;
+
+      const pagesHtml = Array.from({ length: Math.ceil(printItems.length / perSheet) }, (_, pageIdx) => {
+        const pageItems = printItems.slice(pageIdx * perSheet, (pageIdx + 1) * perSheet);
+        const labelsHtml = pageItems.map((item: any, idx: number) => {
+          const row = Math.floor(idx / tmpl.cols);
+          const col = idx % tmpl.cols;
+          const topIn = marginV + row * (cardH + rowGapVal);
+          const leftIn = marginH + col * (cardW + colGapVal);
+          const qrData = getLabelQrData(item);
+          const sub = getLabelSubtext(item);
+          const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+          return `<div class="label" style="top:${topIn}in;left:${leftIn}in;width:${tmpl.w};height:${tmpl.h};">
             <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
             <div class="info">
               <div class="main">${renderMainBadges(item.name)}</div>
               ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
             </div>
-          </div>
-        </div>`;
+          </div>`;
+        }).join('');
+        const breakStyle = pageIdx > 0 ? ' style="page-break-before:always;"' : '';
+        return `<div class="page"${breakStyle}>${labelsHtml}</div>`;
       }).join('');
 
       html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         ${commonCss}
-        @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
-        .grid {
-          display: flex;
-          flex-wrap: wrap;
-          column-gap: ${tmpl.colGap};
-          row-gap: ${tmpl.rowGap};
+        @page { size: letter; margin: 0; }
+        body { margin: 0; padding: 0; }
+        .page {
+          position: relative;
+          width: ${pageW}in;
+          height: ${pageH}in;
+          overflow: hidden;
+          box-sizing: border-box;
         }
         .label {
-          width: ${tmpl.w};
-          height: ${tmpl.h};
-          flex-shrink: 0;
-          flex-grow: 0;
+          position: absolute;
           display: flex;
           align-items: center;
           justify-content: center;
+          gap: 12px;
           overflow: hidden;
           box-sizing: border-box;
-          page-break-inside: avoid;
         }
-        .inner { display: flex; align-items: center; justify-content: center; gap: 12px; }
-        .inner .info { flex: none; text-align: left; }
-      </style>${waitScript}</head><body><div class="grid">${cellsHtml}</div></body></html>`;
+        .info { flex: none; text-align: left; }
+      </style>${waitScript}</head><body>${pagesHtml}</body></html>`;
     }
 
     const win = window.open('', '_blank', 'width=800,height=600');
