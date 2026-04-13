@@ -129,7 +129,12 @@ export class EasyPostShippingVendor implements IShippingVendor {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      throw new Error(`EasyPost API error: ${error.error?.message || response.statusText}`);
+      const errorCode = error.error?.code || '';
+      const errorMessage = error.error?.message || response.statusText;
+      const errorErrors = error.error?.errors;
+      console.error(`[EasyPost] ${response.status} on ${method} ${endpoint} — code=${errorCode} message="${errorMessage}"${errorErrors?.length ? ` errors=${JSON.stringify(errorErrors)}` : ''} body=${JSON.stringify(body ?? null)}`);
+      const detail = errorErrors?.length ? ` (${errorErrors.map((e: any) => e.message || e).join('; ')})` : '';
+      throw new Error(`EasyPost API error: ${errorMessage}${detail}`);
     }
 
     return await response.json();
@@ -340,14 +345,13 @@ export class EasyPostShippingVendor implements IShippingVendor {
       rate: {
         id: request.rateId,
       },
-      // Disable strict address verification in test mode to allow test addresses
-      verify_strict: [],
     };
 
     if (request.insurance) {
       payload.insurance = request.insurance.toString();
     }
 
+    console.log(`[EasyPost] buyLabel shipmentId=${request.shipmentId} rateId=${request.rateId} insurance=${request.insurance ?? 'none'}`);
     const response = await this.request(`/shipments/${request.shipmentId}/buy`, 'POST', payload);
 
     return {
