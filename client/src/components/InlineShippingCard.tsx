@@ -123,6 +123,7 @@ type OrderShippingSummary = {
   savedPackageHeight: number | null;
   weightEstimateGrams: number;
   weightEstimateOz: number;
+  suggestedWeightOz?: number;
   address: ShipAddress;
 };
 
@@ -315,8 +316,9 @@ export default function InlineShippingCard({
       setSummary(data);
       setCurrentAddress(data.address);
       setEditAddress(data.address);
+      const estimatedOz = data.suggestedWeightOz ?? data.weightEstimateOz;
       const w = data.savedWeight != null ? String(data.savedWeight)
-        : data.weightEstimateOz > 0 ? String(data.weightEstimateOz) : "";
+        : estimatedOz > 0 ? String(estimatedOz) : "";
       const wu = data.savedWeight != null ? data.savedWeightUnits : "oz";
       const pkg = data.savedPackageType || "padded_envelope";
       const savedPkgDef = PACKAGES.find(p => p.id === pkg);

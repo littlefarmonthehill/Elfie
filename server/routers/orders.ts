@@ -1435,15 +1435,31 @@ router.put("/fulfillment/item/:itemId/fulfill", isApproved, asyncRoute(async (re
   res.json({ success: true, itemId, fulfilled });
 }));
 
-router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async (req, res) => {
+router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async (req: any, res) => {
   const { orderId } = req.params;
+  const orgId = reqOrgId(req);
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
-  const weightRows = await db.select({
-    totalWeightGrams: sql<string>`COALESCE(SUM(CASE WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0 THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity} WHEN ${blCatalog.blCatalogWeight} IS NOT NULL AND ${blCatalog.blCatalogWeight} > 0 THEN ${blCatalog.blCatalogWeight} * ${orderDetails.quantity} ELSE 0 END), 0)`,
-  }).from(orderDetails).leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id)).leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId))).where(eq(orderDetails.orderId, orderId));
+  const [weightRows, [settings]] = await Promise.all([
+    db.select({
+      totalWeightGrams: sql<string>`COALESCE(SUM(CASE WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0 THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity} WHEN ${blCatalog.blCatalogWeight} IS NOT NULL AND ${blCatalog.blCatalogWeight} > 0 THEN ${blCatalog.blCatalogWeight} * ${orderDetails.quantity} ELSE 0 END), 0)`,
+    }).from(orderDetails).leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id)).leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId))).where(eq(orderDetails.orderId, orderId)),
+    db.select({ defaultWeightMode: appSettings.defaultWeightMode, defaultWeightItemsPct: appSettings.defaultWeightItemsPct, defaultWeightPlusAmount: appSettings.defaultWeightPlusAmount }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1),
+  ]);
   const totalWeightGrams = parseFloat(weightRows[0]?.totalWeightGrams || "0");
-  const totalWeightOz = Math.round(totalWeightGrams * 0.035274 * 10) / 10;
+  const rawWeightOz = Math.round(totalWeightGrams * 0.035274 * 10) / 10;
+  // Apply org's shipping weight formula if configured
+  const weightMode = settings?.defaultWeightMode ?? 'none';
+  const itemsPct  = parseFloat(settings?.defaultWeightItemsPct ?? '0') || 0;
+  const plusOz    = parseFloat(settings?.defaultWeightPlusAmount ?? '0') || 0;
+  let suggestedWeightOz = rawWeightOz;
+  if (weightMode === 'order' && rawWeightOz > 0) {
+    suggestedWeightOz = Math.round((rawWeightOz * (1 + itemsPct / 100) + plusOz) * 10) / 10;
+  } else if (weightMode === 'order' && plusOz > 0) {
+    // Even if catalog weight is 0, still add the fixed packaging amount
+    suggestedWeightOz = Math.round(plusOz * 10) / 10;
+  }
+  const totalWeightOz = rawWeightOz; // keep raw for reference
   let shipToData: any = {};
   try { shipToData = typeof order.shipTo === "string" ? JSON.parse(order.shipTo) : (order.shipTo || {}); } catch {}
   let linkedOrderRef: string | null = null;
@@ -1466,6 +1482,7 @@ router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async 
     savedPackageWidth: order.packageWidth ? Number(order.packageWidth) : null,
     savedPackageHeight: order.packageHeight ? Number(order.packageHeight) : null,
     weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10, weightEstimateOz: totalWeightOz,
+    suggestedWeightOz,
     address: { name: shipToData.name || "", company: shipToData.company || "", street1: shipToData.street1 || shipToData.address1 || "", street2: shipToData.street2 || shipToData.address2 || "", city: shipToData.city || "", state: shipToData.state || "", zip: shipToData.postalCode || "", country: shipToData.country || "US", phone: shipToData.phone || "" },
   });
 }));
