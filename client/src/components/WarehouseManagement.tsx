@@ -1189,20 +1189,22 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         ${commonCss}
         @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
         .grid {
-          display: grid;
-          grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w});
-          grid-auto-rows: ${tmpl.h};
+          display: flex;
+          flex-wrap: wrap;
           column-gap: ${tmpl.colGap};
           row-gap: ${tmpl.rowGap};
         }
         .label {
           width: ${tmpl.w};
           height: ${tmpl.h};
+          flex-shrink: 0;
+          flex-grow: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
           box-sizing: border-box;
+          page-break-inside: avoid;
         }
         .inner { display: flex; align-items: center; justify-content: center; gap: 12px; }
         .inner .info { flex: none; text-align: left; }
