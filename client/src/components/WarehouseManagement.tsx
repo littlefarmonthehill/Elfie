@@ -1184,8 +1184,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         ${commonCss}
         @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
-        .grid { display: grid; grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w}); column-gap: ${tmpl.colGap}; row-gap: ${tmpl.rowGap}; }
-        .label { width: ${tmpl.w}; height: ${tmpl.h}; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px; page-break-inside: avoid; background: white; overflow: hidden; }
+        .grid { display: grid; grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w}); grid-auto-rows: ${tmpl.h}; column-gap: ${tmpl.colGap}; row-gap: ${tmpl.rowGap}; }
+        .label { width: ${tmpl.w}; height: 100%; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px; page-break-inside: avoid; background: white; overflow: hidden; box-sizing: border-box; }
         .label .info { flex: none; }
       </style>${waitScript}</head><body><div class="grid">${labelHtml}</div></body></html>`;
     }
