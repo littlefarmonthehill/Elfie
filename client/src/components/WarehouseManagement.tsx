@@ -1120,13 +1120,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+      .info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
       .main { display: flex; align-items: center; align-self: flex-start; white-space: nowrap; gap: 0; }
       .sub  { display: flex; align-items: center; align-self: flex-start; white-space: nowrap; gap: 0; }
-      .badge { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #fff; background: #000; display: inline-block; padding: 0.06em 0.22em; border-radius: 4px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #fff; background: #000; display: inline-block; padding: 0.05em 0.2em; border-radius: 3px; line-height: 1.2; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      .sep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; display: inline-block; padding: 0 0.1em; }
-      .subsep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #000; display: inline-block; padding: 0 0.15em; }
+      .badge { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; display: inline-block; padding: 0.04em 0.1em; line-height: 1.15; }
+      .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 900; color: #000; display: inline-block; padding: 0.02em 0.08em; line-height: 1.15; }
+      .sep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.font}; font-weight: 900; color: #000; display: inline-block; padding: 0 0.05em; }
+      .subsep { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${tmpl.sub}; font-weight: 700; color: #555; display: inline-block; padding: 0 0.2em; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
     const waitScript = `<script>
