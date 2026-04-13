@@ -1073,7 +1073,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '2.625in', h: '1in', cols: 3,
       pageMarginV: '0.5in', pageMarginH: '0.1875in',
       colGap: '0.125in', rowGap: '0in',
-      qr: 48, font: '9px', sub: '7px',
+      qr: 48, font: '16px', sub: '10px',
       previewH: 'h-10', previewQr: 32, mode: 'sheet',
     },
     avery5163: {
@@ -1081,7 +1081,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '4in', h: '2in', cols: 2,
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
-      qr: 88, font: '14px', sub: '10px',
+      qr: 88, font: '36px', sub: '15px',
       previewH: 'h-16', previewQr: 52, mode: 'sheet',
     },
     avery5164: {
@@ -1089,7 +1089,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '4in', h: '3.333in', cols: 2,
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
-      qr: 140, font: '18px', sub: '13px',
+      qr: 140, font: '52px', sub: '20px',
       previewH: 'h-24', previewQr: 72, mode: 'sheet',
     },
     dymo30252: {
@@ -1097,7 +1097,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '3.5in', h: '1.125in', cols: 1,
       pageMarginV: '0.06in', pageMarginH: '0.06in',
       colGap: '0in', rowGap: '0in',
-      qr: 62, font: '11px', sub: '8px',
+      qr: 62, font: '24px', sub: '13px',
       previewH: 'h-10', previewQr: 40, mode: 'dymo',
     },
     dymo30336: {
@@ -1105,7 +1105,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       w: '2.125in', h: '1in', cols: 1,
       pageMarginV: '0.05in', pageMarginH: '0.05in',
       colGap: '0in', rowGap: '0in',
-      qr: 48, font: '9px', sub: '7px',
+      qr: 48, font: '16px', sub: '10px',
       previewH: 'h-10', previewQr: 32, mode: 'dymo',
     },
   };
@@ -1121,8 +1121,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
       .qr { display: block; flex-shrink: 0; }
       .info { flex: 1; min-width: 0; overflow: hidden; }
-      .main { font-size: ${tmpl.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .sub { font-size: ${tmpl.sub}; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .main { font-size: ${tmpl.font}; font-weight: 900; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
+      .sub { font-size: ${tmpl.sub}; color: #333; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
 
     const waitScript = `<script>
@@ -1132,6 +1132,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           return img.complete ? Promise.resolve() : new Promise(function(resolve) { img.onload = resolve; img.onerror = resolve; });
         })).then(function() { window.print(); });
       });
+      window.addEventListener('afterprint', function() { window.close(); });
     <\/script>`;
 
     let html: string;
@@ -1142,13 +1143,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
         const breakStyle = i < printItems.length - 1 ? ' style="page-break-after:always;"' : '';
-        const mainStyle = activeView === 'bins'
-          ? ' style="font-size: 140%; letter-spacing: 0.02em;"'
-          : (!sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '');
         return `<div class="label"${breakStyle}>
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main"${mainStyle}>${item.name}</div>
+            <div class="main">${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
           </div>
         </div>`;
@@ -1164,13 +1162,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const qrData = getLabelQrData(item);
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-        const mainStyle = activeView === 'bins'
-          ? ' style="font-size: 140%; letter-spacing: 0.02em;"'
-          : (!sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '');
         return `<div class="label">
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main"${mainStyle}>${item.name}</div>
+            <div class="main">${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
           </div>
         </div>`;
