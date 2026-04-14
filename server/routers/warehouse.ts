@@ -559,6 +559,35 @@ router.get("/warehouse/locations", isApproved, asyncRoute(async (req: any, res) 
   res.json(locations);
 }));
 
+router.get("/warehouse/locations/bin/:binId", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const binId = parseInt(req.params.binId);
+  if (isNaN(binId)) return res.status(400).json({ error: 'Invalid binId' });
+  const locs = await db
+    .select({
+      id: inventoryLocations.id,
+      inventoryId: inventoryLocations.inventoryId,
+      itemNo: blInventory.itemNo,
+      itemType: blInventory.itemType,
+      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      colorId: blInventory.colorId,
+      colorName: blColors.name,
+      newOrUsed: blInventory.newOrUsed,
+      myPrice: blInventory.myPrice,
+      quantity: inventoryLocations.quantity,
+      bagLabel: inventoryLocations.bagLabel,
+      notes: inventoryLocations.notes,
+      binId: inventoryLocations.binId,
+    })
+    .from(inventoryLocations)
+    .leftJoin(blInventory, eq(inventoryLocations.inventoryId, blInventory.id))
+    .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+    .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.binId, binId)))
+    .orderBy(blInventory.itemNo, blInventory.colorId);
+  res.json(locs);
+}));
+
 router.get("/warehouse/locations/inventory/:inventoryId", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const inventoryId = parseInt(req.params.inventoryId);

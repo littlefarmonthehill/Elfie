@@ -345,6 +345,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/bins'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/shelves'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations/bin'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/inventory/search'] });
@@ -827,10 +828,29 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const filteredList = getFilteredList();
 
-  // Bin detail: lots stored in the open bin, derived from the already-fetched locations
-  const binDetailLots = binDetailBin
-    ? locations.filter((l: any) => l.binId === binDetailBin.id)
-    : [];
+  // Bin detail: fetch lots for the open bin directly from a dedicated endpoint
+  const { data: binDetailLots = [], isFetching: binDetailFetching } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/locations/bin', binDetailBin?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/warehouse/locations/bin/${binDetailBin!.id}`);
+      if (!res.ok) throw new Error('Failed to load bin lots');
+      return res.json();
+    },
+    enabled: binDetailOpen && !!binDetailBin?.id,
+    staleTime: 15_000,
+  });
+
+  // Pre-fill move quantities once the fresh lot data arrives
+  useEffect(() => {
+    if (!binDetailFetching && binDetailLots.length > 0) {
+      setBinMoveQties(prev => {
+        if (prev.size > 0) return prev; // already set by user, don't overwrite
+        const qMap = new Map<number, string>();
+        binDetailLots.forEach((l: any) => { if (l.quantity != null) qMap.set(l.id, String(l.quantity)); });
+        return qMap;
+      });
+    }
+  }, [binDetailLots, binDetailFetching]);
 
   const resetBinDetail = () => {
     setBinDetailBin(null);
@@ -843,17 +863,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const openBinDetail = (bin: any) => {
-    const lots = locations.filter((l: any) => l.binId === bin.id);
     setBinDetailBin(bin);
     setBinDetailSelected(new Set());
     setBinMoveStep('select');
     setBinMoveType('existing');
     setBinMoveExistingId('');
     setBinMoveNewName('');
-    // Pre-fill quantities from existing location records
-    const qMap = new Map<number, string>();
-    lots.forEach((l: any) => { if (l.quantity != null) qMap.set(l.id, String(l.quantity)); });
-    setBinMoveQties(qMap);
+    setBinMoveQties(new Map());
     setBinDetailOpen(true);
   };
 
@@ -3017,14 +3033,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </DialogTitle>
             <DialogDescription>
               {binMoveStep === 'select'
-                ? `${binDetailLots.length} lot${binDetailLots.length !== 1 ? 's' : ''} in this bin. Select any to move them to another bin.`
+                ? binDetailFetching
+                  ? `${binDetailBin?.itemCount ?? '…'} lot${(binDetailBin?.itemCount ?? 0) !== 1 ? 's' : ''} in this bin — loading…`
+                  : `${binDetailLots.length} lot${binDetailLots.length !== 1 ? 's' : ''} in this bin. Select any to move them to another bin.`
                 : `Moving ${binDetailSelected.size} lot${binDetailSelected.size !== 1 ? 's' : ''} — choose a destination.`}
             </DialogDescription>
           </DialogHeader>
 
           {binMoveStep === 'select' ? (
             <div className="space-y-3">
-              {binDetailLots.length === 0 ? (
+              {binDetailFetching ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Loading lots…</span>
+                </div>
+              ) : binDetailLots.length === 0 ? (
                 <div className="text-center py-6 space-y-3">
                   <p className="text-xs text-muted-foreground italic">This bin is empty.</p>
                   <Button
@@ -3055,19 +3078,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <div className="bg-muted/30 rounded-md p-2 max-h-60 overflow-y-auto space-y-0.5">
                     {binDetailLots.map((loc: any) => {
                       const checked = binDetailSelected.has(loc.id);
+                      const isNew = loc.newOrUsed === 'N';
                       return (
                         <label key={loc.id}
-                          className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer select-none hover-elevate ${checked ? '' : 'opacity-40'}`}>
+                          className={`flex items-center gap-2 px-1.5 py-1.5 rounded cursor-pointer select-none hover-elevate ${checked ? '' : 'opacity-50'}`}>
                           <input type="checkbox" checked={checked} className="h-3.5 w-3.5 rounded shrink-0"
                             onChange={() => setBinDetailSelected(prev => {
                               const next = new Set(prev);
                               next.has(loc.id) ? next.delete(loc.id) : next.add(loc.id);
                               return next;
                             })} />
-                          <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{loc.itemNo}</span>
-                          <span className="text-[11px] text-muted-foreground truncate flex-1">{loc.itemName || '—'}</span>
-                          {loc.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{loc.colorName}</span>}
-                          {checked && (
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-mono text-xs font-semibold shrink-0">{loc.itemNo}</span>
+                              <span className={`text-[9px] font-bold px-1 rounded shrink-0 ${isNew ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                {isNew ? 'N' : 'U'}
+                              </span>
+                              {loc.bagLabel && (
+                                <span className="text-[9px] text-muted-foreground shrink-0">bag {loc.bagLabel}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[10px] text-muted-foreground truncate">{loc.itemName || '—'}</span>
+                              {loc.colorName && <span className="text-[10px] text-muted-foreground/70 shrink-0">· {loc.colorName}</span>}
+                            </div>
+                          </div>
+                          {checked ? (
                             <input
                               type="number"
                               min={1}
@@ -3078,12 +3114,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                                 setBinMoveQties(prev => { const m = new Map(prev); if (v) m.set(loc.id, v); else m.delete(loc.id); return m; });
                               }}
                               onClick={e => e.stopPropagation()}
-                              className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                              className="h-5 w-14 text-[10px] rounded border border-border bg-background px-1 shrink-0"
                               data-testid={`input-move-qty-${loc.id}`}
                             />
-                          )}
-                          {!checked && loc.quantity != null && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">×{loc.quantity}</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                              ×{loc.quantity ?? '?'}
+                            </span>
                           )}
                         </label>
                       );
