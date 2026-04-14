@@ -619,16 +619,25 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // All items that will be assigned: manually added only
   const fillBinToAssign = Array.from(fillBinManualAdds.values());
 
-  // Search results: unassigned lots matching query, not already manually added
-  const fillBinSearchResults = fillBinSearch.trim().length >= 1
-    ? unassignedInventory
-        .filter(item =>
-          !fillBinManualAdds.has(item.id) &&
-          (item.itemNo?.toLowerCase().includes(fillBinSearch.toLowerCase()) ||
-           item.itemName?.toLowerCase().includes(fillBinSearch.toLowerCase()))
-        )
-        .slice(0, 20)
-    : [];
+  // Search results: ranked so exact itemNo match comes first, then prefix/alpha
+  // variants (e.g. "2340pb01" when searching "2340"), then other matches
+  const fillBinSearchResults = (() => {
+    const q = fillBinSearch.trim().toLowerCase();
+    if (!q) return [];
+    const matched = unassignedInventory.filter(item =>
+      !fillBinManualAdds.has(item.id) &&
+      (item.itemNo?.toLowerCase().includes(q) ||
+       item.itemName?.toLowerCase().includes(q))
+    );
+    const rank = (item: any) => {
+      const no = (item.itemNo ?? '').toLowerCase();
+      if (no === q) return 0;           // exact part number match
+      if (no.startsWith(q)) return 1;   // prefix / alpha-variant (e.g. 2340pb01)
+      if (no.includes(q)) return 2;     // part number contains query
+      return 3;                          // name-only match
+    };
+    return matched.sort((a, b) => rank(a) - rank(b)).slice(0, 30);
+  })();
 
   const addFillBinManual = (item: any) => {
     setFillBinManualAdds(prev => new Map(prev).set(item.id, item));
