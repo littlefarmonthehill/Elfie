@@ -705,25 +705,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   /**
-   * Parse a bin name into a numeric range using BrickLink part-number grammar.
-   * Recognises separators: - – — or "to" (case-insensitive).
-   * Strips any non-numeric suffix from each token (mold variant letters like "a","b",
-   * pattern constants like "pb###", assembly codes like "c01") so that
-   * "3245b - 3250" → { from: "3245", to: "3250" }
-   * "973pb - 983"  → { from: "973",  to: "983"  }
+   * Parses a bin name into a range of BrickLink item numbers.
+   * Preserves full item-number tokens including mold variants, pattern constants, and
+   * assembly codes so that alpha ranges work:
+   *   "973pb0100 – 973pb0300" → { from: "973pb0100", to: "973pb0300" }
+   *   "974 – 2335"            → { from: "974",        to: "2335"      }
+   *   "3245b – 3250"          → { from: "3245b",      to: "3250"      }
+   * pb numbers are zero-padded to 4 digits on the way out.
    * Returns null when the name doesn't look like a range (no false positives).
    */
+  const normalizeBLItemNo = (s: string) =>
+    s.trim().toLowerCase().replace(/pb(\d+)/gi, (_, n: string) => `pb${n.padStart(4, '0')}`);
+
   const parseBinRange = (name: string): { from: string; to: string } | null => {
     if (!name) return null;
     const m = name.match(/(\d+[a-zA-Z0-9]*)\s*(?:[-–—]|to)\s*(\d+[a-zA-Z0-9]*)/i);
     if (!m) return null;
-    const fromBase = m[1].match(/^(\d+)/)?.[1];
-    const toBase   = m[2].match(/^(\d+)/)?.[1];
-    if (!fromBase || !toBase) return null;
-    const from = parseInt(fromBase, 10);
-    const to   = parseInt(toBase,   10);
-    if (isNaN(from) || isNaN(to) || from > to) return null;
-    return { from: String(from), to: String(to) };
+    const fromRaw = normalizeBLItemNo(m[1]);
+    const toRaw   = normalizeBLItemNo(m[2]);
+    if (!fromRaw || !toRaw) return null;
+    // Validate ordering: compare numerically for pure-numeric bounds, lexically otherwise
+    const fromNum = parseInt(fromRaw, 10);
+    const toNum   = parseInt(toRaw,   10);
+    const pureNumeric = /^\d+$/.test(fromRaw) && /^\d+$/.test(toRaw);
+    if (pureNumeric && (isNaN(fromNum) || isNaN(toNum) || fromNum > toNum)) return null;
+    if (!pureNumeric && fromRaw > toRaw) return null;
+    return { from: fromRaw, to: toRaw };
   };
 
   /** Open the Fill Bin dialog for a given bin, auto-parsing any range from the bin name. */
@@ -2606,20 +2613,25 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <div className="flex items-center gap-2">
                 <Input
                   type="text"
-                  inputMode="numeric"
-                  placeholder="From  e.g. 974"
+                  inputMode="text"
+                  placeholder="From  e.g. 973pb0100"
                   value={fillBinRangeFrom}
-                  onChange={e => { setFillBinRangeFrom(e.target.value.replace(/\D/g, '')); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
+                  onChange={e => { setFillBinRangeFrom(e.target.value); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
                   className="text-xs flex-1"
                   data-testid="input-fill-bin-range-from"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && fillBinRangeFrom && fillBinRangeTo) {
+                      setFillBinRangeCommitted({ from: fillBinRangeFrom, to: fillBinRangeTo });
+                    }
+                  }}
                 />
                 <span className="text-muted-foreground text-xs shrink-0">–</span>
                 <Input
                   type="text"
-                  inputMode="numeric"
-                  placeholder="To  e.g. 2335"
+                  inputMode="text"
+                  placeholder="To  e.g. 973pb0300"
                   value={fillBinRangeTo}
-                  onChange={e => { setFillBinRangeTo(e.target.value.replace(/\D/g, '')); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
+                  onChange={e => { setFillBinRangeTo(e.target.value); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
                   className="text-xs flex-1"
                   data-testid="input-fill-bin-range-to"
                   onKeyDown={e => {

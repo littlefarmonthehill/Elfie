@@ -424,11 +424,28 @@ router.get("/warehouse/unassigned/search", isApproved, asyncRoute(async (req: an
 
 // Range fill: find unassigned lots whose leading part number falls between `from` and `to`
 // e.g. "974" – "2335" matches 974, 974pb01, 975, 975x01, ..., 2335, 2335a
+/** Zero-pad the pattern-constant number in a BrickLink item_no: 973pb100 → 973pb0100 */
+function normalizeBLItemNo(s: string): string {
+  return s.trim().toLowerCase().replace(/pb(\d+)/gi, (_, n: string) => `pb${n.padStart(4, '0')}`);
+}
+
 router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const fromNum = parseInt(String(req.query.from ?? ''), 10);
-  const toNum   = parseInt(String(req.query.to   ?? ''), 10);
-  if (isNaN(fromNum) || isNaN(toNum) || fromNum > toNum) return res.json([]);
+  const fromNorm = normalizeBLItemNo(String(req.query.from ?? ''));
+  const toNorm   = normalizeBLItemNo(String(req.query.to   ?? ''));
+  if (!fromNorm || !toNorm) return res.json([]);
+
+  const pureNumeric = /^\d+$/.test(fromNorm) && /^\d+$/.test(toNorm);
+  const fromNum = pureNumeric ? parseInt(fromNorm, 10) : NaN;
+  const toNum   = pureNumeric ? parseInt(toNorm,   10) : NaN;
+
+  // Validate ordering
+  if (pureNumeric && (isNaN(fromNum) || isNaN(toNum) || fromNum > toNum)) return res.json([]);
+  if (!pureNumeric && fromNorm > toNorm) return res.json([]);
+
+  const rangeCondition = pureNumeric
+    ? sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`
+    : sql`${blInventory.itemNo} >= ${fromNorm} AND ${blInventory.itemNo} <= ${toNorm}`;
 
   const rows = await db
     .select({
@@ -447,7 +464,7 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
     .where(and(
       eq(blInventory.orgId, orgId),
       sql`${inventoryLocations.id} IS NULL`,
-      sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`
+      rangeCondition
     ))
     .orderBy(
       sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer`,
