@@ -206,6 +206,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [fillBinRangeTo, setFillBinRangeTo] = useState("");
   const [fillBinRangeCommitted, setFillBinRangeCommitted] = useState<{ from: string; to: string } | null>(null);
   const [fillBinRangeSelected, setFillBinRangeSelected] = useState<Set<number>>(new Set());
+  const [fillBinRangeAutoDetected, setFillBinRangeAutoDetected] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedFillBinSearch(fillBinSearch.trim()), 280);
@@ -700,6 +701,42 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setFillBinRangeTo("");
     setFillBinRangeCommitted(null);
     setFillBinRangeSelected(new Set());
+    setFillBinRangeAutoDetected(false);
+  };
+
+  /**
+   * Parse a bin name into a numeric range using BrickLink part-number grammar.
+   * Recognises separators: - – — or "to" (case-insensitive).
+   * Strips any non-numeric suffix from each token (mold variant letters like "a","b",
+   * pattern constants like "pb###", assembly codes like "c01") so that
+   * "3245b - 3250" → { from: "3245", to: "3250" }
+   * "973pb - 983"  → { from: "973",  to: "983"  }
+   * Returns null when the name doesn't look like a range (no false positives).
+   */
+  const parseBinRange = (name: string): { from: string; to: string } | null => {
+    if (!name) return null;
+    const m = name.match(/(\d+[a-zA-Z0-9]*)\s*(?:[-–—]|to)\s*(\d+[a-zA-Z0-9]*)/i);
+    if (!m) return null;
+    const fromBase = m[1].match(/^(\d+)/)?.[1];
+    const toBase   = m[2].match(/^(\d+)/)?.[1];
+    if (!fromBase || !toBase) return null;
+    const from = parseInt(fromBase, 10);
+    const to   = parseInt(toBase,   10);
+    if (isNaN(from) || isNaN(to) || from > to) return null;
+    return { from: String(from), to: String(to) };
+  };
+
+  /** Open the Fill Bin dialog for a given bin, auto-parsing any range from the bin name. */
+  const openFillBin = (binId: string, binName?: string) => {
+    setFillBinTargetId(binId);
+    const parsed = parseBinRange(binName ?? '');
+    if (parsed) {
+      setFillBinRangeFrom(parsed.from);
+      setFillBinRangeTo(parsed.to);
+      setFillBinRangeCommitted(parsed);
+      setFillBinRangeAutoDetected(true);
+    }
+    setFillBinDialogOpen(true);
   };
 
   const addFillBinManualMultiple = (items: any[]) => {
@@ -2558,7 +2595,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
             {/* Range fill — fill by part number range, e.g. 974 – 2335 */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Fill by part number range</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs">Fill by part number range</Label>
+                {fillBinRangeAutoDetected && fillBinRangeCommitted && (
+                  <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-sm">
+                    auto-detected from bin name
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Input
                   type="text"
@@ -2861,8 +2905,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     onClick={() => {
                       setBinDetailOpen(false);
                       resetBinDetail();
-                      setFillBinTargetId(String(binDetailBin?.id ?? ''));
-                      setFillBinDialogOpen(true);
+                      openFillBin(String(binDetailBin?.id ?? ''), binDetailBin?.name);
                     }}
                     data-testid="button-bin-add-items-empty"
                   >
@@ -2924,8 +2967,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       onClick={() => {
                         setBinDetailOpen(false);
                         resetBinDetail();
-                        setFillBinTargetId(String(binDetailBin?.id ?? ''));
-                        setFillBinDialogOpen(true);
+                        openFillBin(String(binDetailBin?.id ?? ''), binDetailBin?.name);
                       }}
                       data-testid="button-bin-add-items"
                     >
