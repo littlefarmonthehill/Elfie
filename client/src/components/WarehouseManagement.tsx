@@ -134,7 +134,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkShelfId, setBulkShelfId] = useState<string>("");
   const [bulkAisleId, setBulkAisleId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [lotsSearchSubmitted, setLotsSearchSubmitted] = useState<string>("");
+  const [lotsRangeFrom, setLotsRangeFrom] = useState<string>("");
+  const [lotsRangeTo, setLotsRangeTo] = useState<string>("");
+  const [lotsRangeCommitted, setLotsRangeCommitted] = useState<{ from: string; to: string } | null>(null);
   const [showDepthSetup, setShowDepthSetup] = useState(false);
 
   // Zone filter & CRUD state
@@ -146,11 +149,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [newZoneName, setNewZoneName] = useState('');
   const [newZoneDesc, setNewZoneDesc] = useState('');
   const [newZoneDepth, setNewZoneDepth] = useState(3);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 280);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
 
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
@@ -269,17 +267,31 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: inventoryStats } = useQuery<any>({ queryKey: ['/api/inventory/stats'] });
   const { data: locations = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/locations'] });
 
-  // Server-side search — fires when there's a debounced query, bypasses the pre-load limit
+  // Server-side search — fires when user explicitly submits a search query
   const { data: serverSearchResults = [], isFetching: serverSearchLoading } = useQuery<any[]>({
-    queryKey: ['/api/warehouse/inventory/search', debouncedSearch],
+    queryKey: ['/api/warehouse/inventory/search', lotsSearchSubmitted],
     queryFn: async ({ queryKey }) => {
       const q = queryKey[1] as string;
       const res = await fetch(`/api/warehouse/inventory/search?q=${encodeURIComponent(q)}`);
       if (!res.ok) throw new Error('Search failed');
       return res.json();
     },
-    enabled: debouncedSearch.length > 0,
+    enabled: lotsSearchSubmitted.length > 0,
     staleTime: 30_000,
+  });
+
+  // Lots view range search — same unassigned-range endpoint as fill-bin, keyed separately
+  const { data: lotsRangeResults = [], isFetching: lotsRangeFetching } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/unassigned/range', lotsRangeCommitted, 'lots-view'],
+    queryFn: async ({ queryKey }) => {
+      const range = queryKey[1] as { from: string; to: string } | null;
+      if (!range) return [];
+      const res = await fetch(`/api/warehouse/unassigned/range?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
+      if (!res.ok) throw new Error('Range search failed');
+      return res.json();
+    },
+    enabled: !!lotsRangeCommitted,
+    staleTime: 10_000,
   });
 
   // Fill Bin search — server-side to bypass 2000-row preload cap
@@ -623,6 +635,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       ));
       toast({ title: `${count} lot${count !== 1 ? 's' : ''} assigned` });
       setSelectedItems(new Set()); setBulkBinId("");
+      setLotsRangeCommitted(null); setLotsSearchSubmitted(""); setSearchQuery("");
     } else if (activeView === 'bins' && bulkShelfId) {
       const shelfId = parseInt(bulkShelfId);
       await Promise.all(Array.from(selectedItems).map(binId =>
@@ -779,38 +792,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const getFilteredList = () => {
     if (!activeView) return [];
     if (activeView === 'lots') {
-      // When a search query is active, use server-side results (covers full inventory, not just the pre-loaded 2000)
-      if (debouncedSearch.length > 0) {
-        let items = serverSearchResults.map((item: any) => ({
-          ...item,
-          binNames: [],
-          locationCount: 0,
-        }));
-        if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
-        if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
-        // Preserve server-returned order: bucket 1 (itemNo prefix matches) always before bucket 2 (name matches)
-        return items;
-      }
+      // Nothing shown until user explicitly submits a search or range
+      if (!lotsSearchSubmitted) return [];
 
-      // No search — use the pre-loaded assigned + unassigned data
-      // Group all locations per inventory item (multi-location aware)
-      const assignedMap = new Map<number, any>();
-      locations.forEach((loc: any) => {
-        if (!assignedMap.has(loc.inventoryId)) {
-          assignedMap.set(loc.inventoryId, {
-            id: loc.inventoryId, itemNo: loc.itemNo, itemType: loc.itemType, itemName: loc.itemName,
-            colorName: loc.colorName, newOrUsed: loc.newOrUsed,
-            binNames: [], locationCount: 0, assigned: true,
-          });
-        }
-        const entry = assignedMap.get(loc.inventoryId)!;
-        entry.locationCount += 1;
-        if (loc.binName) entry.binNames.push(loc.binName);
-      });
-      const assigned = Array.from(assignedMap.values());
-      const unassigned = unassignedInventory.map((item: any) => ({ ...item, assigned: false }));
-      let items = filter === 'assigned' ? assigned : filter === 'unassigned' ? unassigned : [...assigned, ...unassigned];
-      return items.sort(alphaNumericSort);
+      // Search submitted — show server results (all lots, assigned + unassigned)
+      let items = serverSearchResults.map((item: any) => ({
+        ...item,
+        binNames: [],
+        locationCount: 0,
+      }));
+      if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
+      if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
+      return items;
     }
     if (activeView === 'bins') {
       const assigned = bins.filter((b: any) => b.shelfId).map((b: any) => ({ ...b, assigned: true }));
@@ -1759,18 +1752,137 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )}
           </div>
 
-          {/* Search (lots only) */}
+          {/* Search + range fill (lots only) */}
           {activeView === 'lots' && (
-            <div className="relative mb-3">
-              <Input
-                placeholder="Search by part number or name…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="text-xs pr-7"
-                data-testid="input-search-lots"
-              />
-              {serverSearchLoading && (
-                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            <div className="space-y-2 mb-3">
+              {/* Text search — explicit submit */}
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Search by part number or name…"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="text-xs pr-7"
+                    data-testid="input-search-lots"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && searchQuery.trim()) {
+                        setLotsSearchSubmitted(searchQuery.trim());
+                        setLotsRangeCommitted(null);
+                        setSelectedItems(new Set());
+                      }
+                    }}
+                  />
+                  {serverSearchLoading && lotsSearchSubmitted && (
+                    <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!searchQuery.trim()}
+                  onClick={() => { setLotsSearchSubmitted(searchQuery.trim()); setLotsRangeCommitted(null); setSelectedItems(new Set()); }}
+                  data-testid="button-search-lots-submit"
+                >
+                  Search
+                </Button>
+              </div>
+
+              {/* Range fill */}
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="text"
+                  inputMode="text"
+                  placeholder="From (e.g. bb0001)"
+                  value={lotsRangeFrom}
+                  onChange={e => { setLotsRangeFrom(e.target.value); setLotsRangeCommitted(null); }}
+                  className="text-xs flex-1"
+                  data-testid="input-lots-range-from"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && lotsRangeFrom.trim() && lotsRangeTo.trim()) {
+                      setLotsSearchSubmitted(''); setSearchQuery('');
+                      setLotsRangeCommitted({ from: normalizeBLItemNo(lotsRangeFrom), to: normalizeBLItemNo(lotsRangeTo) });
+                      setSelectedItems(new Set());
+                    }
+                  }}
+                />
+                <span className="text-muted-foreground text-xs shrink-0">–</span>
+                <Input
+                  type="text"
+                  inputMode="text"
+                  placeholder="To (e.g. bb9999)"
+                  value={lotsRangeTo}
+                  onChange={e => { setLotsRangeTo(e.target.value); setLotsRangeCommitted(null); }}
+                  className="text-xs flex-1"
+                  data-testid="input-lots-range-to"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && lotsRangeFrom.trim() && lotsRangeTo.trim()) {
+                      setLotsSearchSubmitted(''); setSearchQuery('');
+                      setLotsRangeCommitted({ from: normalizeBLItemNo(lotsRangeFrom), to: normalizeBLItemNo(lotsRangeTo) });
+                      setSelectedItems(new Set());
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!lotsRangeFrom.trim() || !lotsRangeTo.trim() || lotsRangeFetching}
+                  onClick={() => {
+                    setLotsSearchSubmitted(''); setSearchQuery('');
+                    setLotsRangeCommitted({ from: normalizeBLItemNo(lotsRangeFrom), to: normalizeBLItemNo(lotsRangeTo) });
+                    setSelectedItems(new Set());
+                  }}
+                  data-testid="button-lots-range-find"
+                >
+                  {lotsRangeFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Find'}
+                </Button>
+              </div>
+
+              {/* Range results */}
+              {lotsRangeCommitted && !lotsRangeFetching && (
+                <div className="space-y-1">
+                  {lotsRangeResults.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground px-1">No unassigned lots in range {lotsRangeCommitted.from}–{lotsRangeCommitted.to}.</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2 px-0.5">
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">{lotsRangeResults.length}</span> unassigned lot{lotsRangeResults.length !== 1 ? 's' : ''} in range
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <button
+                            className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+                            onClick={() => setSelectedItems(prev => { const next = new Set(prev); lotsRangeResults.forEach((i: any) => next.add(i.id)); return next; })}
+                          >select all</button>
+                          <button
+                            className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+                            onClick={() => setSelectedItems(prev => { const next = new Set(prev); lotsRangeResults.forEach((i: any) => next.delete(i.id)); return next; })}
+                          >none</button>
+                        </div>
+                      </div>
+                      <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
+                        {lotsRangeResults.map((item: any) => (
+                          <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`lots-range-item-${item.id}`}>
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.has(item.id)}
+                              onChange={() => toggleItemSelection(item.id)}
+                              className="h-3.5 w-3.5 rounded shrink-0"
+                            />
+                            <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                            <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                            {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                            {item.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{item.quantity}</span>}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {lotsRangeCommitted && lotsRangeFetching && (
+                <p className="text-[10px] text-muted-foreground px-1 flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />Searching range…
+                </p>
               )}
             </div>
           )}
@@ -1925,14 +2037,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* Item list */}
           <div className="space-y-1 max-h-[calc(100dvh-360px)] min-h-[200px] overflow-y-auto">
-            {activeView === 'lots' && debouncedSearch.length > 0 && serverSearchLoading ? (
+            {activeView === 'lots' && lotsSearchSubmitted.length > 0 && serverSearchLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-xs">Searching…</span>
               </div>
             ) : filteredList.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-8">
-                {activeView === 'lots' && debouncedSearch.length > 0 ? `No lots matching "${debouncedSearch}".` : activeView === 'lots' && filter === 'unassigned' ? "All lots are assigned — great job!" : "Nothing here yet."}
+                {activeView === 'lots' && !lotsSearchSubmitted && !lotsRangeCommitted
+                  ? "Search by part number above, or use the range fields to find unassigned lots."
+                  : activeView === 'lots' && lotsSearchSubmitted
+                  ? `No lots matching "${lotsSearchSubmitted}".`
+                  : "Nothing here yet."}
               </p>
             ) : filteredList.map((item: any) => (
               <div
