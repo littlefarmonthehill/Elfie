@@ -445,7 +445,7 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
 
   const rangeCondition = pureNumeric
     ? sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`
-    : sql`${blInventory.itemNo} >= ${fromNorm} AND ${blInventory.itemNo} <= ${toNorm}`;
+    : sql`LOWER(${blInventory.itemNo}) >= ${fromNorm} AND LOWER(${blInventory.itemNo}) <= ${toNorm}`;
 
   const rows = await db
     .select({
