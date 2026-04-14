@@ -1251,15 +1251,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
         if (printLabelSize === 'avery5163') {
           // ── Three-box layout: [Aisle] [Shelf] [Bin] each with label below ──
-          const boxContentPt = 34;
+          const boxContentPt = 42;  // large + chunky
           const boxLabelPt   = 9;
-          const boxContentH  = (boxContentPt * 0.72) / 72;
-          const boxLabelH    = (boxLabelPt   * 0.72) / 72;
-          const boxPadH      = 0.08;
-          const boxPadV      = 0.05;
-          const boxH         = boxContentH + 2 * boxPadV;
-          const boxGap       = 0.07;
-          const labelGap     = 0.04;
+          // Box height = 110% of em — gives natural padding above/below glyphs
+          const boxH         = (boxContentPt / 72) * 1.15;
+          const boxLabelH    = (boxLabelPt / 72) * 0.72;
+          const boxPadH      = 0.09;  // horizontal padding inside each box
+          const boxGap       = 0.07;  // gap between boxes
+          const labelGap     = 0.038;
           const totalBlockH  = boxH + labelGap + boxLabelH;
           const blockTop     = cardY + (cardH - totalBlockH) / 2;
 
@@ -1268,6 +1267,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           const shelfId  = String(item.shelfName  ?? '?');
           const binId    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
 
+          // Measure with font set so getTextWidth is accurate
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(boxContentPt);
 
@@ -1277,35 +1277,49 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             { id: binId,   caption: 'Bin'   },
           ];
 
-          // Measure each box width from content
-          const widths = segments.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
+          const widths      = segments.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
           const totalBoxesW = widths.reduce((a, b) => a + b, 0) + boxGap * (segments.length - 1);
 
-          // Left-align the three boxes within the text column
+          // Centre the three boxes as a group within the text column
           let curX = textX + Math.max(0, (textMaxW - totalBoxesW) / 2);
 
           segments.forEach((seg, i) => {
-            const bw = widths[i];
+            const bw       = widths[i];
             const contentW = doc.getTextWidth(seg.id);
 
-            // Shaded rounded box
-            doc.setLineWidth(0.018);
+            // 1. Draw shaded box
+            doc.setLineWidth(0.02);
             doc.setDrawColor(0, 0, 0);
             doc.setFillColor(232, 232, 232);
             doc.roundedRect(curX, blockTop, bw, boxH, 0.028, 0.028, 'FD');
 
-            // Identifier centred inside box
+            // 2. Draw identifier with fill+stroke for chunky weight.
+            //    baseline:'middle' + y=boxCentre gives pixel-perfect vertical centering
+            //    regardless of font metrics approximations.
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(boxContentPt);
             doc.setTextColor(0, 0, 0);
-            doc.text(seg.id, curX + (bw - contentW) / 2, blockTop + (boxH - boxContentH) / 2, { baseline: 'top' });
+            doc.setLineWidth(0.007);   // thin stroke adds visual weight
+            doc.setDrawColor(0, 0, 0);
+            doc.text(
+              seg.id,
+              curX + (bw - contentW) / 2,
+              blockTop + boxH / 2,
+              { baseline: 'middle', renderingMode: 'fillThenStroke' }
+            );
 
-            // Caption centred below box
+            // 3. Caption centred below box (plain, no stroke)
+            doc.setLineWidth(0.001);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(boxLabelPt);
             doc.setTextColor(80, 80, 80);
             const capW = doc.getTextWidth(seg.caption);
-            doc.text(seg.caption, curX + (bw - capW) / 2, blockTop + boxH + labelGap, { baseline: 'top' });
+            doc.text(
+              seg.caption,
+              curX + (bw - capW) / 2,
+              blockTop + boxH + labelGap,
+              { baseline: 'top', renderingMode: 'fill' }
+            );
 
             curX += bw + boxGap;
           });
