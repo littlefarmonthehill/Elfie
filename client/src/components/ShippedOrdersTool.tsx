@@ -621,9 +621,25 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               );
             };
 
-            const visibleNotDelivered = hideNoTracking
+            const TRACKING_STATUS_RANK: Record<string, number> = {
+              return_to_sender: 0,
+              failure: 0,
+              error: 0,
+              cancelled: 0,
+              pre_transit: 1,
+              unknown: 1,
+              in_transit: 2,
+              available_for_pickup: 3,
+              out_for_delivery: 4,
+            };
+            const trackingRank = (o: ShippedOrder) => {
+              if (!o.trackingStatus) return 1;
+              return TRACKING_STATUS_RANK[o.trackingStatus] ?? 1;
+            };
+            const visibleNotDelivered = (hideNoTracking
               ? notDelivered.filter(o => !!o.trackingNumber)
-              : notDelivered;
+              : notDelivered
+            ).slice().sort((a, b) => trackingRank(a) - trackingRank(b));
 
             return (
               <div className="space-y-3">
