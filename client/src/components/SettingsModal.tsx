@@ -4248,6 +4248,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   // Manual sync state for Automation tab
   const [syncingPomTrigger, setSyncingPomTrigger] = useState(false);
   const [syncingRebrickable, setSyncingRebrickable] = useState(false);
+  const [syncingPartRel, setSyncingPartRel] = useState(false);
 
   const { data: pomLiveStatus } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/sync/priceomatic/status'],
@@ -8301,6 +8302,57 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Part Relationships Sync */}
+                <div className="bg-card/40 border border-white/5 rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-gray-200">Part Relationships</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-300">
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" className="sm-popover-lg">
+                            <p className="font-semibold text-gray-200">Rebrickable Part Relationships Sync</p>
+                            <p className="text-gray-400">Downloads Rebrickable's part-to-part relationship data (~60–80k rows). Powers the "Alt" badge in inventory search — when you search for a part number, lots matching Rebrickable Alternate parts appear automatically.</p>
+                            <p className="sm-description">Run once to populate. Force-rebuild truncates and re-downloads from scratch.</p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Enables alternate-part matching in inventory searches</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={syncingPartRel}
+                      onClick={() => runManualSync('/api/sync/rebrickable/part-relationships', setSyncingPartRel, 'PartRel', undefined, 'Part relationships sync started', 'Downloading data in the background — this may take a minute.')}
+                      title="Run part relationships sync now"
+                      data-testid="button-run-part-rel-sync"
+                    >
+                      {syncingPartRel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <Label className="text-xs text-gray-200">Force full rebuild</Label>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Truncates and re-downloads from scratch</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={syncingPartRel}
+                      onClick={() => runManualSync('/api/sync/rebrickable/part-relationships', setSyncingPartRel, 'PartRel', { force: true }, 'Rebuilding part relationships', 'Full rebuild started in background.')}
+                      className="border-orange-500/40 text-orange-400 hover:text-orange-300 shrink-0"
+                      data-testid="button-part-rel-force-rebuild"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                      Force Rebuild
+                    </Button>
+                  </div>
                 </div>
 
               </div>
