@@ -1267,34 +1267,59 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           const textAreaW = cardW_mm - qrSizeMm - pad_mm * 3.5;
           const centerY = y + cardH_mm / 2;
 
-          // Render item name (large, bold)
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(namePt);
-          doc.setTextColor(0, 0, 0);
-
           const nameStr = item.name;
           const subStr = sub || '';
           const hasSubtext = subStr.length > 0;
 
-          // Vertical positioning: centre the text block
-          // Name line height in mm (approximate: pt * 0.353 mm/pt)
-          const nameLineH = namePt * 0.353;
-          const subLineH = subPt * 0.353;
-          const blockH = hasSubtext ? nameLineH + subLineH * 1.4 : nameLineH;
-          const nameY = centerY - blockH / 2 + nameLineH * 0.85;
+          // Render text via canvas so we get full browser font rendering
+          // (Arial Black weight-900, identical to the original HTML labels)
+          const renderTextPng = (text: string, fontStr: string, color: string, maxWidthPx: number): { dataUrl: string; wPx: number; hPx: number } => {
+            const scale = 3; // render at 3× for sharpness
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d')!;
+            ctx.font = fontStr;
+            const measured = ctx.measureText(text).width;
+            const wPx = Math.min(Math.ceil(measured), maxWidthPx);
+            const fontSize = parseInt(fontStr);
+            const hPx = Math.ceil(fontSize * 1.35);
+            canvas.width = wPx * scale;
+            canvas.height = hPx * scale;
+            ctx.scale(scale, scale);
+            ctx.font = fontStr;
+            ctx.fillStyle = color;
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(text, 0, fontSize, maxWidthPx);
+            return { dataUrl: canvas.toDataURL('image/png'), wPx, hPx };
+          };
 
-          // Clip text to fit within textAreaW
-          const nameText = doc.splitTextToSize(nameStr, textAreaW)[0] ?? nameStr;
-          doc.text(nameText, textX, nameY);
+          // px-per-mm at 96 DPI: 1mm = 3.7795px
+          const mmToPx = (mm: number) => mm * 3.7795;
+          const pxToMm = (px: number) => px / 3.7795;
 
-          // Render sub-label (smaller, normal)
+          const nameFontPx = Math.round(namePt * 1.333); // pt → px
+          const subFontPx  = Math.round(subPt  * 1.333);
+          const maxTextWPx = Math.round(mmToPx(textAreaW));
+
+          const nameImg = renderTextPng(nameStr, `900 ${nameFontPx}px 'Arial Black', 'Arial Bold', Arial, sans-serif`, '#000000', maxTextWPx);
+          const nameWmm = pxToMm(nameImg.wPx);
+          const nameHmm = pxToMm(nameImg.hPx);
+
+          let subImg: { dataUrl: string; wPx: number; hPx: number } | null = null;
+          let subHmm = 0;
           if (hasSubtext) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(subPt);
-            doc.setTextColor(60, 60, 60);
-            const subY = nameY + nameLineH * 0.6 + subLineH;
-            const subText = doc.splitTextToSize(subStr, textAreaW)[0] ?? subStr;
-            doc.text(subText, textX, subY);
+            subImg = renderTextPng(subStr, `700 ${subFontPx}px 'Arial Black', Arial, sans-serif`, '#333333', maxTextWPx);
+            subHmm = pxToMm(subImg.hPx);
+          }
+
+          const gap_mm = 1.5;
+          const blockH = nameHmm + (hasSubtext ? gap_mm + subHmm : 0);
+          const blockTopY = centerY - blockH / 2;
+
+          doc.addImage(nameImg.dataUrl, 'PNG', textX, blockTopY, nameWmm, nameHmm);
+
+          if (subImg && hasSubtext) {
+            const subWmm = pxToMm(subImg.wPx);
+            doc.addImage(subImg.dataUrl, 'PNG', textX, blockTopY + nameHmm + gap_mm, subWmm, subHmm);
           }
         });
       }
