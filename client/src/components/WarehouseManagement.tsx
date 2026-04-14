@@ -1274,13 +1274,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const boxPadV = 0.044; // vertical padding inside box
         doc.setLineWidth(0.024); // thick border ≈ 1.7 pt
         doc.setDrawColor(0, 0, 0);
+        doc.setFillColor(232, 232, 232); // light gray shade
         doc.roundedRect(
           textX - boxPadH,
           nameY - boxPadV,
           nameW + 2 * boxPadH,
           nameLineH + 2 * boxPadV,
           0.032, 0.032,
-          'S'
+          'FD' // fill + stroke
         );
         doc.text(displayName, textX, nameY, { baseline: 'top' });
 
