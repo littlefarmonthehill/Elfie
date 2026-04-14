@@ -152,6 +152,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFillBinSearch(fillBinSearch.trim()), 280);
+    return () => clearTimeout(t);
+  }, [fillBinSearch]);
+
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -199,6 +204,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [fillBinManualAdds, setFillBinManualAdds] = useState<Map<number, any>>(new Map());
   const [fillBinSearch, setFillBinSearch] = useState("");
   const [fillBinSearchSelected, setFillBinSearchSelected] = useState<Set<number>>(new Set());
+  const [debouncedFillBinSearch, setDebouncedFillBinSearch] = useState("");
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
 
@@ -271,6 +277,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     staleTime: 30_000,
   });
 
+  // Fill Bin search — server-side to bypass 2000-row preload cap
+  const { data: fillBinServerResults = [], isFetching: fillBinSearchLoading } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/unassigned/search', debouncedFillBinSearch],
+    queryFn: async ({ queryKey }) => {
+      const q = queryKey[1] as string;
+      const res = await fetch(`/api/warehouse/unassigned/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error('Search failed');
+      return res.json();
+    },
+    enabled: debouncedFillBinSearch.length > 0,
+    staleTime: 10_000,
+  });
+
   // Fetch all locations for the selected lot
   const { data: lotLocations = [], isLoading: lotLocationsLoading } = useQuery<any[]>({
     queryKey: ['/api/warehouse/locations/inventory', selectedLot?.id],
@@ -298,6 +317,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/inventory/search'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/search'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
   };
 
@@ -619,25 +639,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // All items that will be assigned: manually added only
   const fillBinToAssign = Array.from(fillBinManualAdds.values());
 
-  // Search results: ranked so exact itemNo match comes first, then prefix/alpha
-  // variants (e.g. "2340pb01" when searching "2340"), then other matches
-  const fillBinSearchResults = (() => {
-    const q = fillBinSearch.trim().toLowerCase();
-    if (!q) return [];
-    const matched = unassignedInventory.filter(item =>
-      !fillBinManualAdds.has(item.id) &&
-      (item.itemNo?.toLowerCase().includes(q) ||
-       item.itemName?.toLowerCase().includes(q))
-    );
-    const rank = (item: any) => {
-      const no = (item.itemNo ?? '').toLowerCase();
-      if (no === q) return 0;           // exact part number match
-      if (no.startsWith(q)) return 1;   // prefix / alpha-variant (e.g. 2340pb01)
-      if (no.includes(q)) return 2;     // part number contains query
-      return 3;                          // name-only match
-    };
-    return matched.sort((a, b) => rank(a) - rank(b)).slice(0, 30);
-  })();
+  // Search results come from the server (bypasses the 2000-row preload cap)
+  // Filter out anything already manually added
+  const fillBinSearchResults = fillBinServerResults.filter(
+    (item: any) => !fillBinManualAdds.has(item.id)
+  );
 
   const addFillBinManual = (item: any) => {
     setFillBinManualAdds(prev => new Map(prev).set(item.id, item));
@@ -2595,7 +2601,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </div>
                 </div>
               )}
-              {fillBinSearch.trim().length >= 1 && fillBinSearchResults.length === 0 && (
+              {fillBinSearch.trim().length >= 1 && fillBinSearchLoading && (
+                <p className="text-[10px] text-muted-foreground px-1 flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />Searching…
+                </p>
+              )}
+              {fillBinSearch.trim().length >= 1 && !fillBinSearchLoading && fillBinSearchResults.length === 0 && (
                 <p className="text-[10px] text-muted-foreground px-1">No unassigned lots match — part may already be added or already assigned.</p>
               )}
             </div>

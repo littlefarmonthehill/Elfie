@@ -381,6 +381,47 @@ router.get("/warehouse/unassigned/inventory", isApproved, asyncRoute(async (req:
   res.json(unassignedItems);
 }));
 
+// Search unassigned inventory by part number or name — bypasses the 2000-row preload cap
+router.get("/warehouse/unassigned/search", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const q = String(req.query.q ?? '').trim();
+  if (!q) return res.json([]);
+
+  const rows = await db
+    .select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      itemType: blInventory.itemType,
+      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      colorName: blColors.name,
+      newOrUsed: blInventory.newOrUsed,
+      quantity: blInventory.quantity,
+    })
+    .from(blInventory)
+    .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+    .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+    .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+    .where(and(
+      eq(blInventory.orgId, orgId),
+      sql`${inventoryLocations.id} IS NULL`,
+      sql`(${blInventory.itemNo} ILIKE ${'%' + q + '%'} OR COALESCE(
+        (SELECT item_name FROM bl_catalog WHERE item_no = ${blInventory.itemNo} AND item_type = ${blInventory.itemType} LIMIT 1),
+        (SELECT item_name FROM price_guide_cache WHERE item_no = ${blInventory.itemNo} AND item_type = ${blInventory.itemType} AND item_name IS NOT NULL LIMIT 1)
+      ) ILIKE ${'%' + q + '%'})`
+    ))
+    .orderBy(
+      sql`CASE
+        WHEN LOWER(${blInventory.itemNo}) = LOWER(${q}) THEN 0
+        WHEN LOWER(${blInventory.itemNo}) LIKE LOWER(${q + '%'}) THEN 1
+        WHEN LOWER(${blInventory.itemNo}) LIKE LOWER(${'%' + q + '%'}) THEN 2
+        ELSE 3
+      END`,
+      asc(blInventory.itemNo)
+    )
+    .limit(30);
+  res.json(rows);
+}));
+
 router.get("/warehouse/unassigned/bins", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const unassignedBins = await db
