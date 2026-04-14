@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import jsPDF from "jspdf";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -1210,89 +1211,93 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     // QR image size in inches (template stores px at 96 dpi)
     const qrIn = tmpl.qr / 96;
 
-    // Pre-fetch every QR code as a base64 data-URL so jsPDF can embed it
-    const qrDataUrls: string[] = await Promise.all(
-      printItems.map(async (item: any) => {
-        const qrData = getLabelQrData(item);
-        const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-        const res  = await fetch(url);
-        const blob = await res.blob();
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      })
-    );
+    try {
+      // Pre-fetch every QR code as a base64 data-URL so jsPDF can embed it
+      const qrDataUrls: string[] = await Promise.all(
+        printItems.map(async (item: any) => {
+          const qrData = getLabelQrData(item);
+          const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+          const res  = await fetch(url);
+          const blob = await res.blob();
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        })
+      );
 
-    const { default: jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [8.5, 11] });
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [8.5, 11] });
 
-    // Font sizes (pt) per template — 1pt = 1/72 inch, same physical unit as CSS pt.
-    // avery5163 uses 44pt name to match the visual weight of the previous HTML approach.
-    const fontPt: Record<string, { name: number; sub: number }> = {
-      avery5163: { name: 44, sub: 16 },
-      avery5160: { name: 13, sub:  8 },
-      avery5164: { name: 46, sub: 17 },
-    };
-    const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
+      // Font sizes (pt) per template — 1pt = 1/72 inch, same physical unit as CSS pt.
+      const fontPt: Record<string, { name: number; sub: number }> = {
+        avery5163: { name: 44, sub: 16 },
+        avery5160: { name: 13, sub:  8 },
+        avery5164: { name: 46, sub: 17 },
+      };
+      const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
 
-    // Approximate cap-height in inches (pt × 0.72 ÷ 72  — Helvetica cap height ≈ 72% of em)
-    const nameLineH = (namePt * 0.72) / 72;
-    const subLineH  = (subPt  * 0.72) / 72;
-    const lineGap   = 0.06;
+      // Cap-height in inches (Helvetica cap height ≈ 72% of em; 1em = pt/72 in)
+      const nameLineH = (namePt * 0.72) / 72;
+      const subLineH  = (subPt  * 0.72) / 72;
+      const lineGap   = 0.06;
 
-    printItems.forEach((item: any, globalIdx: number) => {
-      const idxOnPage = globalIdx % perSheet;
-      const row = Math.floor(idxOnPage / cols);
-      const col = idxOnPage % cols;
+      printItems.forEach((item: any, globalIdx: number) => {
+        const idxOnPage = globalIdx % perSheet;
+        const row = Math.floor(idxOnPage / cols);
+        const col = idxOnPage % cols;
 
-      if (globalIdx > 0 && idxOnPage === 0) doc.addPage([8.5, 11], 'portrait');
+        if (globalIdx > 0 && idxOnPage === 0) doc.addPage([8.5, 11], 'portrait');
 
-      const cardX = marginH + col * (cardW + colGap);
-      const cardY = marginV + row * (cardH + rowPitch);
+        const cardX = marginH + col * (cardW + colGap);
+        const cardY = marginV + row * (cardH + rowPitch);
 
-      // QR — vertically centred, small left inset
-      const qrX = cardX + 0.07;
-      const qrY = cardY + (cardH - qrIn) / 2;
-      doc.addImage(qrDataUrls[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
+        // QR — vertically centred, small left inset
+        const qrX = cardX + 0.07;
+        const qrY = cardY + (cardH - qrIn) / 2;
+        doc.addImage(qrDataUrls[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
 
-      // Text column starts after QR
-      const textX   = qrX + qrIn + 0.14;
-      const textMaxW = cardX + cardW - textX - 0.06;
+        // Text column starts after QR
+        const textX    = qrX + qrIn + 0.14;
+        const textMaxW = cardX + cardW - textX - 0.06;
 
-      const sub = getLabelSubtext(item);
-      const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
-      const nameY = cardY + (cardH - totalTextH) / 2;
+        const sub = getLabelSubtext(item);
+        const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
+        const nameY = cardY + (cardH - totalTextH) / 2;
 
-      // Name
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(namePt);
-      doc.setTextColor(0, 0, 0);
-      const nameLines = doc.splitTextToSize(item.name, textMaxW);
-      doc.text(nameLines[0], textX, nameY, { baseline: 'top' });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(namePt);
+        doc.setTextColor(0, 0, 0);
+        const nameLines = doc.splitTextToSize(item.name, textMaxW);
+        doc.text(nameLines[0], textX, nameY, { baseline: 'top' });
 
-      // Sub text
-      if (sub) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(subPt);
-        doc.setTextColor(70, 70, 70);
-        const subY = nameY + nameLineH + lineGap;
-        doc.text(sub.replace(/→/g, '>'), textX, subY, { baseline: 'top' });
+        if (sub) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(subPt);
+          doc.setTextColor(70, 70, 70);
+          doc.text(sub.replace(/→/g, '>'), textX, nameY + nameLineH + lineGap, { baseline: 'top' });
+        }
+      });
+
+      // Use a data URI — more reliable than blob URLs on iOS Safari for
+      // navigating an already-open window to a PDF.
+      const dataUri = doc.output('datauristring');
+      if (pdfWin) {
+        pdfWin.location.href = dataUri;
+      } else {
+        window.open(dataUri, '_blank');
       }
-    });
-
-    // Navigate the already-open window to the PDF blob URL.
-    // On iOS Safari the PDF viewer appears immediately; tap Share → Print → AirPrint.
-    const blob    = doc.output('blob');
-    const blobUrl = URL.createObjectURL(blob);
-    if (pdfWin) {
-      pdfWin.location.href = blobUrl;
-    } else {
-      // Fallback: if the window was blocked, try opening directly
-      window.open(blobUrl, '_blank');
+    } catch (err: any) {
+      // Show the error inside the already-open window so it's visible
+      if (pdfWin) {
+        pdfWin.document.open();
+        pdfWin.document.write(`<html><body style="font-family:sans-serif;padding:24px;color:#c00;">
+          <h2>Label generation failed</h2><pre>${String(err?.message ?? err)}</pre>
+        </body></html>`);
+        pdfWin.document.close();
+      }
     }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 300_000);
   };
 
   return (
