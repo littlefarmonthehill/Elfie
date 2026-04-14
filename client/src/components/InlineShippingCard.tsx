@@ -432,8 +432,10 @@ export default function InlineShippingCard({
   const fetchRates = async (
     address: ShipAddress, w: string, wu: string,
     pkg: string, l: string, w_: string, h: string,
-    requestedService: string | null = summary?.requestedService ?? null
+    requestedService: string | null = summary?.requestedService ?? null,
+    overrideAsLetter?: boolean
   ) => {
+    const asLetter = overrideAsLetter ?? declareAsLetter;
     setIsLoadingRates(true);
     setRatesError(null);
     setRates([]);
@@ -452,7 +454,7 @@ export default function InlineShippingCard({
         parcel: buildParcel(pkg, l, w_, h, w, wu),
         overrideToAddress: address,
         customsDescription,
-        ...(declareAsLetter ? { contentsType: 'documents' } : {}),
+        ...(asLetter ? { contentsType: 'documents' } : {}),
       });
       setShipmentId(result.shipmentId);
       setAddrChanges(result.addressNormalization?.changes ?? []);
@@ -979,10 +981,11 @@ export default function InlineShippingCard({
                   type="checkbox"
                   checked={declareAsLetter}
                   onChange={e => {
-                    setDeclareAsLetter(e.target.checked);
-                    setRates([]);
-                    setSelectedRateId(null);
-                    setShipmentId(null);
+                    const checked = e.target.checked;
+                    setDeclareAsLetter(checked);
+                    if (currentAddress) {
+                      fetchRates(currentAddress, weight, weightUnits, packageType, dimL, dimW, dimH, summary?.requestedService ?? null, checked);
+                    }
                   }}
                   className="w-3.5 h-3.5 accent-blue-500"
                   data-testid={`checkbox-declare-as-letter-${orderId}`}
