@@ -431,6 +431,36 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-12: part_relationships table creation (non-fatal):', prErr.message);
     }
 
+    // 4a-fix-13. Ensure channel_lot_links has a primary key on (bl_inv_id, org_id, channel).
+    // Production may have the table without the composite PK, causing "no unique constraint" errors
+    // when the BrickOwl sync tries to do ON CONFLICT upserts.
+    try {
+      await pool.query(`
+        DO $$
+        BEGIN
+          -- If no primary key exists on channel_lot_links, add one.
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'channel_lot_links'::regclass
+              AND contype = 'p'
+          ) THEN
+            -- Remove any duplicate rows first (keep lowest-rowid copy per key)
+            DELETE FROM channel_lot_links a
+            USING channel_lot_links b
+            WHERE a.ctid < b.ctid
+              AND a.bl_inv_id = b.bl_inv_id
+              AND a.org_id    = b.org_id
+              AND a.channel   = b.channel;
+            ALTER TABLE channel_lot_links
+              ADD CONSTRAINT channel_lot_links_pkey PRIMARY KEY (bl_inv_id, org_id, channel);
+          END IF;
+        END $$;
+      `);
+      console.log('[Startup] fix-13: channel_lot_links primary key ensured.');
+    } catch (fix13Err: any) {
+      console.error('[Startup] fix-13: channel_lot_links PK fix (non-fatal):', fix13Err.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
