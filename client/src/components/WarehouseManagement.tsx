@@ -173,6 +173,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Print labels state
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164' | 'dymo30252' | 'dymo30336'>('avery5163');
+  const [printVerticalOffset, setPrintVerticalOffset] = useState<number>(() => {
+    const saved = localStorage.getItem('printVerticalOffset');
+    return saved ? parseFloat(saved) : 0;
+  });
 
   // Controlled name input for create/edit dialogs
   const [createName, setCreateName] = useState('');
@@ -1183,7 +1187,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setPrintDialogOpen(false);
 
     const parseIn = (s: string) => parseFloat(s);
-    const marginV = parseIn(tmpl.pageMarginV);
+    const marginV = parseIn(tmpl.pageMarginV) + printVerticalOffset;
     const marginH = parseIn(tmpl.pageMarginH);
     const cardW   = parseIn(tmpl.w);
     const cardH   = parseIn(tmpl.h);
@@ -1949,6 +1953,59 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 })}
               </div>
             </div>
+
+            {/* Vertical calibration — only shown for sheet labels */}
+            {LABEL_TEMPLATES[printLabelSize].mode === 'sheet' && (
+              <div>
+                <Label className="text-xs mb-1 block">Vertical offset calibration</Label>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  If rows print too high, increase this. Too low, decrease it. Setting is remembered.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      const next = Math.round((printVerticalOffset - 0.05) * 1000) / 1000;
+                      setPrintVerticalOffset(next);
+                      localStorage.setItem('printVerticalOffset', String(next));
+                    }}
+                    data-testid="button-offset-decrease"
+                  >
+                    −
+                  </Button>
+                  <span className="text-sm font-mono w-20 text-center">
+                    {printVerticalOffset >= 0 ? '+' : ''}{printVerticalOffset.toFixed(2)}&quot;
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      const next = Math.round((printVerticalOffset + 0.05) * 1000) / 1000;
+                      setPrintVerticalOffset(next);
+                      localStorage.setItem('printVerticalOffset', String(next));
+                    }}
+                    data-testid="button-offset-increase"
+                  >
+                    +
+                  </Button>
+                  {printVerticalOffset !== 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => {
+                        setPrintVerticalOffset(0);
+                        localStorage.removeItem('printVerticalOffset');
+                      }}
+                      data-testid="button-offset-reset"
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Preview */}
             <div>
