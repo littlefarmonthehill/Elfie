@@ -1200,9 +1200,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const perSheet = tmpl.perSheet;
 
     const fontSizes: Record<string, { name: string; sub: string }> = {
-      avery5163: { name: '22pt', sub: '10pt' },
-      avery5160: { name: '11pt', sub:  '7pt' },
-      avery5164: { name: '24pt', sub: '11pt' },
+      avery5163: { name: '46pt', sub: '17pt' },
+      avery5160: { name: '15pt', sub:  '9pt' },
+      avery5164: { name: '48pt', sub: '18pt' },
     };
     const { name: nameFontSize, sub: subFontSize } = fontSizes[printLabelSize] ?? { name: '16pt', sub: '8pt' };
 
@@ -1227,8 +1227,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </div>
         </div>`;
       }).join('');
-      const breakStyle = pageIdx > 0 ? ' style="page-break-before:always;"' : '';
-      return `<div class="page"${breakStyle}>${cardsHtml}</div>`;
+      return `<div class="page">${cardsHtml}</div>`;
     }).join('');
 
     const waitScript = `<script>
