@@ -195,15 +195,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Fill Bin dialog state
   const [fillBinDialogOpen, setFillBinDialogOpen] = useState(false);
   const [fillBinTargetId, setFillBinTargetId] = useState<string>("");
-  const [fillBinCount, setFillBinCount] = useState("20");
   const [fillBinPending, setFillBinPending] = useState(false);
-  const [fillBinDeselected, setFillBinDeselected] = useState<Set<number>>(new Set());
   const [fillBinManualAdds, setFillBinManualAdds] = useState<Map<number, any>>(new Map());
   const [fillBinSearch, setFillBinSearch] = useState("");
   const [fillBinSearchSelected, setFillBinSearchSelected] = useState<Set<number>>(new Set());
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
-  const fillBinListRef = useRef<HTMLDivElement>(null);
 
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
@@ -619,44 +616,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const alphaNumericSort = (a: any, b: any) =>
     (a.itemNo || a.name || '').localeCompare(b.itemNo || b.name || '', undefined, { numeric: true, sensitivity: 'base' });
 
-  // Fill Bin: preview the next N unassigned lots sorted by part number
-  const fillBinSorted = [...unassignedInventory].sort((a, b) =>
-    (a.itemNo || '').localeCompare(b.itemNo || '', undefined, { numeric: true, sensitivity: 'base' })
-  );
-  const fillBinPreview = (() => {
-    const count = Math.min(Math.max(parseInt(fillBinCount) || 20, 1), fillBinSorted.length);
-    return fillBinSorted.slice(0, count);
-  })();
-  const fillBinHasMore = fillBinPreview.length < fillBinSorted.length;
+  // All items that will be assigned: manually added only
+  const fillBinToAssign = Array.from(fillBinManualAdds.values());
 
-  // Which preview items are actually checked (all minus explicitly deselected)
-  const fillBinSelectedItems = fillBinPreview.filter(item => !fillBinDeselected.has(item.id));
-
-  // All items that will be assigned: checked preview + manually added
-  const fillBinToAssign = [
-    ...fillBinSelectedItems,
-    ...Array.from(fillBinManualAdds.values()),
-  ];
-
-  // Search results: unassigned lots matching query, not already in preview or manual adds
+  // Search results: unassigned lots matching query, not already manually added
   const fillBinSearchResults = fillBinSearch.trim().length >= 1
     ? unassignedInventory
         .filter(item =>
-          !fillBinPreview.some((p: any) => p.id === item.id) &&
           !fillBinManualAdds.has(item.id) &&
           (item.itemNo?.toLowerCase().includes(fillBinSearch.toLowerCase()) ||
            item.itemName?.toLowerCase().includes(fillBinSearch.toLowerCase()))
         )
-        .slice(0, 12)
+        .slice(0, 20)
     : [];
-
-  const toggleFillBinItem = (id: number) => {
-    setFillBinDeselected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
 
   const addFillBinManual = (item: any) => {
     setFillBinManualAdds(prev => new Map(prev).set(item.id, item));
@@ -673,7 +645,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const resetFillBinDialog = () => {
     setFillBinTargetId("");
-    setFillBinDeselected(new Set());
     setFillBinManualAdds(new Map());
     setFillBinSearch("");
     setFillBinSearchSelected(new Set());
@@ -2496,43 +2467,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
       {/* Fill Bin Dialog */}
       <Dialog open={fillBinDialogOpen} onOpenChange={open => { setFillBinDialogOpen(open); if (!open) resetFillBinDialog(); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-yellow-400" />
               Fill a Bin
             </DialogTitle>
             <DialogDescription>
-              Start with the next N parts from the queue, then uncheck any that don't belong and search to add non-sequential ones.
+              Select a bin, search for parts, and assign them all at once.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 pt-1">
-            {/* Bin selector + count in one row */}
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">Bin</Label>
-                <Select value={fillBinTargetId} onValueChange={setFillBinTargetId}>
-                  <SelectTrigger data-testid="select-fill-bin-target">
-                    <SelectValue placeholder="Select a bin…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[...bins].sort(alphaNumericSort).map((b: any) => (
-                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-28 space-y-1.5">
-                <Label className="text-xs">Queue size</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={fillBinCount}
-                  onChange={e => setFillBinCount(e.target.value)}
-                  data-testid="input-fill-bin-count"
-                />
-              </div>
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto space-y-3 pt-1 pr-1">
+            {/* Bin selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Bin</Label>
+              <Select value={fillBinTargetId} onValueChange={setFillBinTargetId}>
+                <SelectTrigger data-testid="select-fill-bin-target">
+                  <SelectValue placeholder="Select a bin…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...bins].sort(alphaNumericSort).map((b: any) => (
+                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Quantity tracking toggle */}
@@ -2546,123 +2506,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <span className="text-xs text-muted-foreground">Track quantities per bin <span className="text-muted-foreground/60">(split inventory count)</span></span>
             </label>
 
-            {/* Checklist — queue items */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {fillBinPreview.length > 0
-                    ? `Next ${fillBinPreview.length} from queue — uncheck anything that doesn't belong`
-                    : 'No unassigned lots in queue'}
-                </p>
-                {fillBinPreview.length > 0 && (
-                  <div className="flex gap-2 text-[10px] text-muted-foreground">
-                    <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinDeselected(new Set())}>all</button>
-                    <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinDeselected(new Set(fillBinPreview.map((i: any) => i.id)))}>none</button>
-                  </div>
-                )}
-              </div>
-
-              {fillBinPreview.length > 0 && (
-                <div ref={fillBinListRef} className="bg-muted/30 rounded-md p-2 max-h-52 overflow-y-auto space-y-0.5" data-testid="fill-bin-preview">
-                  {fillBinPreview.map((item: any) => {
-                    const checked = !fillBinDeselected.has(item.id);
-                    return (
-                      <label
-                        key={item.id}
-                        className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer select-none hover-elevate ${checked ? '' : 'opacity-40'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleFillBinItem(item.id)}
-                          className="h-3.5 w-3.5 rounded shrink-0"
-                        />
-                        <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                        <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                        {item.itemType && <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}</span>}
-                        {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
-                        {item.quantity != null && <span className="text-[10px] text-muted-foreground/60 shrink-0">×{item.quantity}</span>}
-                        {fillBinTrackQty && checked && (
-                          <input
-                            type="number"
-                            min={1}
-                            placeholder={item.quantity ? `of ${item.quantity}` : 'qty'}
-                            value={fillBinQties.get(item.id) ?? ''}
-                            onChange={e => {
-                              const v = e.target.value;
-                              setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
-                            data-testid={`input-fill-bin-qty-${item.id}`}
-                          />
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-              {fillBinHasMore && (
-                <button
-                  onClick={() => {
-                    const prevLen = fillBinPreview.length;
-                    setFillBinCount(String(parseInt(fillBinCount) + 20));
-                    // After React re-renders with more items, scroll so the first new item is visible
-                    setTimeout(() => {
-                      if (fillBinListRef.current) {
-                        const children = fillBinListRef.current.children;
-                        const target = children[prevLen] as HTMLElement | undefined;
-                        if (target) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                      }
-                    }, 30);
-                  }}
-                  className="w-full text-[11px] text-muted-foreground hover:text-foreground py-1 flex items-center justify-center gap-1.5 border border-dashed border-border rounded-md"
-                  data-testid="button-fill-bin-load-more"
-                >
-                  <Plus className="h-3 w-3" />
-                  Load 20 more ({fillBinSorted.length - fillBinPreview.length} remaining)
-                </button>
-              )}
-            </div>
-
-            {/* Manually added items */}
-            {fillBinManualAdds.size > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">Added manually</p>
-                <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-0.5">
-                  {Array.from(fillBinManualAdds.values()).map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-2 px-1.5 py-1">
-                      <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                      <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                      {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
-                      {fillBinTrackQty && (
-                        <input
-                          type="number"
-                          min={1}
-                          placeholder={item.quantity ? `of ${item.quantity}` : 'qty'}
-                          value={fillBinQties.get(item.id) ?? ''}
-                          onChange={e => {
-                            const v = e.target.value;
-                            setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
-                          }}
-                          className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
-                          data-testid={`input-fill-bin-qty-manual-${item.id}`}
-                        />
-                      )}
-                      <button
-                        onClick={() => removeFillBinManual(item.id)}
-                        className="h-4 w-4 shrink-0 text-muted-foreground hover:text-destructive"
-                        data-testid={`button-remove-manual-${item.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Search to add non-sequential parts */}
+            {/* Search to add parts */}
             <div className="space-y-1.5">
               <Label className="text-xs">Find parts to add</Label>
               <Input
@@ -2687,7 +2531,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         data-testid="button-fill-bin-search-select-none"
                       >none</button>
                     </div>
-                    {fillBinSearchSelected.size > 0 && (
+                    {fillBinSearchSelected.size > 0 ? (
                       <button
                         className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
                         onClick={() => addFillBinManualMultiple(fillBinSearchResults.filter((i: any) => fillBinSearchSelected.has(i.id)))}
@@ -2695,8 +2539,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       >
                         Add {fillBinSearchSelected.size} selected
                       </button>
-                    )}
-                    {fillBinSearchSelected.size === 0 && (
+                    ) : (
                       <button
                         className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
                         onClick={() => addFillBinManualMultiple(fillBinSearchResults)}
@@ -2706,7 +2549,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       </button>
                     )}
                   </div>
-                  <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-40 overflow-y-auto">
+                  <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
                     {fillBinSearchResults.map((item: any) => {
                       const checked = fillBinSearchSelected.has(item.id);
                       return (
@@ -2744,28 +2587,71 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </div>
               )}
               {fillBinSearch.trim().length >= 1 && fillBinSearchResults.length === 0 && (
-                <p className="text-[10px] text-muted-foreground px-1">No unassigned lots match — part may already be in the list above or already assigned.</p>
+                <p className="text-[10px] text-muted-foreground px-1">No unassigned lots match — part may already be added or already assigned.</p>
               )}
             </div>
 
-            {/* Footer summary + confirm */}
-            <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{fillBinToAssign.length}</span> lots will be assigned
-                {fillBinManualAdds.size > 0 && <span className="text-blue-400"> (+{fillBinManualAdds.size} added manually)</span>}
-                {fillBinTrackQty && fillBinQties.size > 0 && <span className="text-muted-foreground"> · {fillBinQties.size} with quantities</span>}
-              </p>
-              <Button
-                disabled={!fillBinTargetId || fillBinToAssign.length === 0 || fillBinPending}
-                onClick={handleFillBin}
-                data-testid="button-fill-bin-confirm"
-              >
-                {fillBinPending
-                  ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Assigning…</>
-                  : <><Zap className="h-4 w-4 mr-1.5" />Assign {fillBinToAssign.length} to {bins.find((b: any) => b.id === parseInt(fillBinTargetId))?.name ?? 'Bin'}</>
-                }
-              </Button>
-            </div>
+            {/* Added lots list */}
+            {fillBinManualAdds.size > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">Lots to assign ({fillBinManualAdds.size})</p>
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-destructive underline underline-offset-2"
+                    onClick={() => setFillBinManualAdds(new Map())}
+                    data-testid="button-clear-all-manual"
+                  >clear all</button>
+                </div>
+                <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-0.5">
+                  {Array.from(fillBinManualAdds.values()).map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-2 px-1.5 py-1">
+                      <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                      <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                      {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                      {fillBinTrackQty && (
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder={item.quantity ? `of ${item.quantity}` : 'qty'}
+                          value={fillBinQties.get(item.id) ?? ''}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
+                          }}
+                          className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                          data-testid={`input-fill-bin-qty-manual-${item.id}`}
+                        />
+                      )}
+                      <button
+                        onClick={() => removeFillBinManual(item.id)}
+                        className="h-4 w-4 shrink-0 text-muted-foreground hover:text-destructive"
+                        data-testid={`button-remove-manual-${item.id}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Pinned footer */}
+          <div className="shrink-0 flex items-center justify-between gap-3 pt-3 border-t border-border flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{fillBinToAssign.length}</span> lots will be assigned
+              {fillBinTrackQty && fillBinQties.size > 0 && <span className="text-muted-foreground"> · {fillBinQties.size} with quantities</span>}
+            </p>
+            <Button
+              disabled={!fillBinTargetId || fillBinToAssign.length === 0 || fillBinPending}
+              onClick={handleFillBin}
+              data-testid="button-fill-bin-confirm"
+            >
+              {fillBinPending
+                ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Assigning…</>
+                : <><Zap className="h-4 w-4 mr-1.5" />Assign {fillBinToAssign.length} to {bins.find((b: any) => b.id === parseInt(fillBinTargetId))?.name ?? 'Bin'}</>
+              }
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
