@@ -200,6 +200,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [fillBinDeselected, setFillBinDeselected] = useState<Set<number>>(new Set());
   const [fillBinManualAdds, setFillBinManualAdds] = useState<Map<number, any>>(new Map());
   const [fillBinSearch, setFillBinSearch] = useState("");
+  const [fillBinSearchSelected, setFillBinSearchSelected] = useState<Set<number>>(new Set());
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
   const fillBinListRef = useRef<HTMLDivElement>(null);
@@ -675,8 +676,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setFillBinDeselected(new Set());
     setFillBinManualAdds(new Map());
     setFillBinSearch("");
+    setFillBinSearchSelected(new Set());
     setFillBinTrackQty(false);
     setFillBinQties(new Map());
+  };
+
+  const addFillBinManualMultiple = (items: any[]) => {
+    setFillBinManualAdds(prev => {
+      const next = new Map(prev);
+      items.forEach(item => next.set(item.id, item));
+      return next;
+    });
+    setFillBinSearch("");
+    setFillBinSearchSelected(new Set());
   };
 
   const handleFillBin = async () => {
@@ -2652,29 +2664,83 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
             {/* Search to add non-sequential parts */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Find a part to add</Label>
+              <Label className="text-xs">Find parts to add</Label>
               <Input
                 placeholder="Search by part number or name (e.g. x102, pb7730)"
                 value={fillBinSearch}
-                onChange={e => setFillBinSearch(e.target.value)}
+                onChange={e => { setFillBinSearch(e.target.value); setFillBinSearchSelected(new Set()); }}
                 className="text-xs"
                 data-testid="input-fill-bin-search"
               />
               {fillBinSearchResults.length > 0 && (
-                <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-32 overflow-y-auto">
-                  {fillBinSearchResults.map((item: any) => (
-                    <button
-                      key={item.id}
-                      onClick={() => addFillBinManual(item)}
-                      className="w-full flex items-center gap-2 px-2 py-1 rounded text-left hover-elevate"
-                      data-testid={`button-add-search-${item.id}`}
-                    >
-                      <Plus className="h-3 w-3 text-blue-400 shrink-0" />
-                      <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                      <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                      {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
-                    </button>
-                  ))}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 px-0.5">
+                    <div className="flex gap-2 text-[10px] text-muted-foreground">
+                      <button
+                        className="hover:text-foreground underline underline-offset-2"
+                        onClick={() => setFillBinSearchSelected(new Set(fillBinSearchResults.map((i: any) => i.id)))}
+                        data-testid="button-fill-bin-search-select-all"
+                      >all</button>
+                      <button
+                        className="hover:text-foreground underline underline-offset-2"
+                        onClick={() => setFillBinSearchSelected(new Set())}
+                        data-testid="button-fill-bin-search-select-none"
+                      >none</button>
+                    </div>
+                    {fillBinSearchSelected.size > 0 && (
+                      <button
+                        className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                        onClick={() => addFillBinManualMultiple(fillBinSearchResults.filter((i: any) => fillBinSearchSelected.has(i.id)))}
+                        data-testid="button-fill-bin-search-add-selected"
+                      >
+                        Add {fillBinSearchSelected.size} selected
+                      </button>
+                    )}
+                    {fillBinSearchSelected.size === 0 && (
+                      <button
+                        className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                        onClick={() => addFillBinManualMultiple(fillBinSearchResults)}
+                        data-testid="button-fill-bin-search-add-all"
+                      >
+                        Add all {fillBinSearchResults.length}
+                      </button>
+                    )}
+                  </div>
+                  <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-40 overflow-y-auto">
+                    {fillBinSearchResults.map((item: any) => {
+                      const checked = fillBinSearchSelected.has(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate"
+                          data-testid={`button-add-search-${item.id}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setFillBinSearchSelected(prev => {
+                                const next = new Set(prev);
+                                if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                return next;
+                              });
+                            }}
+                            className="h-3.5 w-3.5 rounded shrink-0"
+                          />
+                          <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                          <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                          {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                          <button
+                            onClick={e => { e.preventDefault(); addFillBinManual(item); }}
+                            className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300"
+                            title="Add just this one"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {fillBinSearch.trim().length >= 1 && fillBinSearchResults.length === 0 && (
