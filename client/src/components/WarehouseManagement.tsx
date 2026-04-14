@@ -1284,8 +1284,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           let curX = textX + Math.max(0, (textMaxW - totalBoxesW) / 2);
 
           segments.forEach((seg, i) => {
-            const bw       = widths[i];
-            const contentW = doc.getTextWidth(seg.id);
+            const bw = widths[i];
 
             // 1. Draw shaded box
             doc.setLineWidth(0.02);
@@ -1293,11 +1292,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             doc.setFillColor(232, 232, 232);
             doc.roundedRect(curX, blockTop, bw, boxH, 0.028, 0.028, 'FD');
 
-            // 2. Draw identifier with fill+stroke for chunky weight.
-            //    baseline:'middle' + y=boxCentre gives pixel-perfect vertical centering
-            //    regardless of font metrics approximations.
+            // 2. Draw identifier — font MUST be set before measuring contentW
+            //    because the caption step at end of prior iteration changed it.
+            //    baseline:'middle' + y=boxCentre gives pixel-perfect vertical centering.
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(boxContentPt);
+            const contentW = doc.getTextWidth(seg.id);   // measure with correct font
             doc.setTextColor(0, 0, 0);
             doc.setLineWidth(0.007);   // thin stroke adds visual weight
             doc.setDrawColor(0, 0, 0);
