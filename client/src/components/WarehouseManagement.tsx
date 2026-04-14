@@ -202,6 +202,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [debouncedFillBinSearch, setDebouncedFillBinSearch] = useState("");
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
+  const [fillBinRangeFrom, setFillBinRangeFrom] = useState("");
+  const [fillBinRangeTo, setFillBinRangeTo] = useState("");
+  const [fillBinRangeCommitted, setFillBinRangeCommitted] = useState<{ from: string; to: string } | null>(null);
+  const [fillBinRangeSelected, setFillBinRangeSelected] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedFillBinSearch(fillBinSearch.trim()), 280);
@@ -290,6 +294,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     staleTime: 10_000,
   });
 
+  // Fill Bin range — finds all unassigned lots whose leading part number is between from and to
+  const { data: fillBinRangeServerResults = [], isFetching: fillBinRangeFetching } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/unassigned/range', fillBinRangeCommitted],
+    queryFn: async ({ queryKey }) => {
+      const range = queryKey[1] as { from: string; to: string } | null;
+      if (!range) return [];
+      const res = await fetch(`/api/warehouse/unassigned/range?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
+      if (!res.ok) throw new Error('Range search failed');
+      return res.json();
+    },
+    enabled: !!fillBinRangeCommitted,
+    staleTime: 10_000,
+  });
+
   // Fetch all locations for the selected lot
   const { data: lotLocations = [], isLoading: lotLocationsLoading } = useQuery<any[]>({
     queryKey: ['/api/warehouse/locations/inventory', selectedLot?.id],
@@ -318,6 +336,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/inventory/search'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/search'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/range'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
   };
 
@@ -644,6 +663,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const fillBinSearchResults = fillBinServerResults.filter(
     (item: any) => !fillBinManualAdds.has(item.id)
   );
+
+  // Range results — filter out already-added items
+  const fillBinRangeResults = fillBinRangeServerResults.filter(
+    (item: any) => !fillBinManualAdds.has(item.id)
+  );
   const _fbq = debouncedFillBinSearch.toLowerCase();
   const fillBinResultsStartsWith = fillBinSearchResults.filter(
     (item: any) => (item.itemNo ?? '').toLowerCase().startsWith(_fbq)
@@ -672,6 +696,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setFillBinSearchSelected(new Set());
     setFillBinTrackQty(false);
     setFillBinQties(new Map());
+    setFillBinRangeFrom("");
+    setFillBinRangeTo("");
+    setFillBinRangeCommitted(null);
+    setFillBinRangeSelected(new Set());
   };
 
   const addFillBinManualMultiple = (items: any[]) => {
@@ -2528,9 +2556,104 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <span className="text-xs text-muted-foreground">Track quantities per bin <span className="text-muted-foreground/60">(split inventory count)</span></span>
             </label>
 
-            {/* Search to add parts */}
+            {/* Range fill — fill by part number range, e.g. 974 – 2335 */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Find parts to add</Label>
+              <Label className="text-xs">Fill by part number range</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="From  e.g. 974"
+                  value={fillBinRangeFrom}
+                  onChange={e => { setFillBinRangeFrom(e.target.value.replace(/\D/g, '')); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
+                  className="text-xs flex-1"
+                  data-testid="input-fill-bin-range-from"
+                />
+                <span className="text-muted-foreground text-xs shrink-0">–</span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="To  e.g. 2335"
+                  value={fillBinRangeTo}
+                  onChange={e => { setFillBinRangeTo(e.target.value.replace(/\D/g, '')); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
+                  className="text-xs flex-1"
+                  data-testid="input-fill-bin-range-to"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && fillBinRangeFrom && fillBinRangeTo) {
+                      setFillBinRangeCommitted({ from: fillBinRangeFrom, to: fillBinRangeTo });
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!fillBinRangeFrom || !fillBinRangeTo || fillBinRangeFetching}
+                  onClick={() => setFillBinRangeCommitted({ from: fillBinRangeFrom, to: fillBinRangeTo })}
+                  data-testid="button-fill-bin-range-find"
+                >
+                  {fillBinRangeFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Find'}
+                </Button>
+              </div>
+
+              {fillBinRangeCommitted && !fillBinRangeFetching && (
+                <div className="space-y-1">
+                  {fillBinRangeResults.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground px-1">No unassigned lots found in that range.</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2 px-0.5">
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">{fillBinRangeResults.length}</span> unassigned lot{fillBinRangeResults.length !== 1 ? 's' : ''} in range {fillBinRangeFrom}–{fillBinRangeTo}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1.5 text-[10px] text-muted-foreground">
+                            <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinRangeSelected(new Set(fillBinRangeResults.map((i: any) => i.id)))}>all</button>
+                            <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinRangeSelected(new Set())}>none</button>
+                          </div>
+                          <button
+                            className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                            onClick={() => {
+                              const toAdd = fillBinRangeSelected.size > 0
+                                ? fillBinRangeResults.filter((i: any) => fillBinRangeSelected.has(i.id))
+                                : fillBinRangeResults;
+                              addFillBinManualMultiple(toAdd);
+                              setFillBinRangeCommitted(null);
+                              setFillBinRangeSelected(new Set());
+                            }}
+                            data-testid="button-fill-bin-range-add"
+                          >
+                            {fillBinRangeSelected.size > 0 ? `Add ${fillBinRangeSelected.size} selected` : `Add all ${fillBinRangeResults.length}`}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
+                        {fillBinRangeResults.map((item: any) => {
+                          const checked = fillBinRangeSelected.has(item.id);
+                          return (
+                            <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`button-range-item-${item.id}`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => setFillBinRangeSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
+                                className="h-3.5 w-3.5 rounded shrink-0"
+                              />
+                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Search to add individual parts */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Find individual parts</Label>
               <Input
                 placeholder="Search by part number or name (e.g. x102, pb7730)"
                 value={fillBinSearch}

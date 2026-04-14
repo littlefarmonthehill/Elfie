@@ -422,6 +422,40 @@ router.get("/warehouse/unassigned/search", isApproved, asyncRoute(async (req: an
   res.json(rows);
 }));
 
+// Range fill: find unassigned lots whose leading part number falls between `from` and `to`
+// e.g. "974" – "2335" matches 974, 974pb01, 975, 975x01, ..., 2335, 2335a
+router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const fromNum = parseInt(String(req.query.from ?? ''), 10);
+  const toNum   = parseInt(String(req.query.to   ?? ''), 10);
+  if (isNaN(fromNum) || isNaN(toNum) || fromNum > toNum) return res.json([]);
+
+  const rows = await db
+    .select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      itemType: blInventory.itemType,
+      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      colorName: blColors.name,
+      newOrUsed: blInventory.newOrUsed,
+      quantity: blInventory.quantity,
+    })
+    .from(blInventory)
+    .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+    .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+    .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+    .where(and(
+      eq(blInventory.orgId, orgId),
+      sql`${inventoryLocations.id} IS NULL`,
+      sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`
+    ))
+    .orderBy(
+      sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer`,
+      asc(blInventory.itemNo)
+    );
+  res.json(rows);
+}));
+
 router.get("/warehouse/unassigned/bins", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const unassignedBins = await db
