@@ -1212,18 +1212,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const qrIn = tmpl.qr / 96;
 
     try {
-      // Pre-fetch every QR code as a base64 data-URL so jsPDF can embed it
-      const qrDataUrls: string[] = await Promise.all(
-        printItems.map(async (item: any) => {
+      // Load every QR code as an HTMLImageElement — jsPDF renders these via
+      // an internal canvas, bypassing its PNG binary parser entirely.
+      const qrImgs: HTMLImageElement[] = await Promise.all(
+        printItems.map((item: any) => {
           const qrData = getLabelQrData(item);
           const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-          const res  = await fetch(url);
-          const blob = await res.blob();
-          return new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
+          return new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new window.Image();
+            img.crossOrigin = 'anonymous';
+            img.onload  = () => resolve(img);
+            img.onerror = (e) => reject(new Error(`QR load failed: ${url} — ${e}`));
+            img.src = url;
           });
         })
       );
@@ -1256,7 +1256,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         // QR — vertically centred, small left inset
         const qrX = cardX + 0.07;
         const qrY = cardY + (cardH - qrIn) / 2;
-        doc.addImage(qrDataUrls[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
+        doc.addImage(qrImgs[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
 
         // Text column starts after QR
         const textX    = qrX + qrIn + 0.14;
