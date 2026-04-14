@@ -173,8 +173,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Print labels state
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164' | 'dymo30252' | 'dymo30336'>('avery5163');
-  const [printVerticalOffset, setPrintVerticalOffset] = useState<number>(() => {
-    const saved = localStorage.getItem('printVerticalOffset');
+  // Pitch calibration: adjusts the row-to-row spacing (not the starting position).
+  // Positive = spread rows further apart; negative = squeeze them together.
+  const [printPitchOffset, setPrintPitchOffset] = useState<number>(() => {
+    const saved = localStorage.getItem('printPitchOffset');
     return saved ? parseFloat(saved) : 0;
   });
 
@@ -1187,12 +1189,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setPrintDialogOpen(false);
 
     const parseIn = (s: string) => parseFloat(s);
-    const marginV = parseIn(tmpl.pageMarginV) + printVerticalOffset;
+    const marginV = parseIn(tmpl.pageMarginV);
     const marginH = parseIn(tmpl.pageMarginH);
     const cardW   = parseIn(tmpl.w);
     const cardH   = parseIn(tmpl.h);
     const colGapV = parseIn(tmpl.colGap);
-    const rowGapV = parseIn(tmpl.rowGap);
+    // pitchOffset adjusts row-to-row spacing independently of card height.
+    // This fixes progressive drift caused by physical pitch != template pitch.
+    const rowPitch = parseIn(tmpl.rowGap) + printPitchOffset;
     const perSheet = tmpl.perSheet;
 
     const fontSizes: Record<string, { name: string; sub: string }> = {
@@ -1210,7 +1214,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       const cardsHtml = pageItems.map((item: any, idx: number) => {
         const row = Math.floor(idx / tmpl.cols);
         const col = idx % tmpl.cols;
-        const topIn  = marginV + row * (cardH + rowGapV);
+        const topIn  = marginV + row * (cardH + rowPitch);
         const leftIn = marginH + col * (cardW + colGapV);
         const qrData = getLabelQrData(item);
         const sub    = getLabelSubtext(item);
@@ -1954,56 +1958,59 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             </div>
 
-            {/* Vertical calibration — only shown for sheet labels */}
+            {/* Row pitch calibration — only shown for sheet labels */}
             {LABEL_TEMPLATES[printLabelSize].mode === 'sheet' && (
               <div>
-                <Label className="text-xs mb-1 block">Vertical offset calibration</Label>
+                <Label className="text-xs mb-1 block">Row spacing calibration</Label>
                 <p className="text-[10px] text-muted-foreground mb-2">
-                  If rows print too high, increase this. Too low, decrease it. Setting is remembered.
+                  Row 1 prints correctly but each lower row drifts? Adjust here. Each step is 0.02". Setting is remembered.
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
                     size="icon"
                     variant="outline"
                     onClick={() => {
-                      const next = Math.round((printVerticalOffset - 0.05) * 1000) / 1000;
-                      setPrintVerticalOffset(next);
-                      localStorage.setItem('printVerticalOffset', String(next));
+                      const next = Math.round((printPitchOffset - 0.02) * 10000) / 10000;
+                      setPrintPitchOffset(next);
+                      localStorage.setItem('printPitchOffset', String(next));
                     }}
-                    data-testid="button-offset-decrease"
+                    data-testid="button-pitch-decrease"
                   >
                     −
                   </Button>
                   <span className="text-sm font-mono w-20 text-center">
-                    {printVerticalOffset >= 0 ? '+' : ''}{printVerticalOffset.toFixed(2)}&quot;
+                    {printPitchOffset >= 0 ? '+' : ''}{printPitchOffset.toFixed(3)}&quot;
                   </span>
                   <Button
                     size="icon"
                     variant="outline"
                     onClick={() => {
-                      const next = Math.round((printVerticalOffset + 0.05) * 1000) / 1000;
-                      setPrintVerticalOffset(next);
-                      localStorage.setItem('printVerticalOffset', String(next));
+                      const next = Math.round((printPitchOffset + 0.02) * 10000) / 10000;
+                      setPrintPitchOffset(next);
+                      localStorage.setItem('printPitchOffset', String(next));
                     }}
-                    data-testid="button-offset-increase"
+                    data-testid="button-pitch-increase"
                   >
                     +
                   </Button>
-                  {printVerticalOffset !== 0 && (
+                  {printPitchOffset !== 0 && (
                     <Button
                       size="sm"
                       variant="ghost"
                       className="text-xs text-muted-foreground"
                       onClick={() => {
-                        setPrintVerticalOffset(0);
-                        localStorage.removeItem('printVerticalOffset');
+                        setPrintPitchOffset(0);
+                        localStorage.removeItem('printPitchOffset');
                       }}
-                      data-testid="button-offset-reset"
+                      data-testid="button-pitch-reset"
                     >
                       Reset
                     </Button>
                   )}
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Rows drift <span className="font-semibold">up</span> → tap <span className="font-mono font-bold">+</span> &nbsp;·&nbsp; Rows drift <span className="font-semibold">down</span> → tap <span className="font-mono font-bold">−</span>
+                </p>
               </div>
             )}
 
