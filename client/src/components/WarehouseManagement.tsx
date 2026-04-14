@@ -1116,7 +1116,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     },
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (printItems.length === 0) return;
     const origin = window.location.origin;
     const tmpl = LABEL_TEMPLATES[printLabelSize];
@@ -1181,128 +1181,104 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       return;
     }
 
-    // --- Sheet mode: HTML absolute-position layout ---
-    // Using HTML + window.print() instead of jsPDF avoids the PDF viewer's
-    // "Fit to printable area" scaling, which was causing progressive vertical
-    // drift across rows.  Each card is absolutely positioned at exact inch
-    // coordinates so no browser layout engine can shift them.
+    // --- Sheet mode: generate a real PDF with jsPDF ---
+    // A PDF with embedded dimensions is the only approach that works without
+    // user interaction across platforms.  On iOS Safari the blob URL opens in
+    // the built-in PDF viewer; the user taps Share → Print → AirPrint and the
+    // printer receives exact dimensions with no scaling applied.  On desktop
+    // the PDF opens in whatever viewer is registered and printing at
+    // "Actual Size" (the default in most PDF apps) is correct.
     setPrintDialogOpen(false);
 
     const parseIn = (s: string) => parseFloat(s);
-    const marginV = parseIn(tmpl.pageMarginV);
-    const marginH = parseIn(tmpl.pageMarginH);
-    const cardW   = parseIn(tmpl.w);
-    const cardH   = parseIn(tmpl.h);
-    const colGapV = parseIn(tmpl.colGap);
-    // pitchOffset adjusts row-to-row spacing independently of card height.
-    // This fixes progressive drift caused by physical pitch != template pitch.
+    const marginV  = parseIn(tmpl.pageMarginV);
+    const marginH  = parseIn(tmpl.pageMarginH);
+    const cardW    = parseIn(tmpl.w);
+    const cardH    = parseIn(tmpl.h);
+    const colGap   = parseIn(tmpl.colGap);
     const rowPitch = parseIn(tmpl.rowGap) + printPitchOffset;
+    const cols     = tmpl.cols;
     const perSheet = tmpl.perSheet;
+    // QR image size in inches (template stores px at 96 dpi)
+    const qrIn = tmpl.qr / 96;
 
-    const fontSizes: Record<string, { name: string; sub: string }> = {
-      avery5163: { name: '46pt', sub: '17pt' },
-      avery5160: { name: '15pt', sub:  '9pt' },
-      avery5164: { name: '48pt', sub: '18pt' },
-    };
-    const { name: nameFontSize, sub: subFontSize } = fontSizes[printLabelSize] ?? { name: '16pt', sub: '8pt' };
-
-    const qrPx = tmpl.qr;
-
-    const totalPages = Math.ceil(printItems.length / perSheet);
-    const pagesHtml = Array.from({ length: totalPages }, (_, pageIdx) => {
-      const pageItems = printItems.slice(pageIdx * perSheet, (pageIdx + 1) * perSheet);
-      const cardsHtml = pageItems.map((item: any, idx: number) => {
-        const row = Math.floor(idx / tmpl.cols);
-        const col = idx % tmpl.cols;
-        const topIn  = marginV + row * (cardH + rowPitch);
-        const leftIn = marginH + col * (cardW + colGapV);
+    // Pre-fetch every QR code as a base64 data-URL so jsPDF can embed it
+    const qrDataUrls: string[] = await Promise.all(
+      printItems.map(async (item: any) => {
         const qrData = getLabelQrData(item);
-        const sub    = getLabelSubtext(item);
-        const qrUrl  = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${qrPx * 2}`;
-        return `<div class="card" style="top:${topIn}in;left:${leftIn}in;width:${tmpl.w};height:${tmpl.h};">
-          <img class="qr" src="${qrUrl}" width="${qrPx}" height="${qrPx}" />
-          <div class="info">
-            <div class="main">${renderMainBadges(item.name)}</div>
-            ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
-          </div>
-        </div>`;
-      }).join('');
-      return `<div class="page">${cardsHtml}</div>`;
-    }).join('');
+        const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+        const res  = await fetch(url);
+        const blob = await res.blob();
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      })
+    );
 
-    const waitScript = `<script>
-      window.addEventListener('afterprint', function() { window.close(); });
-    <\/script>`;
+    const { default: jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [8.5, 11] });
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      @page { size: 8.5in 11in; margin: 0; }
-      html { margin: 0; padding: 0; }
-      body { margin: 0; padding: 0; background: white; }
-      .page {
-        position: relative;
-        width: 8.5in;
-        height: 11in;
-        overflow: hidden;
-      }
-      .card {
-        position: absolute;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 8px;
-        padding: 6px 8px;
-        overflow: hidden;
-      }
-      .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; overflow: hidden; }
-      .main { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
-      .sub  { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
-      .badge    { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${nameFontSize}; font-weight: 900; color: #000; line-height: 1.15; white-space: nowrap; }
-      .sep      { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${nameFontSize}; font-weight: 900; color: #000; padding: 0 0.05em; }
-      .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 900; color: #333; line-height: 1.15; white-space: nowrap; }
-      .subsep   { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 700; color: #555; padding: 0 0.2em; }
-      .print-instructions {
-        position: fixed; top: 0; left: 0; right: 0;
-        background: #1a1a2e; color: #fff; padding: 16px 24px;
-        font-family: Arial, sans-serif; font-size: 14px; z-index: 9999;
-        display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;
-      }
-      .print-instructions h2 { font-size: 15px; margin-bottom: 6px; color: #ffd700; }
-      .print-instructions ol { padding-left: 18px; line-height: 1.8; }
-      .print-instructions .warn { font-size: 12px; color: #ff9999; margin-top: 8px; }
-      .print-btn {
-        margin-top: 8px; padding: 10px 22px; background: #ffd700; color: #000;
-        border: none; border-radius: 6px; font-size: 14px; font-weight: bold;
-        cursor: pointer; white-space: nowrap; align-self: center;
-      }
-      @media print {
-        .print-instructions { display: none !important; }
-        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      }
-    </style></head><body>
-    <div class="print-instructions">
-      <div>
-        <h2>Before printing — check these settings in Chrome's print dialog:</h2>
-        <ol>
-          <li><strong>Margins:</strong> set to <strong>None</strong></li>
-          <li><strong>Headers and footers:</strong> <strong>OFF</strong> (uncheck it)</li>
-          <li><strong>Scale:</strong> <strong>100%</strong></li>
-        </ol>
-        <div class="warn">Without these settings, rows will be misaligned or cut off.</div>
-      </div>
-      <button class="print-btn" onclick="window.print()">Print labels</button>
-    </div>
-    ${waitScript}
-    ${pagesHtml}
-    </body></html>`;
+    // Font sizes (pt) per template — these are real print points, not screen px
+    const fontPt: Record<string, { name: number; sub: number }> = {
+      avery5163: { name: 30, sub: 12 },
+      avery5160: { name: 12, sub:  8 },
+      avery5164: { name: 32, sub: 13 },
+    };
+    const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 16, sub: 9 };
 
-    const win = window.open('', '_blank', 'width=960,height=720');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-    }
+    // Approximate line heights in inches (pt ÷ 72)
+    const nameLineH = namePt / 72;
+    const subLineH  = subPt  / 72;
+    const lineGap   = 0.05;
+
+    printItems.forEach((item: any, globalIdx: number) => {
+      const idxOnPage = globalIdx % perSheet;
+      const row = Math.floor(idxOnPage / cols);
+      const col = idxOnPage % cols;
+
+      if (globalIdx > 0 && idxOnPage === 0) doc.addPage([8.5, 11], 'portrait');
+
+      const cardX = marginH + col * (cardW + colGap);
+      const cardY = marginV + row * (cardH + rowPitch);
+
+      // QR — vertically centred, small left inset
+      const qrX = cardX + 0.07;
+      const qrY = cardY + (cardH - qrIn) / 2;
+      doc.addImage(qrDataUrls[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
+
+      // Text column starts after QR
+      const textX   = qrX + qrIn + 0.14;
+      const textMaxW = cardX + cardW - textX - 0.06;
+
+      const sub = getLabelSubtext(item);
+      const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
+      const nameY = cardY + (cardH - totalTextH) / 2;
+
+      // Name
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(namePt);
+      doc.setTextColor(0, 0, 0);
+      const nameLines = doc.splitTextToSize(item.name, textMaxW);
+      doc.text(nameLines[0], textX, nameY, { baseline: 'top' });
+
+      // Sub text
+      if (sub) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(subPt);
+        doc.setTextColor(70, 70, 70);
+        const subY = nameY + nameLineH + lineGap;
+        doc.text(sub.replace(/→/g, '>'), textX, subY, { baseline: 'top' });
+      }
+    });
+
+    // Open as a blob URL — iOS Safari shows its PDF viewer instantly;
+    // user taps the Share icon then Print to send via AirPrint.
+    const blob    = doc.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 300_000);
   };
 
   return (
