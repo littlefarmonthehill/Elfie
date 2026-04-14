@@ -640,9 +640,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const fillBinToAssign = Array.from(fillBinManualAdds.values());
 
   // Search results come from the server (bypasses the 2000-row preload cap)
-  // Filter out anything already manually added
+  // Filter out anything already manually added, then split into two display groups
   const fillBinSearchResults = fillBinServerResults.filter(
     (item: any) => !fillBinManualAdds.has(item.id)
+  );
+  const _fbq = debouncedFillBinSearch.toLowerCase();
+  const fillBinResultsStartsWith = fillBinSearchResults.filter(
+    (item: any) => (item.itemNo ?? '').toLowerCase().startsWith(_fbq)
+  );
+  const fillBinResultsContains = fillBinSearchResults.filter(
+    (item: any) => !(item.itemNo ?? '').toLowerCase().startsWith(_fbq)
   );
 
   const addFillBinManual = (item: any) => {
@@ -2533,6 +2540,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               />
               {fillBinSearchResults.length > 0 && (
                 <div className="space-y-1">
+                  {/* Global all/none + add controls */}
                   <div className="flex items-center justify-between gap-2 px-0.5">
                     <div className="flex gap-2 text-[10px] text-muted-foreground">
                       <button
@@ -2564,40 +2572,67 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       </button>
                     )}
                   </div>
-                  <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
-                    {fillBinSearchResults.map((item: any) => {
-                      const checked = fillBinSearchSelected.has(item.id);
-                      return (
-                        <label
-                          key={item.id}
-                          className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate"
-                          data-testid={`button-add-search-${item.id}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setFillBinSearchSelected(prev => {
-                                const next = new Set(prev);
-                                if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                                return next;
-                              });
-                            }}
-                            className="h-3.5 w-3.5 rounded shrink-0"
-                          />
-                          <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                          <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                          {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+
+                  {/* Results grouped into two sections */}
+                  <div className="bg-muted/30 rounded-md p-1.5 space-y-0.5 max-h-56 overflow-y-auto">
+                    {fillBinResultsStartsWith.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between gap-2 px-1 pt-0.5 pb-1">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                            Starts with "{debouncedFillBinSearch}"
+                          </p>
                           <button
-                            onClick={e => { e.preventDefault(); addFillBinManual(item); }}
-                            className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300"
-                            title="Add just this one"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </label>
-                      );
-                    })}
+                            className="text-[9px] text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                            onClick={() => setFillBinSearchSelected(prev => {
+                              const next = new Set(prev);
+                              fillBinResultsStartsWith.forEach((i: any) => next.add(i.id));
+                              return next;
+                            })}
+                          >select group</button>
+                        </div>
+                        {fillBinResultsStartsWith.map((item: any) => {
+                          const checked = fillBinSearchSelected.has(item.id);
+                          return (
+                            <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`button-add-search-${item.id}`}>
+                              <input type="checkbox" checked={checked} onChange={() => { setFillBinSearchSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); }} className="h-3.5 w-3.5 rounded shrink-0" />
+                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
+                            </label>
+                          );
+                        })}
+                      </>
+                    )}
+                    {fillBinResultsContains.length > 0 && (
+                      <>
+                        <div className={`flex items-center justify-between gap-2 px-1 pb-1 ${fillBinResultsStartsWith.length > 0 ? 'pt-2 border-t border-border/50 mt-1' : 'pt-0.5'}`}>
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                            Contains "{debouncedFillBinSearch}"
+                          </p>
+                          <button
+                            className="text-[9px] text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                            onClick={() => setFillBinSearchSelected(prev => {
+                              const next = new Set(prev);
+                              fillBinResultsContains.forEach((i: any) => next.add(i.id));
+                              return next;
+                            })}
+                          >select group</button>
+                        </div>
+                        {fillBinResultsContains.map((item: any) => {
+                          const checked = fillBinSearchSelected.has(item.id);
+                          return (
+                            <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`button-add-search-${item.id}`}>
+                              <input type="checkbox" checked={checked} onChange={() => { setFillBinSearchSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); }} className="h-3.5 w-3.5 rounded shrink-0" />
+                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
+                            </label>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
