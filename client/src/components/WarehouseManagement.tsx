@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
+import { hiddenPrint } from "./PackingSlip";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -1192,14 +1193,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     // "Actual Size" (the default in most PDF apps) is correct.
     setPrintDialogOpen(false);
 
-    // Open the window NOW — synchronously while the user gesture is still active.
-    // iOS Safari blocks window.open() after any await, so this must happen first.
-    const pdfWin = window.open('', '_blank');
-    if (pdfWin) {
-      pdfWin.document.write('<html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:18px;color:#555;">Generating labels…</body></html>');
-      pdfWin.document.close();
-    }
-
     const parseIn = (s: string) => parseFloat(s);
     const marginV  = parseIn(tmpl.pageMarginV);
     const marginH  = parseIn(tmpl.pageMarginH);
@@ -1281,23 +1274,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         }
       });
 
-      // Use a data URI — more reliable than blob URLs on iOS Safari for
-      // navigating an already-open window to a PDF.
-      const dataUri = doc.output('datauristring');
-      if (pdfWin) {
-        pdfWin.location.href = dataUri;
-      } else {
-        window.open(dataUri, '_blank');
-      }
+      // Hand off to hiddenPrint — same function used by picklists/packing slips.
+      // On iOS it uses navigator.share({ files }) which opens the native share
+      // sheet (tap Print → AirPrint).  On desktop it uses a hidden iframe +
+      // window.print().
+      hiddenPrint(doc.output('blob'), 'labels.pdf');
     } catch (err: any) {
-      // Show the error inside the already-open window so it's visible
-      if (pdfWin) {
-        pdfWin.document.open();
-        pdfWin.document.write(`<html><body style="font-family:sans-serif;padding:24px;color:#c00;">
-          <h2>Label generation failed</h2><pre>${String(err?.message ?? err)}</pre>
-        </body></html>`);
-        pdfWin.document.close();
-      }
+      alert(`Label generation failed\n\n${String(err?.message ?? err)}`);
     }
   };
 
