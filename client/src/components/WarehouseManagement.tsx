@@ -1231,20 +1231,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     }).join('');
 
     const waitScript = `<script>
-      window.addEventListener('load', function() {
-        var images = Array.from(document.images);
-        Promise.all(images.map(function(img) {
-          return img.complete ? Promise.resolve() :
-            new Promise(function(resolve) { img.onload = resolve; img.onerror = resolve; });
-        })).then(function() { window.print(); });
-      });
       window.addEventListener('afterprint', function() { window.close(); });
     <\/script>`;
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       @page { size: 8.5in 11in; margin: 0; }
-      html, body { width: 8.5in; margin: 0; padding: 0; background: white; }
+      html { margin: 0; padding: 0; }
+      body { margin: 0; padding: 0; background: white; }
       .page {
         position: relative;
         width: 8.5in;
@@ -1269,10 +1263,42 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       .sep      { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${nameFontSize}; font-weight: 900; color: #000; padding: 0 0.05em; }
       .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 900; color: #333; line-height: 1.15; white-space: nowrap; }
       .subsep   { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 700; color: #555; padding: 0 0.2em; }
-      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-    </style>${waitScript}</head><body>${pagesHtml}</body></html>`;
+      .print-instructions {
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #1a1a2e; color: #fff; padding: 16px 24px;
+        font-family: Arial, sans-serif; font-size: 14px; z-index: 9999;
+        display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;
+      }
+      .print-instructions h2 { font-size: 15px; margin-bottom: 6px; color: #ffd700; }
+      .print-instructions ol { padding-left: 18px; line-height: 1.8; }
+      .print-instructions .warn { font-size: 12px; color: #ff9999; margin-top: 8px; }
+      .print-btn {
+        margin-top: 8px; padding: 10px 22px; background: #ffd700; color: #000;
+        border: none; border-radius: 6px; font-size: 14px; font-weight: bold;
+        cursor: pointer; white-space: nowrap; align-self: center;
+      }
+      @media print {
+        .print-instructions { display: none !important; }
+        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      }
+    </style></head><body>
+    <div class="print-instructions">
+      <div>
+        <h2>Before printing — check these settings in Chrome's print dialog:</h2>
+        <ol>
+          <li><strong>Margins:</strong> set to <strong>None</strong></li>
+          <li><strong>Headers and footers:</strong> <strong>OFF</strong> (uncheck it)</li>
+          <li><strong>Scale:</strong> <strong>100%</strong></li>
+        </ol>
+        <div class="warn">Without these settings, rows will be misaligned or cut off.</div>
+      </div>
+      <button class="print-btn" onclick="window.print()">Print labels</button>
+    </div>
+    ${waitScript}
+    ${pagesHtml}
+    </body></html>`;
 
-    const win = window.open('', '_blank', 'width=900,height=700');
+    const win = window.open('', '_blank', 'width=960,height=720');
     if (win) {
       win.document.write(html);
       win.document.close();
