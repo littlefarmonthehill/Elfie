@@ -133,7 +133,9 @@ async function buildInternationalShipping(
         description: contentsDesc,
         quantity: Math.max(totalQty, 1),
         weight: Math.max(Math.round(totalWeightOz), 1),
-        value: Math.max(itemSubtotal, 0.01),
+        // FCMI (First Class Mail International) requires declared value = 0.
+        // Any positive value causes EasyPost to reject the label purchase.
+        value: resolvedContentsType === 'documents' ? 0 : Math.max(itemSubtotal, 0.01),
         hsTariffNumber: '9503.00',
         originCountry: 'US',
       },
