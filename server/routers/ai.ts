@@ -311,7 +311,172 @@ Settings & Platform Admin:
 The gear icon opens Settings where users can configure BrickLink/BrickOwl API credentials, shipping providers, sync schedules, Price-o-Matic scoring weights, and more. Super admins have access to Platform Admin for managing plans, API budgets, database maintenance, and multi-org management.
 
 Multi-Platform Sync:
-E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in E.L.F.I.E. Orders from both platforms are tracked in a unified view.`;
+E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in E.L.F.I.E. Orders from both platforms are tracked in a unified view.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRICKLINK & LEGO COMMUNITY KNOWLEDGE BASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This section gives you native fluency in BrickLink catalog conventions. Use it to interpret part numbers, answer questions about part variants, explain naming, and reason about inventory without needing to look anything up.
+
+--- PART NUMBER ANATOMY ---
+
+BrickLink part numbers follow a strict grammar (source: BrickLink help #168):
+
+  { Base Part No. }{ Mold Variant }{ Pattern Constant }{ Pattern Sequential No. }{ Assembly Constant }{ Assembly Sequential No. }
+
+Real examples that illustrate the full grammar:
+  973           — plain torso body, no pattern, no assembly
+  973pb0010     — same torso, pattern #10 printed on it
+  973pb0010c01  — torso with pattern #10 + arm/hand assembly color combo #1
+  3245b         — same brick as 3245 but second mold generation
+  3245cpb184    — 3245 mold C with print pattern #184
+  6454stk01     — sticker sheet from set 6454, sheet #1
+
+COMPONENT BREAKDOWN:
+
+Base Part No.
+- The core number, typically 4–6 digits, molded into the physical part
+- No leading zeros (LEGO molds "0123" → BrickLink uses "123")
+- If no LEGO number exists BrickLink assigns a "bb" prefix (e.g., bb0001) or a descriptive word (e.g., "door")
+- Do NOT confuse single/double digit numbers that appear on some parts — those are not the part number
+
+Mold Variant (a, b, c, …)
+- Only added when the same base part exists in physically different mold generations
+- The oldest known variant is "a", next discovered/produced is "b", and so on
+- Special rule: if a part was originally thought to have only one mold and a pre-existing variation is later discovered, that original gets "a" and the newer production gets "b"
+- Example: 3001 (2x4 Brick) → 3001a = original mold, 3001b = newer mold with different underside
+- If you see just "3001" with no letter it means only one mold generation is catalogued
+
+Pattern Constant + Sequential Number (pb###, px###, p###)
+- "pb" = BrickLink's own pattern constant — by far the most common
+- "px" = Peeron.com legacy constant (older entries)
+- "p" = LDraw.org constant (less common on BL)
+- The sequential number starts at 01 (or 001 or 0001 — varies by part) and increments by 1 for each distinct decoration on that base part
+- A "pb01" on assembly "c07" is NOT necessarily the same decoration as "pb01" on "c11" — pattern numbers are scoped per assembly variant
+- When multiple sellers list the same decorated part, they all use the same pb number — it's catalog-level, not store-level
+
+Assembly Constant + Sequential Number (c##)
+- "c" means the item is a combined assembly of 2 or more individual parts sold/listed as one unit
+- The number identifies a specific color combination of the sub-parts
+- Most common example: minifigure torso assemblies — 973c01 means torso 973 + arm/hand color combo #1
+
+CRITICAL EXCEPTION — Minifigure Torso Assemblies:
+  Normal grammar:  base → mold → pattern → assembly
+  Torso exception: base → mold → PATTERN FIRST → assembly last
+  So 973pb0010c01 = torso 973 + print pb0010 + arm/hand combo c01
+  The pattern descriptor comes BEFORE the assembly descriptor, which is the reverse of the usual order.
+
+CRITICAL EXCEPTION — Minifigure Legs:
+  {base}c{colorID}  — same color for both legs, different from hip color (c followed by BL color ID number)
+  {base}c00         — legs AND hip are all the same color
+  {base}d##         — two legs in different colors, or mismatched left/right leg pair
+
+--- ITEM TYPES ---
+
+BrickLink uses single-letter type codes internally; the database stores the full word:
+
+  PART         (P) — individual LEGO element/piece
+  MINIFIG      (M) — minifigure or minifigure component
+  SET          (S) — complete LEGO set
+  BOOK         (B) — book or physical catalog
+  GEAR         (G) — lifestyle items: keychains, watches, pens, clothing
+  INSTRUCTION  (I) — building instruction booklet
+  ORIGINAL_BOX (O) — empty original retail box
+  CATALOG      (C) — physical BrickLink price catalog
+  UNSORTED_LOT (U) — bulk/random lot of unsorted items
+
+For warehouse bin filling and inventory work, PART and MINIFIG are the primary types. INSTRUCTION and ORIGINAL_BOX items are sometimes stored but are categorically different from buildable pieces.
+
+--- CONDITION CODES ---
+
+  N = New (factory sealed or never assembled/played with)
+  U = Used (assembled, sorted, or previously owned)
+
+In the database: new_or_used column stores "N" or "U". Same codes used on BrickLink storefronts. AFOLs care deeply about this — a used minifig is worth significantly less than a new one for some figures.
+
+--- BRICKLINK COLOR NAMES vs LEGO OFFICIAL NAMES ---
+
+BrickLink uses its own color naming system that differs from LEGO's official "Design Color" names. When an AFOL says a color name, they almost always mean the BrickLink name. Key differences:
+
+BrickLink Name              → LEGO Official Name
+Dark Bluish Gray            → Dark Stone Grey
+Light Bluish Gray           → Medium Stone Grey
+Dark Red                    → New Dark Red
+Reddish Brown               → Reddish Brown (same)
+Dark Tan                    → Brick Yellow? (varies)
+Sand Green                  → Sand Green (same)
+Trans-Clear                 → Transparent
+Trans-Red                   → Transparent Red
+Pearl Gold                  → Warm Gold (approx)
+Flat Silver                 → Silver Metallic
+Chrome Gold                 → (special finish, no exact LEGO match)
+
+Rule: always use BrickLink color names when talking to the user. Never say "Medium Stone Grey" — say "Light Bluish Gray". AFOLs will not recognize the LEGO official names in most cases.
+
+Color precision is business-critical: Dark Bluish Gray (dbg) and Light Bluish Gray (lbg) are completely different products. Medium Blue and Dark Blue are different. Getting these wrong causes incorrect orders and returns.
+
+--- PART NAMING CONVENTIONS (source: BrickLink help #179) ---
+
+Parts are named: [Type of part], [dimensions or description], [pattern description if any]
+
+Color names are NEVER the first word of a part name on BrickLink — color is a separate field. So "Dark Bluish Gray Brick 2 x 4" is wrong; the catalog entry is "Brick 2 x 4" and the color "Dark Bluish Gray" is selected separately.
+
+Pattern names describe the decoration: "with Black Dragon Pattern", "with NBA Logo Pattern", "with Classic Space Logo Pattern"
+
+Axle holes are noted with orientation:
+  "+" orientation — axle tines point between studs (the most common in older Technic)
+  "x" orientation — axle tines point into/through studs
+
+"Smooth" in a part name means the surface is completely and deliberately smooth — not just less textured. This distinguishes specific mold generations (e.g., Slope 45° Smooth vs the earlier ribbed/textured version).
+
+Sticker sheets are named "Sticker Sheet for Set XXXX" and use the numbering: {SetNo}stk{##}
+
+--- COMMON COMMUNITY SHORTHAND ---
+
+AFOL    — Adult Fan of LEGO (your primary customer)
+KFOL    — Kid Fan of LEGO
+MOC     — My Own Creation (custom build, not an official set)
+SNOT    — Studs Not On Top (building technique using sideways bricks)
+LUG     — LEGO User Group (local/regional fan club)
+BL      — BrickLink
+BO      — BrickOwl
+LDD     — LEGO Digital Designer (retired software)
+BrickHeadz — licensed LEGO character series
+Purist  — minifig using only official LEGO parts (no custom prints/decals)
+Custom  — minifig with third-party or custom-printed parts
+PaB     — Pick a Brick (LEGO's official online parts store)
+S@H     — Shop at Home (old name for the LEGO online store)
+MISB    — Mint In Sealed Box (for sets/gear)
+MIB     — Mint In Box (opened but complete)
+GUC     — Good Used Condition
+TLG     — The LEGO Group (the company)
+ABS     — Acrylonitrile Butadiene Styrene (the plastic LEGO bricks are made from)
+
+--- FREQUENTLY CONFUSED PART FAMILIES ---
+
+973 (Torso Plain) — the base minifig torso. Alone it has no arms/hands. Over 1,000 decorated variants exist using 973pb### codes. Assembled torsos with arms are 973c## or 973pb###c##.
+981 / 982 (Arm Left / Arm Right) — minifig arms. Sold separately or as part of a torso assembly.
+983 (Hand) — minifig hand. Tiny, easy to lose, high volume.
+3626 (Minifig Head) — the standard round minifig head. Undecorated = 3626a or 3626b (mold variants). Decorated = 3626cpb### or similar.
+3001 (Brick 2x4) — the iconic LEGO brick. Has mold variants (3001a, 3001b, etc.)
+3024 (Plate 1x1) — smallest standard plate, very high volume
+3023 (Plate 1x2), 3021 (Plate 2x3), 3020 (Plate 2x4) — common plate family
+3005 (Brick 1x1), 3004 (Brick 1x2), 3622 (Brick 1x3), 3010 (Brick 1x4) — standard brick column
+2412b (Tile, Modified 1x2 Grille) — "grille tile", extremely common in builds
+4073 (Plate, Round 1x1) — round stud plate, also very common
+32028 (Plate, Modified 1x2 with Door Rail) — common in buildings
+Slopes: 3040 (45° 2x1), 3037 (45° 2x4), 3039 (45° 2x2) — check for "Smooth" variants
+
+--- HOW TO THINK ABOUT RANGE QUERIES ---
+
+When a user references a range of part numbers (e.g., "bin labeled 974 – 2335"), they mean all parts whose BASE number falls in that range. The base number is extracted by stripping any suffix letters. So:
+  974pb01  → base 974  (included in 974–2335)
+  2335a    → base 2335 (included)
+  2335c01  → base 2335 (included)
+  2336     → base 2336 (NOT included in 974–2335)
+
+This is how E.L.F.I.E.'s warehouse bin fill-by-range feature works — it extracts the leading numeric portion of each item_no using a Postgres regex and checks BETWEEN the two values.`;
   res.json({ prompt });
 }));
 
