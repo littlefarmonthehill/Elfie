@@ -1226,16 +1226,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
       // Font sizes (pt) per template — 1pt = 1/72 inch, same physical unit as CSS pt.
       const fontPt: Record<string, { name: number; sub: number }> = {
-        avery5163: { name: 44, sub: 16 },
+        avery5163: { name: 48, sub: 16 },
         avery5160: { name: 13, sub:  8 },
-        avery5164: { name: 46, sub: 17 },
+        avery5164: { name: 48, sub: 17 },
       };
       const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
 
       // Cap-height in inches (Helvetica cap height ≈ 72% of em; 1em = pt/72 in)
       const nameLineH = (namePt * 0.72) / 72;
       const subLineH  = (subPt  * 0.72) / 72;
-      const lineGap   = 0.06;
+      const lineGap   = 0.055;
 
       printItems.forEach((item: any, globalIdx: number) => {
         const idxOnPage = globalIdx % perSheet;
@@ -1247,30 +1247,49 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const cardX = marginH + col * (cardW + colGap);
         const cardY = marginV + row * (cardH + rowPitch);
 
-        // QR — vertically centred, small left inset
-        const qrX = cardX + 0.07;
+        // Center the [QR + gap + text] block horizontally in the card.
+        // Equal left/right padding of ~0.19" centres the block for typical bin names.
+        const innerPad = 0.19;
+        const qrX = cardX + innerPad;
         const qrY = cardY + (cardH - qrIn) / 2;
         doc.addImage(qrCanvases[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
 
-        // Text column starts after QR
-        const textX    = qrX + qrIn + 0.14;
-        const textMaxW = cardX + cardW - textX - 0.06;
+        const textX    = qrX + qrIn + 0.13;
+        const textMaxW = cardX + cardW - innerPad - textX;
 
         const sub = getLabelSubtext(item);
         const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
         const nameY = cardY + (cardH - totalTextH) / 2;
 
+        // ── Bin name — bold text inside a thick border box ──
+        // The box makes the bin code instantly scannable for pickers.
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(namePt);
         doc.setTextColor(0, 0, 0);
         const nameLines = doc.splitTextToSize(item.name, textMaxW);
-        doc.text(nameLines[0], textX, nameY, { baseline: 'top' });
+        const displayName = nameLines[0] as string;
+        const nameW = Math.min(doc.getTextWidth(displayName), textMaxW);
 
+        const boxPadH = 0.07;  // horizontal padding inside box
+        const boxPadV = 0.044; // vertical padding inside box
+        doc.setLineWidth(0.024); // thick border ≈ 1.7 pt
+        doc.setDrawColor(0, 0, 0);
+        doc.roundedRect(
+          textX - boxPadH,
+          nameY - boxPadV,
+          nameW + 2 * boxPadH,
+          nameLineH + 2 * boxPadV,
+          0.032, 0.032,
+          'S'
+        );
+        doc.text(displayName, textX, nameY, { baseline: 'top' });
+
+        // ── Subtext (Aisle > Shelf) — below the box ──
         if (sub) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(subPt);
-          doc.setTextColor(70, 70, 70);
-          doc.text(sub.replace(/→/g, '>'), textX, nameY + nameLineH + lineGap, { baseline: 'top' });
+          doc.setTextColor(60, 60, 60);
+          doc.text(sub.replace(/→/g, '>'), textX - boxPadH, nameY + nameLineH + lineGap, { baseline: 'top' });
         }
       });
 
