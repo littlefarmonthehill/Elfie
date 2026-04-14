@@ -1220,7 +1220,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
           return new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new window.Image();
-            img.crossOrigin = 'anonymous';
             img.onload  = () => resolve(img);
             img.onerror = (e) => reject(new Error(`QR load failed: ${url} — ${e}`));
             img.src = url;
