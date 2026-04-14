@@ -573,7 +573,7 @@ router.get("/warehouse/locations/bin/:binId", isApproved, asyncRoute(async (req:
       colorId: blInventory.colorId,
       colorName: blColors.name,
       newOrUsed: blInventory.newOrUsed,
-      myPrice: blInventory.myPrice,
+      unitPrice: blInventory.unitPrice,
       quantity: inventoryLocations.quantity,
       bagLabel: inventoryLocations.bagLabel,
       notes: inventoryLocations.notes,
