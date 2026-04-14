@@ -152,11 +152,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedFillBinSearch(fillBinSearch.trim()), 280);
-    return () => clearTimeout(t);
-  }, [fillBinSearch]);
-
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -207,6 +202,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [debouncedFillBinSearch, setDebouncedFillBinSearch] = useState("");
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFillBinSearch(fillBinSearch.trim()), 280);
+    return () => clearTimeout(t);
+  }, [fillBinSearch]);
 
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
