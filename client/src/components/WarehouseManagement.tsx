@@ -1190,6 +1190,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     // "Actual Size" (the default in most PDF apps) is correct.
     setPrintDialogOpen(false);
 
+    // Open the window NOW — synchronously while the user gesture is still active.
+    // iOS Safari blocks window.open() after any await, so this must happen first.
+    const pdfWin = window.open('', '_blank');
+    if (pdfWin) {
+      pdfWin.document.write('<html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:18px;color:#555;">Generating labels…</body></html>');
+      pdfWin.document.close();
+    }
+
     const parseIn = (s: string) => parseFloat(s);
     const marginV  = parseIn(tmpl.pageMarginV);
     const marginH  = parseIn(tmpl.pageMarginH);
@@ -1274,11 +1282,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       }
     });
 
-    // Open as a blob URL — iOS Safari shows its PDF viewer instantly;
-    // user taps the Share icon then Print to send via AirPrint.
+    // Navigate the already-open window to the PDF blob URL.
+    // On iOS Safari the PDF viewer appears immediately; tap Share → Print → AirPrint.
     const blob    = doc.output('blob');
     const blobUrl = URL.createObjectURL(blob);
-    window.open(blobUrl, '_blank');
+    if (pdfWin) {
+      pdfWin.location.href = blobUrl;
+    } else {
+      // Fallback: if the window was blocked, try opening directly
+      window.open(blobUrl, '_blank');
+    }
     setTimeout(() => URL.revokeObjectURL(blobUrl), 300_000);
   };
 
