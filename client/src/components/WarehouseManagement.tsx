@@ -1224,18 +1224,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [8.5, 11] });
 
-      // Font sizes (pt) per template — 1pt = 1/72 inch, same physical unit as CSS pt.
+      // Font sizes for non-three-box templates (avery5163 uses its own layout)
       const fontPt: Record<string, { name: number; sub: number }> = {
-        avery5163: { name: 48, sub: 16 },
-        avery5160: { name: 13, sub:  8 },
+        avery5160: { name: 13, sub: 8 },
         avery5164: { name: 48, sub: 17 },
       };
-      const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
-
-      // Cap-height in inches (Helvetica cap height ≈ 72% of em; 1em = pt/72 in)
-      const nameLineH = (namePt * 0.72) / 72;
-      const subLineH  = (subPt  * 0.72) / 72;
-      const lineGap   = 0.055;
 
       printItems.forEach((item: any, globalIdx: number) => {
         const idxOnPage = globalIdx % perSheet;
@@ -1247,8 +1240,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const cardX = marginH + col * (cardW + colGap);
         const cardY = marginV + row * (cardH + rowPitch);
 
-        // Center the [QR + gap + text] block horizontally in the card.
-        // Equal left/right padding of ~0.19" centres the block for typical bin names.
+        // Center the [QR + gap + boxes] block with equal left/right padding
         const innerPad = 0.19;
         const qrX = cardX + innerPad;
         const qrY = cardY + (cardH - qrIn) / 2;
@@ -1257,51 +1249,89 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const textX    = qrX + qrIn + 0.13;
         const textMaxW = cardX + cardW - innerPad - textX;
 
-        const sub = getLabelSubtext(item);
-        const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
-        const nameY = cardY + (cardH - totalTextH) / 2;
+        if (printLabelSize === 'avery5163') {
+          // ── Three-box layout: [Aisle] [Shelf] [Bin] each with label below ──
+          const boxContentPt = 34;
+          const boxLabelPt   = 9;
+          const boxContentH  = (boxContentPt * 0.72) / 72;
+          const boxLabelH    = (boxLabelPt   * 0.72) / 72;
+          const boxPadH      = 0.08;
+          const boxPadV      = 0.05;
+          const boxH         = boxContentH + 2 * boxPadV;
+          const boxGap       = 0.07;
+          const labelGap     = 0.04;
+          const totalBlockH  = boxH + labelGap + boxLabelH;
+          const blockTop     = cardY + (cardH - totalBlockH) / 2;
 
-        // ── Bin label — prefix plain, bin number shaded & boxed ──
-        // e.g. "1-A-01" → "1-A-" plain, "01" in shaded rounded box
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(namePt);
-        doc.setTextColor(0, 0, 0);
+          const lastDash = item.name.lastIndexOf('-');
+          const aisleId  = String(item.aisleName ?? '?');
+          const shelfId  = String(item.shelfName  ?? '?');
+          const binId    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
 
-        const lastDash = item.name.lastIndexOf('-');
-        const binPrefix = lastDash >= 0 ? item.name.slice(0, lastDash + 1) : '';
-        const binNum    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(boxContentPt);
 
-        const prefixW = binPrefix ? doc.getTextWidth(binPrefix) : 0;
-        const numW    = doc.getTextWidth(binNum);
+          const segments = [
+            { id: aisleId, caption: 'Aisle' },
+            { id: shelfId, caption: 'Shelf' },
+            { id: binId,   caption: 'Bin'   },
+          ];
 
-        // Draw prefix without box
-        if (binPrefix) {
-          doc.text(binPrefix, textX, nameY, { baseline: 'top' });
-        }
+          // Measure each box width from content
+          const widths = segments.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
+          const totalBoxesW = widths.reduce((a, b) => a + b, 0) + boxGap * (segments.length - 1);
 
-        // Shaded box around bin number only
-        const boxX    = textX + prefixW;
-        const boxPadH = 0.07;
-        const boxPadV = 0.044;
-        doc.setLineWidth(0.024);
-        doc.setDrawColor(0, 0, 0);
-        doc.setFillColor(232, 232, 232);
-        doc.roundedRect(
-          boxX - boxPadH,
-          nameY - boxPadV,
-          numW + 2 * boxPadH,
-          nameLineH + 2 * boxPadV,
-          0.032, 0.032,
-          'FD'
-        );
-        doc.text(binNum, boxX, nameY, { baseline: 'top' });
+          // Left-align the three boxes within the text column
+          let curX = textX + Math.max(0, (textMaxW - totalBoxesW) / 2);
 
-        // ── Subtext (Aisle > Shelf) — below the bin line ──
-        if (sub) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(subPt);
-          doc.setTextColor(60, 60, 60);
-          doc.text(sub.replace(/→/g, '>'), textX, nameY + nameLineH + lineGap, { baseline: 'top' });
+          segments.forEach((seg, i) => {
+            const bw = widths[i];
+            const contentW = doc.getTextWidth(seg.id);
+
+            // Shaded rounded box
+            doc.setLineWidth(0.018);
+            doc.setDrawColor(0, 0, 0);
+            doc.setFillColor(232, 232, 232);
+            doc.roundedRect(curX, blockTop, bw, boxH, 0.028, 0.028, 'FD');
+
+            // Identifier centred inside box
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(boxContentPt);
+            doc.setTextColor(0, 0, 0);
+            doc.text(seg.id, curX + (bw - contentW) / 2, blockTop + (boxH - boxContentH) / 2, { baseline: 'top' });
+
+            // Caption centred below box
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(boxLabelPt);
+            doc.setTextColor(80, 80, 80);
+            const capW = doc.getTextWidth(seg.caption);
+            doc.text(seg.caption, curX + (bw - capW) / 2, blockTop + boxH + labelGap, { baseline: 'top' });
+
+            curX += bw + boxGap;
+          });
+
+        } else {
+          // ── Single-line layout for other templates ──
+          const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
+          const nameLineH = (namePt * 0.72) / 72;
+          const subLineH  = (subPt  * 0.72) / 72;
+          const lineGap   = 0.055;
+          const sub = getLabelSubtext(item);
+          const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
+          const nameY = cardY + (cardH - totalTextH) / 2;
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(namePt);
+          doc.setTextColor(0, 0, 0);
+          const nameLines = doc.splitTextToSize(item.name, textMaxW);
+          doc.text(nameLines[0], textX, nameY, { baseline: 'top' });
+
+          if (sub) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(subPt);
+            doc.setTextColor(60, 60, 60);
+            doc.text(sub.replace(/→/g, '>'), textX, nameY + nameLineH + lineGap, { baseline: 'top' });
+          }
         }
       });
 
