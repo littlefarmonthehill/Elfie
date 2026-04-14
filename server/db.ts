@@ -2346,6 +2346,19 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_items_pct DECIMAL(10,2) DEFAULT 0`);
     console.log('[Migration] Phase-115 (default_weight_items_pct) complete.');
 
+    // Phase-116: Rebrickable part-to-part relationships table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS part_relationships (
+        id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        rel_type TEXT NOT NULL,
+        child_part_num TEXT NOT NULL,
+        parent_part_num TEXT NOT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS part_rel_child_idx  ON part_relationships (child_part_num, rel_type)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS part_rel_parent_idx ON part_relationships (parent_part_num, rel_type)`);
+    console.log('[Migration] Phase-116 (part_relationships table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -6,7 +6,7 @@ import { db } from '../db';
 import { 
   blInventory, blCatalog, priceGuideCache, blCategories, blColors, 
   appSettings, inventoryHistory, brickanalyzerScans, partIdMappings, 
-  blApiCalls, setPartRelationships, inventoryLocations, whBins, whShelves, whAisles,
+  blApiCalls, setPartRelationships, partRelationships, inventoryLocations, whBins, whShelves, whAisles,
   orderDetails, orders
 } from '@shared/schema';
 import { 
@@ -33,6 +33,66 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
     (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
     (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
   )`;
+
+/**
+ * Returns BrickLink item numbers that are Rebrickable 'A' (Alternate) matches
+ * for the given BL item number.  Returns [] when the table is empty or no
+ * alternates are found — so existing behaviour is fully preserved.
+ */
+async function findAlternateBlItemNos(blItemNo: string): Promise<string[]> {
+  if (!blItemNo) return [];
+  try {
+    // 1. Resolve Rebrickable ID for the given BL item number (fall back to same value)
+    const [mapping] = await db.select({ rebrickableId: partIdMappings.rebrickableId })
+      .from(partIdMappings)
+      .where(eq(partIdMappings.blId, blItemNo.toUpperCase()))
+      .limit(1);
+    const rbId = mapping?.rebrickableId ?? blItemNo;
+
+    // 2. Find all type-A relationships involving this Rebrickable ID
+    const alts = await db.select({
+        childPartNum: partRelationships.childPartNum,
+        parentPartNum: partRelationships.parentPartNum,
+      })
+      .from(partRelationships)
+      .where(and(
+        eq(partRelationships.relType, 'A'),
+        or(
+          eq(partRelationships.childPartNum, rbId),
+          eq(partRelationships.parentPartNum, rbId),
+        )
+      ));
+
+    if (alts.length === 0) return [];
+
+    // 3. Collect alternate Rebrickable IDs (exclude the part itself)
+    const altRbIds = new Set<string>();
+    for (const alt of alts) {
+      if (alt.childPartNum !== rbId) altRbIds.add(alt.childPartNum);
+      if (alt.parentPartNum !== rbId) altRbIds.add(alt.parentPartNum);
+    }
+    if (altRbIds.size === 0) return [];
+
+    // 4. Map Rebrickable IDs → BL IDs via part_id_mappings
+    const backMappings = await db.select({ blId: partIdMappings.blId, rebrickableId: partIdMappings.rebrickableId })
+      .from(partIdMappings)
+      .where(inArray(partIdMappings.rebrickableId, Array.from(altRbIds)));
+
+    const mappedRbIds = new Set(backMappings.map(m => m.rebrickableId).filter(Boolean) as string[]);
+    const result = new Set<string>(backMappings.map(m => m.blId).filter(Boolean) as string[]);
+
+    // For unmapped Rebrickable IDs assume BL ID === Rebrickable ID (common for most parts)
+    for (const rbAltId of altRbIds) {
+      if (!mappedRbIds.has(rbAltId)) result.add(rbAltId);
+    }
+
+    result.delete(blItemNo.toUpperCase());
+    result.delete(blItemNo);
+    return Array.from(result);
+  } catch {
+    return [];
+  }
+}
 
 async function getOrgSettings(orgId: string) {
   const [existing] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
@@ -1140,20 +1200,23 @@ router.get("/inventory/browse", isApproved, asyncRoute(async (req: any, res) => 
     ? desc(blInventory.quantity)
     : asc(blInventory.itemNo);
 
+  // Shared select shape
+  const browseSelect = {
+    id: blInventory.id,
+    itemNo: blInventory.itemNo,
+    itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+    itemType: blInventory.itemType,
+    colorId: blInventory.colorId,
+    colorName: blColors.name,
+    colorRgb: blColors.rgb,
+    categoryName: blCategories.name,
+    quantity: blInventory.quantity,
+    newOrUsed: blInventory.newOrUsed,
+    unitPrice: blInventory.unitPrice,
+  };
+
   const rows = await db
-    .select({
-      id: blInventory.id,
-      itemNo: blInventory.itemNo,
-      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
-      itemType: blInventory.itemType,
-      colorId: blInventory.colorId,
-      colorName: blColors.name,
-      colorRgb: blColors.rgb,
-      categoryName: blCategories.name,
-      quantity: blInventory.quantity,
-      newOrUsed: blInventory.newOrUsed,
-      unitPrice: blInventory.unitPrice,
-    })
+    .select(browseSelect)
     .from(blInventory)
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
     .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -1170,7 +1233,31 @@ router.get("/inventory/browse", isApproved, asyncRoute(async (req: any, res) => 
     .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
     .where(searchWhere);
 
-  res.json({ rows, total, page, limit });
+  // When search looks like an exact part number, fetch alternate lots as a bonus section
+  // (doesn't affect pagination — appended after primary results)
+  let alternateRows: (typeof rows[number] & { alternateOf?: string })[] = [];
+  const looksLikePartNo = search && /^[a-zA-Z0-9][a-zA-Z0-9\-_]{0,24}$/.test(search) && !search.includes(' ');
+  if (looksLikePartNo && page === 0) {
+    const altItemNos = await findAlternateBlItemNos(search);
+    if (altItemNos.length > 0) {
+      const existingIds = new Set(rows.map(r => r.id));
+      const altWhere = and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, altItemNos));
+      const altResults = await db
+        .select(browseSelect)
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+        .where(altWhere)
+        .orderBy(asc(blInventory.itemNo))
+        .limit(50);
+      alternateRows = altResults
+        .filter(r => !existingIds.has(r.id))
+        .map(r => ({ ...r, alternateOf: search.toUpperCase() }));
+    }
+  }
+
+  res.json({ rows: [...rows, ...alternateRows], total, page, limit });
 }));
 
 // 18. GET /inventory/search
@@ -1188,23 +1275,45 @@ router.get("/inventory/search", isApproved, asyncRoute(async (req: any, res) => 
     ? and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo), eq(blInventory.colorId, parsedColorId))
     : and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo));
 
+  const searchSelect = {
+    id: blInventory.id,
+    itemNo: blInventory.itemNo,
+    itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+    colorId: blInventory.colorId,
+    colorName: blColors.name,
+    newOrUsed: blInventory.newOrUsed,
+    quantity: blInventory.quantity,
+  };
+
   const inventoryLots = await db
-    .select({
-      id: blInventory.id,
-      itemNo: blInventory.itemNo,
-      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
-      colorId: blInventory.colorId,
-      colorName: blColors.name,
-      newOrUsed: blInventory.newOrUsed,
-      quantity: blInventory.quantity,
-    })
+    .select(searchSelect)
     .from(blInventory)
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
     .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
     .where(whereClause)
     .limit(parseInt(limit as string) || 10);
 
-  res.json(inventoryLots);
+  // Append alternates so callers (e.g. catalog click) can find existing lots for alternate part numbers
+  const altItemNos = await findAlternateBlItemNos(itemNo);
+  let alternateLots: (typeof inventoryLots[number] & { isAlternate?: boolean; alternateOf?: string })[] = [];
+  if (altItemNos.length > 0) {
+    const existingIds = new Set(inventoryLots.map(l => l.id));
+    const altWhere = parsedColorId != null
+      ? and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, altItemNos), eq(blInventory.colorId, parsedColorId))
+      : and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, altItemNos));
+    const altResults = await db
+      .select(searchSelect)
+      .from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .where(altWhere)
+      .limit(20);
+    alternateLots = altResults
+      .filter(l => !existingIds.has(l.id))
+      .map(l => ({ ...l, isAlternate: true, alternateOf: itemNo }));
+  }
+
+  res.json([...inventoryLots, ...alternateLots]);
 }));
 
 // 19. GET /catalog/lookup/:itemType/:itemNo

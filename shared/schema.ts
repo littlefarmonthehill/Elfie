@@ -309,6 +309,21 @@ export const insertSetPartRelationshipSchema = createInsertSchema(setPartRelatio
 export type InsertSetPartRelationship = z.infer<typeof insertSetPartRelationshipSchema>;
 export type SetPartRelationship = typeof setPartRelationships.$inferSelect;
 
+// Rebrickable part-to-part relationships (type A = Alternate, M = Mold, P = Print, etc.)
+export const partRelationships = pgTable("part_relationships", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  relType: text("rel_type").notNull(),           // A, M, P, R, T, B
+  childPartNum: text("child_part_num").notNull(), // Rebrickable child/alternate part num
+  parentPartNum: text("parent_part_num").notNull(), // Rebrickable parent/canonical part num
+}, (table) => ({
+  childIdx:  index("part_rel_child_idx").on(table.childPartNum, table.relType),
+  parentIdx: index("part_rel_parent_idx").on(table.parentPartNum, table.relType),
+}));
+
+export const insertPartRelationshipSchema = createInsertSchema(partRelationships).omit({ id: true } as any);
+export type InsertPartRelationship = z.infer<typeof insertPartRelationshipSchema>;
+export type PartRelationship = typeof partRelationships.$inferSelect;
+
 // Orders (from platforms and locally created splits)
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey(),

@@ -415,6 +415,22 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-11: customer_notes backfill failed (non-fatal):', noteFixErr.message);
     }
 
+    // 4a-fix-12. Create part_relationships table (Phase-116 blocked by migration chain).
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS part_relationships (
+          id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          rel_type TEXT NOT NULL,
+          child_part_num TEXT NOT NULL,
+          parent_part_num TEXT NOT NULL
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS part_rel_child_idx  ON part_relationships (child_part_num, rel_type)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS part_rel_parent_idx ON part_relationships (parent_part_num, rel_type)`);
+    } catch (prErr: any) {
+      console.error('[Startup] fix-12: part_relationships table creation (non-fatal):', prErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

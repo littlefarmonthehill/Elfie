@@ -673,6 +673,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-mono text-gray-300">{row.itemNo}</span>
                           {row.newOrUsed === 'U' && <span className="text-[11px] px-1 py-0 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>}
+                          {row.alternateOf && <span className="text-[10px] px-1 py-0 rounded bg-purple-900/40 text-purple-300 border border-purple-700/30" title={`Alternate of ${row.alternateOf}`}>Alt</span>}
                           <span className="text-[11px] font-mono text-gray-600">#{row.id}</span>
                         </div>
                         <div className="text-xs text-gray-500 truncate">{row.itemName ?? row.colorName ?? ''}{row.itemName && row.colorName ? ` · ${row.colorName}` : ''}</div>

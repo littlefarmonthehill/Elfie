@@ -1554,6 +1554,20 @@ router.post("/sync/rebrickable/set-parts", isApproved, asyncRoute(async (req: an
   res.json({ success: true, message: 'Rebrickable set-parts sync started', force });
 }));
 
+router.post("/sync/rebrickable/part-relationships", isApproved, asyncRoute(async (req: any, res) => {
+  const { force = false } = req.body || {};
+  const { syncRebrickablePartRelationships, getPartRelSyncIsRunning } = await import('../services/rebrickable.js');
+  if (getPartRelSyncIsRunning()) {
+    return res.status(409).json({ success: false, error: 'Part relationships sync already running' });
+  }
+  syncRebrickablePartRelationships(force).then((result) => {
+    console.log(`[PartRel API] Sync complete: ${result.rowsInserted} rows`);
+  }).catch((err: any) => {
+    console.error('[PartRel API] Sync error:', err.message);
+  });
+  res.json({ success: true, message: 'Part relationships sync started', force });
+}));
+
 router.get("/sync/bricklink/progress", isApproved, asyncRoute(async (req, res) => {
   const { syncProgressTracker } = await import('../services/sync-progress');
   const progress = syncProgressTracker.get();

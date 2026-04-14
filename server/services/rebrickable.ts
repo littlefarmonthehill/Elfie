@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { setPartRelationships, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { setPartRelationships, partRelationships, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import https from "https";
 import { parse } from "csv-parse";
@@ -309,6 +309,69 @@ export async function syncRebrickableSetParts(forceRefresh = false): Promise<Reb
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     }).catch(() => {});
     throw error;
+  }
+}
+
+// ─── Part Relationships Sync ─────────────────────────────────────────────────
+
+let partRelSyncRunning = false;
+export function getPartRelSyncIsRunning() { return partRelSyncRunning; }
+
+/**
+ * Downloads Rebrickable's part_relationships.csv.gz and stores all rows in
+ * the `part_relationships` table.  Type 'A' rows represent alternate parts.
+ *
+ * Safe to run multiple times — truncates and re-inserts each run.
+ */
+export async function syncRebrickablePartRelationships(forceRefresh = false): Promise<{ rowsInserted: number }> {
+  if (partRelSyncRunning) throw new Error('Part relationships sync already running');
+
+  if (!forceRefresh) {
+    const [{ cnt }] = await db.select({ cnt: sql<number>`COUNT(*)::int` }).from(partRelationships);
+    if (cnt > 0) {
+      console.log(`[PartRel] Already populated (${cnt} rows) — skipping. Pass forceRefresh=true to re-sync.`);
+      return { rowsInserted: cnt };
+    }
+  }
+
+  partRelSyncRunning = true;
+  try {
+    const url = 'https://cdn.rebrickable.com/media/downloads/part_relationships.csv.gz';
+    console.log('[PartRel] Downloading part_relationships.csv.gz…');
+
+    const records: { relType: string; childPartNum: string; parentPartNum: string }[] = [];
+
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream(url);
+        const gunzip = createGunzip();
+        const parser = parse({ columns: true, skip_empty_lines: true, trim: true });
+
+        parser.on('data', (row: any) => {
+          if (row.rel_type && row.child_part_num && row.parent_part_num) {
+            records.push({ relType: row.rel_type, childPartNum: row.child_part_num, parentPartNum: row.parent_part_num });
+          }
+        });
+        parser.on('end', resolve);
+        parser.on('error', reject);
+        stream.pipe(gunzip).pipe(parser);
+        stream.on('error', reject);
+        gunzip.on('error', reject);
+      } catch (err) { reject(err); }
+    });
+
+    console.log(`[PartRel] Downloaded ${records.length} rows. Truncating old data…`);
+    await db.delete(partRelationships);
+
+    const BATCH = 1000;
+    for (let i = 0; i < records.length; i += BATCH) {
+      await db.insert(partRelationships).values(records.slice(i, i + BATCH));
+    }
+
+    console.log(`[PartRel] Inserted ${records.length} part relationships.`);
+    return { rowsInserted: records.length };
+  } finally {
+    partRelSyncRunning = false;
   }
 }
 
