@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import jsPDF from 'jspdf';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -174,7 +173,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Print labels state
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164' | 'dymo30252' | 'dymo30336'>('avery5163');
-  const [isPrinting, setIsPrinting] = useState(false);
 
   // Controlled name input for create/edit dialogs
   const [createName, setCreateName] = useState('');
@@ -1112,7 +1110,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     },
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (printItems.length === 0) return;
     const origin = window.location.origin;
     const tmpl = LABEL_TEMPLATES[printLabelSize];
@@ -1177,158 +1175,100 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       return;
     }
 
-    // --- Sheet mode: jsPDF-based pixel-perfect layout ---
-    setIsPrinting(true);
+    // --- Sheet mode: HTML absolute-position layout ---
+    // Using HTML + window.print() instead of jsPDF avoids the PDF viewer's
+    // "Fit to printable area" scaling, which was causing progressive vertical
+    // drift across rows.  Each card is absolutely positioned at exact inch
+    // coordinates so no browser layout engine can shift them.
     setPrintDialogOpen(false);
 
-    try {
-      const parseInMm = (s: string) => parseFloat(s) * 25.4;
+    const parseIn = (s: string) => parseFloat(s);
+    const marginV = parseIn(tmpl.pageMarginV);
+    const marginH = parseIn(tmpl.pageMarginH);
+    const cardW   = parseIn(tmpl.w);
+    const cardH   = parseIn(tmpl.h);
+    const colGapV = parseIn(tmpl.colGap);
+    const rowGapV = parseIn(tmpl.rowGap);
+    const perSheet = tmpl.perSheet;
 
-      const marginV_mm = parseInMm(tmpl.pageMarginV);
-      const marginH_mm = parseInMm(tmpl.pageMarginH);
-      const cardW_mm = parseInMm(tmpl.w);
-      const cardH_mm = parseInMm(tmpl.h);
-      const colGap_mm = parseInMm(tmpl.colGap);
-      const rowGap_mm = parseInMm(tmpl.rowGap);
-      const perSheet = tmpl.perSheet;
+    const fontSizes: Record<string, { name: string; sub: string }> = {
+      avery5163: { name: '22pt', sub: '10pt' },
+      avery5160: { name: '11pt', sub:  '7pt' },
+      avery5164: { name: '24pt', sub: '11pt' },
+    };
+    const { name: nameFontSize, sub: subFontSize } = fontSizes[printLabelSize] ?? { name: '16pt', sub: '8pt' };
 
-      // Font sizes per template (tuned for visual weight)
-      const fontSizes: Record<string, { name: number; sub: number }> = {
-        avery5163: { name: 28, sub: 11 },
-        avery5160: { name: 14, sub: 7 },
-        avery5164: { name: 30, sub: 13 },
-      };
-      const { name: namePt, sub: subPt } = fontSizes[printLabelSize] ?? { name: 20, sub: 9 };
+    const qrPx = tmpl.qr;
 
-      // QR size in mm: use the qr pixel size converted proportionally
-      // qr is in px at screen, we want it to be ~40% of card height for large, scale accordingly
-      const qrSizeMm = Math.min(cardH_mm * 0.8, cardW_mm * 0.35);
-      const pad_mm = 2; // internal padding
+    const totalPages = Math.ceil(printItems.length / perSheet);
+    const pagesHtml = Array.from({ length: totalPages }, (_, pageIdx) => {
+      const pageItems = printItems.slice(pageIdx * perSheet, (pageIdx + 1) * perSheet);
+      const cardsHtml = pageItems.map((item: any, idx: number) => {
+        const row = Math.floor(idx / tmpl.cols);
+        const col = idx % tmpl.cols;
+        const topIn  = marginV + row * (cardH + rowGapV);
+        const leftIn = marginH + col * (cardW + colGapV);
+        const qrData = getLabelQrData(item);
+        const sub    = getLabelSubtext(item);
+        const qrUrl  = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${qrPx * 2}`;
+        return `<div class="card" style="top:${topIn}in;left:${leftIn}in;width:${tmpl.w};height:${tmpl.h};">
+          <img class="qr" src="${qrUrl}" width="${qrPx}" height="${qrPx}" />
+          <div class="info">
+            <div class="main">${renderMainBadges(item.name)}</div>
+            ${sub ? `<div class="sub">${renderSubBadges(sub)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      const breakStyle = pageIdx > 0 ? ' style="page-break-before:always;"' : '';
+      return `<div class="page"${breakStyle}>${cardsHtml}</div>`;
+    }).join('');
 
-      // Load a QR image URL and return a data URL via canvas
-      const qrToDataUrl = (url: string): Promise<string> =>
-        new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            canvas.getContext('2d')!.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = reject;
-          img.src = url;
-        });
+    const waitScript = `<script>
+      window.addEventListener('load', function() {
+        var images = Array.from(document.images);
+        Promise.all(images.map(function(img) {
+          return img.complete ? Promise.resolve() :
+            new Promise(function(resolve) { img.onload = resolve; img.onerror = resolve; });
+        })).then(function() { window.print(); });
+      });
+      window.addEventListener('afterprint', function() { window.close(); });
+    <\/script>`;
 
-      // Build list of items with their QR data
-      const itemData = printItems.map((item: any) => ({
-        item,
-        qrData: getLabelQrData(item),
-        sub: getLabelSubtext(item),
-      }));
-
-      // Fetch all QR code images in parallel
-      const qrDataUrls = await Promise.all(
-        itemData.map(({ qrData }) => {
-          const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${Math.round(qrSizeMm * 4)}`;
-          return qrToDataUrl(qrUrl);
-        })
-      );
-
-      // Create PDF document
-      const doc = new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
-      const totalPages = Math.ceil(printItems.length / perSheet);
-
-      for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-        if (pageIdx > 0) doc.addPage();
-
-        const pageItems = itemData.slice(pageIdx * perSheet, (pageIdx + 1) * perSheet);
-
-        pageItems.forEach(({ item, sub }, idx) => {
-          const row = Math.floor(idx / tmpl.cols);
-          const col = idx % tmpl.cols;
-          const x = marginH_mm + col * (cardW_mm + colGap_mm);
-          const y = marginV_mm + row * (cardH_mm + rowGap_mm);
-
-          const qrDataUrl = qrDataUrls[pageIdx * perSheet + idx];
-
-          // Draw QR code image
-          const qrX = x + pad_mm;
-          const qrY = y + (cardH_mm - qrSizeMm) / 2;
-          try {
-            doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSizeMm, qrSizeMm);
-          } catch (_e) {
-            // Skip image if loading failed
-          }
-
-          // Text area starts after QR code
-          const textX = qrX + qrSizeMm + pad_mm * 1.5;
-          const textAreaW = cardW_mm - qrSizeMm - pad_mm * 3.5;
-          const centerY = y + cardH_mm / 2;
-
-          const nameStr = item.name;
-          const subStr = sub || '';
-          const hasSubtext = subStr.length > 0;
-
-          // Render text via canvas so we get full browser font rendering
-          // (Arial Black weight-900, identical to the original HTML labels)
-          const renderTextPng = (text: string, fontStr: string, color: string, maxWidthPx: number): { dataUrl: string; wPx: number; hPx: number } => {
-            const scale = 3; // render at 3× for sharpness
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d')!;
-            ctx.font = fontStr;
-            const measured = ctx.measureText(text).width;
-            const wPx = Math.min(Math.ceil(measured), maxWidthPx);
-            const fontSize = parseInt(fontStr);
-            const hPx = Math.ceil(fontSize * 1.35);
-            canvas.width = wPx * scale;
-            canvas.height = hPx * scale;
-            ctx.scale(scale, scale);
-            ctx.font = fontStr;
-            ctx.fillStyle = color;
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillText(text, 0, fontSize, maxWidthPx);
-            return { dataUrl: canvas.toDataURL('image/png'), wPx, hPx };
-          };
-
-          // px-per-mm at 96 DPI: 1mm = 3.7795px
-          const mmToPx = (mm: number) => mm * 3.7795;
-          const pxToMm = (px: number) => px / 3.7795;
-
-          const nameFontPx = Math.round(namePt * 1.333); // pt → px
-          const subFontPx  = Math.round(subPt  * 1.333);
-          const maxTextWPx = Math.round(mmToPx(textAreaW));
-
-          const nameImg = renderTextPng(nameStr, `900 ${nameFontPx}px 'Arial Black', 'Arial Bold', Arial, sans-serif`, '#000000', maxTextWPx);
-          const nameWmm = pxToMm(nameImg.wPx);
-          const nameHmm = pxToMm(nameImg.hPx);
-
-          let subImg: { dataUrl: string; wPx: number; hPx: number } | null = null;
-          let subHmm = 0;
-          if (hasSubtext) {
-            subImg = renderTextPng(subStr, `700 ${subFontPx}px 'Arial Black', Arial, sans-serif`, '#333333', maxTextWPx);
-            subHmm = pxToMm(subImg.hPx);
-          }
-
-          const gap_mm = 1.5;
-          const blockH = nameHmm + (hasSubtext ? gap_mm + subHmm : 0);
-          const blockTopY = centerY - blockH / 2;
-
-          doc.addImage(nameImg.dataUrl, 'PNG', textX, blockTopY, nameWmm, nameHmm);
-
-          if (subImg && hasSubtext) {
-            const subWmm = pxToMm(subImg.wPx);
-            doc.addImage(subImg.dataUrl, 'PNG', textX, blockTopY + nameHmm + gap_mm, subWmm, subHmm);
-          }
-        });
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      @page { size: 8.5in 11in; margin: 0; }
+      html, body { width: 8.5in; margin: 0; padding: 0; background: white; }
+      .page {
+        position: relative;
+        width: 8.5in;
+        height: 11in;
+        overflow: hidden;
       }
+      .card {
+        position: absolute;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        padding: 6px 8px;
+        overflow: hidden;
+      }
+      .qr { display: block; flex-shrink: 0; }
+      .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; overflow: hidden; }
+      .main { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+      .sub  { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+      .badge    { font-family: 'Arial Black', 'Arial Bold', Impact, Arial, sans-serif; font-size: ${nameFontSize}; font-weight: 900; color: #000; line-height: 1.15; white-space: nowrap; }
+      .sep      { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${nameFontSize}; font-weight: 900; color: #000; padding: 0 0.05em; }
+      .subbadge { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 900; color: #333; line-height: 1.15; white-space: nowrap; }
+      .subsep   { font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif; font-size: ${subFontSize}; font-weight: 700; color: #555; padding: 0 0.2em; }
+      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style>${waitScript}</head><body>${pagesHtml}</body></html>`;
 
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } finally {
-      setIsPrinting(false);
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
     }
   };
 
@@ -2053,17 +1993,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Button
                 className="flex-1 gap-2"
                 onClick={handlePrint}
-                disabled={printItems.length === 0 || isPrinting}
+                disabled={printItems.length === 0}
                 data-testid="button-print-confirm"
               >
-                {isPrinting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Printer className="h-4 w-4" />
-                )}
-                {isPrinting ? 'Generating PDF…' : `Print ${printItems.length} Label${printItems.length !== 1 ? 's' : ''}`}
+                <Printer className="h-4 w-4" />
+                {`Print ${printItems.length} Label${printItems.length !== 1 ? 's' : ''}`}
               </Button>
-              <Button variant="ghost" onClick={() => setPrintDialogOpen(false)} disabled={isPrinting}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setPrintDialogOpen(false)}>Cancel</Button>
             </div>
           </div>
         </DialogContent>
