@@ -1220,18 +1220,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [8.5, 11] });
 
-    // Font sizes (pt) per template — these are real print points, not screen px
+    // Font sizes (pt) per template — 1pt = 1/72 inch, same physical unit as CSS pt.
+    // avery5163 uses 44pt name to match the visual weight of the previous HTML approach.
     const fontPt: Record<string, { name: number; sub: number }> = {
-      avery5163: { name: 30, sub: 12 },
-      avery5160: { name: 12, sub:  8 },
-      avery5164: { name: 32, sub: 13 },
+      avery5163: { name: 44, sub: 16 },
+      avery5160: { name: 13, sub:  8 },
+      avery5164: { name: 46, sub: 17 },
     };
-    const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 16, sub: 9 };
+    const { name: namePt, sub: subPt } = fontPt[printLabelSize] ?? { name: 20, sub: 10 };
 
-    // Approximate line heights in inches (pt ÷ 72)
-    const nameLineH = namePt / 72;
-    const subLineH  = subPt  / 72;
-    const lineGap   = 0.05;
+    // Approximate cap-height in inches (pt × 0.72 ÷ 72  — Helvetica cap height ≈ 72% of em)
+    const nameLineH = (namePt * 0.72) / 72;
+    const subLineH  = (subPt  * 0.72) / 72;
+    const lineGap   = 0.06;
 
     printItems.forEach((item: any, globalIdx: number) => {
       const idxOnPage = globalIdx % perSheet;
