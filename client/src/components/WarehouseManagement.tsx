@@ -1261,36 +1261,47 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const totalTextH = sub ? nameLineH + lineGap + subLineH : nameLineH;
         const nameY = cardY + (cardH - totalTextH) / 2;
 
-        // ── Bin name — bold text inside a thick border box ──
-        // The box makes the bin code instantly scannable for pickers.
+        // ── Bin label — prefix plain, bin number shaded & boxed ──
+        // e.g. "1-A-01" → "1-A-" plain, "01" in shaded rounded box
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(namePt);
         doc.setTextColor(0, 0, 0);
-        const nameLines = doc.splitTextToSize(item.name, textMaxW);
-        const displayName = nameLines[0] as string;
-        const nameW = Math.min(doc.getTextWidth(displayName), textMaxW);
 
-        const boxPadH = 0.07;  // horizontal padding inside box
-        const boxPadV = 0.044; // vertical padding inside box
-        doc.setLineWidth(0.024); // thick border ≈ 1.7 pt
+        const lastDash = item.name.lastIndexOf('-');
+        const binPrefix = lastDash >= 0 ? item.name.slice(0, lastDash + 1) : '';
+        const binNum    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
+
+        const prefixW = binPrefix ? doc.getTextWidth(binPrefix) : 0;
+        const numW    = doc.getTextWidth(binNum);
+
+        // Draw prefix without box
+        if (binPrefix) {
+          doc.text(binPrefix, textX, nameY, { baseline: 'top' });
+        }
+
+        // Shaded box around bin number only
+        const boxX    = textX + prefixW;
+        const boxPadH = 0.07;
+        const boxPadV = 0.044;
+        doc.setLineWidth(0.024);
         doc.setDrawColor(0, 0, 0);
-        doc.setFillColor(232, 232, 232); // light gray shade
+        doc.setFillColor(232, 232, 232);
         doc.roundedRect(
-          textX - boxPadH,
+          boxX - boxPadH,
           nameY - boxPadV,
-          nameW + 2 * boxPadH,
+          numW + 2 * boxPadH,
           nameLineH + 2 * boxPadV,
           0.032, 0.032,
-          'FD' // fill + stroke
+          'FD'
         );
-        doc.text(displayName, textX, nameY, { baseline: 'top' });
+        doc.text(binNum, boxX, nameY, { baseline: 'top' });
 
-        // ── Subtext (Aisle > Shelf) — below the box ──
+        // ── Subtext (Aisle > Shelf) — below the bin line ──
         if (sub) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(subPt);
           doc.setTextColor(60, 60, 60);
-          doc.text(sub.replace(/→/g, '>'), textX - boxPadH, nameY + nameLineH + lineGap, { baseline: 'top' });
+          doc.text(sub.replace(/→/g, '>'), textX, nameY + nameLineH + lineGap, { baseline: 'top' });
         }
       });
 
