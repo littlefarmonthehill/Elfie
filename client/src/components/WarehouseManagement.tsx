@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -1212,18 +1213,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const qrIn = tmpl.qr / 96;
 
     try {
-      // Load every QR code as an HTMLImageElement — jsPDF renders these via
-      // an internal canvas, bypassing its PNG binary parser entirely.
-      const qrImgs: HTMLImageElement[] = await Promise.all(
-        printItems.map((item: any) => {
+      // Generate every QR code client-side onto a canvas using the `qrcode`
+      // package — no server fetch, no HTMLImageElement, no PNG parser.
+      // jsPDF accepts canvas elements natively via its internal toDataURL path.
+      const qrCanvases: HTMLCanvasElement[] = await Promise.all(
+        printItems.map(async (item: any) => {
           const qrData = getLabelQrData(item);
-          const url = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-          return new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new window.Image();
-            img.onload  = () => resolve(img);
-            img.onerror = (e) => reject(new Error(`QR load failed: ${url} — ${e}`));
-            img.src = url;
+          const canvas = document.createElement('canvas');
+          await QRCode.toCanvas(canvas, qrData, {
+            width: tmpl.qr * 2,
+            margin: 0,
+            color: { dark: '#000000', light: '#ffffff' },
           });
+          return canvas;
         })
       );
 
@@ -1255,7 +1257,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         // QR — vertically centred, small left inset
         const qrX = cardX + 0.07;
         const qrY = cardY + (cardH - qrIn) / 2;
-        doc.addImage(qrImgs[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
+        doc.addImage(qrCanvases[globalIdx], 'PNG', qrX, qrY, qrIn, qrIn);
 
         // Text column starts after QR
         const textX    = qrX + qrIn + 0.14;
