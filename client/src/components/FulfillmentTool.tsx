@@ -420,6 +420,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
       queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
       setShipFreeDialog(null);
       setShipFreeTracking('');
@@ -456,6 +458,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
       queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
       setMergeShipDialog(null);
       setMergeShipSelected(new Set());
