@@ -677,7 +677,8 @@ export const appSettings = pgTable("app_settings", {
   printSetupDone: boolean("print_setup_done").default(false), // Has user been through first-time prompt
   // Shipping weight defaults
   defaultWeightMode: text("default_weight_mode").default('none'),           // 'none' | 'order'
-  defaultWeightItemsPct: decimal("default_weight_items_pct", { precision: 10, scale: 2 }).default('0'),    // % of catalog weight to add for per-item packaging (bags, bubble wrap)
+  defaultWeightItemsPct: decimal("default_weight_items_pct", { precision: 10, scale: 2 }).default('0'),    // legacy — kept for backwards compat, no longer used in UI
+  defaultWeightPerLotOz: decimal("default_weight_per_lot_oz", { precision: 10, scale: 3 }).default('0'),  // oz added per lot (line item) for poly bags etc
   defaultWeightPlusAmount: decimal("default_weight_plus_amount", { precision: 10, scale: 2 }).default('0'), // Fixed oz to add for overall packaging (envelope, label, tape)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

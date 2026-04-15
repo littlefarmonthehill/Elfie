@@ -2579,7 +2579,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
   // Shipping weight defaults
   const [defaultWeightMode, setDefaultWeightMode] = useState<'none' | 'order'>('none');
-  const [defaultWeightItemsPct, setDefaultWeightItemsPct] = useState("");
+  const [defaultWeightPerLotOz, setDefaultWeightPerLotOz] = useState("");
   const [defaultWeightPlusAmount, setDefaultWeightPlusAmount] = useState("");
   // Printing configuration
   const [printMethod, setPrintMethod] = useState<'browser' | 'direct_zpl' | 'pdf_download'>('browser');
@@ -3660,7 +3660,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
       const wMode = (settings as any).defaultWeightMode;
       setDefaultWeightMode((wMode === 'order' || wMode === 'order_plus') ? 'order' : 'none');
-      setDefaultWeightItemsPct(String((settings as any).defaultWeightItemsPct ?? ''));
+      setDefaultWeightPerLotOz(String((settings as any).defaultWeightPerLotOz ?? ''));
       setDefaultWeightPlusAmount(String((settings as any).defaultWeightPlusAmount ?? ''));
       setPrintMethod((settings.printMethod as any) || 'browser');
       setLabelPrinterIp(settings.labelPrinterIp || "");
@@ -12668,12 +12668,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                       </div>
 
-                      {/* 2. Item packaging % */}
+                      {/* 2. Per-lot weight */}
                       <div className="px-4 py-3 space-y-2">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-100">Item packaging</p>
-                            <p className="sm-description mt-0.5">Extra weight for per-item packaging such as poly bags or bubble wrap — as a percentage of the order weight.</p>
+                            <p className="text-xs font-medium text-gray-100">Per-lot packaging</p>
+                            <p className="sm-description mt-0.5">Fixed weight added per lot (line item) in the order — accounts for poly bags, tissue paper, etc. per unique part.</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -12681,25 +12681,25 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <Input
                               type="text"
                               inputMode="decimal"
-                              value={defaultWeightItemsPct}
+                              value={defaultWeightPerLotOz}
                               onChange={e => {
                                 const v = e.target.value;
-                                if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightItemsPct(v);
+                                if (v === '' || /^\d*\.?\d*$/.test(v)) setDefaultWeightPerLotOz(v);
                               }}
                               onBlur={() => {
-                                const parsed = parseFloat(defaultWeightItemsPct);
-                                const val = isNaN(parsed) ? 0 : Math.min(parsed, 100);
-                                setDefaultWeightItemsPct(String(val));
-                                updateSettingsMutation.mutate({ defaultWeightItemsPct: String(val) } as any);
+                                const parsed = parseFloat(defaultWeightPerLotOz);
+                                const val = isNaN(parsed) ? 0 : parsed;
+                                setDefaultWeightPerLotOz(String(val));
+                                updateSettingsMutation.mutate({ defaultWeightPerLotOz: String(val) } as any);
                               }}
-                              placeholder="e.g. 10"
+                              placeholder="e.g. 0.4"
                               className="h-8 text-xs bg-gray-900 border-gray-600"
-                              data-testid="input-default-weight-items-pct"
+                              data-testid="input-default-weight-per-lot"
                             />
                           </div>
-                          <span className="text-xs text-gray-400">%</span>
-                          {defaultWeightItemsPct && parseFloat(defaultWeightItemsPct) > 0 && (
-                            <span className="text-[11px] text-gray-500">adds {defaultWeightItemsPct}% of order weight</span>
+                          <span className="text-xs text-gray-400">oz / lot</span>
+                          {defaultWeightPerLotOz && parseFloat(defaultWeightPerLotOz) > 0 && (
+                            <span className="text-[11px] text-gray-500">e.g. 20 lots → +{(20 * parseFloat(defaultWeightPerLotOz)).toFixed(2)} oz</span>
                           )}
                         </div>
                       </div>
@@ -12741,7 +12741,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     {/* Formula preview */}
                     <p className="text-[11px] text-gray-600 mt-2 px-1">
-                      Default = order weight + ({defaultWeightItemsPct || '0'}% of order weight) + {defaultWeightPlusAmount || '0'} oz
+                      Default = parts weight + ({defaultWeightPerLotOz || '0'} oz × lots) + {defaultWeightPlusAmount || '0'} oz envelope
                     </p>
                   </div>
                 )}

@@ -1443,22 +1443,22 @@ router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async 
   const [weightRows, [settings]] = await Promise.all([
     db.select({
       totalWeightGrams: sql<string>`COALESCE(SUM(CASE WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0 THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity} WHEN ${blCatalog.blCatalogWeight} IS NOT NULL AND ${blCatalog.blCatalogWeight} > 0 THEN ${blCatalog.blCatalogWeight} * ${orderDetails.quantity} ELSE 0 END), 0)`,
+      lotCount: sql<string>`COUNT(*)`,
     }).from(orderDetails).leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id)).leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId))).where(eq(orderDetails.orderId, orderId)),
-    db.select({ defaultWeightMode: appSettings.defaultWeightMode, defaultWeightItemsPct: appSettings.defaultWeightItemsPct, defaultWeightPlusAmount: appSettings.defaultWeightPlusAmount }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1),
+    db.select({ defaultWeightMode: appSettings.defaultWeightMode, defaultWeightPerLotOz: appSettings.defaultWeightPerLotOz, defaultWeightPlusAmount: appSettings.defaultWeightPlusAmount }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1),
   ]);
   const totalWeightGrams = parseFloat(weightRows[0]?.totalWeightGrams || "0");
+  const lotCount = parseInt(weightRows[0]?.lotCount || "0", 10);
   const rawWeightOz = Math.round(totalWeightGrams * 0.035274 * 10) / 10;
   // Apply org's shipping weight formula if configured
   const weightMode = settings?.defaultWeightMode ?? 'none';
-  const itemsPct  = parseFloat(settings?.defaultWeightItemsPct ?? '0') || 0;
+  const perLotOz  = parseFloat((settings as any)?.defaultWeightPerLotOz ?? '0') || 0;
   const plusOz    = parseFloat(settings?.defaultWeightPlusAmount ?? '0') || 0;
   let suggestedWeightOz = rawWeightOz;
   const weightModeActive = weightMode === 'order' || weightMode === 'order_plus';
-  if (weightModeActive && rawWeightOz > 0) {
-    suggestedWeightOz = Math.round((rawWeightOz * (1 + itemsPct / 100) + plusOz) * 10) / 10;
-  } else if (weightModeActive && plusOz > 0) {
-    // Even if catalog weight is 0, still add the fixed packaging amount
-    suggestedWeightOz = Math.round(plusOz * 10) / 10;
+  const lotAddOz = Math.round(lotCount * perLotOz * 1000) / 1000;
+  if (weightModeActive && (rawWeightOz > 0 || lotAddOz > 0 || plusOz > 0)) {
+    suggestedWeightOz = Math.round((rawWeightOz + lotAddOz + plusOz) * 10) / 10;
   }
   const totalWeightOz = rawWeightOz; // keep raw for reference
   let shipToData: any = {};

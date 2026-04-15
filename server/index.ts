@@ -461,6 +461,14 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-13: channel_lot_links PK fix (non-fatal):', fix13Err.message);
     }
 
+    // 4a-fix-14. Add default_weight_per_lot_oz column to app_settings.
+    try {
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS default_weight_per_lot_oz DECIMAL(10,3) DEFAULT 0`);
+      console.log('[Startup] fix-14: default_weight_per_lot_oz column ensured.');
+    } catch (fix14Err: any) {
+      console.error('[Startup] fix-14: default_weight_per_lot_oz (non-fatal):', fix14Err.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
