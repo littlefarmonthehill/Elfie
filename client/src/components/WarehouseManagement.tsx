@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { hiddenPrint } from "./PackingSlip";
@@ -64,7 +64,7 @@ interface WarehouseManagementProps {
   onItemClick?: (type: 'inventory', id: number) => void;
 }
 
-type ViewType = null | 'lots' | 'bins' | 'shelves' | 'aisles';
+type ViewType = null | 'lots' | 'structure';
 type FilterType = 'all' | 'assigned' | 'unassigned';
 
 const DEPTH_OPTIONS = [
@@ -119,7 +119,7 @@ const FORMAT_LABELS: Record<LocationFormat, string> = {
 
 export default function WarehouseManagement({ onItemClick }: WarehouseManagementProps) {
   const { toast } = useToast();
-  const [activeView, setActiveView] = useState<ViewType>('bins');
+  const [activeView, setActiveView] = useState<ViewType>('structure');
   const [filter, setFilter] = useState<FilterType>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'aisle' | 'shelf' | 'bin'>('bin');
@@ -133,6 +133,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkBinId, setBulkBinId] = useState<string>("");
   const [bulkShelfId, setBulkShelfId] = useState<string>("");
   const [bulkAisleId, setBulkAisleId] = useState<string>("");
+  const [collapsedAisles, setCollapsedAisles] = useState<Set<number>>(new Set());
+  const [collapsedShelves, setCollapsedShelves] = useState<Set<number>>(new Set());
+  const [createParentAisleId, setCreateParentAisleId] = useState<string>("");
+  const [createParentShelfId, setCreateParentShelfId] = useState<string>("");
+  const [printItemsDirect, setPrintItemsDirect] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [lotsSearchSubmitted, setLotsSearchSubmitted] = useState<string>("");
   const [lotsRangeFrom, setLotsRangeFrom] = useState<string>("");
@@ -267,6 +272,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: inventoryStats } = useQuery<any>({ queryKey: ['/api/inventory/stats'] });
   const { data: locations = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/locations'] });
 
+  const shelvesByAisleId = useMemo(() => {
+    const map = new Map<number | null, any[]>();
+    shelves.forEach((s: any) => { const k = s.aisleId ?? null; if (!map.has(k)) map.set(k, []); map.get(k)!.push(s); });
+    return map;
+  }, [shelves]);
+
+  const binsByShelfId = useMemo(() => {
+    const map = new Map<number | null, any[]>();
+    bins.forEach((b: any) => { const k = b.shelfId ?? null; if (!map.has(k)) map.set(k, []); map.get(k)!.push(b); });
+    return map;
+  }, [bins]);
+
   // Server-side search — fires when user explicitly submits a search query
   const { data: serverSearchResults = [], isFetching: serverSearchLoading } = useQuery<any[]>({
     queryKey: ['/api/warehouse/inventory/search', lotsSearchSubmitted],
@@ -364,7 +381,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       setNewZoneName(''); setNewZoneDesc(''); setNewZoneDepth(3);
       // Navigate directly into the new zone
       setActiveZoneId(zone.id);
-      setActiveView('bins');
+      setActiveView('structure');
       toast({ title: "Zone created" });
     },
     onError: () => toast({ title: "Failed to create zone", variant: "destructive" }),
@@ -587,10 +604,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     if (createType === 'aisle') {
       createAisleMutation.mutate({ name, description, zoneId });
     } else if (createType === 'shelf') {
-      const aisleId = fd.get('aisleId') as string;
+      const aisleId = (fd.get('aisleId') as string) || createParentAisleId;
       createShelfMutation.mutate({ name, aisleId: aisleId ? parseInt(aisleId) : undefined, description, zoneId });
     } else {
-      const shelfId = fd.get('shelfId') as string;
+      const shelfId = (fd.get('shelfId') as string) || createParentShelfId;
       createBinMutation.mutate({ name, shelfId: shelfId ? parseInt(shelfId) : undefined, description, zoneId });
     }
   };
@@ -637,34 +654,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       toast({ title: `${count} lot${count !== 1 ? 's' : ''} assigned` });
       setSelectedItems(new Set()); setBulkBinId("");
       setLotsRangeCommitted(null); setLotsSearchSubmitted(""); setSearchQuery("");
-    } else if (activeView === 'bins' && bulkShelfId) {
-      const shelfId = parseInt(bulkShelfId);
-      await Promise.all(Array.from(selectedItems).map(binId =>
-        assignBinToShelfMutation.mutateAsync({ binId, shelfId })
-      ));
-      toast({ title: `${count} bin${count !== 1 ? 's' : ''} assigned` });
-      setSelectedItems(new Set()); setBulkShelfId("");
-    } else if (activeView === 'shelves' && bulkAisleId) {
-      const aisleId = parseInt(bulkAisleId);
-      await Promise.all(Array.from(selectedItems).map(shelfId =>
-        assignShelfToAisleMutation.mutateAsync({ shelfId, aisleId })
-      ));
-      toast({ title: `${count} ${count !== 1 ? 'shelves' : 'shelf'} assigned` });
-      setSelectedItems(new Set()); setBulkAisleId("");
     }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedItems.size === 0) return;
-    const count = selectedItems.size;
-    const label = activeView === 'bins' ? 'bin' : activeView === 'shelves' ? 'shelf' : 'aisle';
-    await Promise.all(Array.from(selectedItems).map(id => {
-      if (activeView === 'bins') return deleteBinMutation.mutateAsync(id);
-      if (activeView === 'shelves') return deleteShelfMutation.mutateAsync(id);
-      if (activeView === 'aisles') return deleteAisleMutation.mutateAsync(id);
-    }));
-    toast({ title: `${count} ${label}${count !== 1 ? (label === 'shelf' ? 'ves' : 's') : ''} deleted` });
-    setSelectedItems(new Set());
   };
 
   const alphaNumericSort = (a: any, b: any) =>
@@ -791,39 +781,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const getFilteredList = () => {
-    if (!activeView) return [];
-    if (activeView === 'lots') {
-      // Nothing shown until user explicitly submits a search or range
-      if (!lotsSearchSubmitted) return [];
-
-      // Search submitted — show server results (all lots, assigned + unassigned)
-      let items = serverSearchResults.map((item: any) => ({
-        ...item,
-        binNames: [],
-        locationCount: 0,
-      }));
-      if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
-      if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
-      return items;
-    }
-    if (activeView === 'bins') {
-      const assigned = bins.filter((b: any) => b.shelfId).map((b: any) => ({ ...b, assigned: true }));
-      const unassigned = unassignedBins.map((b: any) => ({ ...b, assigned: false }));
-      if (filter === 'assigned') return assigned.sort(alphaNumericSort);
-      if (filter === 'unassigned') return unassigned.sort(alphaNumericSort);
-      return [...assigned, ...unassigned].sort(alphaNumericSort);
-    }
-    if (activeView === 'shelves') {
-      const assigned = shelves.filter((s: any) => s.aisleId).map((s: any) => ({ ...s, assigned: true }));
-      const unassigned = unassignedShelves.map((s: any) => ({ ...s, assigned: false }));
-      if (filter === 'assigned') return assigned.sort(alphaNumericSort);
-      if (filter === 'unassigned') return unassigned.sort(alphaNumericSort);
-      return [...assigned, ...unassigned].sort(alphaNumericSort);
-    }
-    if (activeView === 'aisles') {
-      return aisles.map((a: any) => ({ ...a, assigned: true })).sort(alphaNumericSort);
-    }
-    return [];
+    if (activeView !== 'lots') return [];
+    if (!lotsSearchSubmitted) return [];
+    let items = serverSearchResults.map((item: any) => ({
+      ...item,
+      binNames: [],
+      locationCount: 0,
+    }));
+    if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
+    if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
+    return items;
   };
 
   const filteredList = getFilteredList();
@@ -1129,29 +1096,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   // Build selected items data for print dialog
   const printItems = (() => {
-    if (!activeView || selectedItems.size === 0) return [];
+    if (printItemsDirect.length > 0) return printItemsDirect;
+    if (selectedItems.size === 0) return [];
     const ids = Array.from(selectedItems);
-    if (activeView === 'bins') return bins.filter((b: any) => ids.includes(b.id));
-    if (activeView === 'shelves') return shelves.filter((s: any) => ids.includes(s.id));
-    if (activeView === 'aisles') return aisles.filter((a: any) => ids.includes(a.id));
-    return [];
+    return bins.filter((b: any) => ids.includes(b.id));
   })();
 
-  const getLabelQrData = (item: any) => {
-    if (activeView === 'bins') return `BIN:${item.name}`;
-    if (activeView === 'shelves') return `SHELF:${item.name}`;
-    if (activeView === 'aisles') return `AISLE:${item.name}`;
-    return item.name || String(item.id);
-  };
+  const getLabelQrData = (item: any) => `BIN:${item.name}`;
 
   const getLabelSubtext = (item: any) => {
-    if (activeView === 'bins') {
-      // Show hierarchy once in navigation order — Aisle → Shelf (bin name already has everything encoded)
-      const parts = [item.aisleName && `Aisle ${item.aisleName}`, item.shelfName && `Shelf ${item.shelfName}`].filter(Boolean);
-      return parts.join(' → ');
-    }
-    if (activeView === 'shelves') return item.aisleName ? `Aisle: ${item.aisleName}` : '';
-    return '';
+    const parts = [item.aisleName && `Aisle ${item.aisleName}`, item.shelfName && `Shelf ${item.shelfName}`].filter(Boolean);
+    return parts.join(' → ');
   };
 
   const LABEL_TEMPLATES: Record<string, {
@@ -1445,6 +1400,90 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     }
   };
 
+  // ── Structure tree helpers ────────────────────────────────────────────────
+  const renderBinRow = (bin: any) => (
+    <div key={bin.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover-elevate" data-testid={`item-structure-bin-${bin.id}`}>
+      <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
+      <span className="text-xs font-medium flex-1 truncate">{bin.name}</span>
+      {bin.itemCount > 0
+        ? <span className="text-[10px] text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
+        : <span className="text-[10px] text-muted-foreground/40 shrink-0 italic">empty</span>
+      }
+      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2 shrink-0"
+        onClick={() => openFillBin(String(bin.id), bin.name)} data-testid={`button-fill-bin-${bin.id}`}>
+        Fill
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" data-testid={`button-menu-bin-${bin.id}`}>
+            <MoreHorizontal className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={() => handleEdit('bin', bin)}>
+            <Pencil className="h-3.5 w-3.5 mr-2" />Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openBinDetail(bin)}>
+            <Package className="h-3.5 w-3.5 mr-2" />View Lots
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setPrintItemsDirect([bin]); setPrintDialogOpen(true); }}>
+            <Printer className="h-3.5 w-3.5 mr-2" />Print Label
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive focus:text-destructive"
+            onClick={() => deleteBinMutation.mutate(bin.id)} data-testid={`button-delete-bin-${bin.id}`}>
+            <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  const renderShelfRow = (shelf: any) => {
+    const isCollapsed = collapsedShelves.has(shelf.id);
+    const shelfBinsData = (binsByShelfId.get(shelf.id) ?? []).sort(alphaNumericSort);
+    return (
+      <div key={shelf.id} className="rounded-md border border-border/60 my-0.5" data-testid={`item-structure-shelf-${shelf.id}`}>
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/10 cursor-pointer hover-elevate rounded-md"
+          onClick={() => setCollapsedShelves(prev => { const n = new Set(prev); n.has(shelf.id) ? n.delete(shelf.id) : n.add(shelf.id); return n; })}>
+          <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
+          <Layers className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+          <span className="text-xs font-medium flex-1 truncate">{shelf.name}</span>
+          <span className="text-[10px] text-muted-foreground shrink-0">{shelfBinsData.length} bin{shelfBinsData.length !== 1 ? 's' : ''}</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-shelf-${shelf.id}`}>
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => handleEdit('shelf', shelf)}>
+                <Pencil className="h-3.5 w-3.5 mr-2" />Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setCreateType('bin'); setCreateParentShelfId(String(shelf.id)); setCreateParentAisleId(''); setCreateDialogOpen(true); }}>
+                <Plus className="h-3.5 w-3.5 mr-2" />Add Bin
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive"
+                onClick={() => deleteShelfMutation.mutate(shelf.id)} data-testid={`button-delete-shelf-${shelf.id}`}>
+                <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {!isCollapsed && (
+          <div className="pl-5 pb-1.5 pt-0.5 space-y-0.5">
+            {shelfBinsData.map((bin: any) => renderBinRow(bin))}
+            <button className="flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
+              onClick={() => { setCreateType('bin'); setCreateParentShelfId(String(shelf.id)); setCreateParentAisleId(''); setCreateDialogOpen(true); }}>
+              <Plus className="h-2.5 w-2.5" />Add Bin
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
 
@@ -1575,13 +1614,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </div>
             <nav className="flex flex-col gap-0.5">
               <button
-                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'bins' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                data-testid="button-view-bins-sidebar"
+                onClick={() => { setActiveView('structure'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'structure' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                data-testid="button-view-structure-sidebar"
               >
                 <Archive className="w-4 h-4 shrink-0" />
-                Bins
-                {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length}</span>}
+                Structure
+                {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length} bins</span>}
               </button>
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1592,28 +1631,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 Lots
                 {unassignedLots > 0 && <Badge className="ml-auto text-[9px] px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
-              {depth >= 2 && (
-                <button
-                  onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'shelves' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                  data-testid="button-view-shelves-sidebar"
-                >
-                  <Layers className="w-4 h-4 shrink-0" />
-                  Shelves
-                  {shelves.length > 0 && <span className="ml-auto text-xs opacity-60">{shelves.length}</span>}
-                </button>
-              )}
-              {depth >= 3 && (
-                <button
-                  onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'aisles' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
-                  data-testid="button-view-aisles-sidebar"
-                >
-                  <MapPin className="w-4 h-4 shrink-0" />
-                  Aisles
-                  {aisles.length > 0 && <span className="ml-auto text-xs opacity-60">{aisles.length}</span>}
-                </button>
-              )}
             </nav>
             {/* Zone filter */}
             <div className="border-t border-border pt-3 space-y-1.5">
@@ -1696,15 +1713,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             </div>
 
-            {/* Mobile-only: horizontal tabs — fixed set, no conditional renders */}
+            {/* Mobile-only: horizontal tabs */}
             <div className="md:hidden tool-tab-bar overflow-x-auto">
               <button
-                onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`tool-tab shrink-0 ${activeView === 'bins' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                data-testid="button-view-bins"
+                onClick={() => { setActiveView('structure'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                className={`tool-tab shrink-0 ${activeView === 'structure' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
+                data-testid="button-view-structure"
               >
                 <Archive className="w-3.5 h-3.5" />
-                Bins
+                Structure
                 {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
               </button>
               <button
@@ -1718,54 +1735,143 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <Badge className="text-[9px] px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
                 )}
               </button>
-              {depth >= 2 && (
-                <button
-                  onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`tool-tab shrink-0 ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                  data-testid="button-view-shelves"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  Shelves
-                  {shelves.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{shelves.length}</span>}
-                </button>
-              )}
-              {depth >= 3 && (
-                <button
-                  onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                  className={`tool-tab shrink-0 ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                  data-testid="button-view-aisles"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  Aisles
-                  {aisles.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{aisles.length}</span>}
-                </button>
-              )}
             </div>
 
 
-            {/* List View — for lots/bins/shelves/aisles */}
+            {/* Main content card */}
             {activeView && (
         <Card className="p-3">
-          {/* Stats row */}
+          {activeView === 'structure' ? (
+            <>
+              {/* Structure header: stats + action buttons */}
+              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                  {depth >= 3 && <span>Aisles: <span className="font-semibold text-purple-400">{aisles.length}</span></span>}
+                  {depth >= 2 && <span>Shelves: <span className="font-semibold text-orange-400">{shelves.length}</span></span>}
+                  <span>Bins: <span className="font-semibold text-green-400">{bins.length}</span></span>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {depth >= 3 && (
+                    <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-aisle"
+                      onClick={() => { setCreateType('aisle'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
+                      <Plus className="w-3 h-3 mr-1" />Aisle
+                    </Button>
+                  )}
+                  {depth >= 2 && (
+                    <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-shelf"
+                      onClick={() => { setCreateType('shelf'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
+                      <Plus className="w-3 h-3 mr-1" />Shelf
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-bin"
+                    onClick={() => { setCreateType('bin'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
+                    <Plus className="w-3 h-3 mr-1" />Bin
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" onClick={() => setBulkDialogOpen(true)} data-testid="button-bulk-create-bins">
+                    <Zap className="w-3 h-3 mr-1" />Bulk
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-import-csv"
+                    onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}>
+                    <Upload className="w-3 h-3 mr-1" />Import
+                  </Button>
+                </div>
+              </div>
+
+              {/* Structure tree */}
+              <div className="space-y-1 max-h-[calc(100dvh-280px)] overflow-y-auto pr-0.5">
+                {/* Aisles (depth >= 3) */}
+                {depth >= 3 && [...aisles].sort(alphaNumericSort).map((aisle: any) => {
+                  const isCollapsed = collapsedAisles.has(aisle.id);
+                  const aisleShelvesData = (shelvesByAisleId.get(aisle.id) ?? []).sort(alphaNumericSort);
+                  return (
+                    <div key={aisle.id} className="rounded-md border border-border" data-testid={`item-structure-aisle-${aisle.id}`}>
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 cursor-pointer hover-elevate rounded-md"
+                        onClick={() => setCollapsedAisles(prev => { const n = new Set(prev); n.has(aisle.id) ? n.delete(aisle.id) : n.add(aisle.id); return n; })}>
+                        <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
+                        <MapPin className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                        <span className="text-xs font-semibold flex-1 truncate">{aisle.name}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{aisleShelvesData.length} shelf{aisleShelvesData.length !== 1 ? 'ves' : ''}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-aisle-${aisle.id}`}>
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => handleEdit('aisle', aisle)}>
+                              <Pencil className="h-3.5 w-3.5 mr-2" />Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setCreateType('shelf'); setCreateParentAisleId(String(aisle.id)); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
+                              <Plus className="h-3.5 w-3.5 mr-2" />Add Shelf
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive"
+                              onClick={() => deleteAisleMutation.mutate(aisle.id)} data-testid={`button-delete-aisle-${aisle.id}`}>
+                              <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      {!isCollapsed && (
+                        <div className="pl-5 pb-1.5 pt-0.5 space-y-0.5">
+                          {aisleShelvesData.map((shelf: any) => renderShelfRow(shelf))}
+                          <button className="flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
+                            onClick={() => { setCreateType('shelf'); setCreateParentAisleId(String(aisle.id)); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
+                            <Plus className="h-2.5 w-2.5" />Add Shelf
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Floating shelves (no aisle) — shown for depth >= 2 */}
+                {depth >= 2 && (() => {
+                  const floatingShelvesData = (shelvesByAisleId.get(null) ?? []).sort(alphaNumericSort);
+                  if (floatingShelvesData.length === 0) return null;
+                  return (
+                    <div className={depth >= 3 && aisles.length > 0 ? "border-t border-border/40 pt-2 mt-1" : ""}>
+                      {depth >= 3 && aisles.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground/50 px-1 mb-1">Shelves (no aisle)</p>
+                      )}
+                      <div className="space-y-0.5">
+                        {floatingShelvesData.map((shelf: any) => renderShelfRow(shelf))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Floating bins (no shelf) */}
+                {(() => {
+                  const floatingBinsData = (binsByShelfId.get(null) ?? []).sort(alphaNumericSort);
+                  if (floatingBinsData.length === 0) return null;
+                  const hasOtherStructure = shelves.length > 0 || aisles.length > 0;
+                  return (
+                    <div className={hasOtherStructure ? "border-t border-border/40 pt-2 mt-1" : ""}>
+                      {hasOtherStructure && (
+                        <p className="text-[10px] text-muted-foreground/50 px-1 mb-1">Bins (no shelf)</p>
+                      )}
+                      <div className="space-y-0.5">
+                        {floatingBinsData.map((bin: any) => renderBinRow(bin))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {bins.length === 0 && shelves.length === 0 && aisles.length === 0 && (
+                  <p className="text-center text-xs text-muted-foreground py-8">
+                    No warehouse structure yet. Use the buttons above to get started.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+          {/* Stats row — lots only */}
           <div className="flex items-center gap-3 mb-3 text-xs flex-wrap">
-            {activeView === 'lots' && (<>
-              <span className="text-muted-foreground">Total: <span className="font-bold text-blue-400">{totalLots}</span></span>
-              <span className="text-muted-foreground">Assigned: <span className="font-semibold">{assignedLots}</span></span>
-              <span className="text-muted-foreground">Unassigned: <span className="font-semibold">{unassignedLots}</span></span>
-            </>)}
-            {activeView === 'bins' && (<>
-              <span className="text-muted-foreground">Total: <span className="font-bold text-green-400">{bins.length}</span></span>
-              {depth >= 2 && <span className="text-muted-foreground">On shelf: <span className="font-semibold">{assignedBins}</span></span>}
-              {depth >= 2 && <span className="text-muted-foreground">Floating: <span className="font-semibold">{unassignedBins.length}</span></span>}
-            </>)}
-            {activeView === 'shelves' && (<>
-              <span className="text-muted-foreground">Total: <span className="font-bold text-orange-400">{shelves.length}</span></span>
-              {depth >= 3 && <span className="text-muted-foreground">In aisle: <span className="font-semibold">{assignedShelves}</span></span>}
-              {depth >= 3 && <span className="text-muted-foreground">Floating: <span className="font-semibold">{unassignedShelves.length}</span></span>}
-            </>)}
-            {activeView === 'aisles' && (
-              <span className="text-muted-foreground">Total: <span className="font-bold text-purple-400">{aisles.length}</span></span>
-            )}
+            <span className="text-muted-foreground">Total: <span className="font-bold text-blue-400">{totalLots}</span></span>
+            <span className="text-muted-foreground">Assigned: <span className="font-semibold">{assignedLots}</span></span>
+            <span className="text-muted-foreground">Unassigned: <span className="font-semibold">{unassignedLots}</span></span>
           </div>
 
           {/* Search + range fill (lots only) */}
@@ -1903,71 +2009,37 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </div>
           )}
 
-          {/* Filters + Actions row */}
+          {/* Filters + Actions row — lots only */}
           <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
             <div className="flex gap-1">
-              {(['all', 'assigned', ...(activeView === 'lots' ? ['unassigned'] : [])] as FilterType[]).map(f => (
+              {(['all', 'assigned', 'unassigned'] as FilterType[]).map(f => (
                 <Button key={f} size="sm" variant={filter === f ? 'default' : 'ghost'} onClick={() => setFilter(f)}
                   className="text-[10px] md:text-xs py-1 px-2 capitalize" data-testid={`filter-${f}`}>
                   {f}
                 </Button>
               ))}
             </div>
-
             <div className="flex gap-1 flex-wrap">
-              {/* Select All / Deselect All */}
-              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles' || activeView === 'lots') && filteredList.length > 0 && (
+              {filteredList.length > 0 && (
                 <>
                   {selectedItems.size > 0 && selectedItems.size === filteredList.length ? (
                     <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}
                       className="text-[10px] md:text-xs" data-testid="button-deselect-all">
-                      <CheckSquare className="w-3 h-3 mr-1 text-purple-400" />
-                      Deselect All
+                      <CheckSquare className="w-3 h-3 mr-1 text-purple-400" />Deselect All
                     </Button>
                   ) : (
                     <Button size="sm" variant="ghost" onClick={handleSelectAll}
                       className="text-[10px] md:text-xs" data-testid="button-select-all">
-                      <Square className="w-3 h-3 mr-1" />
-                      Select All {activeView === 'lots' && filteredList.length > 0 ? `(${filteredList.length})` : ''}
+                      <Square className="w-3 h-3 mr-1" />Select All ({filteredList.length})
                     </Button>
                   )}
-                  {activeView !== 'lots' && (
-                    <Button size="sm" variant="outline" onClick={handlePrintAll}
-                      className="text-[10px] md:text-xs gap-1" data-testid="button-print-all-labels">
-                      <Printer className="w-3 h-3" />
-                      Print All
-                    </Button>
-                  )}
-                </>
-              )}
-              {activeView === 'bins' && (
-                <Button size="sm" variant="outline" onClick={() => setBulkDialogOpen(true)}
-                  className="text-[10px] md:text-xs" data-testid="button-bulk-create-bins">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Bulk Create
-                </Button>
-              )}
-              {(activeView === 'aisles' || activeView === 'shelves' || activeView === 'bins') && (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
-                    className="text-[10px] md:text-xs" data-testid="button-import-csv">
-                    <Upload className="w-3 h-3 mr-1" />
-                    Import CSV
-                  </Button>
-                  <Button size="sm" onClick={() => {
-                    setCreateType(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin');
-                    setCreateDialogOpen(true);
-                  }} data-testid="button-add-new" className="text-[10px] md:text-xs">
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add One
-                  </Button>
                 </>
               )}
             </div>
           </div>
 
-          {/* Persistent bin selector for lots view */}
-          {activeView === 'lots' && bins.length > 0 && (
+          {/* Persistent bin selector */}
+          {bins.length > 0 && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Select value={bulkBinId} onValueChange={setBulkBinId}>
                 <SelectTrigger className="h-8 text-xs flex-1 min-w-[140px]" data-testid="select-assign-bin">
@@ -1993,97 +2065,37 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </div>
           )}
 
-          {/* Bulk assignment bar (bins / shelves / aisles) */}
-          {selectedItems.size > 0 && activeView !== 'lots' && (
-            <div className="flex items-center gap-2 mb-3 p-2 bg-muted/30 rounded-md flex-wrap">
-              <span className="text-xs font-medium">{selectedItems.size} selected</span>
-              {activeView === 'bins' && depth >= 2 && (
-                <Select value={bulkShelfId} onValueChange={setBulkShelfId}>
-                  <SelectTrigger className="h-7 text-xs flex-1 min-w-[120px]">
-                    <SelectValue placeholder="Assign to shelf…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shelves.map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.aisleName ? `${s.aisleName} → ${s.name}` : s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {activeView === 'shelves' && depth >= 3 && (
-                <Select value={bulkAisleId} onValueChange={setBulkAisleId}>
-                  <SelectTrigger className="h-7 text-xs flex-1 min-w-[120px]">
-                    <SelectValue placeholder="Assign to aisle…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {aisles.map((a: any) => (
-                      <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-7 gap-1"
-                    onClick={() => setPrintDialogOpen(true)}
-                    data-testid="button-print-labels"
-                  >
-                    <Printer className="h-3 w-3" />
-                    Print Labels
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="text-xs h-7 gap-1"
-                    onClick={handleBulkDelete}
-                    data-testid="button-bulk-delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Delete {selectedItems.size}
-                  </Button>
-                </>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())} className="text-xs h-7">Clear</Button>
-            </div>
-          )}
-
-          {/* Item list */}
+          {/* Lots item list */}
           <div className="space-y-1 max-h-[calc(100dvh-360px)] min-h-[200px] overflow-y-auto">
-            {activeView === 'lots' && lotsSearchSubmitted.length > 0 && serverSearchLoading ? (
+            {lotsSearchSubmitted.length > 0 && serverSearchLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-xs">Searching…</span>
               </div>
             ) : filteredList.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-8">
-                {activeView === 'lots' && !lotsSearchSubmitted && !lotsRangeCommitted
+                {!lotsSearchSubmitted && !lotsRangeCommitted
                   ? "Search by part number above, or use the range fields to find unassigned lots."
-                  : activeView === 'lots' && lotsSearchSubmitted
+                  : lotsSearchSubmitted
                   ? `No lots matching "${lotsSearchSubmitted}".`
-                  : "Nothing here yet."}
+                  : "No lots found."}
               </p>
             ) : filteredList.map((item: any) => (
               <div
                 key={item.id}
                 className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
                 onClick={() => {
-                  if (activeView === 'lots' && item.assigned) {
+                  if (item.assigned) {
                     setSelectedLot(item);
                     setLotDialogOpen(true);
                     setShowAddLocation(false);
                     setAddLocBinId(""); setAddLocQty(""); setAddLocBagLabel("");
                     setEditingLocationId(null);
-                  } else if (activeView === 'bins') {
-                    openBinDetail(item);
                   } else {
                     toggleItemSelection(item.id);
                   }
                 }}
-                data-testid={`item-${activeView}-${item.id}`}
+                data-testid={`item-lots-${item.id}`}
               >
                 <input
                   type="checkbox"
@@ -2094,21 +2106,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium truncate">
-                      {activeView === 'lots' ? (item.itemNo || item.name || '—') : item.name}
-                    </span>
-                    {activeView === 'lots' && item.itemType && (
+                    <span className="text-xs font-medium truncate">{item.itemNo || item.name || '—'}</span>
+                    {item.itemType && (
                       <span className="text-[10px] text-muted-foreground/70">
                         {item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}
                       </span>
                     )}
-                    {activeView === 'lots' && item.colorName && (
-                      <span className="text-[10px] text-muted-foreground">{item.colorName}</span>
-                    )}
-                    {activeView === 'lots' && item.quantity != null && (
-                      <span className="text-[10px] text-muted-foreground/70">×{item.quantity}</span>
-                    )}
-                    {activeView === 'lots' && item.newOrUsed && (
+                    {item.colorName && <span className="text-[10px] text-muted-foreground">{item.colorName}</span>}
+                    {item.quantity != null && <span className="text-[10px] text-muted-foreground/70">×{item.quantity}</span>}
+                    {item.newOrUsed && (
                       <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}>
                         {item.newOrUsed === 'N' ? 'New' : 'Used'}
                       </Badge>
@@ -2116,73 +2122,27 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-muted/40 text-muted-foreground'}`}>
                       {item.assigned ? 'Assigned' : 'Unassigned'}
                     </Badge>
-                    {activeView === 'lots' && item.locationCount > 1 && (
+                    {item.locationCount > 1 && (
                       <Badge className="text-[9px] px-1 py-0 bg-purple-500/20 text-purple-300 no-default-active-elevate">
                         <SplitSquareHorizontal className="h-2.5 w-2.5 mr-0.5" />{item.locationCount} bins
                       </Badge>
                     )}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
-                    {activeView === 'lots' && item.itemName && <span className="truncate block">{item.itemName}</span>}
-                    {activeView === 'lots' && item.assigned && item.binNames?.length > 0 && (
+                    {item.itemName && <span className="truncate block">{item.itemName}</span>}
+                    {item.assigned && item.binNames?.length > 0 && (
                       <span>
                         {item.binNames.slice(0, 2).join(', ')}
                         {item.binNames.length > 2 ? ` +${item.binNames.length - 2} more` : ''}
                       </span>
                     )}
-                    {activeView === 'bins' && (
-                      <span className="flex items-center gap-2">
-                        {item.shelfName && <span>Shelf: {item.shelfName}</span>}
-                        {item.itemCount > 0
-                          ? <span className="text-green-400 font-medium">{item.itemCount} lot{item.itemCount !== 1 ? 's' : ''}</span>
-                          : <span className="text-muted-foreground/60 italic">empty</span>
-                        }
-                      </span>
-                    )}
-                    {activeView === 'shelves' && item.aisleName && <span>Aisle: {item.aisleName}</span>}
                   </div>
                 </div>
-                {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 shrink-0"
-                        onClick={e => e.stopPropagation()}
-                        data-testid={`button-menu-${activeView}-${item.id}`}
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-36">
-                      <DropdownMenuItem
-                        onClick={e => { e.stopPropagation(); handleEdit(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin', item); }}
-                        data-testid={`button-edit-${activeView}-${item.id}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (activeView === 'bins') deleteBinMutation.mutate(item.id);
-                          else if (activeView === 'shelves') deleteShelfMutation.mutate(item.id);
-                          else if (activeView === 'aisles') deleteAisleMutation.mutate(item.id);
-                        }}
-                        data-testid={`button-delete-${activeView}-${item.id}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
             ))}
           </div>
+            </>
+          )}
         </Card>
             )}
           </div>
@@ -2190,7 +2150,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       )}
 
       {/* Print Labels Dialog */}
-      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+      <Dialog open={printDialogOpen} onOpenChange={v => { setPrintDialogOpen(v); if (!v) setPrintItemsDirect([]); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
