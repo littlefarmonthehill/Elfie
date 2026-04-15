@@ -135,6 +135,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkAisleId, setBulkAisleId] = useState<string>("");
   const [collapsedAisles, setCollapsedAisles] = useState<Set<number>>(new Set());
   const [collapsedShelves, setCollapsedShelves] = useState<Set<number>>(new Set());
+  const shelvesSeeded = useRef(false);
   const [createParentAisleId, setCreateParentAisleId] = useState<string>("");
   const [createParentShelfId, setCreateParentShelfId] = useState<string>("");
   const [printItemsDirect, setPrintItemsDirect] = useState<any[]>([]);
@@ -257,6 +258,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       return res.json();
     },
   });
+
+  // Seed collapsed shelves on first data load so bins are collapsed by default
+  useEffect(() => {
+    if (shelvesSeeded.current || shelves.length === 0) return;
+    shelvesSeeded.current = true;
+    setCollapsedShelves(new Set(shelves.map((s: any) => s.id)));
+  }, [shelves]);
+
   const { data: bins = [] } = useQuery<any[]>({
     queryKey: ['/api/warehouse/bins', activeZoneId],
     queryFn: async () => {
