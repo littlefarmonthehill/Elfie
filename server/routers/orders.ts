@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { Router } from "express";
 import OpenAI from "openai";
 import { z } from "zod";
-import { eq, desc, sql, inArray, or, and, isNotNull, isNull, ne, like } from "drizzle-orm";
+import { eq, desc, sql, inArray, notInArray, or, and, isNotNull, isNull, ne, like } from "drizzle-orm";
 import { db } from "../db";
 import { broadcast } from "../sse";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
@@ -290,11 +290,11 @@ router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any
       SELECT DISTINCT ON (o.id)
         COALESCE(NULLIF(s.tracking_status, 'unknown'), 'pre_transit') AS status
       FROM ${orders} o
-      INNER JOIN ${shipments} s ON s.order_id = o.id
+      INNER JOIN ${shipments} s ON s.order_id = o.id AND s.status NOT IN ('voided', 'failed')
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed')
         AND o.is_test = false
-      ORDER BY o.id, CASE WHEN s.status = 'voided' THEN 1 ELSE 0 END ASC, s.created_at DESC NULLS LAST
+      ORDER BY o.id, s.created_at DESC NULLS LAST
     ) sub
     GROUP BY status
   `);
@@ -506,11 +506,11 @@ router.get("/orders/shipped", isApproved, asyncRoute(async (req: any, res) => {
         COALESCE(o.ship_date, o.order_date) AS sort_date,
         COALESCE((SELECT SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund') FROM order_adjustments WHERE order_id = o.id), 0) AS "refundTotal"
       FROM orders o
-      LEFT JOIN shipments s ON o.id = s.order_id
+      LEFT JOIN shipments s ON o.id = s.order_id AND s.status NOT IN ('voided', 'failed')
       WHERE o.org_id = ${orgId}
         AND o.order_status IN ('shipped','completed','returned','cancelled','Cancelled')
         ${dateWhere} ${searchWhere}
-      ORDER BY o.id, CASE WHEN s.status = 'voided' THEN 1 ELSE 0 END ASC, s.created_at DESC NULLS LAST
+      ORDER BY o.id, s.created_at DESC NULLS LAST
     ) sub
     WHERE true ${deliveredWhere}
     ORDER BY sort_date DESC
@@ -827,7 +827,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const [items, adjustments, [latestShipment]] = await Promise.all([
     db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId)),
     db.select().from(orderAdjustments).where(eq(orderAdjustments.orderId, orderId)).orderBy(desc(orderAdjustments.createdAt)),
-    db.select().from(shipments).where(eq(shipments.orderId, orderId)).orderBy(sql`CASE WHEN ${shipments.status} = 'voided' THEN 1 ELSE 0 END`, desc(shipments.createdAt)).limit(1),
+    db.select().from(shipments).where(and(eq(shipments.orderId, orderId), notInArray(shipments.status, ['voided', 'failed']))).orderBy(desc(shipments.createdAt)).limit(1),
   ]);
 
   // Enrich order items with imageUrl, part number, and colorId by looking up
