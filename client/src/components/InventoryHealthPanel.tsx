@@ -584,11 +584,12 @@ interface HistoryThemeDef {
 }
 
 const HISTORY_THEMES: HistoryThemeDef[] = [
-  { id: 'all',      label: 'All',      icon: History,      color: 'text-muted-foreground', fields: null,                                                                   sources: null },
-  { id: 'pricing',  label: 'Pricing',  icon: DollarSign,   color: 'text-amber-400',        fields: ['unitPrice', 'saleRate'],                                              sources: null },
-  { id: 'sales',    label: 'Sales',    icon: ShoppingCart, color: 'text-green-400',         fields: null,                                                                   sources: ['order', 'order_restore'] },
-  { id: 'listings', label: 'Listings', icon: Replace,      color: 'text-rose-400',          fields: ['description', 'remarks', 'catalogSuperseded', 'catalogObsolete'],    sources: null },
-  { id: 'sync',     label: 'BL Sync',  icon: RefreshCw,    color: 'text-violet-400',        fields: null,                                                                   sources: ['bricklink_sync'] },
+  { id: 'all',          label: 'All',          icon: History,        color: 'text-muted-foreground', fields: null,                                                                   sources: null },
+  { id: 'pricing',      label: 'Pricing',      icon: DollarSign,     color: 'text-amber-400',        fields: ['unitPrice', 'saleRate'],                                              sources: null },
+  { id: 'sales',        label: 'Sales',        icon: ShoppingCart,   color: 'text-green-400',        fields: null,                                                                   sources: ['order', 'order_restore'] },
+  { id: 'listings',     label: 'Listings',     icon: Replace,        color: 'text-rose-400',         fields: ['description', 'remarks', 'catalogSuperseded', 'catalogObsolete'],    sources: null },
+  { id: 'sync',         label: 'BL Sync',      icon: RefreshCw,      color: 'text-violet-400',       fields: null,                                                                   sources: ['bricklink_sync'] },
+  { id: 'rebrickable',  label: 'Rebrickable',  icon: ArrowLeftRight, color: 'text-sky-400',          fields: null,                                                                   sources: ['rebrickable'] },
 ];
 
 interface HistoryRow {
@@ -616,6 +617,8 @@ function sourceBadge(source: string) {
       return <span className="text-[9px] px-1.5 py-0 rounded bg-amber-900/40 text-amber-400 border border-amber-700/30">Restore</span>;
     case 'catalog_change':
       return <span className="text-[9px] px-1.5 py-0 rounded bg-rose-900/40 text-rose-400 border border-rose-700/30">Catalog</span>;
+    case 'rebrickable':
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-sky-900/40 text-sky-400 border border-sky-700/30">Rebrickable</span>;
     default:
       return <span className="text-[9px] px-1.5 py-0 rounded bg-muted text-muted-foreground border border-border/30">Manual</span>;
   }
@@ -631,6 +634,7 @@ function fieldLabel(field: string) {
     case 'description':        return 'Description';
     case 'catalogSuperseded':  return 'Design change';
     case 'catalogObsolete':    return 'Retired';
+    case 'part_alternate':     return 'Alternate';
     default:                   return field;
   }
 }
@@ -643,6 +647,11 @@ function formatHistoryValue(field: string, value: string | null) {
   }
   if (field === 'catalogObsolete') {
     return <span className="text-rose-400">no replacement</span>;
+  }
+  if (field === 'part_alternate') {
+    return value
+      ? <span className="font-mono text-sky-400">alt of {value}</span>
+      : <span className="text-muted-foreground/40 italic">none</span>;
   }
   if (value == null) return <span className="text-muted-foreground/40 italic">none</span>;
   if (field === 'unitPrice') return <span>${parseFloat(value).toFixed(2)}</span>;
