@@ -1297,22 +1297,93 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const textMaxW = cardX + cardW - innerPad - textX;
 
         if (printLabelSize === 'avery5163') {
-          // ── Three-box layout: [Aisle] [Shelf] [Bin] — Bin is empty for shelf labels ──
+          // Shared box style constants
+          const boxPadH  = 0.09;
+          const boxGap   = 0.07;
+          const labelGap = 0.038;
+
+          if (item._type === 'shelf') {
+            // ── Shelf label: [Aisle][Shelf] large + bin chips below ──────────────
+            const bigPt      = 42;
+            const bigH       = (bigPt / 72) * 1.15;
+            const bigLabelPt = 9;
+            const bigLabelH  = (bigLabelPt / 72) * 0.72;
+            const bigBlockH  = bigH + labelGap + bigLabelH;
+
+            const chipPt     = 13;
+            const chipH      = (chipPt / 72) * 1.35;
+            const chipGap    = 0.045;
+            const chipLabelPt = 8;
+            const chipLabelH  = (chipLabelPt / 72) * 0.72;
+            const chipLabelGap = 0.025;
+
+            const shelfBins: string[] = item.shelfBins ?? [];
+            const hasBins = shelfBins.length > 0;
+            const binsBlockH = hasBins ? 0.09 + chipH + chipLabelGap + chipLabelH : 0;
+            const totalH   = bigBlockH + (hasBins ? 0.10 + binsBlockH : 0);
+            const startY   = cardY + (cardH - totalH) / 2;
+
+            // Draw [Aisle] [Shelf] big boxes
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(bigPt);
+            const bigSegs = [
+              { id: String(item.aisleName ?? '?'), caption: 'Aisle' },
+              { id: item.name,                     caption: 'Shelf' },
+            ];
+            const bigWidths   = bigSegs.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
+            const bigTotalW   = bigWidths.reduce((a, b) => a + b, 0) + boxGap;
+            let curX = textX + Math.max(0, (textMaxW - bigTotalW) / 2);
+
+            bigSegs.forEach((seg, i) => {
+              const bw = bigWidths[i];
+              doc.setLineWidth(0.02); doc.setDrawColor(0, 0, 0); doc.setFillColor(232, 232, 232);
+              doc.roundedRect(curX, startY, bw, bigH, 0.028, 0.028, 'FD');
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(bigPt);
+              const cw = doc.getTextWidth(seg.id);
+              doc.setTextColor(0, 0, 0); doc.setLineWidth(0.007); doc.setDrawColor(0, 0, 0);
+              doc.text(seg.id, curX + (bw - cw) / 2, startY + bigH / 2, { baseline: 'middle', renderingMode: 'fillThenStroke' });
+              doc.setLineWidth(0.001); doc.setFont('helvetica', 'normal'); doc.setFontSize(bigLabelPt); doc.setTextColor(80, 80, 80);
+              const capW = doc.getTextWidth(seg.caption);
+              doc.text(seg.caption, curX + (bw - capW) / 2, startY + bigH + labelGap, { baseline: 'top', renderingMode: 'fill' });
+              curX += bw + boxGap;
+            });
+
+            // Draw bin chips below
+            if (hasBins) {
+              const chipsTop = startY + bigBlockH + 0.10;
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(chipPt);
+              let cx = textX; let cy = chipsTop;
+              let firstOnRow = true;
+              shelfBins.forEach((binName: string) => {
+                const bw = doc.getTextWidth(binName) + 2 * boxPadH;
+                if (!firstOnRow && cx + bw > textX + textMaxW) { cx = textX; cy += chipH + chipGap; }
+                doc.setLineWidth(0.015); doc.setDrawColor(0, 0, 0); doc.setFillColor(245, 245, 245);
+                doc.roundedRect(cx, cy, bw, chipH, 0.018, 0.018, 'FD');
+                const tw = doc.getTextWidth(binName);
+                doc.setTextColor(0, 0, 0); doc.setLineWidth(0.004); doc.setDrawColor(0, 0, 0);
+                doc.text(binName, cx + (bw - tw) / 2, cy + chipH / 2, { baseline: 'middle', renderingMode: 'fillThenStroke' });
+                cx += bw + chipGap; firstOnRow = false;
+              });
+              // "Bins" caption under chips
+              const capY = chipsTop + chipH + chipLabelGap;
+              doc.setLineWidth(0.001); doc.setFont('helvetica', 'normal'); doc.setFontSize(chipLabelPt); doc.setTextColor(80, 80, 80);
+              doc.text('Bins', textX, capY, { baseline: 'top', renderingMode: 'fill' });
+            }
+
+          } else {
+          // ── Bin label: [Aisle] [Shelf] [Bin] three-box layout ────────────────
           const boxContentPt = 42;  // large + chunky
           const boxLabelPt   = 9;
           // Box height = 110% of em — gives natural padding above/below glyphs
           const boxH         = (boxContentPt / 72) * 1.15;
           const boxLabelH    = (boxLabelPt / 72) * 0.72;
-          const boxPadH      = 0.09;  // horizontal padding inside each box
-          const boxGap       = 0.07;  // gap between boxes
-          const labelGap     = 0.038;
           const totalBlockH  = boxH + labelGap + boxLabelH;
           const blockTop     = cardY + (cardH - totalBlockH) / 2;
 
           const lastDash = item.name.lastIndexOf('-');
           const aisleId  = String(item.aisleName ?? '?');
-          const shelfId  = item._type === 'shelf' ? item.name : String(item.shelfName ?? '?');
-          const binId    = item._type === 'shelf' ? '' : (lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name);
+          const shelfId  = String(item.shelfName ?? '?');
+          const binId    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
 
           // Measure with font set so getTextWidth is accurate
           doc.setFont('helvetica', 'bold');
@@ -1469,7 +1540,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <DropdownMenuItem onClick={() => { setCreateType('bin'); setCreateParentShelfId(String(shelf.id)); setCreateParentAisleId(''); setCreateDialogOpen(true); }}>
                 <Plus className="h-3.5 w-3.5 mr-2" />Add Bin
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setPrintItemsDirect([{ ...shelf, _type: 'shelf' }]); setPrintDialogOpen(true); }}>
+              <DropdownMenuItem onClick={() => {
+                const shelfBins = (binsByShelfId.get(shelf.id) ?? []).sort(alphaNumericSort).map((b: any) => b.name);
+                setPrintItemsDirect([{ ...shelf, _type: 'shelf', shelfBins }]);
+                setPrintDialogOpen(true);
+              }}>
                 <Printer className="h-3.5 w-3.5 mr-2" />Print Label
               </DropdownMenuItem>
               <DropdownMenuSeparator />
