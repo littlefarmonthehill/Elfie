@@ -1102,12 +1102,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return bins.filter((b: any) => ids.includes(b.id));
   })();
 
-  const getLabelQrData = (item: any) => `BIN:${item.name}`;
+  const getLabelQrData = (item: any) =>
+    item._type === 'shelf' ? `SHELF:${item.name}` : `BIN:${item.name}`;
 
   const getLabelSubtext = (item: any) => {
+    if (item._type === 'shelf') {
+      return item.aisleName ? `Aisle ${item.aisleName}` : '';
+    }
     const parts = [item.aisleName && `Aisle ${item.aisleName}`, item.shelfName && `Shelf ${item.shelfName}`].filter(Boolean);
     return parts.join(' → ');
   };
+
+  const printLabelType = printItemsDirect.length > 0 && printItemsDirect[0]?._type === 'shelf' ? 'shelf' : 'bin';
 
   const LABEL_TEMPLATES: Record<string, {
     name: string; desc: string; perSheet: number;
@@ -1291,7 +1297,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const textMaxW = cardX + cardW - innerPad - textX;
 
         if (printLabelSize === 'avery5163') {
-          // ── Three-box layout: [Aisle] [Shelf] [Bin] each with label below ──
+          // ── Two/Three-box layout: [Aisle][Shelf][Bin] for bins, [Aisle][Shelf] for shelves ──
           const boxContentPt = 42;  // large + chunky
           const boxLabelPt   = 9;
           // Box height = 110% of em — gives natural padding above/below glyphs
@@ -1303,20 +1309,26 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           const totalBlockH  = boxH + labelGap + boxLabelH;
           const blockTop     = cardY + (cardH - totalBlockH) / 2;
 
+          const isShelf = item._type === 'shelf';
+          const aisleId = String(item.aisleName ?? '?');
+          const shelfId = isShelf ? item.name : String(item.shelfName ?? '?');
           const lastDash = item.name.lastIndexOf('-');
-          const aisleId  = String(item.aisleName ?? '?');
-          const shelfId  = String(item.shelfName  ?? '?');
-          const binId    = lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name;
+          const binId   = !isShelf ? (lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name) : null;
 
           // Measure with font set so getTextWidth is accurate
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(boxContentPt);
 
-          const segments = [
-            { id: aisleId, caption: 'Aisle' },
-            { id: shelfId, caption: 'Shelf' },
-            { id: binId,   caption: 'Bin'   },
-          ];
+          const segments = isShelf
+            ? [
+                { id: aisleId, caption: 'Aisle' },
+                { id: shelfId, caption: 'Shelf' },
+              ]
+            : [
+                { id: aisleId,     caption: 'Aisle' },
+                { id: shelfId,     caption: 'Shelf' },
+                { id: binId ?? '', caption: 'Bin'   },
+              ];
 
           const widths      = segments.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
           const totalBoxesW = widths.reduce((a, b) => a + b, 0) + boxGap * (segments.length - 1);
@@ -1462,6 +1474,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { setCreateType('bin'); setCreateParentShelfId(String(shelf.id)); setCreateParentAisleId(''); setCreateDialogOpen(true); }}>
                 <Plus className="h-3.5 w-3.5 mr-2" />Add Bin
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setPrintItemsDirect([{ ...shelf, _type: 'shelf' }]); setPrintDialogOpen(true); }}>
+                <Printer className="h-3.5 w-3.5 mr-2" />Print Label
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive"
@@ -2158,7 +2173,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               Print Labels
             </DialogTitle>
             <DialogDescription>
-              {printItems.length} {activeView} label{printItems.length !== 1 ? 's' : ''} selected. Each label includes a QR code for scan-to-pick.
+              {printItems.length} {printLabelType} label{printItems.length !== 1 ? 's' : ''}. Each label includes a QR code for scan-to-locate.
             </DialogDescription>
           </DialogHeader>
 
