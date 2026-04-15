@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2 } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2, History, ArrowRight, ArrowLeftRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +108,17 @@ interface AnalyticsData {
     revenue: string;
   }>;
   totalOrders: number;
+}
+
+interface LotHistoryRow {
+  id: number;
+  inventory_id: number;
+  changed_at: string;
+  source: string;
+  source_ref: string | null;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
 }
 
 interface InventoryDetailProps {
@@ -340,6 +351,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
   const [setsSearch, setSetsSearch] = useState('');
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [partsDialogOpen, setPartsDialogOpen] = useState(false);
   const [partsSearch, setPartsSearch] = useState('');
   const [uploadingLot, setUploadingLot] = useState(false);
@@ -542,6 +554,15 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   });
 
   const setsTotal = setsData?.total ?? setsCountData?.total ?? null;
+
+  // Change history for this lot
+  const { data: historyData, isLoading: loadingHistory } = useQuery<{ rows: LotHistoryRow[]; page: number; limit: number }>({
+    queryKey: ['/api/inventory/history', data.id],
+    queryFn: () => fetch(`/api/inventory/history?inventoryId=${data.id}`).then(r => r.json()),
+    enabled: historyDialogOpen && !!data.id && !data.loading,
+    refetchOnWindowFocus: false,
+  });
+  const historyRows = historyData?.rows ?? [];
 
   // Parts in this set (only for SET item type)
   const isSet = data.itemType === 'SET';
@@ -889,7 +910,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
             </div>
 
             {/* When First Available & Physical Details */}
-            {priceOMagic && (priceOMagic.yearReleased || priceOMagic.weight || priceOMagic.dimensionX) && (
+            {priceOMagic && (
               <div className="app-card-muted p-2.5">
                 <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-2">ITEM SPECIFICATIONS</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
@@ -914,6 +935,18 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setHistoryDialogOpen(true)}
+                  className="mt-2.5 pt-2.5 border-t border-gray-700/60 w-full flex items-center justify-between text-[10px] text-sky-400 hover:text-sky-300 transition-colors group"
+                  data-testid="button-view-change-history"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <History className="h-3 w-3" />
+                    View change history
+                  </span>
+                  <ArrowRight className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                </button>
               </div>
             )}
 
@@ -2267,6 +2300,106 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     <p className="text-xs text-gray-500 mt-1">
                       Note: BrickLink and Rebrickable use different part numbering
                     </p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Change History Dialog */}
+          <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" aria-describedby="history-dialog-description">
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
+                  <History className="h-4 w-4 text-sky-400" />
+                  Change History
+                  {data.itemNo && (
+                    <span className="text-sm font-normal text-gray-400 font-mono">{data.itemNo}</span>
+                  )}
+                </DialogTitle>
+                <p id="history-dialog-description" className="text-xs text-gray-500">
+                  All recorded changes for this inventory lot
+                </p>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                  </div>
+                ) : historyRows.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-12 text-center text-gray-500">
+                    <History className="w-8 h-8 opacity-30" />
+                    <p className="text-sm">No change history recorded yet</p>
+                    <p className="text-xs opacity-60">Changes from BrickLink syncs, orders, and catalog updates will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1 py-2">
+                    {historyRows.map(row => (
+                      <div key={row.id} className="flex items-start gap-2.5 px-2 py-2 rounded-md bg-gray-800/40 border border-gray-700/30">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Source badge */}
+                            {row.source === 'bricklink_sync' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-violet-900/40 text-violet-400 border border-violet-700/30">BL Sync</span>
+                            )}
+                            {row.source === 'order' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-green-900/40 text-green-400 border border-green-700/30">Order</span>
+                            )}
+                            {row.source === 'order_restore' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-amber-900/40 text-amber-400 border border-amber-700/30">Restore</span>
+                            )}
+                            {row.source === 'catalog_change' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-rose-900/40 text-rose-400 border border-rose-700/30">Catalog</span>
+                            )}
+                            {row.source === 'rebrickable' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-sky-900/40 text-sky-400 border border-sky-700/30">Rebrickable</span>
+                            )}
+                            {!['bricklink_sync','order','order_restore','catalog_change','rebrickable'].includes(row.source) && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-gray-700 text-gray-400 border border-gray-600/30">Manual</span>
+                            )}
+                            {/* Field label */}
+                            <span className="text-[10px] font-semibold text-gray-200">
+                              {row.field === 'quantity' ? 'Qty' :
+                               row.field === 'unitPrice' ? 'Price' :
+                               row.field === 'isStockRoom' ? 'Stockroom' :
+                               row.field === 'saleRate' ? 'Sale Rate' :
+                               row.field === 'remarks' ? 'Remarks' :
+                               row.field === 'description' ? 'Description' :
+                               row.field === 'catalogSuperseded' ? 'Design change' :
+                               row.field === 'catalogObsolete' ? 'Retired' :
+                               row.field === 'part_alternate' ? 'Alternate' :
+                               row.field}
+                            </span>
+                          </div>
+                          {/* Value change */}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {row.field === 'part_alternate' ? (
+                              <span className="text-[10px] font-mono text-sky-400">alt of {row.new_value}</span>
+                            ) : row.field === 'catalogObsolete' ? (
+                              <span className="text-[10px] text-rose-400">retired — no replacement</span>
+                            ) : row.field === 'catalogSuperseded' ? (
+                              <span className="text-[10px] font-mono text-amber-400">→ {row.new_value}</span>
+                            ) : (
+                              <>
+                                {row.old_value != null && (
+                                  <span className="text-[10px] text-gray-500 line-through font-mono">{row.old_value}</span>
+                                )}
+                                {row.old_value != null && row.new_value != null && (
+                                  <ArrowRight className="h-2.5 w-2.5 text-gray-600 flex-shrink-0" />
+                                )}
+                                {row.new_value != null && (
+                                  <span className="text-[10px] text-white font-mono">{row.new_value}</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {/* Timestamp */}
+                        <span className="text-[9px] text-gray-600 flex-shrink-0 mt-0.5 font-mono">
+                          {new Date(row.changed_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
