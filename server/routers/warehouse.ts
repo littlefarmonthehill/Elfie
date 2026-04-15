@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, asc, gt, ilike, inArray, isNull, sql } from "drizzle-orm";
+import { eq, and, asc, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
@@ -331,7 +331,7 @@ router.get("/warehouse/inventory/search", isApproved, asyncRoute(async (req: any
       quantity: blInventory.quantity,
       assigned: assignedExpr(blInventory.id),
     }).from(blInventory))
-      .where(and(eq(blInventory.orgId, orgId), gt(blInventory.quantity, 0), ilike(blInventory.itemNo, `${q}%`)))
+      .where(and(eq(blInventory.orgId, orgId), ilike(blInventory.itemNo, `${q}%`)))
       .orderBy(asc(blInventory.itemNo))
       .limit(50),
 
@@ -347,7 +347,6 @@ router.get("/warehouse/inventory/search", isApproved, asyncRoute(async (req: any
     }).from(blInventory))
       .where(and(
         eq(blInventory.orgId, orgId),
-        gt(blInventory.quantity, 0),
         ilike(blCatalog.itemName, `%${q}%`),
         sql`${blInventory.itemNo} NOT ILIKE ${q + '%'}`
       ))
@@ -376,7 +375,7 @@ router.get("/warehouse/unassigned/inventory", isApproved, asyncRoute(async (req:
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
     .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
     .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
-    .where(and(eq(blInventory.orgId, orgId), sql`${inventoryLocations.id} IS NULL`, gt(blInventory.quantity, 0)))
+    .where(and(eq(blInventory.orgId, orgId), sql`${inventoryLocations.id} IS NULL`))
     .orderBy(asc(blInventory.itemNo))
     .limit(2000);
   res.json(unassignedItems);
@@ -405,7 +404,6 @@ router.get("/warehouse/unassigned/search", isApproved, asyncRoute(async (req: an
     .where(and(
       eq(blInventory.orgId, orgId),
       sql`${inventoryLocations.id} IS NULL`,
-      gt(blInventory.quantity, 0),
       sql`(${blInventory.itemNo} ILIKE ${'%' + q + '%'} OR COALESCE(
         (SELECT item_name FROM bl_catalog WHERE item_no = ${blInventory.itemNo} AND item_type = ${blInventory.itemType} LIMIT 1),
         (SELECT item_name FROM price_guide_cache WHERE item_no = ${blInventory.itemNo} AND item_type = ${blInventory.itemType} AND item_name IS NOT NULL LIMIT 1)
@@ -466,7 +464,6 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
     .where(and(
       eq(blInventory.orgId, orgId),
       sql`${inventoryLocations.id} IS NULL`,
-      gt(blInventory.quantity, 0),
       rangeCondition
     ))
     .orderBy(
