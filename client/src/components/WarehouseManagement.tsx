@@ -1297,7 +1297,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const textMaxW = cardX + cardW - innerPad - textX;
 
         if (printLabelSize === 'avery5163') {
-          // ── Two/Three-box layout: [Aisle][Shelf][Bin] for bins, [Aisle][Shelf] for shelves ──
+          // ── Three-box layout: [Aisle] [Shelf] [Bin] — Bin is empty for shelf labels ──
           const boxContentPt = 42;  // large + chunky
           const boxLabelPt   = 9;
           // Box height = 110% of em — gives natural padding above/below glyphs
@@ -1309,26 +1309,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           const totalBlockH  = boxH + labelGap + boxLabelH;
           const blockTop     = cardY + (cardH - totalBlockH) / 2;
 
-          const isShelf = item._type === 'shelf';
-          const aisleId = String(item.aisleName ?? '?');
-          const shelfId = isShelf ? item.name : String(item.shelfName ?? '?');
           const lastDash = item.name.lastIndexOf('-');
-          const binId   = !isShelf ? (lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name) : null;
+          const aisleId  = String(item.aisleName ?? '?');
+          const shelfId  = item._type === 'shelf' ? item.name : String(item.shelfName ?? '?');
+          const binId    = item._type === 'shelf' ? '' : (lastDash >= 0 ? item.name.slice(lastDash + 1) : item.name);
 
           // Measure with font set so getTextWidth is accurate
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(boxContentPt);
 
-          const segments = isShelf
-            ? [
-                { id: aisleId, caption: 'Aisle' },
-                { id: shelfId, caption: 'Shelf' },
-              ]
-            : [
-                { id: aisleId,     caption: 'Aisle' },
-                { id: shelfId,     caption: 'Shelf' },
-                { id: binId ?? '', caption: 'Bin'   },
-              ];
+          const segments = [
+            { id: aisleId, caption: 'Aisle' },
+            { id: shelfId, caption: 'Shelf' },
+            { id: binId,   caption: 'Bin'   },
+          ];
 
           const widths      = segments.map(s => doc.getTextWidth(s.id) + 2 * boxPadH);
           const totalBoxesW = widths.reduce((a, b) => a + b, 0) + boxGap * (segments.length - 1);
