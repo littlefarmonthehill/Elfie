@@ -878,15 +878,14 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           // Use normalizeApiPrice here too so history records the stored (2-decimal) value
           const apiUnitPrice = normalizeApiPrice(item.unit_price);
 
-          // Guard: if BL API reports a higher quantity than local, check whether this
-          // inventory lot is associated with an ACTIVE order (inventoryDeducted=true).
-          // If so, BL's value is stale (Bug 2 left BL at the pre-sale qty). Skip the
-          // local overwrite and instead enqueue a cross-platform push so the next retry
-          // cycle sends the correct (lower) quantity back to BL.
-          // NOTE: We only apply this guard for orders that are still active (pending/
-          // in-flight). Shipped, completed, cancelled, and returned orders have already
-          // been fully processed — any BL qty increase after that is a genuine restock
-          // by the user and must be applied locally.
+          // Guard: if BL API reports a higher quantity than local AND a non-BL order
+          // (BrickOwl/eBay) is still actively in-flight (inventoryDeducted but not yet
+          // shipped/completed), BL's value is stale — the cross-platform push hasn't
+          // arrived yet. Block the local overwrite and enqueue the push so BL catches up.
+          //
+          // BL-sourced orders are explicitly excluded from this guard: BL is our SOT,
+          // so any quantity the user sets on BL (restock, correction, etc.) must always
+          // win, even when a past BL order touched the same lot.
           if (existing && item.quantity > existing.quantity) {
             const deductedDetail = await db
               .select({ orderId: orderDetails.orderId, marketplace: orders.marketplace })
@@ -896,6 +895,9 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
                 eq(orderDetails.bricklinkInventoryId, Number(item.inventory_id)),
                 eq(orders.inventoryDeducted, true),
                 eq(orders.orgId, orgId),
+                // Only non-BL orders — BL manages its own inventory so BL's qty always wins
+                notInArray(orders.marketplace, ['BrickLink']),
+                // Only active orders — shipped/completed orders have already been processed
                 notInArray(orders.orderStatus, ['shipped', 'completed', 'returned', 'cancelled', 'Cancelled']),
               ))
               .limit(1);
@@ -903,26 +905,20 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
             if (deductedDetail.length > 0) {
               const delta = existing.quantity - item.quantity; // negative: local is lower
               const orderMarketplace = deductedDetail[0].marketplace ?? 'unknown';
-              const isBLOrder = orderMarketplace === 'BrickLink';
               console.warn(
                 `⚠️ [BL Sync] Stale restoration blocked for inventory ${item.inventory_id} ` +
-                `(BL=${item.quantity} > local=${existing.quantity}, order ${deductedDetail[0].orderId} [${orderMarketplace}] already deducted). ` +
-                (isBLOrder ? 'BL-sourced order — skipping BL push (BL manages its own qty).' : `Enqueuing BL push with delta=${delta}.`)
+                `(BL=${item.quantity} > local=${existing.quantity}, order ${deductedDetail[0].orderId} [${orderMarketplace}] in-flight). ` +
+                `Enqueuing BL push with delta=${delta}.`
               );
-              // Only enqueue a BL push for non-BL orders. BL-sourced orders are managed
-              // by BrickLink itself — pushing a delta would cause a double-deduction once
-              // BL processes the order on their side.
-              if (!isBLOrder) {
-                await db.insert(crossPlatformSyncQueue).values({
-                  orgId,
-                  blInventoryId: Number(item.inventory_id),
-                  targetPlatform: 'BrickLink',
-                  sourcePlatform: orderMarketplace,
-                  sourceOrderId: deductedDetail[0].orderId,
-                  quantityDelta: delta,
-                  lastError: `Stale BL restoration blocked during sync: BL=${item.quantity} local=${existing.quantity}`,
-                }).onConflictDoNothing();
-              }
+              await db.insert(crossPlatformSyncQueue).values({
+                orgId,
+                blInventoryId: Number(item.inventory_id),
+                targetPlatform: 'BrickLink',
+                sourcePlatform: orderMarketplace,
+                sourceOrderId: deductedDetail[0].orderId,
+                quantityDelta: delta,
+                lastError: `Stale BL restoration blocked during sync: BL=${item.quantity} local=${existing.quantity}`,
+              }).onConflictDoNothing();
               continue; // skip the local overwrite and history write for this item
             }
           }
