@@ -1453,9 +1453,10 @@ router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async 
   const itemsPct  = parseFloat(settings?.defaultWeightItemsPct ?? '0') || 0;
   const plusOz    = parseFloat(settings?.defaultWeightPlusAmount ?? '0') || 0;
   let suggestedWeightOz = rawWeightOz;
-  if (weightMode === 'order' && rawWeightOz > 0) {
+  const weightModeActive = weightMode === 'order' || weightMode === 'order_plus';
+  if (weightModeActive && rawWeightOz > 0) {
     suggestedWeightOz = Math.round((rawWeightOz * (1 + itemsPct / 100) + plusOz) * 10) / 10;
-  } else if (weightMode === 'order' && plusOz > 0) {
+  } else if (weightModeActive && plusOz > 0) {
     // Even if catalog weight is 0, still add the fixed packaging amount
     suggestedWeightOz = Math.round(plusOz * 10) / 10;
   }
