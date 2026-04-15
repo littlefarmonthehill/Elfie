@@ -11402,6 +11402,32 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             )}
                           </div>
 
+                          {/* ── Part Relationships (on-demand) ── */}
+                          <div className="sm-card">
+                            <div className="w-full px-4 py-3 flex items-center gap-3">
+                              <div className="h-2 w-2 rounded-full bg-sky-500/70 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Rebrickable Part Relationships</p>
+                                  <Popover><PopoverTrigger asChild><span className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3">
+                                    <p className="mb-1.5">Downloads Rebrickable's part-to-part relationship data (~60–80k rows). Powers the "Alt" badge in inventory search and writes change history entries when new alternate relationships are discovered for parts you stock.</p>
+                                    <p className="text-gray-500 mt-1">Run on-demand. Force rebuild truncates and re-downloads from scratch.</p>
+                                  </PopoverContent></Popover>
+                                </div>
+                                <p className="sm-hint">On-demand · Powers alternate-part matching &amp; change history</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="sm" variant="outline" disabled={syncingPartRel} onClick={() => runManualSync('/api/sync/rebrickable/part-relationships', setSyncingPartRel, 'PartRel', { force: true }, 'Rebuilding part relationships', 'Full rebuild started — this may take a minute.')} className="border-orange-500/40 text-orange-400 hover:text-orange-300 text-xs" data-testid="button-part-rel-force-rebuild-sched">
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                  Force Rebuild
+                                </Button>
+                                <Button size="icon" variant="ghost" disabled={syncingPartRel} onClick={() => runManualSync('/api/sync/rebrickable/part-relationships', setSyncingPartRel, 'PartRel', undefined, 'Part relationships sync started', 'Downloading data in the background — this may take a minute.')} title="Run now" data-testid="button-trigger-part-rel-sched">
+                                  {syncingPartRel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="sm-card">
                             <button onClick={() => toggleJob('uc')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-uc-sched">
                               {statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).icon}
