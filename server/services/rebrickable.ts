@@ -338,21 +338,16 @@ export async function syncRebrickablePartRelationships(forceRefresh = false): Pr
 
   partRelSyncRunning = true;
   try {
-    // ── Snapshot existing type-A pairs before overwriting ────────────────────
-    // Only on re-syncs (cnt > 0). On first-ever population we skip diffing to
-    // avoid flooding the history log with tens-of-thousands of "new" entries.
-    const existingCnt = await db.select({ cnt: sql<number>`COUNT(*)::int` }).from(partRelationships);
-    const isFirstPopulation = existingCnt[0].cnt === 0;
-
-    const oldAltPairs = new Set<string>();
-    if (!isFirstPopulation) {
-      const oldAlts = await db
-        .select({ child: partRelationships.childPartNum, parent: partRelationships.parentPartNum })
-        .from(partRelationships)
-        .where(eq(partRelationships.relType, 'A'));
-      for (const r of oldAlts) oldAltPairs.add(`${r.child}:${r.parent}`);
-      console.log(`[PartRel] Snapshot: ${oldAltPairs.size} existing type-A pairs loaded for diff.`);
-    }
+    // ── Snapshot existing type-A pairs before overwriting so we can diff ─────
+    // On first population the set is empty, making every alternate "new" —
+    // that's intentional: it seeds history with the current state of Rebrickable
+    // for parts already in inventory.
+    const oldAlts = await db
+      .select({ child: partRelationships.childPartNum, parent: partRelationships.parentPartNum })
+      .from(partRelationships)
+      .where(eq(partRelationships.relType, 'A'));
+    const oldAltPairs = new Set<string>(oldAlts.map(r => `${r.child}:${r.parent}`));
+    console.log(`[PartRel] Snapshot: ${oldAltPairs.size} existing type-A pairs loaded for diff.`);
 
     // ── Download & parse ─────────────────────────────────────────────────────
     const url = 'https://cdn.rebrickable.com/media/downloads/part_relationships.csv.gz';
@@ -381,57 +376,55 @@ export async function syncRebrickablePartRelationships(forceRefresh = false): Pr
 
     // ── Diff: find newly-added type-A alternate relationships ─────────────────
     let newAlternateCount = 0;
-    if (!isFirstPopulation) {
-      const addedAlts = records.filter(
-        r => r.relType === 'A' && !oldAltPairs.has(`${r.childPartNum}:${r.parentPartNum}`)
-      );
-      console.log(`[PartRel] Diff: ${addedAlts.length} new type-A alternate(s) detected.`);
+    const addedAlts = records.filter(
+      r => r.relType === 'A' && !oldAltPairs.has(`${r.childPartNum}:${r.parentPartNum}`)
+    );
+    console.log(`[PartRel] Diff: ${addedAlts.length} new type-A alternate(s) detected.`);
 
-      if (addedAlts.length > 0) {
-        // Look up inventory lots matching the child part numbers (across all orgs)
-        const childNums = [...new Set(addedAlts.map(r => r.childPartNum))];
-        const CHUNK = 500;
-        const matchingLots: { id: number; orgId: string; itemNo: string; colorId: number | null }[] = [];
-        for (let i = 0; i < childNums.length; i += CHUNK) {
-          const chunk = childNums.slice(i, i + CHUNK);
-          const rows = await db
-            .select({ id: blInventory.id, orgId: blInventory.orgId, itemNo: blInventory.itemNo, colorId: blInventory.colorId })
-            .from(blInventory)
-            .where(and(inArray(blInventory.itemNo, chunk), isNotNull(blInventory.orgId)));
-          matchingLots.push(...rows.filter(r => r.orgId != null) as any);
-        }
-
-        // Map itemNo → list of lots for fast lookup
-        const lotsByItemNo = new Map<string, typeof matchingLots>();
-        for (const lot of matchingLots) {
-          if (!lotsByItemNo.has(lot.itemNo)) lotsByItemNo.set(lot.itemNo, []);
-          lotsByItemNo.get(lot.itemNo)!.push(lot);
-        }
-
-        // Build history entries — one per affected lot
-        const historyEntries: InsertInventoryHistory[] = [];
-        const changedAt = new Date();
-        for (const alt of addedAlts) {
-          for (const lot of lotsByItemNo.get(alt.childPartNum) ?? []) {
-            historyEntries.push({
-              orgId: lot.orgId!,
-              inventoryId: lot.id,
-              itemNo: lot.itemNo,
-              colorId: lot.colorId ?? null,
-              changedAt,
-              source: 'rebrickable',
-              sourceRef: null,
-              field: 'part_alternate',
-              oldValue: null,
-              newValue: alt.parentPartNum,
-            });
-          }
-        }
-
-        await recordInventoryChanges(historyEntries);
-        newAlternateCount = addedAlts.length;
-        console.log(`[PartRel] Wrote ${historyEntries.length} history entries for ${addedAlts.length} new alternate relationship(s).`);
+    if (addedAlts.length > 0) {
+      // Look up inventory lots matching the child part numbers (across all orgs)
+      const childNums = [...new Set(addedAlts.map(r => r.childPartNum))];
+      const CHUNK = 500;
+      const matchingLots: { id: number; orgId: string; itemNo: string; colorId: number | null }[] = [];
+      for (let i = 0; i < childNums.length; i += CHUNK) {
+        const chunk = childNums.slice(i, i + CHUNK);
+        const rows = await db
+          .select({ id: blInventory.id, orgId: blInventory.orgId, itemNo: blInventory.itemNo, colorId: blInventory.colorId })
+          .from(blInventory)
+          .where(and(inArray(blInventory.itemNo, chunk), isNotNull(blInventory.orgId)));
+        matchingLots.push(...rows.filter(r => r.orgId != null) as any);
       }
+
+      // Map itemNo → list of lots for fast lookup
+      const lotsByItemNo = new Map<string, typeof matchingLots>();
+      for (const lot of matchingLots) {
+        if (!lotsByItemNo.has(lot.itemNo)) lotsByItemNo.set(lot.itemNo, []);
+        lotsByItemNo.get(lot.itemNo)!.push(lot);
+      }
+
+      // Build history entries — one per affected lot
+      const historyEntries: InsertInventoryHistory[] = [];
+      const changedAt = new Date();
+      for (const alt of addedAlts) {
+        for (const lot of lotsByItemNo.get(alt.childPartNum) ?? []) {
+          historyEntries.push({
+            orgId: lot.orgId!,
+            inventoryId: lot.id,
+            itemNo: lot.itemNo,
+            colorId: lot.colorId ?? null,
+            changedAt,
+            source: 'rebrickable',
+            sourceRef: null,
+            field: 'part_alternate',
+            oldValue: null,
+            newValue: alt.parentPartNum,
+          });
+        }
+      }
+
+      await recordInventoryChanges(historyEntries);
+      newAlternateCount = addedAlts.length;
+      console.log(`[PartRel] Wrote ${historyEntries.length} history entries for ${addedAlts.length} new alternate relationship(s).`);
     }
 
     // ── Truncate and re-insert ────────────────────────────────────────────────
