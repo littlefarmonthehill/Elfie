@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, orgIntegrations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions, crossPlatformSyncQueue } from "@shared/schema";
-import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
+import { eq, gte, sql, inArray, notInArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
@@ -879,10 +879,14 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           const apiUnitPrice = normalizeApiPrice(item.unit_price);
 
           // Guard: if BL API reports a higher quantity than local, check whether this
-          // inventory lot is associated with a completed order (inventoryDeducted=true).
+          // inventory lot is associated with an ACTIVE order (inventoryDeducted=true).
           // If so, BL's value is stale (Bug 2 left BL at the pre-sale qty). Skip the
           // local overwrite and instead enqueue a cross-platform push so the next retry
           // cycle sends the correct (lower) quantity back to BL.
+          // NOTE: We only apply this guard for orders that are still active (pending/
+          // in-flight). Shipped, completed, cancelled, and returned orders have already
+          // been fully processed — any BL qty increase after that is a genuine restock
+          // by the user and must be applied locally.
           if (existing && item.quantity > existing.quantity) {
             const deductedDetail = await db
               .select({ orderId: orderDetails.orderId, marketplace: orders.marketplace })
@@ -892,6 +896,7 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
                 eq(orderDetails.bricklinkInventoryId, Number(item.inventory_id)),
                 eq(orders.inventoryDeducted, true),
                 eq(orders.orgId, orgId),
+                notInArray(orders.orderStatus, ['shipped', 'completed', 'returned', 'cancelled', 'Cancelled']),
               ))
               .limit(1);
 
