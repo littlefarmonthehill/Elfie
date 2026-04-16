@@ -1357,6 +1357,7 @@ export const whBins = pgTable("wh_bins", {
   description: text("description"),
   orgId: varchar("org_id"),                            // FK → organizations.id
   zoneId: integer("zone_id").references(() => whZones.id, { onDelete: 'cascade' }),
+  isFilingQueue: boolean("is_filing_queue").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

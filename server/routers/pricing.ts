@@ -4,7 +4,7 @@ import { apiErrorHandler } from '../middleware/errorHandler';
 import { isApproved } from '../auth';
 import { db } from '../db';
 import { eq, sql, and, desc, asc, inArray, isNull, isNotNull, gt, gte, lte, or } from 'drizzle-orm';
-import { blInventory, blCatalog, priceGuideCache, blCategories, appSettings, pricingModel, syncMetadata, blApiCalls, blColors, blForumPosts, marketNews, businessInsights, ieStrategies, pomAiSettings, pomPriceDecisions, orderDetails, orders } from '@shared/schema';
+import { blInventory, blCatalog, priceGuideCache, blCategories, appSettings, pricingModel, syncMetadata, blApiCalls, blColors, blForumPosts, marketNews, businessInsights, ieStrategies, pomAiSettings, pomPriceDecisions, orderDetails, orders, whBins, inventoryLocations } from '@shared/schema';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { getPlatformOpenAIKey, getPlatformSettings } from '../routes';
@@ -678,7 +678,25 @@ router.get("/listomatc/priority", isApproved, asyncRoute(async (req, res) => {
   });
 
   scored.sort((a, b) => b.score - a.score);
-  res.json({ categories: scored, phaseScores });
+
+  // ── File lot counts ─────────────────────────────────────────────────────────
+  // unassigned: lots with no inventory_location row
+  // filingQueue: lots assigned to a bin flagged as is_filing_queue=true
+  const [[unassignedRow], [filingQueueRow]] = await Promise.all([
+    db.select({ count: sql<number>`COUNT(*)` })
+      .from(blInventory)
+      .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+      .where(and(eq(blInventory.orgId, orgId), isNull(inventoryLocations.id))),
+    db.select({ count: sql<number>`COUNT(DISTINCT ${inventoryLocations.inventoryId})` })
+      .from(inventoryLocations)
+      .innerJoin(whBins, and(eq(whBins.id, inventoryLocations.binId), eq(whBins.isFilingQueue, true)))
+      .where(eq(inventoryLocations.orgId, orgId)),
+  ]);
+  const unassignedLots = Number(unassignedRow?.count ?? 0);
+  const filingQueueLots = Number(filingQueueRow?.count ?? 0);
+  const fileLotCounts = { unassignedLots, filingQueueLots, total: unassignedLots + filingQueueLots };
+
+  res.json({ categories: scored, phaseScores, fileLotCounts });
 }));
 
 router.get("/listomatc/category/:id/sample", isApproved, asyncRoute(async (req, res) => {

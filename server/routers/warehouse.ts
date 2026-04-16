@@ -226,6 +226,7 @@ router.get("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
       zoneId: whBins.zoneId,
       position: whBins.position,
       description: whBins.description,
+      isFilingQueue: whBins.isFilingQueue,
       createdAt: whBins.createdAt,
       updatedAt: whBins.updatedAt,
       itemCount: sql<number>`(SELECT COUNT(*) FROM ${inventoryLocations} WHERE ${inventoryLocations.binId} = ${whBins.id})`,
@@ -267,6 +268,20 @@ router.delete("/warehouse/bins/:id", isApproved, asyncRoute(async (req, res) => 
   const id = parseInt(req.params.id);
   await db.delete(whBins).where(eq(whBins.id, id));
   res.json({ success: true });
+}));
+
+router.patch("/warehouse/bins/:id/filing-queue", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const id = parseInt(req.params.id);
+  const { isFilingQueue } = req.body;
+  if (typeof isFilingQueue !== 'boolean') return res.status(400).json({ error: "isFilingQueue must be a boolean" });
+  const [bin] = await db
+    .update(whBins)
+    .set({ isFilingQueue, updatedAt: sql`CURRENT_TIMESTAMP` })
+    .where(and(eq(whBins.id, id), eq(whBins.orgId, orgId)))
+    .returning();
+  if (!bin) return res.status(404).json({ error: "Bin not found" });
+  res.json(bin);
 }));
 
 // ── Move location to a different zone ──────────────────────────────────────────

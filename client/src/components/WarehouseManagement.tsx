@@ -50,6 +50,7 @@ import {
   MoveRight,
   Building2,
   MoreHorizontal,
+  Inbox,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -567,6 +568,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const deleteBinMutation = useMutation({
     mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/bins/${id}`),
     onSuccess: () => { invalidateWarehouse(); },
+  });
+
+  const toggleFilingQueueMutation = useMutation({
+    mutationFn: ({ id, isFilingQueue }: { id: number; isFilingQueue: boolean }) =>
+      apiRequest('PATCH', `/api/warehouse/bins/${id}/filing-queue`, { isFilingQueue }),
+    onSuccess: (_res, { isFilingQueue }) => {
+      invalidateWarehouse();
+      queryClient.invalidateQueries({ queryKey: ['/api/listomatc/priority'] });
+      toast({ title: isFilingQueue ? 'Marked as filing queue' : 'Removed from filing queue' });
+    },
   });
 
   const moveToZoneMutation = useMutation({
@@ -1441,8 +1452,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // ── Structure tree helpers ────────────────────────────────────────────────
   const renderBinRow = (bin: any) => (
     <div key={bin.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover-elevate" data-testid={`item-structure-bin-${bin.id}`}>
-      <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
+      {bin.isFilingQueue
+        ? <Inbox className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+        : <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
+      }
       <span className="text-xs font-medium flex-1 truncate">{bin.name}</span>
+      {bin.isFilingQueue && (
+        <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 py-0.5 shrink-0" data-testid={`badge-filing-queue-${bin.id}`}>
+          Queue
+        </span>
+      )}
       {bin.itemCount > 0
         ? <span className="text-[10px] text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
         : <span className="text-[10px] text-muted-foreground/40 shrink-0 italic">empty</span>
@@ -1457,7 +1476,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <MoreHorizontal className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onClick={() => handleEdit('bin', bin)}>
             <Pencil className="h-3.5 w-3.5 mr-2" />Edit
           </DropdownMenuItem>
@@ -1466,6 +1485,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => { setPrintItemsDirect([bin]); setPrintDialogOpen(true); }}>
             <Printer className="h-3.5 w-3.5 mr-2" />Print Label
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => toggleFilingQueueMutation.mutate({ id: bin.id, isFilingQueue: !bin.isFilingQueue })}
+            data-testid={`button-toggle-filing-queue-${bin.id}`}
+          >
+            <Inbox className="h-3.5 w-3.5 mr-2 text-indigo-400" />
+            {bin.isFilingQueue ? 'Remove from Filing Queue' : 'Mark as Filing Queue'}
           </DropdownMenuItem>
           {zones.length > 1 && (
             <DropdownMenuItem onClick={() => { setMoveTarget({ type: 'bin', id: bin.id, name: bin.name, currentZoneId: bin.zoneId ?? null }); setMoveDestZoneId(null); setMoveDialogOpen(true); }}>

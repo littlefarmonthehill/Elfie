@@ -41,9 +41,16 @@ interface SampleItem {
   thumbnailUrl: string | null;
 }
 
+interface FileLotCounts {
+  unassignedLots: number;
+  filingQueueLots: number;
+  total: number;
+}
+
 interface PriorityResponse {
   categories: PriorityCategory[];
   phaseScores: Record<string, number>;
+  fileLotCounts: FileLotCounts;
 }
 
 interface LotItem {
@@ -416,6 +423,7 @@ export default function ListomaticPriority() {
               const cfg = PHASE_CONFIG[phase];
               const isEditing = editingPhase === phase;
               const score = phaseScores[phase] ?? 0;
+              const fileCounts = data?.fileLotCounts;
               return (
                 <div
                   key={phase}
@@ -445,6 +453,22 @@ export default function ListomaticPriority() {
                     <div className="flex items-end justify-between gap-1">
                       <span className="text-xl font-bold text-gray-100 tabular-nums leading-none">{score}</span>
                       {phase === 'listing' && <span className="text-[8px] text-orange-400 mb-0.5 leading-none">×2 if flagged</span>}
+                    </div>
+                  )}
+                  {phase === 'file' && fileCounts && (
+                    <div className="mt-1.5 pt-1.5 border-t border-indigo-500/20 space-y-0.5" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] text-gray-500">Total to file</span>
+                        <span className="text-[9px] font-bold text-indigo-300 tabular-nums" data-testid="file-count-total">{fileCounts.total}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] text-gray-600">Unassigned</span>
+                        <span className="text-[8px] text-gray-400 tabular-nums" data-testid="file-count-unassigned">{fileCounts.unassignedLots}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] text-gray-600">Filing queue</span>
+                        <span className="text-[8px] text-gray-400 tabular-nums" data-testid="file-count-queue">{fileCounts.filingQueueLots}</span>
+                      </div>
                     </div>
                   )}
                 </div>
