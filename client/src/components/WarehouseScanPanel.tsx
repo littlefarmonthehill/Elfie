@@ -372,7 +372,7 @@ export function WarehouseScanPanel({ onClose }: Props) {
       </div>
 
       {/* Camera or input */}
-      <div className="px-4 mb-3 shrink-0">
+      <div className="px-4 mb-3 shrink-0 space-y-2">
         {cameraOpen ? (
           <div className="relative rounded-md overflow-hidden bg-black aspect-video">
             <video
@@ -392,11 +392,11 @@ export function WarehouseScanPanel({ onClose }: Props) {
               onClick={stopCamera}
               data-testid="button-camera-stop"
             >
-              <CameraOff className="h-4 w-4 mr-1.5" />Stop
+              <CameraOff className="h-4 w-4 mr-1.5" />Stop camera
             </Button>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <>
             <input
               ref={inputRef}
               value={inputVal}
@@ -407,25 +407,31 @@ export function WarehouseScanPanel({ onClose }: Props) {
               autoCorrect="off"
               spellCheck={false}
               data-testid="input-scan-code"
-              className="flex-1 h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/40"
+              className="w-full h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/40"
             />
-            {cameraSupported !== false && (
+            {cameraSupported === true && (
               <Button
-                size="icon"
                 variant="outline"
+                className="w-full gap-2 border-yellow-500/40 text-yellow-400"
                 onClick={startCamera}
                 data-testid="button-camera-start"
-                title="Scan with camera"
               >
                 <Camera className="h-4 w-4" />
+                Use phone camera to scan QR code
               </Button>
             )}
-          </div>
-        )}
-        {cameraSupported === false && (
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            Camera scanning not supported. Use a Bluetooth or USB barcode scanner, or type the code manually.
-          </p>
+            {cameraSupported === false && (
+              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 space-y-1">
+                <div className="flex items-center gap-2">
+                  <CameraOff className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <p className="text-xs font-medium text-muted-foreground">Camera scanning not available in this browser</p>
+                </div>
+                <p className="text-[11px] text-muted-foreground/70 leading-snug">
+                  QR scanning with your phone camera requires Chrome or Edge. Open this page in Chrome on your phone, or use a Bluetooth/USB barcode scanner and type codes will appear in the field above.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
