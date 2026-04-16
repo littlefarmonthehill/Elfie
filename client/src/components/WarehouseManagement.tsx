@@ -1536,6 +1536,46 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </div>
       )}
 
+      {/* Global settings panel — when no zone is selected */}
+      {showDepthSetup && activeZoneId === null && (
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold">Warehouse Settings</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Select a zone to configure its depth and naming format</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(false)}>Done</Button>
+          </div>
+          <div className="border-t border-border pt-3 space-y-2">
+            <div>
+              <p className="text-sm font-semibold">Filing Behaviour</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Controls what happens when a lot is scanned into a bin.</p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-md border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium">One lot per bin (strict)</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {warehouseSettings?.oneLotPerBin ?? true
+                    ? "ON — scanning a lot into a bin moves it out of its current bin. One lot ID lives in exactly one bin at a time."
+                    : "OFF — scanning a lot into a bin adds that bin alongside any existing locations. A single lot can span multiple bins."}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={warehouseSettings?.oneLotPerBin ?? true}
+                onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
+                disabled={updateOneLotPerBinMutation.isPending}
+                data-testid="toggle-one-lot-per-bin-global"
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Depth Selector — only available when a zone filter is active */}
       {showDepthSetup && activeZoneId !== null ? (
         <Card className="p-4 space-y-3">
