@@ -157,6 +157,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [newZoneDesc, setNewZoneDesc] = useState('');
   const [newZoneDepth, setNewZoneDepth] = useState(3);
 
+  // Move-to-zone dialog state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<{ type: 'aisle'|'shelf'|'bin'; id: number; name: string; currentZoneId: number|null } | null>(null);
+  const [moveDestZoneId, setMoveDestZoneId] = useState<number|null>(null);
+
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -552,6 +557,24 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const deleteBinMutation = useMutation({
     mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/bins/${id}`),
     onSuccess: () => { invalidateWarehouse(); },
+  });
+
+  const moveToZoneMutation = useMutation({
+    mutationFn: (payload: { type: 'aisle'|'shelf'|'bin'; id: number; targetZoneId: number }) =>
+      apiRequest('POST', '/api/warehouse/move', payload),
+    onSuccess: () => {
+      invalidateWarehouse();
+      const typeName = moveTarget?.type ?? 'item';
+      const destName = zones.find((z: any) => z.id === moveDestZoneId)?.name ?? 'zone';
+      toast({ title: `${typeName.charAt(0).toUpperCase() + typeName.slice(1)} moved to ${destName}` });
+      setMoveDialogOpen(false);
+      setMoveTarget(null);
+      setMoveDestZoneId(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.message ?? 'Could not move item';
+      toast({ title: 'Move failed', description: msg, variant: 'destructive' });
+    },
   });
 
   const updateAisleMutation = useMutation({
@@ -1426,6 +1449,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <DropdownMenuItem onClick={() => { setPrintItemsDirect([bin]); setPrintDialogOpen(true); }}>
             <Printer className="h-3.5 w-3.5 mr-2" />Print Label
           </DropdownMenuItem>
+          {zones.length > 1 && (
+            <DropdownMenuItem onClick={() => { setMoveTarget({ type: 'bin', id: bin.id, name: bin.name, currentZoneId: bin.zoneId ?? null }); setMoveDestZoneId(null); setMoveDialogOpen(true); }}>
+              <MoveRight className="h-3.5 w-3.5 mr-2" />Move to Zone
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive focus:text-destructive"
             onClick={() => deleteBinMutation.mutate(bin.id)} data-testid={`button-delete-bin-${bin.id}`}>
@@ -1468,6 +1496,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               }}>
                 <Printer className="h-3.5 w-3.5 mr-2" />Print Labels for Bins
               </DropdownMenuItem>
+              {zones.length > 1 && (
+                <DropdownMenuItem onClick={() => { setMoveTarget({ type: 'shelf', id: shelf.id, name: shelf.name, currentZoneId: shelf.zoneId ?? null }); setMoveDestZoneId(null); setMoveDialogOpen(true); }}>
+                  <MoveRight className="h-3.5 w-3.5 mr-2" />Move to Zone
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive"
                 onClick={() => deleteShelfMutation.mutate(shelf.id)} data-testid={`button-delete-shelf-${shelf.id}`}>
@@ -1491,32 +1524,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   return (
     <div className="space-y-4">
-
-      {/* Zone filter indicator — shown when a zone filter is active */}
-      {activeZoneId !== null && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 h-8 px-2 text-xs"
-            onClick={() => { setActiveZoneId(null); setShowDepthSetup(false); setFilter('all'); setSelectedItems(new Set()); }}
-            data-testid="button-clear-zone-filter"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            All
-          </Button>
-          <span className="text-muted-foreground/40 text-xs">/</span>
-          <div className="flex items-center gap-2 min-w-0">
-            <Building2 className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-            <span className="text-sm font-semibold truncate">{activeZone?.name}</span>
-          </div>
-          {activeZone && (
-            <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate ml-1">
-              {DEPTH_OPTIONS.find(d => d.value === activeZone.depth)?.label ?? 'Full Warehouse'}
-            </Badge>
-          )}
-        </div>
-      )}
 
       {/* Depth Selector — only available when a zone filter is active */}
       {showDepthSetup && activeZoneId !== null ? (
@@ -1640,8 +1647,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {/* Zone filter */}
             <div className="border-t border-border pt-3 space-y-1.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                  <Building2 className="h-3 w-3" />Zone
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Zone
                 </span>
                 <button
                   onClick={() => setManageZonesOpen(true)}
@@ -1855,6 +1862,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             <DropdownMenuItem onClick={() => { setCreateType('shelf'); setCreateParentAisleId(String(aisle.id)); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
                               <Plus className="h-3.5 w-3.5 mr-2" />Add Shelf
                             </DropdownMenuItem>
+                            {zones.length > 1 && (
+                              <DropdownMenuItem onClick={() => { setMoveTarget({ type: 'aisle', id: aisle.id, name: aisle.name, currentZoneId: aisle.zoneId ?? null }); setMoveDestZoneId(null); setMoveDialogOpen(true); }}>
+                                <MoveRight className="h-3.5 w-3.5 mr-2" />Move to Zone
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive focus:text-destructive"
                               onClick={() => deleteAisleMutation.mutate(aisle.id)} data-testid={`button-delete-aisle-${aisle.id}`}>
@@ -3394,6 +3406,75 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </DialogContent>
       </Dialog>
 
+
+      {/* Move to Zone Dialog */}
+      <Dialog open={moveDialogOpen} onOpenChange={v => { setMoveDialogOpen(v); if (!v) { setMoveTarget(null); setMoveDestZoneId(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move to Zone</DialogTitle>
+            <DialogDescription>
+              {moveTarget && (
+                <>
+                  Moving {moveTarget.type} <span className="font-mono font-semibold">{moveTarget.name}</span>
+                  {moveTarget.type === 'shelf' && ' and all its bins'}
+                  {moveTarget.type === 'aisle' && ' and all its shelves and bins'}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 pt-1">
+            {zones
+              .filter((z: any) => z.id !== moveTarget?.currentZoneId)
+              .map((z: any) => {
+                const reqDepth = moveTarget?.type === 'aisle' ? 3 : moveTarget?.type === 'shelf' ? 2 : 1;
+                const compatible = z.depth >= reqDepth;
+                const depthLabel = DEPTH_OPTIONS.find(d => d.value === z.depth)?.label ?? '';
+                const reason = !compatible
+                  ? moveTarget?.type === 'aisle'
+                    ? `Needs depth 3 — this zone only has depth ${z.depth}`
+                    : `Needs depth 2 — this zone only has depth ${z.depth}`
+                  : null;
+                const isSelected = moveDestZoneId === z.id;
+                return (
+                  <button
+                    key={z.id}
+                    disabled={!compatible}
+                    onClick={() => setMoveDestZoneId(z.id)}
+                    className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-md border text-left transition-colors
+                      ${!compatible ? 'opacity-40 cursor-not-allowed border-border' : isSelected ? 'border-yellow-500/60 bg-yellow-500/10' : 'border-border hover-elevate'}`}
+                    data-testid={`button-move-zone-${z.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{z.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{depthLabel}</p>
+                      {reason && <p className="text-[10px] text-destructive mt-0.5">{reason}</p>}
+                    </div>
+                    {isSelected && <CheckCircle2 className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />}
+                  </button>
+                );
+              })}
+            {zones.filter((z: any) => z.id !== moveTarget?.currentZoneId).length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No other zones available.</p>
+            )}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setMoveDialogOpen(false); setMoveTarget(null); setMoveDestZoneId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={!moveDestZoneId || moveToZoneMutation.isPending}
+              onClick={() => {
+                if (!moveTarget || !moveDestZoneId) return;
+                moveToZoneMutation.mutate({ type: moveTarget.type, id: moveTarget.id, targetZoneId: moveDestZoneId });
+              }}
+              data-testid="button-move-confirm"
+            >
+              {moveToZoneMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Move'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manage Zones Dialog */}
       <Dialog open={manageZonesOpen} onOpenChange={setManageZonesOpen}>

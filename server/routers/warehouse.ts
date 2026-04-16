@@ -257,6 +257,76 @@ router.delete("/warehouse/bins/:id", isApproved, asyncRoute(async (req, res) => 
   res.json({ success: true });
 }));
 
+// ── Move location to a different zone ──────────────────────────────────────────
+router.post("/warehouse/move", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { type, id, targetZoneId } = req.body;
+  if (!type || !id || !targetZoneId) return res.status(400).json({ error: "type, id, and targetZoneId are required" });
+
+  const [targetZone] = await db
+    .select({ id: whZones.id, name: whZones.name, depth: whZones.depth })
+    .from(whZones)
+    .where(and(eq(whZones.id, parseInt(targetZoneId)), eq(whZones.orgId, orgId)));
+  if (!targetZone) return res.status(404).json({ error: "Target zone not found" });
+
+  if (type === 'bin') {
+    const [bin] = await db.select().from(whBins).where(and(eq(whBins.id, parseInt(id)), eq(whBins.orgId, orgId)));
+    if (!bin) return res.status(404).json({ error: "Bin not found" });
+    await db.update(whBins)
+      .set({ zoneId: targetZone.id, shelfId: null, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(whBins.id, bin.id));
+    return res.json({ success: true, moved: 1 });
+  }
+
+  if (type === 'shelf') {
+    if (targetZone.depth < 2) {
+      return res.status(400).json({
+        error: `Zone "${targetZone.name}" only supports bins (depth 1). Moving a shelf requires a zone with depth 2 (shelves + bins) or deeper.`
+      });
+    }
+    const [shelf] = await db.select().from(whShelves).where(and(eq(whShelves.id, parseInt(id)), eq(whShelves.orgId, orgId)));
+    if (!shelf) return res.status(404).json({ error: "Shelf not found" });
+    await db.update(whShelves)
+      .set({ zoneId: targetZone.id, aisleId: null, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(whShelves.id, shelf.id));
+    await db.update(whBins)
+      .set({ zoneId: targetZone.id, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(and(eq(whBins.shelfId, shelf.id), eq(whBins.orgId, orgId)));
+    return res.json({ success: true });
+  }
+
+  if (type === 'aisle') {
+    if (targetZone.depth < 3) {
+      const what = targetZone.depth === 1 ? 'bins only' : 'shelves and bins';
+      return res.status(400).json({
+        error: `Zone "${targetZone.name}" supports ${what} (depth ${targetZone.depth}). Moving an aisle requires a zone with full depth 3 (aisles + shelves + bins).`
+      });
+    }
+    const [aisle] = await db.select().from(whAisles).where(and(eq(whAisles.id, parseInt(id)), eq(whAisles.orgId, orgId)));
+    if (!aisle) return res.status(404).json({ error: "Aisle not found" });
+    await db.update(whAisles)
+      .set({ zoneId: targetZone.id, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(whAisles.id, aisle.id));
+    // Move all shelves in this aisle
+    await db.update(whShelves)
+      .set({ zoneId: targetZone.id, updatedAt: sql`CURRENT_TIMESTAMP` })
+      .where(and(eq(whShelves.aisleId, aisle.id), eq(whShelves.orgId, orgId)));
+    // Move all bins belonging to shelves in this aisle
+    const aisleShelfIds = await db
+      .select({ id: whShelves.id })
+      .from(whShelves)
+      .where(and(eq(whShelves.aisleId, aisle.id), eq(whShelves.orgId, orgId)));
+    if (aisleShelfIds.length > 0) {
+      await db.update(whBins)
+        .set({ zoneId: targetZone.id, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(and(inArray(whBins.shelfId, aisleShelfIds.map(s => s.id)), eq(whBins.orgId, orgId)));
+    }
+    return res.json({ success: true });
+  }
+
+  return res.status(400).json({ error: "type must be aisle, shelf, or bin" });
+}));
+
 // Bulk create bins
 router.post("/warehouse/bins/bulk", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
