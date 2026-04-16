@@ -425,22 +425,20 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
   const assignedExpr = sql<boolean>`EXISTS (
     SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId}
   )`;
+  // binName: the first bin for this lot (any bin, incl. filing queue) — used for queue list display
   const binNameExpr = sql<string | null>`(
     SELECT wb.name FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
     WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
   )`;
-  const shelfNameExpr = sql<string | null>`(
-    SELECT ws.name FROM inventory_locations il
-    JOIN wh_bins wb ON wb.id = il.bin_id
-    JOIN wh_shelves ws ON ws.id = wb.shelf_id
-    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
-  )`;
-  const aisleNameExpr = sql<string | null>`(
-    SELECT wa.name FROM inventory_locations il
-    JOIN wh_bins wb ON wb.id = il.bin_id
-    JOIN wh_shelves ws ON ws.id = wb.shelf_id
-    JOIN wh_aisles wa ON wa.id = ws.aisle_id
-    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
+  // locationLabel: aggregated path of all NON-filing-queue locations, e.g. "A / 1 / 24"
+  // Shows "unassigned" intent when null (lot has no permanent home yet)
+  const locationLabelExpr = sql<string | null>`(
+    SELECT string_agg(concat_ws(' / ', wa.name, ws.name, wb.name), ' | ' ORDER BY wa.name, ws.name, wb.name)
+    FROM inventory_locations il
+    JOIN wh_bins wb ON wb.id = il.bin_id AND wb.is_filing_queue = false
+    LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id
+    LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id
+    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId}
   )`;
   const isFilingQueueExpr = sql<boolean>`EXISTS (
     SELECT 1 FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
@@ -493,8 +491,7 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
       quantity: blInventory.quantity,
       assigned: assignedExpr,
       binName: binNameExpr,
-      shelfName: shelfNameExpr,
-      aisleName: aisleNameExpr,
+      locationLabel: locationLabelExpr,
       isFilingQueue: isFilingQueueExpr,
     })
     .from(blInventory)
@@ -941,34 +938,51 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
   return res.status(400).json({ error: `Unrecognized code format` });
 }));
 
-// Move a lot to a bin — clears all existing locations then inserts new one
+// Move a lot to a bin — clears existing locations respecting filing-queue rules
 router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { inventoryId, binId } = req.body as { inventoryId: number; binId: number };
   if (!inventoryId || !binId) return res.status(400).json({ error: 'inventoryId and binId required' });
 
-  // Respect the "one lot per bin" org setting
-  const [org] = await db.select({ oneLotPerBin: organizations.oneLotPerBin })
-    .from(organizations).where(eq(organizations.id, orgId));
+  // Load org setting and target bin type in parallel
+  const [[org], [targetBin]] = await Promise.all([
+    db.select({ oneLotPerBin: organizations.oneLotPerBin })
+      .from(organizations).where(eq(organizations.id, orgId)),
+    db.select({ isFilingQueue: whBins.isFilingQueue })
+      .from(whBins).where(eq(whBins.id, binId)),
+  ]);
   const strict = org?.oneLotPerBin ?? true;
+  const targetIsFilingQueue = targetBin?.isFilingQueue ?? false;
+
+  // Skip if already in this exact bin
+  const [existing] = await db.select({ id: inventoryLocations.id })
+    .from(inventoryLocations)
+    .where(and(
+      eq(inventoryLocations.orgId, orgId),
+      eq(inventoryLocations.inventoryId, inventoryId),
+      eq(inventoryLocations.binId, binId),
+    ));
+  if (existing) return res.json({ alreadyAssigned: true, inventoryId, binId });
 
   if (strict) {
-    // Strict mode: move — clear all existing locations first
-    await db.delete(inventoryLocations)
-      .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
-  } else {
-    // Loose mode: add — skip if this exact bin is already assigned
-    const existing = await db.select({ id: inventoryLocations.id })
-      .from(inventoryLocations)
-      .where(and(
-        eq(inventoryLocations.orgId, orgId),
-        eq(inventoryLocations.inventoryId, inventoryId),
-        eq(inventoryLocations.binId, binId),
-      ));
-    if (existing.length > 0) {
-      return res.json({ alreadyAssigned: true, inventoryId, binId });
+    if (targetIsFilingQueue) {
+      // Filing-queue exception: preserve existing non-filing-queue locations (the lot's
+      // permanent filed home). Only remove any other filing-queue locations for this lot.
+      await db.execute(sql`
+        DELETE FROM inventory_locations
+        WHERE org_id = ${orgId}
+          AND inventory_id = ${inventoryId}
+          AND bin_id IN (
+            SELECT id FROM wh_bins WHERE is_filing_queue = true
+          )
+      `);
+    } else {
+      // Regular bin: full move — clear all existing locations
+      await db.delete(inventoryLocations)
+        .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
     }
   }
+  // Loose mode: just add (dedup already handled above)
 
   const [location] = await db.insert(inventoryLocations)
     .values({ inventoryId, binId, orgId })
