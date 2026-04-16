@@ -387,7 +387,7 @@ export default function ListomaticPriority() {
       <Tabs defaultValue="categories">
         <TabsList className="w-full grid grid-cols-2 mb-2">
           <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
-          <TabsTrigger value="lots" data-testid="tab-lots">Lots</TabsTrigger>
+          <TabsTrigger value="lots" data-testid="tab-lots">Ready to File</TabsTrigger>
         </TabsList>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
