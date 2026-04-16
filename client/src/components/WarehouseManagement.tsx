@@ -162,6 +162,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [moveTarget, setMoveTarget] = useState<{ type: 'aisle'|'shelf'|'bin'; id: number; name: string; currentZoneId: number|null } | null>(null);
   const [moveDestZoneId, setMoveDestZoneId] = useState<number|null>(null);
 
+  // Delete confirmation state (for aisles/shelves that have content)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
+    type: 'aisle' | 'shelf';
+    id: number;
+    name: string;
+    shelfCount?: number;
+    binCount: number;
+  } | null>(null);
+
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
@@ -1511,7 +1521,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive"
-                onClick={() => deleteShelfMutation.mutate(shelf.id)} data-testid={`button-delete-shelf-${shelf.id}`}>
+                onClick={() => {
+                  const binCount = shelfBinsData.length;
+                  if (binCount > 0) {
+                    setDeleteConfirmTarget({ type: 'shelf', id: shelf.id, name: shelf.name, binCount });
+                    setDeleteConfirmOpen(true);
+                  } else {
+                    deleteShelfMutation.mutate(shelf.id);
+                  }
+                }} data-testid={`button-delete-shelf-${shelf.id}`}>
                 <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -1877,7 +1895,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive focus:text-destructive"
-                              onClick={() => deleteAisleMutation.mutate(aisle.id)} data-testid={`button-delete-aisle-${aisle.id}`}>
+                              onClick={() => {
+                                const shelfCount = aisleShelvesData.length;
+                                const binCount = aisleShelvesData.reduce((sum: number, s: any) => sum + (binsByShelfId.get(s.id)?.length ?? 0), 0);
+                                if (shelfCount > 0 || binCount > 0) {
+                                  setDeleteConfirmTarget({ type: 'aisle', id: aisle.id, name: aisle.name, shelfCount, binCount });
+                                  setDeleteConfirmOpen(true);
+                                } else {
+                                  deleteAisleMutation.mutate(aisle.id);
+                                }
+                              }} data-testid={`button-delete-aisle-${aisle.id}`}>
                               <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -3414,6 +3441,58 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </DialogContent>
       </Dialog>
 
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={v => { setDeleteConfirmOpen(v); if (!v) setDeleteConfirmTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">
+              Delete {deleteConfirmTarget?.type === 'aisle' ? 'Aisle' : 'Shelf'} "{deleteConfirmTarget?.name}"?
+            </DialogTitle>
+            <DialogDescription>
+              {deleteConfirmTarget?.type === 'aisle' ? (
+                <>
+                  This will permanently delete{' '}
+                  {deleteConfirmTarget.shelfCount! > 0 && <><span className="font-semibold text-foreground">{deleteConfirmTarget.shelfCount} shelf{deleteConfirmTarget.shelfCount !== 1 ? 'ves' : ''}</span>{deleteConfirmTarget.binCount > 0 ? ' and ' : ''}</>}
+                  {deleteConfirmTarget.binCount > 0 && <><span className="font-semibold text-foreground">{deleteConfirmTarget.binCount} bin{deleteConfirmTarget.binCount !== 1 ? 's' : ''}</span></>}
+                  {' '}along with all lot assignments inside them. This cannot be undone.
+                </>
+              ) : (
+                <>
+                  This will permanently delete <span className="font-semibold text-foreground">{deleteConfirmTarget?.binCount} bin{deleteConfirmTarget?.binCount !== 1 ? 's' : ''}</span> along with all lot assignments inside them. This cannot be undone.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setDeleteConfirmOpen(false); setDeleteConfirmTarget(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteAisleMutation.isPending || deleteShelfMutation.isPending}
+              onClick={() => {
+                if (!deleteConfirmTarget) return;
+                if (deleteConfirmTarget.type === 'aisle') {
+                  deleteAisleMutation.mutate(deleteConfirmTarget.id, {
+                    onSuccess: () => { setDeleteConfirmOpen(false); setDeleteConfirmTarget(null); }
+                  });
+                } else {
+                  deleteShelfMutation.mutate(deleteConfirmTarget.id, {
+                    onSuccess: () => { setDeleteConfirmOpen(false); setDeleteConfirmTarget(null); }
+                  });
+                }
+              }}
+              data-testid="button-delete-confirm"
+            >
+              {(deleteAisleMutation.isPending || deleteShelfMutation.isPending)
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : 'Delete Permanently'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Move to Zone Dialog */}
       <Dialog open={moveDialogOpen} onOpenChange={v => { setMoveDialogOpen(v); if (!v) { setMoveTarget(null); setMoveDestZoneId(null); } }}>
