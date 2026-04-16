@@ -940,7 +940,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Card
                 key={zone.id}
                 className="p-4 hover-elevate cursor-pointer"
-                onClick={() => { setActiveZoneId(zone.id); setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                onClick={() => { setActiveZoneId(zone.id); setActiveView('structure'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
                 data-testid={`card-zone-${zone.id}`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">

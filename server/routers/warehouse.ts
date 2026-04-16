@@ -38,14 +38,14 @@ router.get("/warehouse/zones", isApproved, asyncRoute(async (req: any, res) => {
       binFormat: whZones.binFormat,
       createdAt: whZones.createdAt,
       updatedAt: whZones.updatedAt,
-      aisleCount: sql<number>`(SELECT COUNT(*) FROM wh_aisles WHERE zone_id = ${whZones.id})`,
-      shelfCount: sql<number>`(SELECT COUNT(*) FROM wh_shelves WHERE zone_id = ${whZones.id})`,
-      binCount: sql<number>`(SELECT COUNT(*) FROM wh_bins WHERE zone_id = ${whZones.id})`,
+      aisleCount: sql<number>`(SELECT COUNT(*) FROM wh_aisles WHERE zone_id = wh_zones.id)`,
+      shelfCount: sql<number>`(SELECT COUNT(*) FROM wh_shelves WHERE zone_id = wh_zones.id)`,
+      binCount: sql<number>`(SELECT COUNT(*) FROM wh_bins WHERE zone_id = wh_zones.id)`,
       assignedLotCount: sql<number>`(
         SELECT COUNT(DISTINCT il.inventory_id)
         FROM inventory_locations il
         JOIN wh_bins b ON il.bin_id = b.id
-        WHERE b.zone_id = ${whZones.id}
+        WHERE b.zone_id = wh_zones.id
       )`,
     })
     .from(whZones)
