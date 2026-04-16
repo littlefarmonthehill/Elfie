@@ -302,6 +302,102 @@ router.post("/warehouse/bins/bulk", isApproved, asyncRoute(async (req: any, res)
 
 // ── Inventory Search ───────────────────────────────────────────────────────────
 
+// ── Counts — correct totals using COUNT queries (not limited array length) ──────
+router.get("/warehouse/counts", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const [[{ total }], [{ assigned }]] = await Promise.all([
+    db.select({ total: sql<number>`COUNT(*)` }).from(blInventory)
+      .where(eq(blInventory.orgId, orgId)),
+    db.select({ assigned: sql<number>`COUNT(DISTINCT ${inventoryLocations.inventoryId})` })
+      .from(inventoryLocations).where(eq(inventoryLocations.orgId, orgId)),
+  ]);
+  const totalNum = Number(total);
+  const assignedNum = Number(assigned);
+  res.json({ totalLots: totalNum, assignedLots: assignedNum, unassignedLots: totalNum - assignedNum });
+}));
+
+// ── Unified lots endpoint — filter=all|assigned|unassigned, optional q and range ─
+router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const filterParam = (String(req.query.filter ?? 'all')) as 'all' | 'assigned' | 'unassigned';
+  const q = String(req.query.q ?? '').trim();
+  const fromRaw = String(req.query.from ?? '').trim();
+  const toRaw = String(req.query.to ?? '').trim();
+  const limit = Math.min(parseInt(String(req.query.limit ?? '200')), 500);
+
+  const assignedExpr = sql<boolean>`EXISTS (
+    SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId}
+  )`;
+  const binNameExpr = sql<string | null>`(
+    SELECT wb.name FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
+    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
+  )`;
+
+  const conditions: any[] = [eq(blInventory.orgId, orgId)];
+
+  if (filterParam === 'assigned') {
+    conditions.push(sql`EXISTS (SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId})`);
+  } else if (filterParam === 'unassigned') {
+    conditions.push(sql`NOT EXISTS (SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId})`);
+  }
+
+  if (q) {
+    conditions.push(sql`(${blInventory.itemNo} ILIKE ${'%' + q + '%'} OR EXISTS (
+      SELECT 1 FROM bl_catalog bc WHERE bc.item_no = ${blInventory.itemNo} AND bc.item_type = ${blInventory.itemType}
+        AND bc.item_name ILIKE ${'%' + q + '%'}
+    ))`);
+  }
+
+  if (fromRaw && toRaw) {
+    const fromNorm = normalizeBLItemNo(fromRaw);
+    const toNorm = normalizeBLItemNo(toRaw);
+    const pureNumeric = /^\d+$/.test(fromNorm) && /^\d+$/.test(toNorm);
+    if (pureNumeric) {
+      const fromNum = parseInt(fromNorm, 10);
+      const toNum = parseInt(toNorm, 10);
+      if (!isNaN(fromNum) && !isNaN(toNum) && fromNum <= toNum) {
+        conditions.push(sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`);
+      }
+    } else if (fromNorm <= toNorm) {
+      conditions.push(sql`${normalizeItemNoSql(blInventory.itemNo)} >= ${fromNorm} AND ${normalizeItemNoSql(blInventory.itemNo)} <= ${toNorm}`);
+    }
+  }
+
+  const rows = await db
+    .select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      itemType: blInventory.itemType,
+      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      colorName: blColors.name,
+      newOrUsed: blInventory.newOrUsed,
+      quantity: blInventory.quantity,
+      assigned: assignedExpr,
+      binName: binNameExpr,
+    })
+    .from(blInventory)
+    .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+    .leftJoin(blCatalog, and(
+      eq(blInventory.itemNo, blCatalog.itemNo),
+      eq(blInventory.itemType, blCatalog.itemType),
+      eq(blInventory.colorId, blCatalog.colorId),
+    ))
+    .where(and(...conditions))
+    .orderBy(
+      q
+        ? sql`CASE WHEN LOWER(${blInventory.itemNo}) = LOWER(${q}) THEN 0
+               WHEN LOWER(${blInventory.itemNo}) LIKE LOWER(${q + '%'}) THEN 1
+               ELSE 2 END`
+        : (fromRaw && toRaw
+            ? sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer, ${normalizeItemNoSql(blInventory.itemNo)}`
+            : asc(blInventory.itemNo)),
+      asc(blInventory.itemNo)
+    )
+    .limit(fromRaw && toRaw ? 1000 : limit);
+
+  res.json(rows);
+}));
+
 router.get("/warehouse/inventory/search", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const q = ((req.query.q as string) || '').trim();
