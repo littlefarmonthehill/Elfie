@@ -424,10 +424,30 @@ router.get("/warehouse/unassigned/search", isApproved, asyncRoute(async (req: an
 
 // Range fill: find unassigned lots whose leading part number falls between `from` and `to`
 // e.g. "974" – "2335" matches 974, 974pb01, 975, 975x01, ..., 2335, 2335a
-/** Zero-pad the pattern-constant number in a BrickLink item_no: 973pb100 → 973pb0100 */
+/**
+ * Normalize a BrickLink item_no for range comparison.
+ * Pads the trailing digit run to 4 digits so string ordering matches numeric ordering.
+ * e.g.  973px3   → 973px0003
+ *        973pb100 → 973pb0100
+ *        973px114 → 973px0114
+ */
 function normalizeBLItemNo(s: string): string {
-  return s.trim().toLowerCase().replace(/pb(\d+)/gi, (_, n: string) => `pb${n.padStart(4, '0')}`);
+  return s.trim().toLowerCase()
+    .replace(/([a-z]+)(\d+)$/, (_, letters: string, digits: string) =>
+      `${letters}${digits.padStart(4, '0')}`);
 }
+
+/**
+ * SQL expression that applies the same trailing-digit normalization to a column.
+ * Extracts everything after the last non-digit character as the trailing number,
+ * pads it to 4 digits, and re-attaches the prefix.
+ * e.g.  973px3 → 973px0003,  973px114 → 973px0114
+ */
+const normalizeItemNoSql = (col: any) => sql<string>`(
+  LEFT(LOWER(${col}),
+    GREATEST(0, LENGTH(LOWER(${col})) - LENGTH(REGEXP_REPLACE(LOWER(${col}), '^.*[^0-9]', '')))
+  ) || LPAD(REGEXP_REPLACE(LOWER(${col}), '^.*[^0-9]', ''), 4, '0')
+)`;
 
 router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
@@ -445,7 +465,7 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
 
   const rangeCondition = pureNumeric
     ? sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer BETWEEN ${fromNum} AND ${toNum}`
-    : sql`LOWER(${blInventory.itemNo}) >= ${fromNorm} AND LOWER(${blInventory.itemNo}) <= ${toNorm}`;
+    : sql`${normalizeItemNoSql(blInventory.itemNo)} >= ${fromNorm} AND ${normalizeItemNoSql(blInventory.itemNo)} <= ${toNorm}`;
 
   const rows = await db
     .select({
@@ -468,7 +488,7 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
     ))
     .orderBy(
       sql`(regexp_match(${blInventory.itemNo}, '^([0-9]+)'))[1]::integer`,
-      asc(blInventory.itemNo)
+      normalizeItemNoSql(blInventory.itemNo)
     );
   res.json(rows);
 }));
