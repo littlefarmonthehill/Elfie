@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { WarehouseScanPanel } from "./WarehouseScanPanel";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { hiddenPrint } from "./PackingSlip";
@@ -49,6 +50,7 @@ import {
   MoveRight,
   Building2,
   MoreHorizontal,
+  ScanLine,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -139,6 +141,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [createParentAisleId, setCreateParentAisleId] = useState<string>("");
   const [createParentShelfId, setCreateParentShelfId] = useState<string>("");
   const [printItemsDirect, setPrintItemsDirect] = useState<any[]>([]);
+  const [scanPanelOpen, setScanPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [lotsSearchSubmitted, setLotsSearchSubmitted] = useState<string>("");
   const [lotsRangeFrom, setLotsRangeFrom] = useState<string>("");
@@ -1892,6 +1895,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           {/* Search + range fill (lots only) */}
           {activeView === 'lots' && (
             <div className="space-y-2 mb-3">
+              {/* Scan mode button */}
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-yellow-500/40 text-yellow-400 hover:text-yellow-300"
+                onClick={() => setScanPanelOpen(true)}
+                data-testid="button-open-scan-panel"
+              >
+                <ScanLine className="h-4 w-4" />
+                Scan Bins / Lots
+              </Button>
               {/* Text search — explicit submit */}
               <div className="flex gap-1.5">
                 <div className="relative flex-1">
@@ -3396,6 +3409,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Scan Panel */}
+      {scanPanelOpen && <WarehouseScanPanel onClose={() => setScanPanelOpen(false)} />}
 
       {/* Manage Zones Dialog */}
       <Dialog open={manageZonesOpen} onOpenChange={setManageZonesOpen}>

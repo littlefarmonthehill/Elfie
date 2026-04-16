@@ -633,6 +633,92 @@ router.delete("/warehouse/locations/:id", isApproved, asyncRoute(async (req: any
   res.json({ success: true });
 }));
 
+// ── Scan ───────────────────────────────────────────────────────────────────────
+
+router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const code  = String(req.query.code || '').trim();
+  if (!code) return res.status(400).json({ error: 'code required' });
+
+  if (code.startsWith('BIN:')) {
+    const binName = code.slice(4);
+    const [bin] = await db
+      .select({
+        id:        whBins.id,
+        name:      whBins.name,
+        shelfName: whShelves.name,
+        aisleName: whAisles.name,
+        itemCount: sql<number>`(SELECT COUNT(*) FROM inventory_locations WHERE bin_id = ${whBins.id})`,
+      })
+      .from(whBins)
+      .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+      .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+      .where(and(eq(whBins.orgId, orgId), eq(whBins.name, binName)));
+    if (!bin) return res.status(404).json({ error: `Bin "${binName}" not found` });
+    return res.json({ type: 'bin', ...bin });
+  }
+
+  if (code.startsWith('LOT:')) {
+    const lotId = parseInt(code.slice(4));
+    if (isNaN(lotId)) return res.status(400).json({ error: 'Invalid LOT code' });
+
+    const [lot] = await db
+      .select({
+        id:        blInventory.id,
+        itemNo:    blInventory.itemNo,
+        itemType:  blInventory.itemType,
+        colorId:   blInventory.colorId,
+        colorName: blColors.name,
+        newOrUsed: blInventory.newOrUsed,
+        quantity:  blInventory.quantity,
+        price:     blInventory.price,
+        remarks:   blInventory.remarks,
+        itemName:  resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      })
+      .from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.colorId))
+      .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, lotId)));
+    if (!lot) return res.status(404).json({ error: `Lot ${lotId} not found` });
+
+    const locations = await db
+      .select({
+        id:        inventoryLocations.id,
+        binId:     inventoryLocations.binId,
+        binName:   whBins.name,
+        shelfName: whShelves.name,
+        aisleName: whAisles.name,
+        bagLabel:  inventoryLocations.bagLabel,
+        quantity:  inventoryLocations.quantity,
+      })
+      .from(inventoryLocations)
+      .leftJoin(whBins,    eq(inventoryLocations.binId,   whBins.id))
+      .leftJoin(whShelves, eq(whBins.shelfId,             whShelves.id))
+      .leftJoin(whAisles,  eq(whShelves.aisleId,          whAisles.id))
+      .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, lotId)));
+
+    return res.json({ type: 'lot', ...lot, locations });
+  }
+
+  return res.status(400).json({ error: `Unrecognized code format` });
+}));
+
+// Move a lot to a bin — clears all existing locations then inserts new one
+router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { inventoryId, binId } = req.body as { inventoryId: number; binId: number };
+  if (!inventoryId || !binId) return res.status(400).json({ error: 'inventoryId and binId required' });
+
+  await db.delete(inventoryLocations)
+    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
+
+  const [location] = await db.insert(inventoryLocations)
+    .values({ inventoryId, binId, orgId })
+    .returning();
+
+  broadcast(orgId, 'warehouse.location_changed', { inventoryId, binId });
+  res.json(location);
+}));
+
 // ── Labels ─────────────────────────────────────────────────────────────────────
 
 router.get("/warehouse/labels/qr", asyncRoute(async (req, res) => {
