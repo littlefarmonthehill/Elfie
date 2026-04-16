@@ -476,14 +476,15 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
       colorName: blColors.name,
       newOrUsed: blInventory.newOrUsed,
       quantity: blInventory.quantity,
+      binName: whBins.name,
     })
     .from(blInventory)
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
     .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
     .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+    .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
     .where(and(
       eq(blInventory.orgId, orgId),
-      sql`${inventoryLocations.id} IS NULL`,
       rangeCondition
     ))
     .orderBy(

@@ -1991,12 +1991,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {lotsRangeCommitted && !lotsRangeFetching && (
                 <div className="space-y-1">
                   {lotsRangeResults.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground px-1">No unassigned lots in range {lotsRangeCommitted.from}–{lotsRangeCommitted.to}.</p>
+                    <p className="text-[10px] text-muted-foreground px-1">No lots in range {lotsRangeCommitted.from}–{lotsRangeCommitted.to}.</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2 px-0.5">
                         <p className="text-[10px] text-muted-foreground">
-                          <span className="font-semibold text-foreground">{lotsRangeResults.length}</span> unassigned lot{lotsRangeResults.length !== 1 ? 's' : ''} in range
+                          <span className="font-semibold text-foreground">{lotsRangeResults.length}</span> lot{lotsRangeResults.length !== 1 ? 's' : ''} in range
                         </p>
                         <div className="flex items-center gap-2 text-[10px]">
                           <button
@@ -2022,6 +2022,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                             {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
                             {item.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{item.quantity}</span>}
+                            {item.binName
+                              ? <span className="text-[10px] font-mono text-yellow-500 shrink-0">{item.binName}</span>
+                              : <span className="text-[10px] text-muted-foreground/50 shrink-0">—</span>}
                           </label>
                         ))}
                       </div>
@@ -2774,12 +2777,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {fillBinRangeCommitted && !fillBinRangeFetching && (
                 <div className="space-y-1">
                   {fillBinRangeResults.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground px-1">No unassigned lots found in that range.</p>
+                    <p className="text-[10px] text-muted-foreground px-1">No lots found in that range.</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2 px-0.5">
                         <p className="text-[10px] text-muted-foreground">
-                          <span className="font-semibold text-foreground">{fillBinRangeResults.length}</span> unassigned lot{fillBinRangeResults.length !== 1 ? 's' : ''} in range {fillBinRangeFrom}–{fillBinRangeTo}
+                          <span className="font-semibold text-foreground">{fillBinRangeResults.length}</span> lot{fillBinRangeResults.length !== 1 ? 's' : ''} in range {fillBinRangeFrom}–{fillBinRangeTo}
                         </p>
                         <div className="flex items-center gap-2">
                           <div className="flex gap-1.5 text-[10px] text-muted-foreground">
@@ -2816,6 +2819,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                               <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
                               <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                               {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              {item.binName
+                                ? <span className="text-[10px] font-mono text-yellow-500 shrink-0">{item.binName}</span>
+                                : <span className="text-[10px] text-muted-foreground/50 shrink-0">—</span>}
                               <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
                             </label>
                           );
