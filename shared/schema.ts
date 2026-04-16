@@ -99,6 +99,8 @@ export const organizations = pgTable("organizations", {
   aisleFormat: text("aisle_format").default('numeric').notNull(),
   shelfFormat: text("shelf_format").default('alpha').notNull(),
   binFormat: text("bin_format").default('numeric').notNull(),
+  // One lot per bin: true = strict (one lot ID → one bin, moves replace), false = loose (one lot can span multiple bins)
+  oneLotPerBin: boolean("one_lot_per_bin").default(true).notNull(),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

@@ -226,7 +226,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [importCsvText, setImportCsvText] = useState("");
   const [importResult, setImportResult] = useState<{ created?: { aisles: number; shelves: number; bins: number; skipped: number }; stats?: { assigned: number; skipped: number; notFound: number }; errors: string[] } | null>(null);
 
-  const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number; aisleFormat: string; shelfFormat: string; binFormat: string }>({
+  const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number; aisleFormat: string; shelfFormat: string; binFormat: string; oneLotPerBin: boolean }>({
     queryKey: ['/api/warehouse/settings'],
   });
 
@@ -485,6 +485,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
     },
+  });
+
+  const updateOneLotPerBinMutation = useMutation({
+    mutationFn: (value: boolean) => apiRequest('PATCH', '/api/warehouse/settings', { oneLotPerBin: value }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] }),
   });
 
   const createAisleMutation = useMutation({
@@ -1565,6 +1570,35 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border">
             Upgrading to a deeper level is safe — your existing bins and all lot assignments are preserved. You simply gain the ability to organise bins onto shelves or aisles.
           </p>
+
+          {/* Filing Behaviour */}
+          <div className="pt-2 border-t border-border space-y-2">
+            <div>
+              <p className="text-sm font-semibold">Filing Behaviour</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Controls what happens when a lot is scanned into a bin.</p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-md border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium">One lot per bin (strict)</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {warehouseSettings?.oneLotPerBin ?? true
+                    ? "ON — scanning a lot into a bin moves it out of its current bin. One lot ID lives in exactly one bin at a time."
+                    : "OFF — scanning a lot into a bin adds that bin alongside any existing locations. A single lot can span multiple bins."}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={warehouseSettings?.oneLotPerBin ?? true}
+                onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
+                disabled={updateOneLotPerBinMutation.isPending}
+                data-testid="toggle-one-lot-per-bin"
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
 
           {/* Naming Format */}
           <div className="pt-1 border-t border-border space-y-3">

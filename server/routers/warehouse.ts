@@ -729,8 +729,28 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
   const { inventoryId, binId } = req.body as { inventoryId: number; binId: number };
   if (!inventoryId || !binId) return res.status(400).json({ error: 'inventoryId and binId required' });
 
-  await db.delete(inventoryLocations)
-    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
+  // Respect the "one lot per bin" org setting
+  const [org] = await db.select({ oneLotPerBin: organizations.oneLotPerBin })
+    .from(organizations).where(eq(organizations.id, orgId));
+  const strict = org?.oneLotPerBin ?? true;
+
+  if (strict) {
+    // Strict mode: move — clear all existing locations first
+    await db.delete(inventoryLocations)
+      .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
+  } else {
+    // Loose mode: add — skip if this exact bin is already assigned
+    const existing = await db.select({ id: inventoryLocations.id })
+      .from(inventoryLocations)
+      .where(and(
+        eq(inventoryLocations.orgId, orgId),
+        eq(inventoryLocations.inventoryId, inventoryId),
+        eq(inventoryLocations.binId, binId),
+      ));
+    if (existing.length > 0) {
+      return res.json({ alreadyAssigned: true, inventoryId, binId });
+    }
+  }
 
   const [location] = await db.insert(inventoryLocations)
     .values({ inventoryId, binId, orgId })
@@ -762,18 +782,20 @@ router.get("/warehouse/settings", isApproved, asyncRoute(async (req: any, res) =
     aisleFormat: organizations.aisleFormat,
     shelfFormat: organizations.shelfFormat,
     binFormat: organizations.binFormat,
+    oneLotPerBin: organizations.oneLotPerBin,
   }).from(organizations).where(eq(organizations.id, orgId));
   res.json({
     depth: org?.warehouseDepth ?? 3,
     aisleFormat: org?.aisleFormat ?? 'numeric',
     shelfFormat: org?.shelfFormat ?? 'alpha',
     binFormat: org?.binFormat ?? 'numeric',
+    oneLotPerBin: org?.oneLotPerBin ?? true,
   });
 }));
 
 router.patch("/warehouse/settings", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const { depth, aisleFormat, shelfFormat, binFormat } = req.body;
+  const { depth, aisleFormat, shelfFormat, binFormat, oneLotPerBin } = req.body;
   const validFormats = ['alpha', 'numeric', 'alphanumeric'];
   const updates: any = { updatedAt: new Date() };
   if (depth !== undefined) {
@@ -784,18 +806,21 @@ router.patch("/warehouse/settings", isApproved, asyncRoute(async (req: any, res)
   if (aisleFormat !== undefined) { if (!validFormats.includes(aisleFormat)) return res.status(400).json({ error: "Invalid aisleFormat" }); updates.aisleFormat = aisleFormat; }
   if (shelfFormat !== undefined) { if (!validFormats.includes(shelfFormat)) return res.status(400).json({ error: "Invalid shelfFormat" }); updates.shelfFormat = shelfFormat; }
   if (binFormat !== undefined)   { if (!validFormats.includes(binFormat))   return res.status(400).json({ error: "Invalid binFormat" });   updates.binFormat = binFormat; }
+  if (oneLotPerBin !== undefined) updates.oneLotPerBin = Boolean(oneLotPerBin);
   await db.update(organizations).set(updates).where(eq(organizations.id, orgId));
   const [updated] = await db.select({
     warehouseDepth: organizations.warehouseDepth,
     aisleFormat: organizations.aisleFormat,
     shelfFormat: organizations.shelfFormat,
     binFormat: organizations.binFormat,
+    oneLotPerBin: organizations.oneLotPerBin,
   }).from(organizations).where(eq(organizations.id, orgId));
   res.json({
     depth: updated.warehouseDepth,
     aisleFormat: updated.aisleFormat,
     shelfFormat: updated.shelfFormat,
     binFormat: updated.binFormat,
+    oneLotPerBin: updated.oneLotPerBin,
   });
 }));
 

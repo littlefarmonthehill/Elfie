@@ -469,6 +469,14 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-14: default_weight_per_lot_oz (non-fatal):', fix14Err.message);
     }
 
+    // 4a-fix-15. Add one_lot_per_bin column to organizations.
+    try {
+      await pool.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS one_lot_per_bin BOOLEAN NOT NULL DEFAULT TRUE`);
+      console.log('[Startup] fix-15: one_lot_per_bin column ensured.');
+    } catch (fix15Err: any) {
+      console.error('[Startup] fix-15: one_lot_per_bin (non-fatal):', fix15Err.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
