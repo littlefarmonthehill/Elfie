@@ -413,10 +413,10 @@ router.get("/warehouse/counts", isApproved, asyncRoute(async (req: any, res) => 
   res.json({ totalLots: totalNum, assignedLots: assignedNum, unassignedLots: totalNum - assignedNum });
 }));
 
-// ── Unified lots endpoint — filter=all|assigned|unassigned, optional q and range ─
+// ── Unified lots endpoint — filter=all|assigned|unassigned|filing-queue, optional q and range ─
 router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const filterParam = (String(req.query.filter ?? 'all')) as 'all' | 'assigned' | 'unassigned';
+  const filterParam = (String(req.query.filter ?? 'all')) as 'all' | 'assigned' | 'unassigned' | 'filing-queue';
   const q = String(req.query.q ?? '').trim();
   const fromRaw = String(req.query.from ?? '').trim();
   const toRaw = String(req.query.to ?? '').trim();
@@ -429,6 +429,10 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
     SELECT wb.name FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
     WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
   )`;
+  const isFilingQueueExpr = sql<boolean>`EXISTS (
+    SELECT 1 FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
+    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} AND wb.is_filing_queue = true
+  )`;
 
   const conditions: any[] = [eq(blInventory.orgId, orgId)];
 
@@ -436,6 +440,11 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
     conditions.push(sql`EXISTS (SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId})`);
   } else if (filterParam === 'unassigned') {
     conditions.push(sql`NOT EXISTS (SELECT 1 FROM inventory_locations il WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId})`);
+  } else if (filterParam === 'filing-queue') {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
+      WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} AND wb.is_filing_queue = true
+    )`);
   }
 
   if (q) {
@@ -471,6 +480,7 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
       quantity: blInventory.quantity,
       assigned: assignedExpr,
       binName: binNameExpr,
+      isFilingQueue: isFilingQueueExpr,
     })
     .from(blInventory)
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
