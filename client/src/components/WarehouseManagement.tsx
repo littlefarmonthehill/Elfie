@@ -1536,46 +1536,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </div>
       )}
 
-      {/* Global settings panel — when no zone is selected */}
-      {showDepthSetup && activeZoneId === null && (
-        <Card className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold">Warehouse Settings</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Select a zone to configure its depth and naming format</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(false)}>Done</Button>
-          </div>
-          <div className="border-t border-border pt-3 space-y-2">
-            <div>
-              <p className="text-sm font-semibold">Filing Behaviour</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Controls what happens when a lot is scanned into a bin.</p>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-md border border-border">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium">One lot per bin (strict)</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {warehouseSettings?.oneLotPerBin ?? true
-                    ? "ON — scanning a lot into a bin moves it out of its current bin. One lot ID lives in exactly one bin at a time."
-                    : "OFF — scanning a lot into a bin adds that bin alongside any existing locations. A single lot can span multiple bins."}
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={warehouseSettings?.oneLotPerBin ?? true}
-                onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
-                disabled={updateOneLotPerBinMutation.isPending}
-                data-testid="toggle-one-lot-per-bin-global"
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
-              </button>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Depth Selector — only available when a zone filter is active */}
       {showDepthSetup && activeZoneId !== null ? (
         <Card className="p-4 space-y-3">
@@ -1610,35 +1570,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border">
             Upgrading to a deeper level is safe — your existing bins and all lot assignments are preserved. You simply gain the ability to organise bins onto shelves or aisles.
           </p>
-
-          {/* Filing Behaviour */}
-          <div className="pt-2 border-t border-border space-y-2">
-            <div>
-              <p className="text-sm font-semibold">Filing Behaviour</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Controls what happens when a lot is scanned into a bin.</p>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-md border border-border">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium">One lot per bin (strict)</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {warehouseSettings?.oneLotPerBin ?? true
-                    ? "ON — scanning a lot into a bin moves it out of its current bin. One lot ID lives in exactly one bin at a time."
-                    : "OFF — scanning a lot into a bin adds that bin alongside any existing locations. A single lot can span multiple bins."}
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={warehouseSettings?.oneLotPerBin ?? true}
-                onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
-                disabled={updateOneLotPerBinMutation.isPending}
-                data-testid="toggle-one-lot-per-bin"
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
-              </button>
-            </div>
-          </div>
 
           {/* Naming Format */}
           <div className="pt-1 border-t border-border space-y-3">
@@ -1765,6 +1696,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 )}
               </div>
             </div>
+
+            {/* One lot per bin toggle */}
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center justify-between px-1 gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground block">Filing mode</span>
+                  <span className="text-[10px] text-muted-foreground/70 block mt-0.5 leading-tight">
+                    {(warehouseSettings?.oneLotPerBin ?? true) ? 'One lot → one bin (strict)' : 'One lot → many bins (loose)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={warehouseSettings?.oneLotPerBin ?? true}
+                  onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
+                  disabled={updateOneLotPerBinMutation.isPending}
+                  data-testid="toggle-one-lot-per-bin"
+                  title={(warehouseSettings?.oneLotPerBin ?? true) ? 'Strict: scanning moves the lot to one bin' : 'Loose: scanning adds a bin without clearing others'}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* ── Right content (always visible) ─────────────── */}
@@ -1803,6 +1758,27 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <Settings2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
+            </div>
+
+            {/* Mobile-only: filing mode toggle */}
+            <div className="md:hidden flex items-center justify-between gap-2 px-0.5 py-1 border-t border-border">
+              <div className="min-w-0">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Filing mode</span>
+                <span className="text-[10px] text-muted-foreground/70 ml-2">
+                  {(warehouseSettings?.oneLotPerBin ?? true) ? 'One lot → one bin' : 'One lot → many bins'}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={warehouseSettings?.oneLotPerBin ?? true}
+                onClick={() => updateOneLotPerBinMutation.mutate(!(warehouseSettings?.oneLotPerBin ?? true))}
+                disabled={updateOneLotPerBinMutation.isPending}
+                data-testid="toggle-one-lot-per-bin-mobile"
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${(warehouseSettings?.oneLotPerBin ?? true) ? 'bg-yellow-500' : 'bg-muted'} disabled:opacity-50`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${(warehouseSettings?.oneLotPerBin ?? true) ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
             </div>
 
             {/* Mobile-only: horizontal tabs */}
