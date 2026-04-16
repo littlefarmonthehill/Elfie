@@ -258,6 +258,88 @@ ChatGPT-style conversation management with thread persistence and auto-expiry.
 - **Theme-based card assignment**: Market news articles are assigned to their best-fit theme using `themeMatchScore()` with expanded keyword maps (`THEME_KEYWORD_MAP`) covering retirement, pricing, releases, supply, investing, and market categories. Each article belongs to exactly one theme. Community Buzz section exclusively shows BrickLink forum posts — never news articles. "Impact on Your Inventory" section is suppressed (header, body text, bullets, and cards all skipped).
 - **Forum cards**: All forum cards have expandable detail with AI analysis. Fallback text "Click to view discussion thread and AI analysis" shown when excerpt is missing.
 
+## Warehouse Management System
+
+Physical bin location management for LEGO inventory. Operators assign lots to named bins, scan bins and lots with a hardware barcode scanner or phone camera, and navigate via a file/locate workflow.
+
+### Schema (`shared/schema.ts`)
+- **`wh_zones`**: Top-level storage zones (e.g. "Main Room", "Shelf Unit A"). Fields: `id`, `orgId`, `name`, `description`, `depth` (1/2/3), `sortOrder`, `aisleFormat`, `shelfFormat`, `binFormat`, `createdAt`, `updatedAt`.
+- **`wh_aisles`**: Level-2 grouping within a zone. Fields: `id`, `orgId`, `zoneId`, `name`, `description`, `sortOrder`.
+- **`wh_shelves`**: Level-3 grouping within an aisle. Fields: `id`, `orgId`, `zoneId`, `aisleId`, `name`, `description`, `sortOrder`.
+- **`wh_bins`**: The physical storage location. Fields: `id`, `orgId`, `zoneId`, `shelfId` (nullable), `name`, `description`, `position`, `createdAt`, `updatedAt`.
+- **`inventory_locations`**: Junction table mapping lots to bins. Fields: `id`, `inventoryId` (FK → `bl_inventory`), `binId` (FK → `wh_bins`), `assignedAt`. One lot can have one or many rows depending on `oneLotPerBin` setting.
+
+### Zone Depth System
+Each zone independently configures its depth (1/2/3) controlling the physical hierarchy:
+- **Depth 1** — Bins only (flat: Zone → Bins)
+- **Depth 2** — Shelves + Bins (Zone → Shelves → Bins)
+- **Depth 3** — Aisles + Shelves + Bins (Zone → Aisles → Shelves → Bins)
+
+Naming format per level: `alpha` (A, B, C…) or `numeric` (1, 2, 3…). Configured per zone via the gear icon in the zone settings panel. Upgrading depth is safe — existing bins and all lot assignments are preserved.
+
+### Org-Level Settings (`organizations` table)
+- `warehouseDepth` (int, default 3) — global fallback depth
+- `aisleFormat`, `shelfFormat`, `binFormat` (text) — global fallback naming formats
+- `oneLotPerBin` (bool, default `true`) — filing mode (see below)
+
+### Filing Mode — `oneLotPerBin`
+Controls what happens when a lot is scanned into a bin via `POST /api/warehouse/scan/assign`:
+- **Strict (`true`)** — Deletes all existing `inventory_locations` rows for the lot, then inserts exactly one for the new bin. One lot ID lives in exactly one bin at a time.
+- **Loose (`false`)** — Appends the new bin without clearing existing locations (skips if exact bin already assigned). A single lot can span multiple bins.
+
+The toggle is surfaced **inline** in the warehouse UI:
+- **Desktop**: Bottom of the left sidebar, below the Zone filter section, labeled "Filing mode" with a description of the current state ("One lot → one bin" or "One lot → many bins").
+- **Mobile**: A dedicated row between the zone/actions bar and the horizontal tabs, same label and state text.
+
+This is intentionally visible at all times — it is not hidden behind any gear/settings panel.
+
+### QR Code / Barcode Conventions
+- **Bin QR**: `BIN:{binName}` — scanned to start a Locate flow (find what's in this bin)
+- **Lot QR**: `LOT:{inventoryId}` — scanned to start a File flow (assign lot to a bin)
+
+Both QR formats are handled in `POST /api/warehouse/scan/decode` which auto-detects the prefix and dispatches accordingly.
+
+### Scan Panel (`WarehouseScanPanel`)
+Full-screen overlay (`client/src/components/WarehouseScanPanel.tsx`) opened from the main warehouse sidebar. Two workflows:
+- **BIN → Lots**: Scan a bin QR → see all lots currently in that bin. Shows part number, color, quantity, name.
+- **Lot → Bin**: Scan a lot QR → shows current bin assignment → scan a bin QR to assign/move. Respects `oneLotPerBin` filing mode.
+
+Input sources: hardware barcode scanner (keyboard input with `Enter` trigger), phone camera (via browser `getUserMedia`). Camera stream is stopped when the panel closes to prevent resource leaks.
+
+### Range Search & Normalization
+`GET /api/warehouse/unassigned/range?from=&to=&zoneId=` returns all lots (assigned or unassigned) whose BrickLink item number falls in the alphanumeric range `[from, to]`.
+
+**Range normalization** (`normalizeBLItemNo` in JS, `normalizeItemNoSql` in SQL) pads the trailing digit run of any letter-digit suffix to 4 digits for correct lexicographic ordering:
+- `973px3` → `973px0003`
+- `973pb114` → `973pb0114`
+- Applies to ALL letter-digit suffixes (not just `pb`) via `replace(/([a-z]+)(\d+)$/, ...)`
+- SQL equivalent: `LEFT(...) || LPAD(REGEXP_REPLACE(..., '^.*[^0-9]', ''), 4, '0')`
+
+The range endpoint joins `whBins` and returns `binName` in each row (null if unassigned), displayed in yellow in the UI so operators can see where a lot already lives before scanning it into a new bin.
+
+### Router (`server/routers/warehouse.ts`)
+Key routes:
+- `GET /api/warehouse/zones` — list zones with bin/aisle/shelf counts
+- `POST /api/warehouse/zones` — create zone
+- `PATCH /api/warehouse/zones/:id` — update zone (depth, formats, name)
+- `DELETE /api/warehouse/zones/:id` — delete zone
+- `GET /api/warehouse/bins` — list bins (filter by zoneId or shelfId)
+- `POST /api/warehouse/bins` — create bin
+- `POST /api/warehouse/scan/decode` — decode a raw QR/barcode string (BIN: or LOT: prefix dispatch)
+- `POST /api/warehouse/scan/assign` — assign lot to bin (respects `oneLotPerBin`)
+- `GET /api/warehouse/unassigned` — lots with no bin assignment
+- `GET /api/warehouse/unassigned/range` — lots in item-number range (all lots, with current bin name)
+- `GET /api/warehouse/settings` — org warehouse settings (`warehouseDepth`, formats, `oneLotPerBin`)
+- `PATCH /api/warehouse/settings` — update org warehouse settings
+
+### Migration Chain
+Warehouse tables introduced progressively via numbered fix-* migrations in `server/index.ts`. Latest: **fix-15** (`one_lot_per_bin` column on `organizations`). Next would be fix-16.
+
+### UI (`client/src/components/WarehouseManagement.tsx`)
+Two main views toggled from the sidebar:
+- **Locations** (structure view) — hierarchical browser of zones/aisles/shelves/bins. Create, rename, delete nodes. Each bin shows lot count. Zone gear icon opens the zone settings panel (depth upgrade + naming format — filing mode is NOT here).
+- **File** (lots view) — all lots with search (text or range), current bin display, bulk assignment. Unassigned lot count badge on the sidebar button. "Scan Bins / Lots" button opens `WarehouseScanPanel`.
+
 ## Part Images — Source & Pipeline
 
 ### Three-layer persistent image store (`server/services/image-store.ts`)
