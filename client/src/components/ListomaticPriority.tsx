@@ -1,10 +1,15 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X } from "lucide-react";
+import {
+  Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X,
+  Search, Plus, Trash2, Printer, Loader2, Package,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 interface PriorityCategory {
@@ -36,6 +41,16 @@ interface SampleItem {
 interface PriorityResponse {
   categories: PriorityCategory[];
   phaseScores: Record<string, number>;
+}
+
+interface LotItem {
+  id: number;
+  itemNo: string;
+  itemName: string | null;
+  colorName: string | null;
+  quantity: number | null;
+  binName: string | null;
+  assigned: boolean;
 }
 
 const PHASES = ['category', 'subcategory', 'finalsort', 'listing', 'file'] as const;
@@ -89,6 +104,8 @@ function decodeHtml(str: string): string {
 
 export default function ListomaticPriority() {
   const { toast } = useToast();
+
+  // ── Categories tab state ──────────────────────────────────────────────────
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' });
   const [localPhaseScores, setLocalPhaseScores] = useState<Record<string, number> | null>(null);
   const [editingPhase, setEditingPhase] = useState<PhaseKey | null>(null);
@@ -96,6 +113,12 @@ export default function ListomaticPriority() {
   const [scoreDetailCat, setScoreDetailCat] = useState<PriorityCategory | null>(null);
   const [sampleCat, setSampleCat] = useState<{ id: number; name: string } | null>(null);
   const [openPhaseId, setOpenPhaseId] = useState<number | null>(null);
+
+  // ── Lots tab state ────────────────────────────────────────────────────────
+  const [lotSearch, setLotSearch] = useState('');
+  const [lotSearchSubmitted, setLotSearchSubmitted] = useState('');
+  const [lotQueue, setLotQueue] = useState<LotItem[]>([]);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const { data: sampleData, isLoading: sampleLoading } = useQuery<{ items: SampleItem[] }>({
     queryKey: ['/api/listomatc/category', sampleCat?.id, 'sample'],
@@ -106,6 +129,21 @@ export default function ListomaticPriority() {
   const { data, isLoading, error } = useQuery<PriorityResponse>({
     queryKey: ['/api/listomatc/priority'],
     staleTime: 30000,
+  });
+
+  // Lots search query (reuses the unified warehouse lots endpoint)
+  const { data: lotResults = [], isFetching: lotSearchLoading } = useQuery<LotItem[]>({
+    queryKey: ['/api/warehouse/lots', 'all', lotSearchSubmitted, null],
+    queryFn: async ({ queryKey }) => {
+      const q = queryKey[2] as string;
+      const params = new URLSearchParams({ filter: 'all' });
+      if (q) params.set('q', q);
+      const res = await fetch(`/api/warehouse/lots?${params}`);
+      if (!res.ok) throw new Error('Search failed');
+      return res.json();
+    },
+    enabled: lotSearchSubmitted.length > 0,
+    staleTime: 20_000,
   });
 
   const phaseScores = localPhaseScores ?? data?.phaseScores ?? { category: 25, subcategory: 50, finalsort: 75, listing: 100 };
@@ -177,245 +215,473 @@ export default function ListomaticPriority() {
     return sort.dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
   };
 
+  // ── Lots tab helpers ──────────────────────────────────────────────────────
+  const submitLotSearch = () => {
+    const q = lotSearch.trim();
+    if (!q) return;
+    setLotSearchSubmitted(q);
+  };
+
+  const addToQueue = (lot: LotItem) => {
+    if (lotQueue.some(l => l.id === lot.id)) return;
+    setLotQueue(prev => [...prev, lot]);
+  };
+
+  const removeFromQueue = (id: number) => {
+    setLotQueue(prev => prev.filter(l => l.id !== id));
+  };
+
+  const handlePrintLotLabels = () => {
+    if (lotQueue.length === 0) return;
+    const origin = window.location.origin;
+
+    const labelHtml = lotQueue.map((lot, i) => {
+      const qrData = `LOT:${lot.id}`;
+      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=120`;
+      const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
+      const breakStyle = i < lotQueue.length - 1 ? ' style="page-break-after:always;"' : '';
+      return `<div class="label"${breakStyle}>
+        <img class="qr" src="${qrUrl}" width="72" height="72" />
+        <div class="info">
+          <div class="partno">#${lot.itemNo}</div>
+          <div class="name">${name}</div>
+          ${lot.colorName ? `<div class="detail">${lot.colorName}</div>` : ''}
+          ${lot.quantity != null ? `<div class="detail">Qty: ${lot.quantity}</div>` : ''}
+          ${lot.binName ? `<div class="bin">Bin: ${lot.binName}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; background: white; }
+      .label { width: 4in; height: 1.5in; display: flex; align-items: center; gap: 10px; padding: 8px; overflow: hidden; border: 1px solid #ddd; }
+      .qr { flex-shrink: 0; display: block; }
+      .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+      .partno { font-size: 10px; font-weight: bold; color: #555; font-family: monospace; }
+      .name { font-size: 13px; font-weight: 900; color: #000; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .detail { font-size: 10px; color: #444; }
+      .bin { font-size: 10px; font-weight: bold; color: #1a5f1a; font-family: monospace; }
+      @media print {
+        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .label { border: none; }
+      }
+    </style>
+    <script>
+      window.addEventListener('load', function() {
+        var imgs = Array.from(document.images);
+        Promise.all(imgs.map(function(img) {
+          return img.complete ? Promise.resolve() : new Promise(function(r) { img.onload = r; img.onerror = r; });
+        })).then(function() { window.print(); });
+      });
+      window.addEventListener('afterprint', function() { window.close(); });
+    <\/script>
+    </head><body>${labelHtml}</body></html>`;
+
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+    setPrintDialogOpen(false);
+  };
+
   return (
     <div className="space-y-4">
+      <Tabs defaultValue="categories">
+        <TabsList className="w-full grid grid-cols-2 mb-2">
+          <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
+          <TabsTrigger value="lots" data-testid="tab-lots">Lots</TabsTrigger>
+        </TabsList>
 
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-100">Listing Priority Score</h3>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button size="icon" variant="ghost" className="w-6 h-6" data-testid="button-lom-priority-info">
-              <Info className="w-3.5 h-3.5 text-gray-500" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="bottom" align="start" className="w-96 bg-gray-900 border-gray-700 p-3 z-[300]">
-            <h4 className="text-xs font-bold text-emerald-400 mb-2">How the Priority Score is Calculated</h4>
-            <p className="text-[11px] text-gray-300 mb-2">
-              Each category gets a score identifying which unlisted categories to prioritize for physical preparation and listing.
-            </p>
-            <div className="space-y-2 text-[11px]">
-              <div className="bg-gray-800/60 rounded p-2">
-                <p className="text-amber-300 font-semibold mb-0.5">Sell-Through Rate — 30% weight</p>
-                <p className="text-gray-400">Sold ÷ (Current Stock + Sold) × 100. High sell-through means demand is outpacing what's listed.</p>
-              </div>
-              <div className="bg-gray-800/60 rounded p-2">
-                <p className="text-blue-300 font-semibold mb-0.5">Sold-Out Lots Share — 30% weight</p>
-                <p className="text-gray-400">This category's sold-out lots ÷ all sold-out lots across your inventory × 100.</p>
-              </div>
-              <div className="bg-gray-800/60 rounded p-2">
-                <p className="text-purple-300 font-semibold mb-0.5">Sorting Effort — 40% weight</p>
-                <p className="text-gray-400">The phase score you set below. In the Listing phase, flagging a category doubles its effort score.</p>
-              </div>
-              <div className="border-t border-gray-700 pt-2 text-gray-500 font-mono text-[10px]">
-                Score = (Sell-Through × 0.30) + (Sold-Out Share × 0.30) + (Phase Score × 0.40)
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
+        {/* ── CATEGORIES TAB ─────────────────────────────────────────────── */}
+        <TabsContent value="categories" className="space-y-4 mt-0">
 
-      {/* Phase Score Cards — single row, names only */}
-      <div className="grid grid-cols-4 gap-2">
-        {PHASES.map(phase => {
-          const cfg = PHASE_CONFIG[phase];
-          const isEditing = editingPhase === phase;
-          const score = phaseScores[phase] ?? 0;
-          return (
-            <div
-              key={phase}
-              className={`rounded-lg border ${cfg.borderColor} ${cfg.bgColor} p-2.5 cursor-pointer transition-all`}
-              onClick={() => !isEditing && startEditing(phase)}
-              data-testid={`phase-card-${phase}`}
-            >
-              <p className={`text-[9px] font-semibold ${cfg.textColor} mb-1 truncate`}>{cfg.label}</p>
-              {isEditing ? (
-                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <input
-                    ref={inputRef}
-                    type="number"
-                    min={0}
-                    max={999}
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    onBlur={commitEdit}
-                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingPhase(null); }}
-                    className="w-full bg-gray-900/80 border border-gray-500 rounded px-1.5 py-0.5 text-sm text-gray-100 font-semibold focus:outline-none focus:border-gray-300"
-                    data-testid={`input-phase-score-${phase}`}
-                    autoFocus
-                  />
-                  <button onClick={commitEdit} className={`shrink-0 ${cfg.textColor}`} data-testid={`confirm-phase-score-${phase}`}>
-                    <Check className="w-3 h-3" />
-                  </button>
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-100">Listing Priority Score</h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="icon" variant="ghost" className="w-6 h-6" data-testid="button-lom-priority-info">
+                  <Info className="w-3.5 h-3.5 text-gray-500" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-96 bg-gray-900 border-gray-700 p-3 z-[300]">
+                <h4 className="text-xs font-bold text-emerald-400 mb-2">How the Priority Score is Calculated</h4>
+                <p className="text-[11px] text-gray-300 mb-2">
+                  Each category gets a score identifying which unlisted categories to prioritize for physical preparation and listing.
+                </p>
+                <div className="space-y-2 text-[11px]">
+                  <div className="bg-gray-800/60 rounded p-2">
+                    <p className="text-amber-300 font-semibold mb-0.5">Sell-Through Rate — 30% weight</p>
+                    <p className="text-gray-400">Sold ÷ (Current Stock + Sold) × 100. High sell-through means demand is outpacing what's listed.</p>
+                  </div>
+                  <div className="bg-gray-800/60 rounded p-2">
+                    <p className="text-blue-300 font-semibold mb-0.5">Sold-Out Lots Share — 30% weight</p>
+                    <p className="text-gray-400">This category's sold-out lots ÷ all sold-out lots across your inventory × 100.</p>
+                  </div>
+                  <div className="bg-gray-800/60 rounded p-2">
+                    <p className="text-purple-300 font-semibold mb-0.5">Sorting Effort — 40% weight</p>
+                    <p className="text-gray-400">The phase score you set below. In the Listing phase, flagging a category doubles its effort score.</p>
+                  </div>
+                  <div className="border-t border-gray-700 pt-2 text-gray-500 font-mono text-[10px]">
+                    Score = (Sell-Through × 0.30) + (Sold-Out Share × 0.30) + (Phase Score × 0.40)
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-end justify-between gap-1">
-                  <span className="text-xl font-bold text-gray-100 tabular-nums leading-none">{score}</span>
-                  {phase === 'listing' && (
-                    <span className="text-[8px] text-orange-400 mb-0.5 leading-none">×2 if flagged</span>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Phase Score Cards */}
+          <div className="grid grid-cols-4 gap-2">
+            {PHASES.map(phase => {
+              const cfg = PHASE_CONFIG[phase];
+              const isEditing = editingPhase === phase;
+              const score = phaseScores[phase] ?? 0;
+              return (
+                <div
+                  key={phase}
+                  className={`rounded-lg border ${cfg.borderColor} ${cfg.bgColor} p-2.5 cursor-pointer transition-all`}
+                  onClick={() => !isEditing && startEditing(phase)}
+                  data-testid={`phase-card-${phase}`}
+                >
+                  <p className={`text-[9px] font-semibold ${cfg.textColor} mb-1 truncate`}>{cfg.label}</p>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <input
+                        ref={inputRef}
+                        type="number"
+                        min={0}
+                        max={999}
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingPhase(null); }}
+                        className="w-full bg-gray-900/80 border border-gray-500 rounded px-1.5 py-0.5 text-sm text-gray-100 font-semibold focus:outline-none focus:border-gray-300"
+                        data-testid={`input-phase-score-${phase}`}
+                        autoFocus
+                      />
+                      <button onClick={commitEdit} className={`shrink-0 ${cfg.textColor}`} data-testid={`confirm-phase-score-${phase}`}>
+                        <Check className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-end justify-between gap-1">
+                      <span className="text-xl font-bold text-gray-100 tabular-nums leading-none">{score}</span>
+                      {phase === 'listing' && (
+                        <span className="text-[8px] text-orange-400 mb-0.5 leading-none">×2 if flagged</span>
+                      )}
+                    </div>
                   )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-gray-600 -mt-1">Tap a phase card to edit its score. Tap the phase badge on a tile to reassign. Flag icon pre-tags a category — ×2 activates when it reaches Listing.</p>
+
+          {/* Sort controls */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[10px] text-gray-600 mr-1">Sort:</span>
+            {([
+              ['score', 'Score'],
+              ['name', 'Name'],
+              ['sortingPhase', 'Phase'],
+              ['sellThroughPct', 'Sell-Thru'],
+              ['soldOutSharePct', 'Sold-Out'],
+              ['effectivePhaseScore', 'Effort'],
+            ] as [SortKey, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => handleSort(key)}
+                className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                  sort.key === key
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'text-gray-500 hover:text-gray-300 border border-transparent'
+                }`}
+                data-testid={`sort-${key}`}
+              >
+                {label} <SortIcon k={key} />
+              </button>
+            ))}
+          </div>
+
+          {/* Tiles */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-gray-500 text-sm">Loading priority data…</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-400 text-sm">Failed to load priority list.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {sorted.map(cat => {
+                const phaseCfg = cat.sortingPhase ? PHASE_CONFIG[cat.sortingPhase as PhaseKey] : null;
+                const tileCfg  = phaseCfg
+                  ? { tileBorder: phaseCfg.tileBorder, tileBg: phaseCfg.tileBg, tileShadow: phaseCfg.tileShadow }
+                  : UNASSIGNED_TILE;
+                const inListing = cat.sortingPhase === 'listing';
+
+                return (
+                  <div
+                    key={cat.id}
+                    className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150`}
+                    data-testid={`tile-priority-${cat.id}`}
+                  >
+                    {/* Row 1: Name + flag button + score badge */}
+                    <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
+                      <button
+                        onClick={() => setSampleCat({ id: cat.id, name: cat.name })}
+                        className={`text-xs font-medium truncate flex-1 min-w-0 text-left hover:underline ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}
+                        data-testid={`name-btn-${cat.id}`}
+                      >
+                        {cat.name}
+                      </button>
+
+                      <button
+                        onClick={() => flagMutation.mutate(cat.id)}
+                        className={`shrink-0 transition-colors p-1 rounded ${cat.flagged ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
+                        title={cat.flagged
+                          ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when in Listing. Tap to remove.')
+                          : 'Flag to double effort score when in Listing phase'}
+                        data-testid={`flag-btn-${cat.id}`}
+                      >
+                        <Flag className={`w-3.5 h-3.5 ${cat.flagged ? 'fill-current' : ''}`} />
+                      </button>
+
+                      <button
+                        onClick={() => setScoreDetailCat(cat)}
+                        className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}
+                        data-testid={`score-badge-${cat.id}`}
+                      >
+                        {cat.score}
+                      </button>
+                    </div>
+
+                    {/* Row 2: Phase badge + stats */}
+                    <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                      <Popover open={openPhaseId === cat.id} onOpenChange={open => setOpenPhaseId(open ? cat.id : null)}>
+                        <PopoverTrigger asChild>
+                          <button
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
+                              phaseCfg
+                                ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
+                                : 'bg-gray-800/40 border-gray-700/40 text-gray-500 italic'
+                            }`}
+                            data-testid={`phase-badge-${cat.id}`}
+                          >
+                            {phaseCfg ? phaseCfg.label : 'Unassigned'}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[400] space-y-1.5">
+                          <p className="app-label mb-2">Move to phase</p>
+                          <button
+                            onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase: null }); setOpenPhaseId(null); }}
+                            className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
+                              !cat.sortingPhase
+                                ? 'border-gray-500 bg-gray-700/60 text-gray-300'
+                                : 'border-gray-700/40 text-gray-500 hover:border-gray-600 hover:text-gray-300'
+                            }`}
+                            data-testid={`phase-btn-null-${cat.id}`}
+                          >
+                            Not Assigned
+                          </button>
+                          {PHASES.map(phase => {
+                            const cfg = PHASE_CONFIG[phase];
+                            const isActive = cat.sortingPhase === phase;
+                            return (
+                              <button
+                                key={phase}
+                                onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase }); setOpenPhaseId(null); }}
+                                className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
+                                  isActive
+                                    ? `${cfg.borderColor} ${cfg.bgColor} ${cfg.textColor} font-semibold`
+                                    : 'border-gray-700/40 text-gray-500 hover:text-gray-200'
+                                }`}
+                                data-testid={`phase-btn-${phase}-${cat.id}`}
+                              >
+                                {cfg.label}
+                              </button>
+                            );
+                          })}
+                        </PopoverContent>
+                      </Popover>
+
+                      {cat.sellThroughPct > 0 && (
+                        <span className="text-gray-500">Sell-Through {cat.sellThroughPct}%</span>
+                      )}
+                      {cat.soldOutLots > 0 && (
+                        <span className="text-gray-500">Sold-Out {cat.soldOutSharePct}%</span>
+                      )}
+                      {cat.effectivePhaseScore > 0 && (
+                        <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
+                          Effort {cat.effectivePhaseScore}{cat.flagged && inListing ? ' ×2' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {sorted.length === 0 && (
+                <div className="col-span-2 py-12 text-center text-gray-600 text-sm italic">No categories found. Run an inventory sync first.</div>
+              )}
+            </div>
+          )}
+
+          <p className="text-[10px] text-gray-600">
+            {sorted.length} categories · Tap score number for breakdown. Tap phase badge to reassign.
+          </p>
+        </TabsContent>
+
+        {/* ── LOTS TAB ───────────────────────────────────────────────────── */}
+        <TabsContent value="lots" className="space-y-4 mt-0">
+
+          {/* Search */}
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">Search for lots to add to the print queue.</p>
+            <div className="flex gap-1.5">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Part number or name…"
+                  value={lotSearch}
+                  onChange={e => setLotSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitLotSearch(); }}
+                  className="pr-8 text-xs"
+                  data-testid="input-lot-search"
+                />
+                {lotSearchLoading && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={submitLotSearch}
+                disabled={!lotSearch.trim() || lotSearchLoading}
+                data-testid="button-lot-search-submit"
+              >
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Search results */}
+          {lotSearchSubmitted && (
+            <div className="space-y-1">
+              {lotSearchLoading ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Searching…</span>
+                </div>
+              ) : lotResults.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground py-6">
+                  No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[10px] text-muted-foreground mb-1">
+                    <span className="font-semibold text-foreground">{lotResults.length}</span> result{lotResults.length !== 1 ? 's' : ''} — tap to add to queue
+                  </p>
+                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-52 overflow-y-auto">
+                    {lotResults.map((lot) => {
+                      const inQueue = lotQueue.some(l => l.id === lot.id);
+                      return (
+                        <button
+                          key={lot.id}
+                          onClick={() => addToQueue(lot)}
+                          disabled={inQueue}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                          data-testid={`lot-result-${lot.id}`}
+                        >
+                          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                          {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
+                          {lot.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{lot.quantity}</span>}
+                          {inQueue ? (
+                            <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Print queue */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold text-foreground">
+                Print Queue
+                {lotQueue.length > 0 && (
+                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                    ({lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </h4>
+              {lotQueue.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setLotQueue([])}
+                    className="text-[10px] text-muted-foreground"
+                    data-testid="button-clear-queue"
+                  >
+                    Clear all
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setPrintDialogOpen(true)}
+                    className="gap-1.5 text-xs"
+                    data-testid="button-print-lot-labels"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Print Labels
+                  </Button>
                 </div>
               )}
             </div>
-          );
-        })}
-      </div>
-      <p className="text-[10px] text-gray-600 -mt-1">Tap a phase card to edit its score. Tap the phase badge on a tile to reassign. Flag icon pre-tags a category — ×2 activates when it reaches Listing.</p>
 
-      {/* Sort controls */}
-      <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-[10px] text-gray-600 mr-1">Sort:</span>
-        {([
-          ['score', 'Score'],
-          ['name', 'Name'],
-          ['sortingPhase', 'Phase'],
-          ['sellThroughPct', 'Sell-Thru'],
-          ['soldOutSharePct', 'Sold-Out'],
-          ['effectivePhaseScore', 'Effort'],
-        ] as [SortKey, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => handleSort(key)}
-            className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded transition-colors ${
-              sort.key === key
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                : 'text-gray-500 hover:text-gray-300 border border-transparent'
-            }`}
-            data-testid={`sort-${key}`}
-          >
-            {label} <SortIcon k={key} />
-          </button>
-        ))}
-      </div>
-
-      {/* Tiles */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-gray-500 text-sm">Loading priority data…</div>
-      ) : error ? (
-        <div className="text-center py-8 text-red-400 text-sm">Failed to load priority list.</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {sorted.map(cat => {
-            const phaseCfg = cat.sortingPhase ? PHASE_CONFIG[cat.sortingPhase as PhaseKey] : null;
-            const tileCfg  = phaseCfg
-              ? { tileBorder: phaseCfg.tileBorder, tileBg: phaseCfg.tileBg, tileShadow: phaseCfg.tileShadow }
-              : UNASSIGNED_TILE;
-            const inListing = cat.sortingPhase === 'listing';
-
-            return (
-              <div
-                key={cat.id}
-                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150`}
-                data-testid={`tile-priority-${cat.id}`}
-              >
-                {/* Row 1: Name + flag button + score badge */}
-                <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
-                  <button
-                    onClick={() => setSampleCat({ id: cat.id, name: cat.name })}
-                    className={`text-xs font-medium truncate flex-1 min-w-0 text-left hover:underline ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}
-                    data-testid={`name-btn-${cat.id}`}
-                  >
-                    {cat.name}
-                  </button>
-
-                  {/* Flag toggle */}
-                  <button
-                    onClick={() => flagMutation.mutate(cat.id)}
-                    className={`shrink-0 transition-colors p-1 rounded ${cat.flagged ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
-                    title={cat.flagged
-                      ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when in Listing. Tap to remove.')
-                      : 'Flag to double effort score when in Listing phase'}
-                    data-testid={`flag-btn-${cat.id}`}
-                  >
-                    <Flag className={`w-3.5 h-3.5 ${cat.flagged ? 'fill-current' : ''}`} />
-                  </button>
-
-                  {/* Score badge — tap to open breakdown dialog */}
-                  <button
-                    onClick={() => setScoreDetailCat(cat)}
-                    className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}
-                    data-testid={`score-badge-${cat.id}`}
-                  >
-                    {cat.score}
-                  </button>
-                </div>
-
-                {/* Row 2: Phase badge (controlled Popover — closes on selection) + stats */}
-                <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                  <Popover open={openPhaseId === cat.id} onOpenChange={open => setOpenPhaseId(open ? cat.id : null)}>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
-                          phaseCfg
-                            ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
-                            : 'bg-gray-800/40 border-gray-700/40 text-gray-500 italic'
-                        }`}
-                        data-testid={`phase-badge-${cat.id}`}
-                      >
-                        {phaseCfg ? phaseCfg.label : 'Unassigned'}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[400] space-y-1.5">
-                      <p className="app-label mb-2">Move to phase</p>
-                      <button
-                        onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase: null }); setOpenPhaseId(null); }}
-                        className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
-                          !cat.sortingPhase
-                            ? 'border-gray-500 bg-gray-700/60 text-gray-300'
-                            : 'border-gray-700/40 text-gray-500 hover:border-gray-600 hover:text-gray-300'
-                        }`}
-                        data-testid={`phase-btn-null-${cat.id}`}
-                      >
-                        Not Assigned
-                      </button>
-                      {PHASES.map(phase => {
-                        const cfg = PHASE_CONFIG[phase];
-                        const isActive = cat.sortingPhase === phase;
-                        return (
-                          <button
-                            key={phase}
-                            onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase }); setOpenPhaseId(null); }}
-                            className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
-                              isActive
-                                ? `${cfg.borderColor} ${cfg.bgColor} ${cfg.textColor} font-semibold`
-                                : 'border-gray-700/40 text-gray-500 hover:text-gray-200'
-                            }`}
-                            data-testid={`phase-btn-${phase}-${cat.id}`}
-                          >
-                            {cfg.label}
-                          </button>
-                        );
-                      })}
-                    </PopoverContent>
-                  </Popover>
-
-                  {cat.sellThroughPct > 0 && (
-                    <span className="text-gray-500">Sell-Through {cat.sellThroughPct}%</span>
-                  )}
-                  {cat.soldOutLots > 0 && (
-                    <span className="text-gray-500">Sold-Out {cat.soldOutSharePct}%</span>
-                  )}
-                  {cat.effectivePhaseScore > 0 && (
-                    <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
-                      Effort {cat.effectivePhaseScore}{cat.flagged && inListing ? ' ×2' : ''}
-                    </span>
-                  )}
-                </div>
+            {lotQueue.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
+                <p className="text-xs text-muted-foreground">No lots queued.</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Search above and tap a result to add it.</p>
               </div>
-            );
-          })}
+            ) : (
+              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-64 overflow-y-auto">
+                {lotQueue.map((lot) => (
+                  <div
+                    key={lot.id}
+                    className="flex items-center gap-2 px-3 py-2"
+                    data-testid={`queue-item-${lot.id}`}
+                  >
+                    <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
+                    <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                    {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
+                    {lot.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{lot.quantity}</span>}
+                    {lot.binName && (
+                      <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>
+                    )}
+                    <button
+                      onClick={() => removeFromQueue(lot.id)}
+                      className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+                      data-testid={`remove-queue-${lot.id}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
-          {sorted.length === 0 && (
-            <div className="col-span-2 py-12 text-center text-gray-600 text-sm italic">No categories found. Run an inventory sync first.</div>
-          )}
-        </div>
-      )}
-
-      <p className="text-[10px] text-gray-600">
-        {sorted.length} categories · Tap score number for breakdown. Tap phase badge to reassign.
-      </p>
-
-      {/* Category sample Dialog — shows top 5 parts by quantity */}
+      {/* ── Category sample Dialog ─────────────────────────────────────── */}
       <Dialog open={!!sampleCat} onOpenChange={open => { if (!open) setSampleCat(null); }}>
         <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999] overflow-hidden">
           <DialogHeader>
@@ -465,7 +731,7 @@ export default function ListomaticPriority() {
         </DialogContent>
       </Dialog>
 
-      {/* Score breakdown Dialog — rendered outside tile map, works reliably on mobile */}
+      {/* ── Score breakdown Dialog ─────────────────────────────────────── */}
       <Dialog open={!!scoreDetailCat} onOpenChange={open => { if (!open) setScoreDetailCat(null); }}>
         <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999]">
           <DialogHeader>
@@ -480,8 +746,6 @@ export default function ListomaticPriority() {
             const totalPieces = c.currentQty + c.totalSold;
             return (
               <div className="space-y-4 text-sm">
-
-                {/* Sell-Through */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-amber-300 font-semibold">Sell-Through</span>
@@ -491,8 +755,6 @@ export default function ListomaticPriority() {
                     {c.totalSold.toLocaleString()} sold ÷ {totalPieces.toLocaleString()} total pieces
                   </p>
                 </div>
-
-                {/* Sold-Out */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-blue-300 font-semibold">Sold-Out Lots</span>
@@ -502,8 +764,6 @@ export default function ListomaticPriority() {
                     {c.soldOutLots.toLocaleString()} sold out ÷ {c.totalLots.toLocaleString()} total lots in category
                   </p>
                 </div>
-
-                {/* Effort / Phase */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-purple-300 font-semibold">Effort{c.flagged && inListing ? ' ×2' : ''}</span>
@@ -515,8 +775,6 @@ export default function ListomaticPriority() {
                     {c.flagged && !inListing && <span className="text-orange-400/60"> (×2 activates in Listing)</span>}
                   </p>
                 </div>
-
-                {/* Total */}
                 <div className="border-t border-gray-700 pt-3 flex justify-between font-semibold text-base">
                   <span className="text-gray-300">Priority Score</span>
                   <span className={scoreColor(c.score)}>{c.score}</span>
@@ -524,6 +782,39 @@ export default function ListomaticPriority() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Lot label print confirm Dialog ─────────────────────────────── */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="max-w-sm z-[9999]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Print Lot Labels</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Ready to print <span className="font-semibold text-foreground">{lotQueue.length}</span> lot label{lotQueue.length !== 1 ? 's' : ''}.
+              Each label includes a QR code (LOT:{'{id}'}) for scan-to-locate, the part number, name, color, and quantity.
+            </p>
+            <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-40 overflow-y-auto">
+              {lotQueue.map(lot => (
+                <div key={lot.id} className="flex items-center gap-2 px-3 py-1.5">
+                  <span className="font-mono text-xs font-semibold text-foreground shrink-0">{lot.itemNo}</span>
+                  <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                  {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setPrintDialogOpen(false)} data-testid="button-print-cancel">
+                Cancel
+              </Button>
+              <Button onClick={handlePrintLotLabels} className="gap-1.5" data-testid="button-print-confirm">
+                <Printer className="h-4 w-4" />
+                Print {lotQueue.length} Label{lotQueue.length !== 1 ? 's' : ''}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
