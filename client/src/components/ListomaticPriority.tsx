@@ -369,13 +369,15 @@ export default function ListomaticPriority() {
       const cond = conditionLabel(lot.newOrUsed);
       const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
       const breakStyle = i < lotQueue.length - 1 ? ' style="page-break-after:always;"' : '';
+      const locationParts = [lot.aisleName, lot.shelfName, lot.binName].filter(Boolean);
+      const locationStr = locationParts.length > 0 ? locationParts.join(' / ') : null;
       return `<div class="label"${breakStyle}>
         <img class="qr" src="${qrUrl}" width="${tmpl.qrPx}" height="${tmpl.qrPx}" />
         <div class="info">
           <div class="partno-row">
             <span class="partno">#${lot.itemNo}</span>
-            ${lot.binName
-              ? `<span class="location">${lot.binName}</span>`
+            ${locationStr
+              ? `<span class="location">${locationStr}</span>`
               : `<span class="location unassigned">unassigned</span>`}
           </div>
           <div class="name">${name}</div>
@@ -970,9 +972,12 @@ export default function ListomaticPriority() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 overflow-hidden">
                           <p className="text-[9px] font-mono text-muted-foreground shrink-1 truncate">#{lot.itemNo}</p>
-                          {lot.binName
-                            ? <p className="text-[9px] font-mono font-bold text-foreground shrink-0">{lot.binName}</p>
-                            : <p className="text-[9px] font-mono italic text-muted-foreground/50 shrink-0">unassigned</p>}
+                          {(() => {
+                            const parts = [lot.aisleName, lot.shelfName, lot.binName].filter(Boolean);
+                            return parts.length > 0
+                              ? <p className="text-[9px] font-mono font-bold text-foreground shrink-0">{parts.join(' / ')}</p>
+                              : <p className="text-[9px] font-mono italic text-muted-foreground/50 shrink-0">unassigned</p>;
+                          })()}
                         </div>
                         <p className="font-bold text-foreground truncate text-xs leading-tight">{name}</p>
                         {metaParts && <p className="text-[9px] text-muted-foreground truncate">{metaParts}</p>}
