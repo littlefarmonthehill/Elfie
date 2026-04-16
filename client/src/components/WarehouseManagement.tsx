@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { WarehouseScanPanel } from "./WarehouseScanPanel";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
@@ -384,8 +384,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     onSuccess: (zone: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/zones'] });
       setCreateZoneOpen(false);
+      setManageZonesOpen(false);
       setNewZoneName(''); setNewZoneDesc(''); setNewZoneDepth(3);
-      // Navigate directly into the new zone
+      // Navigate directly into the new zone's structure
       setActiveZoneId(zone.id);
       setActiveView('structure');
       toast({ title: "Zone created" });
@@ -1791,6 +1792,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {activeView && (
         <Card className="p-3">
           {activeView === 'structure' ? (
+            activeZoneId === null ? zonesView : (
             <>
               {/* Structure header: stats + action buttons */}
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
@@ -1914,8 +1916,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 )}
               </div>
             </>
+            )
           ) : (
-            <>
+            <Fragment>
           {/* Filter pills (Total / Assigned / Unassigned) — these drive the lots list */}
           <div className="flex items-center gap-1 mb-3 flex-wrap">
             {([
@@ -2147,7 +2150,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             ))}
           </div>
-            </>
+            </Fragment>
           )}
         </Card>
             )}
