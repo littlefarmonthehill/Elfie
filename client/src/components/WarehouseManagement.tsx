@@ -635,15 +635,23 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const name = createName.trim();
     if (!name) return;
     const description = fd.get('description') as string;
-    const zoneId = activeZoneId ?? undefined;
     if (createType === 'aisle') {
+      const zoneId = activeZoneId ?? undefined;
       createAisleMutation.mutate({ name, description, zoneId });
     } else if (createType === 'shelf') {
-      const aisleId = (fd.get('aisleId') as string) || createParentAisleId;
-      createShelfMutation.mutate({ name, aisleId: aisleId ? parseInt(aisleId) : undefined, description, zoneId });
+      const aisleIdStr = (fd.get('aisleId') as string) || createParentAisleId;
+      const aisleId = aisleIdStr ? parseInt(aisleIdStr) : undefined;
+      // Inherit zoneId from parent aisle when no zone filter is active
+      const parentAisleZoneId = aisleId ? (aisles.find((a: any) => a.id === aisleId)?.zoneId ?? undefined) : undefined;
+      const zoneId = activeZoneId ?? parentAisleZoneId ?? undefined;
+      createShelfMutation.mutate({ name, aisleId, description, zoneId });
     } else {
-      const shelfId = (fd.get('shelfId') as string) || createParentShelfId;
-      createBinMutation.mutate({ name, shelfId: shelfId ? parseInt(shelfId) : undefined, description, zoneId });
+      const shelfIdStr = (fd.get('shelfId') as string) || createParentShelfId;
+      const shelfId = shelfIdStr ? parseInt(shelfIdStr) : undefined;
+      // Inherit zoneId from parent shelf when no zone filter is active
+      const parentShelfZoneId = shelfId ? (shelves.find((s: any) => s.id === shelfId)?.zoneId ?? undefined) : undefined;
+      const zoneId = activeZoneId ?? parentShelfZoneId ?? undefined;
+      createBinMutation.mutate({ name, shelfId, description, zoneId });
     }
   };
 

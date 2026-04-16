@@ -174,7 +174,13 @@ router.get("/warehouse/shelves", isApproved, asyncRoute(async (req: any, res) =>
 router.post("/warehouse/shelves", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const data = insertWhShelfSchema.parse(req.body);
-  const [shelf] = await db.insert(whShelves).values({ ...data, orgId }).returning();
+  // Inherit zoneId from parent aisle when not explicitly provided
+  let { zoneId } = data;
+  if (!zoneId && data.aisleId) {
+    const [parentAisle] = await db.select({ zoneId: whAisles.zoneId }).from(whAisles).where(eq(whAisles.id, data.aisleId));
+    if (parentAisle?.zoneId) zoneId = parentAisle.zoneId;
+  }
+  const [shelf] = await db.insert(whShelves).values({ ...data, zoneId, orgId }).returning();
   res.json(shelf);
 }));
 
@@ -235,7 +241,13 @@ router.get("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
 router.post("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const data = insertWhBinSchema.parse(req.body);
-  const [bin] = await db.insert(whBins).values({ ...data, orgId }).returning();
+  // Inherit zoneId from parent shelf when not explicitly provided
+  let { zoneId } = data;
+  if (!zoneId && data.shelfId) {
+    const [parentShelf] = await db.select({ zoneId: whShelves.zoneId }).from(whShelves).where(eq(whShelves.id, data.shelfId));
+    if (parentShelf?.zoneId) zoneId = parentShelf.zoneId;
+  }
+  const [bin] = await db.insert(whBins).values({ ...data, zoneId, orgId }).returning();
   res.json(bin);
 }));
 

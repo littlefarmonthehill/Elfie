@@ -477,6 +477,32 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-15: one_lot_per_bin (non-fatal):', fix15Err.message);
     }
 
+    // 4a-fix-16. Heal bins/shelves with null zone_id that have a parent with a known zone.
+    // Root cause: creating a bin/shelf while in "All zones" view skipped zoneId propagation.
+    try {
+      const shelvesFixed = await pool.query(`
+        UPDATE wh_shelves s
+        SET zone_id = a.zone_id
+        FROM wh_aisles a
+        WHERE s.aisle_id = a.id
+          AND s.zone_id IS NULL
+          AND a.zone_id IS NOT NULL
+      `);
+      const binsFixed = await pool.query(`
+        UPDATE wh_bins b
+        SET zone_id = s.zone_id
+        FROM wh_shelves s
+        WHERE b.shelf_id = s.id
+          AND b.zone_id IS NULL
+          AND s.zone_id IS NOT NULL
+      `);
+      const sf = shelvesFixed.rowCount ?? 0;
+      const bf = binsFixed.rowCount ?? 0;
+      console.log(`[Startup] fix-16: healed ${sf} orphaned shelf(ves) and ${bf} orphaned bin(s) with null zone_id.`);
+    } catch (fix16Err: any) {
+      console.error('[Startup] fix-16: zone_id heal (non-fatal):', fix16Err.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
