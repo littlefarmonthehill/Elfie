@@ -1,4 +1,5 @@
 import { Switch, Route, Redirect } from "wouter";
+import { useState, useCallback } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +8,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import { useSSE } from "@/hooks/use-sse";
+import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
+import { WarehouseScanPanel } from "@/components/WarehouseScanPanel";
 import Home from "@/pages/home";
 import Signup from "@/pages/signup";
 import Landing from "@/pages/landing";
@@ -18,12 +21,36 @@ import ResetPassword from "@/pages/reset-password";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
-// Thin wrapper: mounts the SSE connection only for fully authenticated users.
+// Thin wrapper: mounts SSE + global hardware scanner listener.
 // useSSE() opens a persistent /api/events connection so every team member's
 // browser receives live cache-invalidation signals when another user makes a change.
+// useHardwareScanner intercepts BIN:/LOT: codes from a barcode scanner anywhere in the app.
 function AuthenticatedHome() {
   useSSE();
-  return <Home />;
+  const [scanPanelOpen, setScanPanelOpen] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string | undefined>();
+
+  const handleScan = useCallback((code: string) => {
+    const upper = code.toUpperCase();
+    if (upper.startsWith("BIN:") || upper.startsWith("LOT:")) {
+      setPendingCode(code);
+      setScanPanelOpen(true);
+    }
+  }, []);
+
+  useHardwareScanner({ onScan: handleScan, disabled: scanPanelOpen });
+
+  return (
+    <>
+      <Home />
+      {scanPanelOpen && (
+        <WarehouseScanPanel
+          initialCode={pendingCode}
+          onClose={() => { setScanPanelOpen(false); setPendingCode(undefined); }}
+        />
+      )}
+    </>
+  );
 }
 
 function Router() {

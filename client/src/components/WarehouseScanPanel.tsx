@@ -53,6 +53,7 @@ type ScanMode = "bin-first" | "lot-first";
 
 interface Props {
   onClose: () => void;
+  initialCode?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ function lotSub(lot: ResolvedLot) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function WarehouseScanPanel({ onClose }: Props) {
+export function WarehouseScanPanel({ onClose, initialCode }: Props) {
   const { toast } = useToast();
   const [mode, setMode] = useState<ScanMode>("bin-first");
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
@@ -202,6 +203,12 @@ export function WarehouseScanPanel({ onClose }: Props) {
 
     processingRef.current = false;
   }, [mode, activeBin, activeLot, addFeed, assignMutation]);
+
+  // Auto-process a code passed in on mount (from global scanner)
+  useEffect(() => {
+    if (initialCode) processCode(initialCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Camera ────────────────────────────────────────────────────────────────
 
