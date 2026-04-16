@@ -61,6 +61,8 @@ interface LotItem {
   newOrUsed: string | null;
   quantity: number | null;
   binName: string | null;
+  shelfName: string | null;
+  aisleName: string | null;
   assigned: boolean;
   isFilingQueue: boolean;
 }
@@ -337,7 +339,10 @@ export default function ListomaticPriority() {
       }
       .qr { display: block; flex-shrink: 0; }
       .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
-      .partno { font-size: 9px; font-weight: bold; color: #666; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .partno-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; overflow: hidden; }
+      .partno { font-size: 9px; font-weight: bold; color: #666; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+      .location { font-size: 9px; font-weight: bold; color: #333; font-family: monospace; white-space: nowrap; flex-shrink: 0; text-align: right; }
+      .location.unassigned { color: #aaa; font-style: italic; font-weight: normal; }
       .name   { font-size: 11px; font-weight: 900; color: #000; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
       .meta   { font-size: 8px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .lotid  { font-size: 8px; font-weight: bold; color: #1a5f1a; font-family: monospace; white-space: nowrap; }
@@ -364,10 +369,17 @@ export default function ListomaticPriority() {
       const cond = conditionLabel(lot.newOrUsed);
       const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
       const breakStyle = i < lotQueue.length - 1 ? ' style="page-break-after:always;"' : '';
+      const locationParts = [lot.aisleName, lot.shelfName, lot.binName].filter(Boolean);
+      const locationStr = locationParts.length > 0 ? locationParts.join(' / ') : null;
       return `<div class="label"${breakStyle}>
         <img class="qr" src="${qrUrl}" width="${tmpl.qrPx}" height="${tmpl.qrPx}" />
         <div class="info">
-          <div class="partno">#${lot.itemNo}</div>
+          <div class="partno-row">
+            <span class="partno">#${lot.itemNo}</span>
+            ${locationStr
+              ? `<span class="location">${locationStr}</span>`
+              : `<span class="location unassigned">unassigned</span>`}
+          </div>
           <div class="name">${name}</div>
           ${metaParts ? `<div class="meta">${metaParts}</div>` : ''}
           <div class="lotid">LOT:${lot.id}</div>
@@ -958,7 +970,16 @@ export default function ListomaticPriority() {
                         className="shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-mono text-muted-foreground">#{lot.itemNo}</p>
+                        <div className="flex items-center justify-between gap-1 overflow-hidden">
+                          <p className="text-[9px] font-mono text-muted-foreground shrink-1 truncate">#{lot.itemNo}</p>
+                          {(() => {
+                            const locationParts = [lot.aisleName, lot.shelfName, lot.binName].filter(Boolean);
+                            const locationStr = locationParts.length > 0 ? locationParts.join(' / ') : null;
+                            return locationStr
+                              ? <p className="text-[9px] font-mono font-bold text-foreground shrink-0">{locationStr}</p>
+                              : <p className="text-[9px] font-mono italic text-muted-foreground/50 shrink-0">unassigned</p>;
+                          })()}
+                        </div>
                         <p className="font-bold text-foreground truncate text-xs leading-tight">{name}</p>
                         {metaParts && <p className="text-[9px] text-muted-foreground truncate">{metaParts}</p>}
                         <p className="text-[9px] font-mono text-green-600 dark:text-green-400">LOT:{lot.id}</p>

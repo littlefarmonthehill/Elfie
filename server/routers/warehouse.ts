@@ -429,6 +429,19 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
     SELECT wb.name FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
     WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
   )`;
+  const shelfNameExpr = sql<string | null>`(
+    SELECT ws.name FROM inventory_locations il
+    JOIN wh_bins wb ON wb.id = il.bin_id
+    JOIN wh_shelves ws ON ws.id = wb.shelf_id
+    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
+  )`;
+  const aisleNameExpr = sql<string | null>`(
+    SELECT wa.name FROM inventory_locations il
+    JOIN wh_bins wb ON wb.id = il.bin_id
+    JOIN wh_shelves ws ON ws.id = wb.shelf_id
+    JOIN wh_aisles wa ON wa.id = ws.aisle_id
+    WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} LIMIT 1
+  )`;
   const isFilingQueueExpr = sql<boolean>`EXISTS (
     SELECT 1 FROM inventory_locations il JOIN wh_bins wb ON wb.id = il.bin_id
     WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId} AND wb.is_filing_queue = true
@@ -480,6 +493,8 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
       quantity: blInventory.quantity,
       assigned: assignedExpr,
       binName: binNameExpr,
+      shelfName: shelfNameExpr,
+      aisleName: aisleNameExpr,
       isFilingQueue: isFilingQueueExpr,
     })
     .from(blInventory)
