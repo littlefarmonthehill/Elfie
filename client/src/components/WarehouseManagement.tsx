@@ -1634,7 +1634,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-structure-sidebar"
               >
                 <Archive className="w-4 h-4 shrink-0" />
-                Structure
+                Locations
                 {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length} bins</span>}
               </button>
               <button
@@ -1643,7 +1643,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-lots-sidebar"
               >
                 <Package className="w-4 h-4 shrink-0" />
-                Lots
+                File
                 {unassignedLots > 0 && <Badge className="ml-auto text-[9px] px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
             </nav>
@@ -1736,7 +1736,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-structure"
               >
                 <Archive className="w-3.5 h-3.5" />
-                Structure
+                Locations
                 {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
               </button>
               <button
@@ -1745,7 +1745,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-lots"
               >
                 <Package className="w-3.5 h-3.5" />
-                Lots
+                File
                 {unassignedLots > 0 && (
                   <Badge className="text-[9px] px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
                 )}
