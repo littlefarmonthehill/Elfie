@@ -177,7 +177,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: lomCategories } = useQuery<{ success: boolean; categories: { id: number; name: string; sortingPhase: string | null }[] }>({
+  const { data: lomCategories } = useQuery<{
+    success: boolean;
+    categories: { id: number; name: string; sortingPhase: string | null }[];
+    fileLotCounts: { unassignedLots: number; filingQueueLots: number; total: number };
+  }>({
     queryKey: ['/api/listomatc/category-phases'],
     staleTime: 5 * 60 * 1000,
   });
@@ -336,8 +340,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           const inOrbitCount   = Math.max(0, totalPomItems - missionCount - deepSpaceCount);
           const lomCount = (phase: string) =>
             (lomCategories?.categories ?? []).filter(c => c.sortingPhase === phase).length;
+          const fileCount = lomCategories?.fileLotCounts?.total ?? 0;
           const pomHasActivity  = totalPomItems > 0;
-          const lomHasActivity  = ['category','subcategory','finalsort','listing','file'].some(p => lomCount(p) > 0);
+          const lomHasActivity  = ['category','subcategory','finalsort','listing'].some(p => lomCount(p) > 0) || fileCount > 0;
 
           const PipelineRow = ({
             buttonIcon,
@@ -457,7 +462,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   { key: 'lom-sub',   label: 'Sub',    count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
                   { key: 'lom-fin',   label: 'Sort',   count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
                   { key: 'lom-lst',   label: 'List',   count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
-                  { key: 'lom-fil',   label: 'File',   count: lomCount('file'),        lampColor: 'rgba(129,140,248,0.9)' },
+                  { key: 'lom-fil',   label: 'File',   count: fileCount,               lampColor: 'rgba(129,140,248,0.9)' },
                 ]}
               />
               </div>

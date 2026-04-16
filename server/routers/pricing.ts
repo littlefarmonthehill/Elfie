@@ -564,17 +564,34 @@ router.post("/priceomatic/tier-reset", isApproved, asyncRoute(async (req, res) =
   res.json({ success: true });
 }));
 
-router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req, res) => {
-  const categories = await db
-    .selectDistinct({
+router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const [categories, [unassignedRow], [filingQueueRow]] = await Promise.all([
+    db.selectDistinct({
       id: blCategories.id,
       name: blCategories.name,
       sortingPhase: blCategories.sortingPhase,
     })
     .from(blCategories)
     .innerJoin(blCatalog, eq(blCatalog.categoryId, blCategories.id))
-    .orderBy(blCategories.name);
-  res.json({ success: true, categories });
+    .orderBy(blCategories.name),
+
+    db.select({ count: sql<number>`COUNT(*)` })
+      .from(blInventory)
+      .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+      .where(and(eq(blInventory.orgId, orgId), isNull(inventoryLocations.id))),
+
+    db.select({ count: sql<number>`COUNT(DISTINCT ${inventoryLocations.inventoryId})` })
+      .from(inventoryLocations)
+      .innerJoin(whBins, and(eq(whBins.id, inventoryLocations.binId), eq(whBins.isFilingQueue, true)))
+      .where(eq(inventoryLocations.orgId, orgId)),
+  ]);
+
+  const unassignedLots = Number(unassignedRow?.count ?? 0);
+  const filingQueueLots = Number(filingQueueRow?.count ?? 0);
+  const fileLotCounts = { unassignedLots, filingQueueLots, total: unassignedLots + filingQueueLots };
+
+  res.json({ success: true, categories, fileLotCounts });
 }));
 
 router.patch("/listomatc/category-phase", isApproved, asyncRoute(async (req, res) => {
