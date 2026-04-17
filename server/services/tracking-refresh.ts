@@ -58,7 +58,13 @@ export async function refreshActiveTrackingForOrg(orgId: string): Promise<void> 
     try {
       let tracker: { id: string; status: string; statusDetail: string };
       if (row.trackerId) {
-        tracker = await vendor.getTracker(row.trackerId);
+        try {
+          tracker = await vendor.getTracker(row.trackerId);
+        } catch {
+          // Tracker ID may be stale/expired — fall back to creating a fresh one by number
+          console.warn(`[TrackingRefresh] Tracker ID stale for ${row.trackingNumber}, re-creating...`);
+          tracker = await vendor.createOrGetTracker(row.trackingNumber, row.carrier);
+        }
       } else {
         tracker = await vendor.createOrGetTracker(row.trackingNumber, row.carrier);
       }
