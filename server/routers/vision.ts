@@ -35,6 +35,56 @@ import { getPlatformOpenAIKey, getPlatformSettings } from "../routes";
 
 const router = Router();
 
+// ── Shared geometry helpers ───────────────────────────────────────────────────
+
+/**
+ * Merge boxes that are directly stacked on top of each other — e.g. a minifig
+ * head box above a torso box above a legs box. Runs iteratively until stable.
+ */
+function mergeStackedBoxes(
+  boxes: { x: number; y: number; w: number; h: number }[],
+  gapPct       = 5.0,   // max vertical gap between boxes (in % of image dims)
+  horizOverlap = 0.40,  // fraction of narrower box's width that must overlap in X
+  maxAreaPct   = 45.0,  // merged box ceiling — prevents merging unrelated large objects
+): { x: number; y: number; w: number; h: number }[] {
+  let current = [...boxes];
+  let changed  = true;
+
+  while (changed) {
+    changed = false;
+    outer: for (let i = 0; i < current.length; i++) {
+      for (let j = i + 1; j < current.length; j++) {
+        const a = current[i], b = current[j];
+        const top = a.y <= b.y ? a : b;
+        const bot = a.y <= b.y ? b : a;
+
+        // Vertical gap in % (boxes already stored in % coords)
+        const gap = bot.y - (top.y + top.h);
+        if (gap < -2 || gap > gapPct) continue;   // -2 allows tiny overlaps
+
+        // Horizontal overlap: must share ≥ horizOverlap of the narrower box width
+        const overlapX = Math.min(top.x + top.w, bot.x + bot.w) - Math.max(top.x, bot.x);
+        const narrowerW = Math.min(top.w, bot.w);
+        if (narrowerW === 0 || overlapX / narrowerW < horizOverlap) continue;
+
+        // Merged bounding box
+        const mx  = Math.min(top.x, bot.x);
+        const my  = top.y;
+        const mw  = Math.max(top.x + top.w, bot.x + bot.w) - mx;
+        const mh  = (bot.y + bot.h) - my;
+        if (mw * mh > maxAreaPct * maxAreaPct) continue; // crude area guard
+
+        // Replace both with merged box
+        current = current.filter((_, k) => k !== i && k !== j);
+        current.push({ x: mx, y: my, w: mw, h: mh });
+        changed = true;
+        break outer;
+      }
+    }
+  }
+  return current;
+}
+
 // ─── Brickanalyzer: Multi-piece scan endpoints ────────────────────────────
 
 // Module-scope Maps (moved from registerRoutes)
@@ -229,7 +279,9 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
         });
         if (!dominated) kept.push(box);
       }
-      allBoxes = kept;
+      // Vertical-stacking merge: fuse head+torso+legs sub-boxes into whole-figure boxes
+      allBoxes = mergeStackedBoxes(kept);
+      console.log(`[BrickScan] multi-pass nms=${kept.length} → stacked=${allBoxes.length}`);
     } else {
       setProgress(scanId, 'Segmenting image', 'Single-pass contour detection…', 6);
       allBoxes = await segmentImage(imageBuffer, settings as any);
@@ -472,12 +524,58 @@ router.post("/brickanalyzer/segment", brickanalyzerUpload.single('image'), isApp
     let settings: Record<string, any> = {};
     if (req.body?.settings) { try { settings = JSON.parse(req.body.settings); } catch { } }
 
-    const { segmentImageWithCandidates } = await import('../services/segmentClient.js');
-    const result = await segmentImageWithCandidates(fileBuffer, settings as any);
+    const { segmentImage, segmentImageWithCandidates } = await import('../services/segmentClient.js');
+
+    // Shared IoU helper
+    const iouBox = (a: any, b: any): number => {
+      const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
+      const ix1 = Math.min(a.x + a.w, b.x + b.w), iy1 = Math.min(a.y + a.h, b.y + b.h);
+      const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+      if (inter === 0) return 0;
+      return inter / (a.w * a.h + b.w * b.h - inter);
+    };
+
+    // Run blob pass (large whole-objects) and the normal contour pass concurrently
+    const blobPass: Record<string, any> = { segmenter: 'blob', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 5, closeK: 11, closeIter: 2, satThresh: 40 };
+    const [blobBoxes, contourResult] = await Promise.all([
+      segmentImage(fileBuffer, blobPass as any),
+      segmentImageWithCandidates(fileBuffer, settings as any),
+    ]);
+
+    // Merge blob + contour boxes, deduping with IoU > 0.25
+    const merged: { x: number; y: number; w: number; h: number }[] = [];
+    for (const box of [...blobBoxes, ...contourResult.boxes]) {
+      if (!merged.some(m => iouBox(m, box) > 0.25)) merged.push(box);
+    }
+
+    // Priority NMS: largest-first, suppress smaller boxes that are >60% inside a larger kept box
+    const sortedByArea = [...merged].sort((a, b) => (b.w * b.h) - (a.w * a.h));
+    const kept: typeof merged = [];
+    for (const box of sortedByArea) {
+      const boxArea = box.w * box.h;
+      const dominated = kept.some(large => {
+        const ix0 = Math.max(box.x, large.x), iy0 = Math.max(box.y, large.y);
+        const ix1 = Math.min(box.x + box.w, large.x + large.w);
+        const iy1 = Math.min(box.y + box.h, large.y + large.h);
+        const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+        return inter / boxArea > 0.60;
+      });
+      if (!dominated) kept.push(box);
+    }
+
+    // Vertical-stacking merge: combine head+torso+legs sub-boxes into whole-figure boxes
+    const stacked = mergeStackedBoxes(kept);
+
+    // Strip candidates that overlap any final box
+    const finalCandidates = contourResult.candidates.filter(
+      (c: any) => !stacked.some(k => iouBox(c, k) > 0.10)
+    );
+
+    console.log(`[Brickanalyzer] Preview segment: blob=${blobBoxes.length} contour=${contourResult.boxes.length} merged=${merged.length} nms=${kept.length} stacked=${stacked.length}`);
 
     res.json({
-      boxes: result.boxes,
-      candidates: result.candidates,
+      boxes: stacked,
+      candidates: finalCandidates,
       imgWidth,
       imgHeight,
     });
