@@ -179,37 +179,52 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
       setProgress(scanId, 'Using preview boxes', `${previewBoxes.length} region${previewBoxes.length !== 1 ? 's' : ''} from your selection`, 15);
       allBoxes = previewBoxes;
     } else if (settings.multiPass) {
-      setProgress(scanId, 'Segmenting image', 'Running 4 concurrent detection passes…', 6);
-      const pass1: Record<string, any> = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 5, cannyLow: 40, cannyHigh: 130, dilateIter: 4 };
+      setProgress(scanId, 'Segmenting image', 'Running detection passes (large objects first)…', 6);
+
+      // Pass 1 — LARGE objects first: heavy blur + aggressive dilation merges nearby
+      // edge fragments (minifig head/torso/legs, sets, assemblies) into single whole-object
+      // blobs. This is the "find large things first" pass.
+      const pass1: Record<string, any> = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 9, cannyLow: 20, cannyHigh: 80, dilateIter: 10 };
+      // Pass 2 — user's current settings (watershed or contour with their tuning)
       const pass2: Record<string, any> = { ...settings };
+      // Pass 3 & 4 — SMALL objects: tight size ceiling so they only fire on genuine
+      // small pieces (studs, 1×1 plates, etc.) not on sub-parts of larger items.
       const pass3: Record<string, any> = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 5, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
       const pass4: Record<string, any> = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 8, blurRadius: 3, cannyLow: 20, cannyHigh: 80, dilateIter: 2, clahe: true };
 
-      const [boxes1, boxes2, boxes3, boxes4] = await Promise.all([
-        segmentImage(imageBuffer, pass1 as any),
+      // Run pass 1 first so its large-object boxes are available for the priority NMS
+      // below. Passes 2-4 run concurrently to keep total time low.
+      const boxes1 = await segmentImage(imageBuffer, pass1 as any);
+      const [boxes2, boxes3, boxes4] = await Promise.all([
         segmentImage(imageBuffer, pass2 as any),
         segmentImage(imageBuffer, pass3 as any),
         segmentImage(imageBuffer, pass4 as any),
       ]);
 
+      // Merge all boxes, deduping close duplicates (IoU > 0.25)
       const merged: { x: number; y: number; w: number; h: number }[] = [];
       for (const box of [...boxes1, ...boxes2, ...boxes3, ...boxes4]) {
         if (!merged.some(m => iouBox(m, box) > 0.25)) merged.push(box);
       }
 
-      const containmentFiltered = merged.filter((box) => {
+      // Priority NMS — sort largest area first, then suppress any smaller box that is
+      // >60% contained within an already-accepted larger box. This directly implements
+      // "once a large object is found (e.g. whole minifig), don't keep sub-part
+      // detections (torso, legs) found by the fine-grained passes."
+      const sortedByArea = [...merged].sort((a, b) => (b.w * b.h) - (a.w * a.h));
+      const kept: typeof merged = [];
+      for (const box of sortedByArea) {
         const boxArea = box.w * box.h;
-        return !merged.some((other) => {
-          if (other === box) return false;
-          const otherArea = other.w * other.h;
-          if (otherArea <= boxArea * 1.5) return false;
-          const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
-          const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
+        const dominated = kept.some(large => {
+          const ix0 = Math.max(box.x, large.x), iy0 = Math.max(box.y, large.y);
+          const ix1 = Math.min(box.x + box.w, large.x + large.w);
+          const iy1 = Math.min(box.y + box.h, large.y + large.h);
           const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
-          return inter / boxArea > 0.85;
+          return inter / boxArea > 0.60;
         });
-      });
-      allBoxes = containmentFiltered;
+        if (!dominated) kept.push(box);
+      }
+      allBoxes = kept;
     } else {
       setProgress(scanId, 'Segmenting image', 'Single-pass contour detection…', 6);
       allBoxes = await segmentImage(imageBuffer, settings as any);
