@@ -626,6 +626,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     lastWeekRevenue: number;
     marketNewsFreshDays: number | null;
     businessIntelFreshDays: number | null;
+    trackingErrors: number;
   }>({
     queryKey: ['/api/bridge/signals'],
     refetchInterval: 60000,
@@ -908,6 +909,10 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const agingOrders = bridgeSignals?.agingOrders ?? 0;
   if (agingOrders > 0) {
     urgentAlerts.push({ id: 'aging-orders', icon: Clock, iconColor: 'text-red-400', label: `${agingOrders} order${agingOrders !== 1 ? 's' : ''} aging past 24h`, severity: 'error', kind: 'critical', onClick: onOpenFulfillment });
+  }
+  const trackingErrors = bridgeSignals?.trackingErrors ?? 0;
+  if (trackingErrors > 0) {
+    urgentAlerts.push({ id: 'tracking-errors', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${trackingErrors} shipment${trackingErrors !== 1 ? 's' : ''} with stale tracking`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
   }
   if (highValuePendingOrder) {
     const hvTotal = Number(highValuePendingOrder.orderTotal ?? 0).toFixed(2);

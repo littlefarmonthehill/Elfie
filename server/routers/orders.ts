@@ -394,13 +394,28 @@ router.get("/orders/dashboard", isApproved, asyncRoute(async (req: any, res) => 
 
 router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult] = await Promise.all([
+  const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult] = await Promise.all([
     db.execute(sql`SELECT COUNT(*) AS count FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status IN ('awaiting_payment','awaiting_shipment') AND order_date < NOW() - INTERVAL '24 hours'`),
     db.execute(sql`SELECT COUNT(*) AS count FROM (SELECT customer_username FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled') GROUP BY customer_username HAVING COUNT(*) >= 2) t`),
     db.execute(sql`SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','returned') AND order_date >= DATE_TRUNC('week', NOW())`),
     db.execute(sql`SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','returned') AND order_date >= DATE_TRUNC('week', NOW()) - INTERVAL '7 days' AND order_date < DATE_TRUNC('week', NOW())`),
     db.execute(sql`SELECT last_sync_time FROM sync_metadata WHERE id = 'market_news_sync' AND org_id = ${PLATFORM_ORG_ID} LIMIT 1`),
     db.execute(sql`SELECT last_sync_time FROM sync_metadata WHERE id = 'business_intel_sync' AND org_id = ${PLATFORM_ORG_ID} LIMIT 1`),
+    // Shipments with a tracking number that haven't been successfully refreshed in 4+ hours
+    // (stale beyond 2 automatic refresh cycles) — indicates tracking lookups are failing for them.
+    // Only counts shipments older than 4h so brand-new labels don't show as errors.
+    db.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM shipments s
+      JOIN orders o ON o.id = s.order_id
+      WHERE s.org_id = ${orgId}
+        AND s.status IN ('purchased', 'manifested')
+        AND s.tracking_number IS NOT NULL
+        AND (s.tracking_status IS NULL OR s.tracking_status != 'delivered')
+        AND s.created_at < NOW() - INTERVAL '4 hours'
+        AND (s.tracking_updated_at IS NULL OR s.tracking_updated_at < NOW() - INTERVAL '4 hours')
+        AND o.is_test = false
+    `),
   ]);
   const nowMs = Date.now();
   const msDays = (ms: number | null) => ms !== null ? Math.floor((nowMs - ms) / (1000 * 60 * 60 * 24)) : null;
@@ -413,6 +428,7 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
     lastWeekRevenue: Number((lastWeekResult.rows[0] as any)?.revenue ?? 0),
     marketNewsFreshDays: msDays(marketNewsTime),
     businessIntelFreshDays: msDays(businessIntelTime),
+    trackingErrors: Number((trackingErrorResult.rows[0] as any)?.count ?? 0),
   });
 }));
 
