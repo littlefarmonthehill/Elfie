@@ -840,10 +840,25 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
-  const [items, adjustments, [latestShipment]] = await Promise.all([
+  const [items, adjustments, [latestShipment], customerPastOrders] = await Promise.all([
     db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId)),
     db.select().from(orderAdjustments).where(eq(orderAdjustments.orderId, orderId)).orderBy(desc(orderAdjustments.createdAt)),
     db.select().from(shipments).where(and(eq(shipments.orderId, orderId), notInArray(shipments.status, ['voided', 'failed']))).orderBy(desc(shipments.createdAt)).limit(1),
+    order.customerUsername
+      ? db.select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderDate: orders.orderDate,
+          orderTotal: orders.orderTotal,
+          orderStatus: orders.orderStatus,
+        }).from(orders).where(and(
+          eq(orders.orgId, orgId),
+          eq(orders.customerUsername, order.customerUsername),
+          eq(orders.isTest, false),
+          sql`${orders.id} != ${orderId}`,
+          sql`${orders.orderStatus} != 'purged'`,
+        )).orderBy(desc(orders.orderDate)).limit(20)
+      : Promise.resolve([]),
   ]);
 
   // Enrich order items with imageUrl, part number, and colorId by looking up
@@ -958,6 +973,14 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
       reason: a.reason ?? null,
       notes: a.notes ?? null,
       createdAt: a.createdAt,
+    })),
+    isRepeatCustomer: customerPastOrders.length > 0,
+    previousOrders: customerPastOrders.map(o => ({
+      orderId: o.id,
+      orderNumber: o.orderNumber ?? '',
+      orderDate: o.orderDate as unknown as string,
+      total: parseFloat(o.orderTotal ?? '0'),
+      status: (statusMap[o.orderStatus ?? ''] ?? 'Paid') as 'Pending' | 'Paid' | 'Shipped' | 'Cancelled' | 'Returned',
     })),
   });
 }));
