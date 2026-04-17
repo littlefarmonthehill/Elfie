@@ -27,6 +27,14 @@ import { useToast } from "@/hooks/use-toast";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
+function getMarketplacePrefix(marketplace: string | null): string {
+  const m = (marketplace ?? '').toLowerCase();
+  if (m === 'brickowl')  return 'bo.';
+  if (m === 'bricklink') return 'bl.';
+  if (m === 'ebay')      return 'eb.';
+  return '';
+}
+
 function getTrackingUrl(trackingNumber: string, carrier?: string | null): string {
   const c = (carrier ?? '').toLowerCase();
   const t = encodeURIComponent(trackingNumber);
@@ -425,13 +433,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                   {/* Card content — grows to fill available width */}
                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <h3 className="text-sm font-mono font-bold text-white shrink-0">
-                      {order.orderNumber}
+                      <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
                     </h3>
-                    {order.marketplace && (
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {order.marketplace}
-                      </Badge>
-                    )}
                     {order.trackingStatus === 'delivered' && (
                       <Badge className="text-xs bg-green-900/60 text-green-300 border border-green-700/50 gap-1 shrink-0">
                         <CheckCircle2 className="w-3 h-3" /> Delivered
