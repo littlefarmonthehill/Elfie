@@ -189,7 +189,7 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
       // sees the joint outlines as separate objects.  closeK=25px bridges a ~12px gap at
       // 1600px image width; closeIter=3 ensures gaps are fully filled even when the figure
       // is slightly turned or partially shadowed.
-      const pass1: Record<string, any> = { segmenter: 'blob', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 9, closeK: 25, closeIter: 3 };
+      const pass1: Record<string, any> = { segmenter: 'blob', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 5, closeK: 11, closeIter: 2, satThresh: 40 };
       // Pass 2 — user's current settings (watershed or contour with their tuning)
       const pass2: Record<string, any> = { ...settings };
       // Pass 3 & 4 — SMALL objects: tight size ceiling so they only fire on genuine

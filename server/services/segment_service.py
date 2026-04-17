@@ -179,45 +179,71 @@ def segment_pieces_watershed(rgb: np.ndarray, settings: dict = None) -> list[dic
 BLOB_MAX_DIM = 1600
 
 def segment_pieces_blob(rgb: np.ndarray, settings: dict = None) -> list[dict]:
+    """
+    Whole-object blob detector using HSV saturation + value-contrast masking.
+
+    WHY HSV SATURATION:
+    LEGO plastic is highly chromatic (high S channel) regardless of hue, while
+    most shooting backgrounds (white paper, grey mats) are achromatic (low S).
+    Critically, the neck stud and hip joint on a minifigure are also colored
+    plastic — they register as high-saturation pixels and naturally bridge the
+    body-part boundaries. This produces ONE continuous blob per figure, which
+    Otsu-on-greyscale cannot achieve because it "sees" those joints as
+    low-contrast separations.
+
+    Black/dark pieces have low saturation but also have a strong Value contrast
+    against a bright background, so a secondary value-difference mask captures
+    them. The two masks are OR-combined.
+
+    Morphological closing is still applied, but with a SMALL kernel (11 px)
+    so it fills minor noise gaps without risking merging adjacent figures that
+    are standing close together.
+    """
     s = settings or {}
 
     min_area_frac = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
     max_area_frac = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
     max_dim_frac  = s.get("maxDimFrac", MAX_DIM_FRAC  * 100) / 100
-    blur_radius   = int(s.get("blurRadius", 7))
-    close_k       = int(s.get("closeK",     25))   # morphological closing kernel (px)
-    close_iter    = int(s.get("closeIter",   3))    # closing iterations
+    blur_radius   = int(s.get("blurRadius", 5))
+    close_k       = int(s.get("closeK",     11))  # small kernel — bridge noise, not figures
+    close_iter    = int(s.get("closeIter",   2))
+    sat_thresh    = int(s.get("satThresh",   40))  # S channel: 0-255; pieces > bg
 
     H, W = rgb.shape[:2]
     img_area = H * W
 
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-
-    # Heavy Gaussian blur removes internal texture so pieces look like solid blobs
+    # ── 1. Blur to suppress printed detail on torsos / stickers ───────────────
     k = blur_radius if blur_radius % 2 == 1 else blur_radius + 1
-    blurred = cv2.GaussianBlur(gray, (k, k), 0)
+    blurred_rgb = cv2.GaussianBlur(rgb, (k, k), 0)
 
-    # Otsu threshold — auto-selects polarity (works on light or dark backgrounds)
-    _, thresh_inv  = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    _, thresh_norm = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY     + cv2.THRESH_OTSU)
-    fg_inv  = float(np.sum(thresh_inv  > 0)) / img_area
-    fg_norm = float(np.sum(thresh_norm > 0)) / img_area
-    TARGET  = 0.20
-    thresh  = thresh_inv if abs(fg_inv - TARGET) <= abs(fg_norm - TARGET) else thresh_norm
+    # ── 2. HSV saturation mask — catches all chromatic (coloured) LEGO pieces ─
+    hsv = cv2.cvtColor(blurred_rgb, cv2.COLOR_RGB2HSV)
+    sat = hsv[:, :, 1]           # S channel: 0 = grey/white, 255 = vivid colour
+    _, sat_mask = cv2.threshold(sat, sat_thresh, 255, cv2.THRESH_BINARY)
 
-    # Morphological CLOSING: fills gaps between adjacent body parts.
-    # A large kernel bridges the neck gap between head and torso, and the
-    # hip gap between torso and legs, so the whole minifig becomes one blob.
+    # ── 3. Value-contrast mask — catches dark pieces on bright backgrounds ─────
+    # Estimate the background brightness as the mode of the Value channel.
+    val = hsv[:, :, 2]
+    val_hist = cv2.calcHist([val], [0], None, [256], [0, 256]).flatten()
+    bg_val = int(np.argmax(val_hist))
+    # Pixels that are significantly darker than the background are foreground.
+    val_diff = cv2.absdiff(val, np.full_like(val, bg_val))
+    _, val_mask = cv2.threshold(val_diff, 40, 255, cv2.THRESH_BINARY)
+
+    # ── 4. Combine: a pixel is foreground if it is chromatic OR dark-vs-bg ─────
+    fg_mask = cv2.bitwise_or(sat_mask, val_mask)
+
+    # ── 5. Morphological closing — fills small holes and gaps within one piece ─
     ck = close_k if close_k % 2 == 1 else close_k + 1
     close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ck, ck))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=close_iter)
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, close_kernel, iterations=close_iter)
 
-    # Small open to remove isolated noise pixels left after closing
+    # Small open pass removes isolated noise specks
     open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, open_kernel, iterations=1)
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, open_kernel, iterations=1)
 
-    # Find external contours on the filled, closed blobs
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # ── 6. Find external contours on the combined foreground mask ─────────────
+    contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     min_area    = img_area * min_area_frac
     max_area    = img_area * max_area_frac
@@ -244,7 +270,11 @@ def segment_pieces_blob(rgb: np.ndarray, settings: dict = None) -> list[dict]:
             "h": round(bh  / H * 100, 2),
         })
 
-    print(f"[SegService] Blob {H}×{W} closeK={ck}×{close_iter} contours={len(contours)} → {len(boxes)} objects", flush=True)
+    sat_pct  = float(np.sum(sat_mask  > 0)) / img_area * 100
+    val_pct  = float(np.sum(val_mask  > 0)) / img_area * 100
+    fg_pct   = float(np.sum(fg_mask   > 0)) / img_area * 100
+    print(f"[SegService] Blob {H}×{W} sat={sat_pct:.1f}% val={val_pct:.1f}% fg={fg_pct:.1f}% "
+          f"closeK={ck}×{close_iter} → {len(boxes)} objects", flush=True)
     return boxes
 
 
