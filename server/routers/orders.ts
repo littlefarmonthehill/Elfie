@@ -820,9 +820,17 @@ router.get("/orders/feedback-pending", isApproved, asyncRoute(async (req: any, r
       o.ship_date AS "shipDate", o.customer_username AS "customerUsername",
       o.order_total AS "orderTotal", o.marketplace, o.order_status AS "orderStatus",
       o.is_test AS "isTest", o.feedback_left_at AS "feedbackLeftAt",
-      s.tracking_number AS "trackingNumber", s.carrier, s.tracking_status AS "trackingStatus"
+      o.ship_to AS "shipTo",
+      s.tracking_number AS "trackingNumber", s.carrier, s.tracking_status AS "trackingStatus",
+      COALESCE(oc.order_count, 1)::int AS "totalOrderCount"
     FROM orders o
     INNER JOIN shipments s ON s.order_id = o.id
+    LEFT JOIN (
+      SELECT customer_username, COUNT(*)::int AS order_count
+      FROM orders
+      WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','purged')
+      GROUP BY customer_username
+    ) oc ON oc.customer_username = o.customer_username
     WHERE o.org_id = ${orgId}
       AND o.is_test = false
       AND o.feedback_left_at IS NULL
