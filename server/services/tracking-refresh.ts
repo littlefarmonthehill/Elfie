@@ -6,7 +6,7 @@
 
 import { db } from "../db";
 import { shipments } from "@shared/schema";
-import { eq, and, isNotNull, ne, inArray } from "drizzle-orm";
+import { eq, and, isNotNull, isNull, ne, or, inArray } from "drizzle-orm";
 
 const STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12 hours
 
@@ -28,7 +28,9 @@ export async function refreshActiveTrackingForOrg(orgId: string): Promise<void> 
       // Include 'purchased' and 'manifested' — both are active in-transit shipments
       inArray(shipments.status, ['purchased', 'manifested']),
       isNotNull(shipments.trackingNumber),
-      ne(shipments.trackingStatus as any, 'delivered'),
+      // NULL != 'delivered' evaluates to NULL in PostgreSQL (not TRUE), so
+      // we must explicitly include rows where trackingStatus is null.
+      or(isNull(shipments.trackingStatus), ne(shipments.trackingStatus as any, 'delivered')),
     ));
 
   if (rows.length === 0) return;

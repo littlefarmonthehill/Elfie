@@ -19,7 +19,6 @@ import { startAgentTeamSchedulers } from "./services/agent-team-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startBackupScheduler } from "./services/backup-scheduler";
-import { startTrackingScheduler } from "./services/tracking-scheduler";
 import { startImageHarvester } from "./services/image-store";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
@@ -618,7 +617,6 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         startBusinessIntelScheduler().catch(error => console.error('Failed to start business intel scheduler:', error));
         startAgentTeamSchedulers();
         startBackupScheduler();
-        startTrackingScheduler();
         startEmbeddingWorker().catch(error => console.error('Failed to start embedding worker:', error));
         startImageHarvester();
       } else {
