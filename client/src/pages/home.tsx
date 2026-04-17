@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Layers, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Rocket, Globe, SlidersHorizontal, Info, CreditCard, Satellite, Megaphone, Activity, Bot, Atom, Radar } from "lucide-react";
+import { Layers, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Rocket, Globe, SlidersHorizontal, Info, CreditCard, Satellite, Megaphone, Activity, Bot, Atom, Radar, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
 import ChannelSyncPanel from "@/components/ChannelSyncPanel";
 import BundleTronPanel from "@/components/BundleTronPanel";
 import AcquisitionEvaluator from "@/components/AcquisitionEvaluator";
+import WarehouseManagement from "@/components/WarehouseManagement";
 import InsightsDashboard from "@/components/InsightsDashboard";
 import OrderSyncPanel, { PLATFORM_CONFIG as ORDER_PLATFORM_CONFIG, OrderSyncPlatform } from "@/components/OrderSyncPanel";
 
@@ -342,7 +343,7 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | 'acquisition-evaluator' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | `channelsync-${string}` | 'bundletron' | 'acquisition-evaluator' | 'warehouse' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | `ordersync-${string}` | null>(null);
   const [inventoryInitialTab, setInventoryInitialTab] = useState<'systems' | 'uplink' | undefined>(undefined);
   const [ordersInitialTab, setOrdersInitialTab] = useState<'systems' | 'uplink' | undefined>(undefined);
@@ -753,6 +754,13 @@ export default function Home() {
       return (
         <ToolDrawer icon={Atom} iconColor="text-violet-400" title="Acquisition Evaluator" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4">
           <AcquisitionEvaluator />
+        </ToolDrawer>
+      );
+    }
+    if (activeInventoryDrawer === 'warehouse') {
+      return (
+        <ToolDrawer icon={Warehouse} iconColor="text-emerald-400" title="Cargo Bay 11" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto min-h-0">
+          <WarehouseManagement />
         </ToolDrawer>
       );
     }
@@ -1760,6 +1768,7 @@ export default function Home() {
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
                   {activeInventoryDrawer === 'bundletron' && <><Bot className="w-4 h-4 text-orange-400 flex-shrink-0" /> BundleTron</>}
                   {activeInventoryDrawer === 'acquisition-evaluator' && <><Atom className="w-4 h-4 text-violet-400 flex-shrink-0" /> Acquisition Evaluator</>}
+                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-4 h-4 text-emerald-400 flex-shrink-0" /> Cargo Bay 11</>}
                   {activeOrdersDrawer === 'fulfillment' && <><Rocket className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><Globe className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Megaphone className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
@@ -1778,6 +1787,7 @@ export default function Home() {
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
               {activeInventoryDrawer === 'bundletron' && <BundleTronPanel />}
               {activeInventoryDrawer === 'acquisition-evaluator' && <AcquisitionEvaluator />}
+              {activeInventoryDrawer === 'warehouse' && <WarehouseManagement />}
               {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool onOrderDetail={handleOrderSelect} onItemClick={handleDashboardItemClick} />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}

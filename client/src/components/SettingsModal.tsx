@@ -4328,7 +4328,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
-    { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, bsVisible: false },
     { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
