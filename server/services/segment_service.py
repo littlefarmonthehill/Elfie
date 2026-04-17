@@ -169,6 +169,85 @@ def segment_pieces_watershed(rgb: np.ndarray, settings: dict = None) -> list[dic
     return boxes
 
 
+# ── Blob segmentation (threshold + morphological closing) ────────────────────
+# Unlike edge/contour detection, blob mode thresholds the whole image into
+# foreground vs. background and then applies morphological CLOSING to fill in
+# the gaps between connected body parts (e.g. minifig head/neck/torso/legs).
+# This reliably produces ONE bounding box per figure rather than one per
+# body segment.
+
+BLOB_MAX_DIM = 1600
+
+def segment_pieces_blob(rgb: np.ndarray, settings: dict = None) -> list[dict]:
+    s = settings or {}
+
+    min_area_frac = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
+    max_area_frac = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
+    max_dim_frac  = s.get("maxDimFrac", MAX_DIM_FRAC  * 100) / 100
+    blur_radius   = int(s.get("blurRadius", 7))
+    close_k       = int(s.get("closeK",     25))   # morphological closing kernel (px)
+    close_iter    = int(s.get("closeIter",   3))    # closing iterations
+
+    H, W = rgb.shape[:2]
+    img_area = H * W
+
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+
+    # Heavy Gaussian blur removes internal texture so pieces look like solid blobs
+    k = blur_radius if blur_radius % 2 == 1 else blur_radius + 1
+    blurred = cv2.GaussianBlur(gray, (k, k), 0)
+
+    # Otsu threshold — auto-selects polarity (works on light or dark backgrounds)
+    _, thresh_inv  = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    _, thresh_norm = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY     + cv2.THRESH_OTSU)
+    fg_inv  = float(np.sum(thresh_inv  > 0)) / img_area
+    fg_norm = float(np.sum(thresh_norm > 0)) / img_area
+    TARGET  = 0.20
+    thresh  = thresh_inv if abs(fg_inv - TARGET) <= abs(fg_norm - TARGET) else thresh_norm
+
+    # Morphological CLOSING: fills gaps between adjacent body parts.
+    # A large kernel bridges the neck gap between head and torso, and the
+    # hip gap between torso and legs, so the whole minifig becomes one blob.
+    ck = close_k if close_k % 2 == 1 else close_k + 1
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ck, ck))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=close_iter)
+
+    # Small open to remove isolated noise pixels left after closing
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, open_kernel, iterations=1)
+
+    # Find external contours on the filled, closed blobs
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    min_area    = img_area * min_area_frac
+    max_area    = img_area * max_area_frac
+    border_px_x = W * BORDER_MARGIN
+    border_px_y = H * BORDER_MARGIN
+
+    boxes: list[dict] = []
+    for cnt in contours:
+        area = float(cv2.contourArea(cnt))
+        if area < min_area or area > max_area:
+            continue
+        x1, y1, bw, bh = cv2.boundingRect(cnt)
+        cx, cy = x1 + bw / 2, y1 + bh / 2
+        if bw / W > max_dim_frac or bh / H > max_dim_frac:
+            continue
+        if cx < border_px_x or cx > W - border_px_x:
+            continue
+        if cy < border_px_y or cy > H - border_px_y:
+            continue
+        boxes.append({
+            "x": round(x1 / W * 100, 2),
+            "y": round(y1 / H * 100, 2),
+            "w": round(bw  / W * 100, 2),
+            "h": round(bh  / H * 100, 2),
+        })
+
+    print(f"[SegService] Blob {H}×{W} closeK={ck}×{close_iter} contours={len(contours)} → {len(boxes)} objects", flush=True)
+    return boxes
+
+
 # ── Contour segmentation ─────────────────────────────────────────────────────
 
 CONTOUR_MAX_DIM = 1600  # same as watershed — fast, can handle high res
@@ -552,6 +631,9 @@ def segment():
         elif segmenter == "contour":
             rgb    = load_image(b64, max_dim=CONTOUR_MAX_DIM)
             result = segment_pieces_contour(rgb, settings)
+        elif segmenter == "blob":
+            rgb    = load_image(b64, max_dim=BLOB_MAX_DIM)
+            result = segment_pieces_blob(rgb, settings)
         else:
             rgb    = load_image(b64, max_dim=WATERSHED_MAX_DIM)
             result = segment_pieces_watershed(rgb, settings)

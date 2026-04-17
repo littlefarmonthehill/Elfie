@@ -181,10 +181,15 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
     } else if (settings.multiPass) {
       setProgress(scanId, 'Segmenting image', 'Running detection passes (large objects first)…', 6);
 
-      // Pass 1 — LARGE objects first: heavy blur + aggressive dilation merges nearby
-      // edge fragments (minifig head/torso/legs, sets, assemblies) into single whole-object
-      // blobs. This is the "find large things first" pass.
-      const pass1: Record<string, any> = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 9, cannyLow: 20, cannyHigh: 80, dilateIter: 10 };
+      // Pass 1 — LARGE objects first via BLOB detection.
+      // Thresholds image into foreground/background then applies morphological CLOSING
+      // with a large kernel to fill the gaps between minifig body parts (neck gap between
+      // head and torso, hip gap between torso and legs) so the whole figure becomes one
+      // connected blob.  Edge-based contour detection cannot do this reliably because it
+      // sees the joint outlines as separate objects.  closeK=25px bridges a ~12px gap at
+      // 1600px image width; closeIter=3 ensures gaps are fully filled even when the figure
+      // is slightly turned or partially shadowed.
+      const pass1: Record<string, any> = { segmenter: 'blob', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 9, closeK: 25, closeIter: 3 };
       // Pass 2 — user's current settings (watershed or contour with their tuning)
       const pass2: Record<string, any> = { ...settings };
       // Pass 3 & 4 — SMALL objects: tight size ceiling so they only fire on genuine
