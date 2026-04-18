@@ -2202,7 +2202,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         {item.newOrUsed === 'N' ? 'New' : 'Used'}
                       </Badge>
                     )}
-                    <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-muted/40 text-muted-foreground'}`}>
+                    <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/40'}`}>
                       {item.assigned ? 'Assigned' : 'Unassigned'}
                     </Badge>
                     {item.locationCount > 1 && (
