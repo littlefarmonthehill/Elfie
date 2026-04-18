@@ -84,21 +84,13 @@ export async function trainFromBrickognizeResult(
   const partNo = prediction?.id;
   if (!partNo) return out;
 
-  // 1. Embed the user's actual crop with the predicted partNo (assumed-correct).
-  if (cropBuffer && cropBuffer.length > 0) {
-    try {
-      const emb = await embedCrop(cropBuffer);
-      const inserted = await insertEmbedding(
-        partNo, itemType, emb, 'scan', `scan:${scanId}:${cropIdx}`,
-      );
-      out.scan = inserted;
-      if (inserted) {
-        console.log(`[ClipSelfTrain] +scan ${itemType} ${partNo} from scan ${scanId} crop ${cropIdx}`);
-      }
-    } catch (err: any) {
-      console.warn(`[ClipSelfTrain] scan-embed failed for ${partNo}: ${err?.message ?? err}`);
-    }
-  }
+  // 1. Auto-embedding the user's crop with Brickognize's *unconfirmed* prediction
+  //    has been disabled — it polluted CLIP search with high-similarity entries
+  //    tagged with NULL color_id and (frequently) the wrong partNo, which made
+  //    real-world matches degrade into wrong-color / wrong-shape suggestions.
+  //    A future "Mark as correct" flow can re-introduce scan embeddings under
+  //    explicit user confirmation.
+  void cropBuffer; void scanId; void cropIdx;
 
   // 2. Embed Brickognize's primary image, plus probe up to 3 sibling angles.
   if (prediction.img_url) {
