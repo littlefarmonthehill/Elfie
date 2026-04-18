@@ -568,14 +568,17 @@ router.post("/brickanalyzer/segment", brickanalyzerUpload.single('image'), isApp
     }
 
     // Vertical-stacking merge: combine head+torso+legs sub-boxes into whole-figure boxes
-    const stacked = mergeStackedBoxes(kept);
+    const stackedRaw = mergeStackedBoxes(kept);
+
+    // Final size cap: drop any cluster-sized box (single minifig is ~0.5% area, cap at 10%)
+    const stacked = stackedRaw.filter(b => (b.w * b.h) / 100 <= 10 && b.w <= 35 && b.h <= 35);
 
     // Strip candidates that overlap any final box
     const finalCandidates = contourResult.candidates.filter(
       (c: any) => !stacked.some(k => iouBox(c, k) > 0.10)
     );
 
-    console.log(`[Brickanalyzer] Preview segment: blob=${blobBoxes.length} contour=${contourResult.boxes.length} merged=${merged.length} nms=${kept.length} stacked=${stacked.length}`);
+    console.log(`[Brickanalyzer] Preview segment: blob=${blobBoxes.length} contour=${contourResult.boxes.length} merged=${merged.length} nms=${kept.length} stacked=${stackedRaw.length} capped=${stacked.length}`);
 
     res.json({
       boxes: stacked,
