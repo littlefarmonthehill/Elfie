@@ -78,6 +78,60 @@ def load_image(b64: str, max_dim: int = WATERSHED_MAX_DIM) -> np.ndarray:
     return np.array(img)
 
 
+# ── Background normalization (corner sampling) ───────────────────────────────
+
+def normalize_background(rgb: np.ndarray, tolerance: int = 38, replace_with: tuple = (255, 255, 255)) -> np.ndarray:
+    """
+    Detect the background color by sampling the four image corners and replace
+    matching pixels with `replace_with` (default white). Makes downstream
+    segmentation insensitive to the user's tray/table color.
+
+    Strategy:
+      • Sample an 8%-of-min-side patch at each of the 4 corners.
+      • Take the per-channel median of all 4 patches → a robust background colour
+        (median tolerates one corner being polluted by a piece).
+      • Build an L1-distance mask in RGB; apply small open+close to denoise.
+      • If the mask covers <20% of the image OR >90%, abort (likely a busy or
+        already-perfect background — don't risk damaging the photo).
+      • Composite: keep foreground pixels, replace background with `replace_with`.
+
+    Returns the normalised RGB image (or the original if normalization is skipped).
+    """
+    H, W = rgb.shape[:2]
+    patch = max(8, int(min(H, W) * 0.08))   # 8% of min side, at least 8px
+
+    corners = [
+        rgb[0:patch,           0:patch          ],   # top-left
+        rgb[0:patch,           W-patch:W        ],   # top-right
+        rgb[H-patch:H,         0:patch          ],   # bottom-left
+        rgb[H-patch:H,         W-patch:W        ],   # bottom-right
+    ]
+    # Per-corner median, then median across corners — doubly robust
+    corner_medians = np.array([np.median(c.reshape(-1, 3), axis=0) for c in corners])
+    bg_rgb = np.median(corner_medians, axis=0).astype(np.int16)
+
+    # L1 distance per pixel against the estimated background colour
+    diff = np.abs(rgb.astype(np.int16) - bg_rgb).sum(axis=2)
+    mask = (diff < tolerance * 3).astype(np.uint8) * 255   # *3 because L1 sums 3 channels
+
+    # Denoise the mask: open removes small foreground holes, close fills small gaps
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k, iterations=1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k, iterations=2)
+
+    # Sanity guard — bail if the mask is implausible
+    bg_frac = mask.sum() / 255 / (H * W)
+    if bg_frac < 0.20 or bg_frac > 0.90:
+        print(f"[BgNorm] Skipped — bg_frac={bg_frac:.2f} outside [0.20, 0.90]. Detected bg_rgb={tuple(bg_rgb.tolist())}", flush=True)
+        return rgb
+
+    # Composite: where mask=255 → replace_with, elsewhere → original
+    out = rgb.copy()
+    out[mask == 255] = replace_with
+    print(f"[BgNorm] bg_rgb={tuple(bg_rgb.tolist())} → masked {bg_frac*100:.1f}% as background", flush=True)
+    return out
+
+
 def bgr(rgb: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
@@ -657,15 +711,26 @@ def segment():
 
         if segmenter == "sam":
             rgb    = load_image(b64, max_dim=SAM_MAX_DIM)
-            result = segment_pieces_sam(rgb, settings)
         elif segmenter == "contour":
             rgb    = load_image(b64, max_dim=CONTOUR_MAX_DIM)
-            result = segment_pieces_contour(rgb, settings)
         elif segmenter == "blob":
             rgb    = load_image(b64, max_dim=BLOB_MAX_DIM)
-            result = segment_pieces_blob(rgb, settings)
         else:
             rgb    = load_image(b64, max_dim=WATERSHED_MAX_DIM)
+
+        # Background normalization runs once per request and benefits ALL segmenters.
+        # Sample corners → estimate background colour → replace with white.
+        # Default ON. Caller can disable with settings.normalizeBackground = False.
+        if settings.get("normalizeBackground", True):
+            rgb = normalize_background(rgb)
+
+        if segmenter == "sam":
+            result = segment_pieces_sam(rgb, settings)
+        elif segmenter == "contour":
+            result = segment_pieces_contour(rgb, settings)
+        elif segmenter == "blob":
+            result = segment_pieces_blob(rgb, settings)
+        else:
             result = segment_pieces_watershed(rgb, settings)
 
         # segment_pieces_contour may return a dict (boxes + candidates) when
