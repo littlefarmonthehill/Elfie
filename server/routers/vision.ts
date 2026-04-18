@@ -659,12 +659,18 @@ router.post("/brickanalyzer/detect-at-point", brickanalyzerUpload.single('image'
     const boxes: { x: number; y: number; w: number; h: number }[] = result.boxes ?? [];
     let bestBox: { x: number; y: number; w: number; h: number } | null = null;
 
-    for (const box of boxes) {
-      if (tapInRegionX >= box.x && tapInRegionX <= box.x + box.w &&
-          tapInRegionY >= box.y && tapInRegionY <= box.y + box.h) {
-        bestBox = toFullImg(box);
-        break;
-      }
+    const containing = boxes.filter(box =>
+      tapInRegionX >= box.x && tapInRegionX <= box.x + box.w &&
+      tapInRegionY >= box.y && tapInRegionY <= box.y + box.h
+    );
+    if (containing.length > 0) {
+      // Prefer the LARGEST containing box (whole minifig beats head/torso/leg sub-boxes),
+      // but cap at 25% of the region so we don't return a multi-figure cluster.
+      const sized = containing
+        .filter(b => (b.w * b.h) / 100 <= 25)
+        .sort((a, b) => (b.w * b.h) - (a.w * a.h));
+      const pick = sized[0] ?? containing.sort((a, b) => (a.w * a.h) - (b.w * b.h))[0];
+      bestBox = toFullImg(pick);
     }
 
     if (!bestBox && boxes.length > 0) {
