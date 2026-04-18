@@ -12,6 +12,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
+import QRCode from "qrcode";
+import jsPDF from "jspdf";
+import { hiddenPrint } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -322,106 +325,111 @@ export default function ListomaticPriority() {
   };
 
   // ── Lot label print ───────────────────────────────────────────────────────
-  const handlePrintLotLabels = () => {
+  // Follows the global print pattern: build a PDF blob with jsPDF, then hand
+  // it to hiddenPrint() (PackingSlip.tsx) which renders an off-screen iframe
+  // on desktop and the iOS share sheet on mobile.
+  const handlePrintLotLabels = async () => {
     if (lotQueue.length === 0) return;
-    const origin = window.location.origin;
     const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
-
-    const css = `
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: Arial, Helvetica, sans-serif; background: white; }
-      .label {
-        width: ${tmpl.w}; height: ${tmpl.h};
-        display: flex; align-items: center;
-        gap: 6px; padding: 4px;
-        overflow: hidden;
-      }
-      .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
-      .partno-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; overflow: hidden; }
-      .partno { font-size: 9px; font-weight: bold; color: #666; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
-      .location { font-size: 9px; font-weight: bold; color: #333; font-family: monospace; white-space: nowrap; flex-shrink: 0; text-align: right; }
-      .location.unassigned { color: #7a5b00; font-style: italic; font-weight: bold; background: #fde047; padding: 1px 4px; border-radius: 2px; }
-      .name   { font-size: 11px; font-weight: 900; color: #000; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-      .meta   { font-size: 8px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .lotid  { font-size: 8px; font-weight: bold; color: #1a5f1a; font-family: monospace; white-space: nowrap; }
-      @media print {
-        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        @page { size: ${tmpl.w} ${tmpl.h}; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
-      }
-    `;
-
-    const waitScript = `<script>
-      window.addEventListener('load', function() {
-        var imgs = Array.from(document.images);
-        Promise.all(imgs.map(function(img) {
-          return img.complete ? Promise.resolve() : new Promise(function(r) { img.onload = r; img.onerror = r; });
-        })).then(function() {
-          try { window.focus(); } catch (e) {}
-          window.print();
-        });
-      });
-    <\/script>`;
-
-    const labelsHtml = lotQueue.map((lot, i) => {
-      const qrData = `LOT:${lot.id}`;
-      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qrPx * 2}`;
-      const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
-      const cond = conditionLabel(lot.newOrUsed);
-      const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
-      const breakStyle = i < lotQueue.length - 1 ? ' style="page-break-after:always;"' : '';
-      return `<div class="label"${breakStyle}>
-        <img class="qr" src="${qrUrl}" width="${tmpl.qrPx}" height="${tmpl.qrPx}" />
-        <div class="info">
-          <div class="partno-row">
-            <span class="partno">#${lot.itemNo}</span>
-            ${lot.locationLabel
-              ? `<span class="location">${lot.locationLabel}</span>`
-              : `<span class="location unassigned">unassigned</span>`}
-          </div>
-          <div class="name">${name}</div>
-          ${metaParts ? `<div class="meta">${metaParts}</div>` : ''}
-          <div class="lotid">LOT:${lot.id}</div>
-        </div>
-      </div>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style>${waitScript}</head><body>${labelsHtml}</body></html>`;
-
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const cleanup = () => {
-      try { document.body.removeChild(iframe); } catch (e) {}
-      window.removeEventListener('focus', onFocus);
-    };
-    const onFocus = () => { setTimeout(cleanup, 500); };
-
-    iframe.onload = () => {
-      const win = iframe.contentWindow;
-      if (!win) { cleanup(); return; }
-      try { win.addEventListener('afterprint', () => setTimeout(cleanup, 100)); } catch (e) {}
-      window.addEventListener('focus', onFocus);
-      setTimeout(cleanup, 60000);
-    };
-
-    const doc = iframe.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-    } else {
-      cleanup();
-    }
-
     setPrintDialogOpen(false);
+
+    try {
+      const parseIn = (s: string) => parseFloat(s);
+      const pageW = parseIn(tmpl.w);
+      const pageH = parseIn(tmpl.h);
+      const padIn = 0.05;
+      const qrIn = tmpl.qrPx / 96;
+
+      // Pre-render each lot's QR to a canvas (jsPDF accepts canvas natively).
+      const qrCanvases = await Promise.all(lotQueue.map(async (lot) => {
+        const canvas = document.createElement('canvas');
+        await QRCode.toCanvas(canvas, `LOT:${lot.id}`, {
+          width: tmpl.qrPx * 2,
+          margin: 0,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+        return canvas;
+      }));
+
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
+
+      lotQueue.forEach((lot, i) => {
+        if (i > 0) doc.addPage([pageW, pageH], 'landscape');
+
+        const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
+        const cond = conditionLabel(lot.newOrUsed);
+        const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
+
+        // QR (left side, vertically centered)
+        const qrX = padIn;
+        const qrY = (pageH - qrIn) / 2;
+        doc.addImage(qrCanvases[i], 'PNG', qrX, qrY, qrIn, qrIn);
+
+        // Text column to the right of QR
+        const textX = qrX + qrIn + 0.08;
+        const textRight = pageW - padIn;
+        const textW = textRight - textX;
+
+        // Top row: part number (left) and location/unassigned pill (right)
+        const partLabel = `#${lot.itemNo}`;
+        const locText = lot.locationLabel ?? 'unassigned';
+        const isUnassigned = !lot.locationLabel;
+        const topY = padIn + 0.02;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(102, 102, 102);
+        doc.text(partLabel, textX, topY, { baseline: 'top' });
+
+        // Right-aligned location pill
+        const locFontPt = 8;
+        doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
+        doc.setFontSize(locFontPt);
+        const locTextW = doc.getTextWidth(locText);
+        const padX = isUnassigned ? 0.04 : 0;
+        const padY = isUnassigned ? 0.015 : 0;
+        const pillH = (locFontPt / 72) + padY * 2;
+        const pillW = locTextW + padX * 2;
+        const pillX = textRight - pillW;
+        const pillY = topY - padY * 0.4;
+
+        if (isUnassigned) {
+          doc.setFillColor(253, 224, 71); // yellow-300
+          doc.roundedRect(pillX, pillY, pillW, pillH, 0.025, 0.025, 'F');
+          doc.setTextColor(122, 91, 0);
+        } else {
+          doc.setTextColor(51, 51, 51);
+        }
+        doc.text(locText, pillX + padX, pillY + padY + 0.005, { baseline: 'top' });
+
+        // Item name (large, bold) — up to 2 lines
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
+        const nameY = topY + (locFontPt / 72) + 0.06;
+        doc.text(nameLines, textX, nameY, { baseline: 'top' });
+        const nameBottomY = nameY + nameLines.length * 0.13;
+
+        // Meta line (color · condition)
+        if (metaParts) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(68, 68, 68);
+          doc.text(metaParts, textX, nameBottomY + 0.02, { baseline: 'top' });
+        }
+
+        // LOT id (bottom)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(26, 95, 26);
+        doc.text(`LOT:${lot.id}`, textX, pageH - padIn - 0.04, { baseline: 'bottom' });
+      });
+
+      hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
+    } catch (err: any) {
+      toast({ title: "Label print failed", description: String(err?.message ?? err), variant: "destructive" });
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
