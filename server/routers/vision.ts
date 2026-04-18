@@ -643,8 +643,12 @@ router.post("/brickanalyzer/detect-at-point", brickanalyzerUpload.single('image'
       regionW = windowW; regionH = windowH;
     }
 
-    const { segmentImageWithCandidates } = await import('../services/segmentClient.js');
-    const result = await segmentImageWithCandidates(regionBuffer, {});
+    const { segmentImage, segmentImageWithCandidates } = await import('../services/segmentClient.js');
+    const blobPassDetect: Record<string, any> = { segmenter: 'blob', normalizeBackground: true, minSizePct: 0.40, maxSizePct: 25, maxDimFrac: 60, blurRadius: 5, closeK: 11, closeIter: 2, satThresh: 40 };
+    const [blobBoxesRegion, result] = await Promise.all([
+      segmentImage(regionBuffer, blobPassDetect as any).catch(() => []),
+      segmentImageWithCandidates(regionBuffer, {}),
+    ]);
 
     const tapInRegionX = ((tapX - regionOffsetX) / regionW) * 100;
     const tapInRegionY = ((tapY - regionOffsetY) / regionH) * 100;
@@ -656,7 +660,10 @@ router.post("/brickanalyzer/detect-at-point", brickanalyzerUpload.single('image'
       h: (box.h / 100) * regionH,
     });
 
-    const boxes: { x: number; y: number; w: number; h: number }[] = result.boxes ?? [];
+    const boxes: { x: number; y: number; w: number; h: number }[] = [
+      ...(blobBoxesRegion ?? []),
+      ...(result.boxes ?? []),
+    ];
     let bestBox: { x: number; y: number; w: number; h: number } | null = null;
 
     const containing = boxes.filter(box =>
