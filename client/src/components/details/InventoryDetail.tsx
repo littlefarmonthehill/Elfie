@@ -1703,7 +1703,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                           Remove
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <div className="bg-sky-500/10 border border-sky-500/30 rounded-lg p-2 text-center" data-testid={`card-zone-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-sky-400 font-bold mb-1">ZONE</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-zone-${idx}`}>
+                            {loc.zoneName || '—'}
+                          </p>
+                        </div>
                         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
                           <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
                           <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
@@ -1719,7 +1725,12 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                         <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
                           <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
                           <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
-                            {loc.binName || '—'}
+                            {(() => {
+                              const raw = loc.binName || '';
+                              if (!raw) return '—';
+                              const parts = String(raw).split('-');
+                              return parts.length > 1 ? parts[parts.length - 1] : raw;
+                            })()}
                           </p>
                         </div>
                       </div>
