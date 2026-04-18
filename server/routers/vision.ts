@@ -492,8 +492,9 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
           ourPriceNew, ourQtyNew, ourPriceUsed, ourQtyUsed, inventoryId, bestPrice,
           detectionSource: clipFallbackSet.has(piece.cropIndex) ? 'elfie' : 'brickognize'
         };
-      } catch (err) {
-        return { ...piece, detectionSource: 'error' };
+      } catch (err: any) {
+        console.error(`[Brickanalyzer] Enrichment failed for ${piece.itemType || 'PART'} ${piece.partNo} (crop ${piece.cropIndex}):`, err?.stack || err?.message || err);
+        return { ...piece, detectionSource: 'error', enrichmentError: String(err?.message || err) };
       }
     }));
 
