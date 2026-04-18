@@ -839,6 +839,7 @@ router.get("/warehouse/locations/inventory/:inventoryId", isApproved, asyncRoute
       aisleName: whAisles.name,
       zoneId: whZones.id,
       zoneName: whZones.name,
+      zoneDepth: whZones.depth,
       quantity: inventoryLocations.quantity,
       bagLabel: inventoryLocations.bagLabel,
       notes: inventoryLocations.notes,
@@ -847,7 +848,7 @@ router.get("/warehouse/locations/inventory/:inventoryId", isApproved, asyncRoute
     .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
     .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
     .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-    .leftJoin(whZones, eq(whAisles.zoneId, whZones.id))
+    .leftJoin(whZones, eq(whBins.zoneId, whZones.id))
     .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
   res.json(locs);
 }));

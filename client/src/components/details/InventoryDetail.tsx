@@ -1703,37 +1703,54 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                           Remove
                         </button>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        <div className="bg-sky-500/10 border border-sky-500/30 rounded-lg p-2 text-center" data-testid={`card-zone-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-sky-400 font-bold mb-1">ZONE</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-zone-${idx}`}>
-                            {loc.zoneName || '—'}
-                          </p>
-                        </div>
-                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
-                            {loc.aisleName || '—'}
-                          </p>
-                        </div>
-                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid={`card-shelf-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-shelf-${idx}`}>
-                            {loc.shelfName || '—'}
-                          </p>
-                        </div>
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
-                          <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
-                          <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
-                            {(() => {
-                              const raw = loc.binName || '';
-                              if (!raw) return '—';
-                              const parts = String(raw).split('-');
-                              return parts.length > 1 ? parts[parts.length - 1] : raw;
-                            })()}
-                          </p>
-                        </div>
-                      </div>
+                      {(() => {
+                        const depth = typeof loc.zoneDepth === 'number' ? loc.zoneDepth : 3;
+                        const showAisle = depth >= 3;
+                        const showShelf = depth >= 2;
+                        const hasZone = !!loc.zoneName;
+                        const colCount = (hasZone ? 1 : 0) + (showAisle ? 1 : 0) + (showShelf ? 1 : 0) + 1;
+                        const gridClass = colCount === 1 ? 'grid-cols-1' : colCount === 2 ? 'grid-cols-2' : colCount === 3 ? 'grid-cols-3' : 'grid-cols-4';
+                        const binLabel = (() => {
+                          const raw = loc.binName || '';
+                          if (!raw) return '—';
+                          const parts = String(raw).split('-');
+                          return parts.length > 1 ? parts[parts.length - 1] : raw;
+                        })();
+                        return (
+                          <div className={`grid ${gridClass} gap-1.5`}>
+                            {hasZone && (
+                              <div className="bg-sky-500/10 border border-sky-500/30 rounded-lg p-2 text-center" data-testid={`card-zone-${idx}`}>
+                                <p className="text-[9px] md:text-xs text-sky-400 font-bold mb-1">ZONE</p>
+                                <p className="text-xs font-semibold text-white" data-testid={`text-zone-${idx}`}>
+                                  {loc.zoneName}
+                                </p>
+                              </div>
+                            )}
+                            {showAisle && (
+                              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
+                                <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
+                                <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
+                                  {loc.aisleName || '—'}
+                                </p>
+                              </div>
+                            )}
+                            {showShelf && (
+                              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid={`card-shelf-${idx}`}>
+                                <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
+                                <p className="text-xs font-semibold text-white" data-testid={`text-shelf-${idx}`}>
+                                  {loc.shelfName || '—'}
+                                </p>
+                              </div>
+                            )}
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
+                              <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
+                              <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
+                                {binLabel}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {(loc.bagLabel || loc.quantity != null) && (
                         <div className="flex gap-1.5">
                           {loc.bagLabel && (
