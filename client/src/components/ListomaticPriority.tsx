@@ -353,6 +353,15 @@ export default function ListomaticPriority() {
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
+      // Strip an "AISLE-SHELF-" prefix from a bin label so it shows just the
+      // bin segment (e.g. "BIN-07" or "9-Z-11" → "07" / "11"), matching the
+      // inventory detail modal where aisle/shelf are shown separately.
+      const shortBin = (raw: string | null | undefined): string => {
+        if (!raw) return '';
+        const parts = String(raw).split('-');
+        return parts.length > 1 ? parts[parts.length - 1] : raw;
+      };
+
       lotQueue.forEach((lot, i) => {
         if (i > 0) doc.addPage([pageW, pageH], 'landscape');
 
@@ -370,60 +379,89 @@ export default function ListomaticPriority() {
         const textRight = pageW - padIn;
         const textW = textRight - textX;
 
-        // Top row: part number (left) and location/unassigned pill (right)
         const partLabel = `#${lot.itemNo}`;
-        const locText = lot.locationLabel ?? 'unassigned';
         const isUnassigned = !lot.locationLabel;
-        const topY = padIn + 0.02;
+        const locText = isUnassigned ? 'UNASSIGNED' : shortBin(lot.locationLabel);
+
+        // ── Pre-measure the full text block so we can vertically center it ──
+        const partPt = 8;
+        const locPt = isUnassigned ? 11 : 10;
+        const namePt = 12;
+        const metaPt = 7;
+        const lotPt = 7;
+        const lineGap = 0.04;
+
+        const partLineH = partPt / 72;
+        const locLineH = locPt / 72;
+        const headerLineH = Math.max(partLineH, locLineH) + (isUnassigned ? 0.06 : 0.02);
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(102, 102, 102);
-        doc.text(partLabel, textX, topY, { baseline: 'top' });
+        doc.setFontSize(namePt);
+        const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
+        const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
 
-        // Right-aligned location pill
-        const locFontPt = 8;
+        const metaLineH = metaParts ? (metaPt / 72) + lineGap : 0;
+        const lotLineH = (lotPt / 72) + lineGap;
+
+        const totalH = headerLineH + nameBlockH + metaLineH + lotLineH;
+        let y = (pageH - totalH) / 2;
+        if (y < padIn) y = padIn;
+
+        // ── Header row: part # (left) + location pill (right) ──
+        const headerY = y;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(partPt);
+        doc.setTextColor(102, 102, 102);
+        doc.text(partLabel, textX, headerY + (headerLineH - partLineH) / 2, { baseline: 'top' });
+
         doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
-        doc.setFontSize(locFontPt);
+        doc.setFontSize(locPt);
         const locTextW = doc.getTextWidth(locText);
-        const padX = isUnassigned ? 0.04 : 0;
-        const padY = isUnassigned ? 0.015 : 0;
-        const pillH = (locFontPt / 72) + padY * 2;
-        const pillW = locTextW + padX * 2;
-        const pillX = textRight - pillW;
-        const pillY = topY - padY * 0.4;
 
         if (isUnassigned) {
-          doc.setFillColor(253, 224, 71); // yellow-300
-          doc.roundedRect(pillX, pillY, pillW, pillH, 0.025, 0.025, 'F');
-          doc.setTextColor(122, 91, 0);
+          // Bold yellow pill stretching to match the part # — full attention
+          const pillPadX = 0.06;
+          const pillPadY = 0.025;
+          const pillH = locLineH + pillPadY * 2;
+          const pillW = locTextW + pillPadX * 2;
+          const pillX = textRight - pillW;
+          const pillY = headerY + (headerLineH - pillH) / 2;
+          doc.setFillColor(250, 204, 21); // yellow-400
+          doc.roundedRect(pillX, pillY, pillW, pillH, 0.03, 0.03, 'F');
+          doc.setTextColor(89, 65, 0);
+          doc.text(locText, pillX + pillPadX, pillY + pillPadY, { baseline: 'top' });
         } else {
           doc.setTextColor(51, 51, 51);
+          const locY = headerY + (headerLineH - locLineH) / 2;
+          doc.text(locText, textRight - locTextW, locY, { baseline: 'top' });
         }
-        doc.text(locText, pillX + padX, pillY + padY + 0.005, { baseline: 'top' });
 
-        // Item name (large, bold) — up to 2 lines
+        // ── Item name (large, bold) ──
+        const nameY = headerY + headerLineH;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
+        doc.setFontSize(namePt);
         doc.setTextColor(0, 0, 0);
-        const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
-        const nameY = topY + (locFontPt / 72) + 0.06;
         doc.text(nameLines, textX, nameY, { baseline: 'top' });
-        const nameBottomY = nameY + nameLines.length * 0.13;
+        const nameBottomY = nameY + nameBlockH;
 
-        // Meta line (color · condition)
+        // ── Meta line ──
+        let cursorY = nameBottomY;
         if (metaParts) {
+          cursorY += lineGap;
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
+          doc.setFontSize(metaPt);
           doc.setTextColor(68, 68, 68);
-          doc.text(metaParts, textX, nameBottomY + 0.02, { baseline: 'top' });
+          doc.text(metaParts, textX, cursorY, { baseline: 'top' });
+          cursorY += metaPt / 72;
         }
 
-        // LOT id (bottom)
+        // ── LOT id (just below meta, no big gap) ──
+        cursorY += lineGap;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
+        doc.setFontSize(lotPt);
         doc.setTextColor(26, 95, 26);
-        doc.text(`LOT:${lot.id}`, textX, pageH - padIn - 0.04, { baseline: 'bottom' });
+        doc.text(`LOT:${lot.id}`, textX, cursorY, { baseline: 'top' });
       });
 
       hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
