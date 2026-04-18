@@ -882,7 +882,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
     }).filter((id): id is number => id !== null)
   ));
 
-  const invDataMap = new Map<number, { itemNo: string; colorId: number | null; imageUrl: string | null; itemType: string | null }>();
+  const invDataMap = new Map<number, { itemNo: string; colorId: number | null; imageUrl: string | null; itemType: string | null; colorName: string | null; newOrUsed: string | null }>();
   if (invLookupIds.length > 0) {
     const rows = await db
       .select({
@@ -891,6 +891,8 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
         colorId: blInventory.colorId,
         itemType: blInventory.itemType,
         imageUrl: blCatalog.imageUrl,
+        colorName: blColors.name,
+        newOrUsed: blInventory.newOrUsed,
       })
       .from(blInventory)
       .leftJoin(blCatalog, and(
@@ -898,6 +900,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
         eq(blInventory.itemType, blCatalog.itemType),
         eq(blInventory.colorId, blCatalog.colorId),
       ))
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, invLookupIds)));
     for (const row of rows) invDataMap.set(row.id, row);
   }
@@ -961,12 +964,17 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
       }
       if (!partNumber) partNumber = item.sku || '';
 
+      const conditionRaw = (item as any).condition ?? inv?.newOrUsed ?? null;
+      const condition = conditionRaw === 'N' ? 'New' : conditionRaw === 'U' ? 'Used' : (conditionRaw ?? null);
+
       return {
         partNumber,
         name: item.name,
         quantity: item.quantity,
         price: parseFloat(item.unitPrice ?? '0'),
         colorId: inv?.colorId ?? item.colorId ?? null,
+        colorName: inv?.colorName ?? null,
+        condition,
         blInventoryId: item.bricklinkInventoryId ?? null,
         imageUrl: inv?.imageUrl ?? null,
         itemType: inv?.itemType ?? null,

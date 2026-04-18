@@ -53,6 +53,8 @@ interface OrderDetailProps {
       quantity: number;
       price: number;
       colorId?: number | null;
+      colorName?: string | null;
+      condition?: string | null;
       blInventoryId?: number | null;
       currentInventoryQty?: number | null;
       stockWarning?: boolean;
@@ -625,14 +627,23 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
                     />
                   </div>
                 </div>
-                <div className="col-span-2 font-mono font-bold text-lego-blue truncate flex items-center gap-1" title={item.partNumber}>
-                  {item.stockWarning && (
-                    <AlertTriangle
-                      className="h-3 w-3 shrink-0 text-amber-400"
-                      data-testid={`stock-warning-icon-${index}`}
-                    />
+                <div className="col-span-2 min-w-0" title={item.partNumber}>
+                  <div className="font-mono font-bold text-lego-blue truncate flex items-center gap-1">
+                    {item.stockWarning && (
+                      <AlertTriangle
+                        className="h-3 w-3 shrink-0 text-amber-400"
+                        data-testid={`stock-warning-icon-${index}`}
+                      />
+                    )}
+                    <span className="truncate">{item.partNumber}</span>
+                  </div>
+                  {(item.colorName || item.condition) && (
+                    <div className="text-[9px] text-gray-400 truncate leading-tight" data-testid={`text-item-color-condition-${index}`}>
+                      {item.colorName}
+                      {item.colorName && item.condition ? ' · ' : ''}
+                      {item.condition}
+                    </div>
                   )}
-                  <span className="truncate">{item.partNumber}</span>
                 </div>
                 <div className="col-span-4 text-white truncate" title={item.name}>{item.name}</div>
                 <div className={`col-span-1 text-center font-bold ${item.stockWarning ? 'text-amber-400' : 'text-gray-300'}`}>
