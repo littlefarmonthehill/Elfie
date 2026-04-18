@@ -401,19 +401,25 @@ export default function ListomaticPriority() {
         const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
 
         const metaLineH = metaParts ? (metaPt / 72) + lineGap : 0;
-        const lotLineH = (lotPt / 72) + lineGap;
 
-        const totalH = headerLineH + nameBlockH + metaLineH + lotLineH;
+        const totalH = headerLineH + nameBlockH + metaLineH;
         let y = (pageH - totalH) / 2;
         if (y < padIn) y = padIn;
 
-        // ── Header row: part # (left) + location pill (right) ──
+        // ── Header row: part # + LOT id (left) + location pill (right) ──
         const headerY = y;
+        const headerTextY = headerY + (headerLineH - partLineH) / 2;
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(partPt);
         doc.setTextColor(102, 102, 102);
-        doc.text(partLabel, textX, headerY + (headerLineH - partLineH) / 2, { baseline: 'top' });
+        doc.text(partLabel, textX, headerTextY, { baseline: 'top' });
+        const partTextW = doc.getTextWidth(partLabel);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(lotPt);
+        doc.setTextColor(26, 95, 26);
+        doc.text(`LOT:${lot.id}`, textX + partTextW + 0.08, headerTextY, { baseline: 'top' });
 
         doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
         doc.setFontSize(locPt);
