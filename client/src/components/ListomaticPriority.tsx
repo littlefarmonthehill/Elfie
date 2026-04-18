@@ -341,7 +341,7 @@ export default function ListomaticPriority() {
       .partno-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; overflow: hidden; }
       .partno { font-size: 9px; font-weight: bold; color: #666; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
       .location { font-size: 9px; font-weight: bold; color: #333; font-family: monospace; white-space: nowrap; flex-shrink: 0; text-align: right; }
-      .location.unassigned { color: #aaa; font-style: italic; font-weight: normal; }
+      .location.unassigned { color: #7a5b00; font-style: italic; font-weight: bold; background: #fde047; padding: 1px 4px; border-radius: 2px; }
       .name   { font-size: 11px; font-weight: 900; color: #000; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
       .meta   { font-size: 8px; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .lotid  { font-size: 8px; font-weight: bold; color: #1a5f1a; font-family: monospace; white-space: nowrap; }
@@ -356,9 +356,11 @@ export default function ListomaticPriority() {
         var imgs = Array.from(document.images);
         Promise.all(imgs.map(function(img) {
           return img.complete ? Promise.resolve() : new Promise(function(r) { img.onload = r; img.onerror = r; });
-        })).then(function() { window.print(); });
+        })).then(function() {
+          try { window.focus(); } catch (e) {}
+          window.print();
+        });
       });
-      window.addEventListener('afterprint', function() { window.close(); });
     <\/script>`;
 
     const labelsHtml = lotQueue.map((lot, i) => {
@@ -385,8 +387,40 @@ export default function ListomaticPriority() {
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style>${waitScript}</head><body>${labelsHtml}</body></html>`;
-    const win = window.open('', '_blank', 'width=800,height=600');
-    if (win) { win.document.write(html); win.document.close(); }
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      try { document.body.removeChild(iframe); } catch (e) {}
+      window.removeEventListener('focus', onFocus);
+    };
+    const onFocus = () => { setTimeout(cleanup, 500); };
+
+    iframe.onload = () => {
+      const win = iframe.contentWindow;
+      if (!win) { cleanup(); return; }
+      try { win.addEventListener('afterprint', () => setTimeout(cleanup, 100)); } catch (e) {}
+      window.addEventListener('focus', onFocus);
+      setTimeout(cleanup, 60000);
+    };
+
+    const doc = iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    } else {
+      cleanup();
+    }
+
     setPrintDialogOpen(false);
   };
 
