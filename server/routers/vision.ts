@@ -43,9 +43,13 @@ const router = Router();
  */
 function mergeStackedBoxes(
   boxes: { x: number; y: number; w: number; h: number }[],
-  gapPct       = 5.0,   // max vertical gap between boxes (in % of image dims)
-  horizOverlap = 0.40,  // fraction of narrower box's width that must overlap in X
-  maxAreaPct   = 45.0,  // merged box ceiling — prevents merging unrelated large objects
+  gapPct       = 1.2,   // max vertical gap (% of image). Neck/hip joints = ~0.2%,
+                         // crowded-tray figure spacing = ~1.5–3%, so 1.2% is tight enough
+                         // to bridge sub-parts without grabbing separate figures.
+  horizOverlap = 0.55,  // fraction of narrower box width that must overlap in X
+  maxMergedH   = 22.0,  // merged box height ceiling in %. A single minifig should be ≤20%
+                         // of image height; rejecting merges above 22% prevents two figures
+                         // that happen to be vertically aligned from fusing.
 ): { x: number; y: number; w: number; h: number }[] {
   let current = [...boxes];
   let changed  = true;
@@ -58,23 +62,23 @@ function mergeStackedBoxes(
         const top = a.y <= b.y ? a : b;
         const bot = a.y <= b.y ? b : a;
 
-        // Vertical gap in % (boxes already stored in % coords)
+        // Vertical gap in % coords
         const gap = bot.y - (top.y + top.h);
-        if (gap < -2 || gap > gapPct) continue;   // -2 allows tiny overlaps
+        if (gap < -1.5 || gap > gapPct) continue; // -1.5 allows hairline overlaps only
 
-        // Horizontal overlap: must share ≥ horizOverlap of the narrower box width
+        // Horizontal overlap: narrower box must overlap by ≥ horizOverlap fraction
         const overlapX = Math.min(top.x + top.w, bot.x + bot.w) - Math.max(top.x, bot.x);
         const narrowerW = Math.min(top.w, bot.w);
         if (narrowerW === 0 || overlapX / narrowerW < horizOverlap) continue;
 
-        // Merged bounding box
+        // Reject if the merged box would exceed the single-figure height ceiling
+        const mh = (bot.y + bot.h) - top.y;
+        if (mh > maxMergedH) continue;
+
+        // Merge
         const mx  = Math.min(top.x, bot.x);
         const my  = top.y;
         const mw  = Math.max(top.x + top.w, bot.x + bot.w) - mx;
-        const mh  = (bot.y + bot.h) - my;
-        if (mw * mh > maxAreaPct * maxAreaPct) continue; // crude area guard
-
-        // Replace both with merged box
         current = current.filter((_, k) => k !== i && k !== j);
         current.push({ x: mx, y: my, w: mw, h: mh });
         changed = true;
