@@ -718,10 +718,14 @@ def segment():
         else:
             rgb    = load_image(b64, max_dim=WATERSHED_MAX_DIM)
 
-        # Background normalization runs once per request and benefits ALL segmenters.
-        # Sample corners → estimate background colour → replace with white.
-        # Default ON. Caller can disable with settings.normalizeBackground = False.
-        if settings.get("normalizeBackground", True):
+        # Background normalization is OPT-IN per request. It dramatically helps
+        # the blob segmenter (which relies on uniform background to separate LEGO
+        # plastic from the surface) but HURTS the contour and watershed
+        # segmenters (Canny edges and watershed seeds work better on the natural
+        # textured surface — replacing the background with flat white causes
+        # tightly-clustered pieces to fuse into one external contour because the
+        # inter-piece "gaps" all become the same colour).
+        if settings.get("normalizeBackground", False):
             rgb = normalize_background(rgb)
 
         if segmenter == "sam":
