@@ -32,6 +32,7 @@ import {
 } from "../services/bricklink";
 import { apiErrorHandler } from "../middleware/errorHandler";
 import { getPlatformOpenAIKey, getPlatformSettings } from "../routes";
+import { trainFromBrickognizeResult, removeScanEmbedding } from "../services/clip-self-train";
 
 const router = Router();
 
@@ -396,8 +397,13 @@ async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, set
 
         if (topFig && topFig.score > 0.3) {
           results.push({ partNo: topFig.id, partName: topFig.name, itemType: 'MINIFIG', confidence: topFig.score > 0.8 ? 'high' : 'medium' });
+          // Phase 1+2: capture this prediction for the local CLIP recognizer (fire-and-forget).
+          trainFromBrickognizeResult(topFig, cropBuffer, 'MINIFIG', scanId, idx)
+            .catch(e => console.warn('[ClipSelfTrain] minifig capture failed:', e?.message ?? e));
         } else if (topPart) {
           results.push({ partNo: topPart.id, partName: topPart.name, itemType: 'PART', confidence: topPart.score > 0.8 ? 'high' : 'medium' });
+          trainFromBrickognizeResult(topPart, cropBuffer, 'PART', scanId, idx)
+            .catch(e => console.warn('[ClipSelfTrain] part capture failed:', e?.message ?? e));
         } else {
           results.push({ partNo: '', partName: 'Unknown Part', confidence: 'low', note: 'AI could not identify' });
         }
@@ -935,6 +941,45 @@ router.post("/brickspotter/universal-catalog/retry", isApproved, async (req, res
     const olderThanDays = Number(req.body?.olderThanDays ?? 30);
     const count = await retryStaleItems(olderThanDays);
     res.json({ ok: true, reset: count });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// Reject an identification — deletes the auto-captured 'scan' embedding so it
+// no longer biases future recognitions. Body: { scanId: number, cropIndex: number }.
+router.post("/brickanalyzer/mark-wrong", isApproved, async (req, res) => {
+  try {
+    const scanId = Number(req.body?.scanId);
+    const cropIndex = Number(req.body?.cropIndex);
+    if (!Number.isFinite(scanId) || !Number.isFinite(cropIndex)) {
+      return res.status(400).json({ error: 'scanId and cropIndex are required numbers' });
+    }
+    const removed = await removeScanEmbedding(scanId, cropIndex);
+    res.json({ ok: true, removed });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// CLIP synthetic-augmentation worker controls.
+router.get("/brickspotter/augmentation/status", isApproved, async (_req, res) => {
+  try {
+    const { getAugmentationState } = await import('../services/clip-augmentation.js');
+    res.json({ state: getAugmentationState() ?? null });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post("/brickspotter/augmentation/start", isApproved, async (_req, res) => {
+  try {
+    const { startAugmentationWorker, getAugmentationState } = await import('../services/clip-augmentation.js');
+    if (getAugmentationState()?.running) return res.status(409).json({ error: 'Worker already running' });
+    res.json({ ok: true });
+    startAugmentationWorker().catch(e => console.error('[ClipAugmentation] Start failed:', e?.message ?? e));
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.post("/brickspotter/augmentation/stop", isApproved, async (_req, res) => {
+  try {
+    const { stopAugmentationWorker } = await import('../services/clip-augmentation.js');
+    stopAugmentationWorker();
+    res.json({ ok: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 

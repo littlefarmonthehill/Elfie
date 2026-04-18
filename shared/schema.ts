@@ -1217,9 +1217,11 @@ export type SetPartEmbedding = typeof setPartEmbeddings.$inferSelect;
 
 // Catalog CLIP Embeddings — 512-dim visual fingerprints keyed to bl_catalog entries
 // Shared across all orgs (no org_id). One embedding per (itemNo, itemType, colorId, source).
-// source='catalog':  embedded from BrickLink CDN reference image (batch-built)
-// source='scan':     embedded from a confirmed Brick Spotter crop (higher quality)
-// source='universal': color-agnostic embedding from Rebrickable images
+// source='catalog':    embedded from BrickLink CDN reference image (batch-built)
+// source='scan':       embedded from a Brick Spotter crop (assumed-correct, deletable on user reject)
+// source='universal':  color-agnostic embedding from Rebrickable images
+// source='brickognize': embedded from an image URL returned by the Brickognize API
+// source='augmented':  synthetic variant (rotation/jitter) of an existing catalog/universal image
 export const blCatalogClipEmbeddings = pgTable("bl_catalog_clip_embeddings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),
@@ -1228,9 +1230,13 @@ export const blCatalogClipEmbeddings = pgTable("bl_catalog_clip_embeddings", {
   embedding: vector("embedding", { dimensions: 512 }),
   source: text("source").notNull().default('catalog'),
   clipModel: text("clip_model").notNull().default('ViT-B/32'),
+  // Free-text origin marker so we can delete specific embeddings later.
+  // Examples: 'scan:<scanId>:<cropIdx>', 'bk:<imgUrl>', 'aug:<sourceId>:<variantIdx>'
+  provenance: text("provenance"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   blCatalogClipEmbPartIdx: index("bl_catalog_clip_emb_part_idx").on(table.itemNo, table.itemType, table.colorId),
+  blCatalogClipEmbProvIdx: index("bl_catalog_clip_emb_prov_idx").on(table.provenance),
 }));
 
 export const insertBlCatalogClipEmbeddingSchema = createInsertSchema(blCatalogClipEmbeddings).omit({
