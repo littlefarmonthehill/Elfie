@@ -295,8 +295,16 @@ export class DatabaseStorage implements IStorage {
     await db.delete(lotImages).where(eq(lotImages.orgId, id));
     await db.delete(itemTypeImages).where(eq(itemTypeImages.orgId, id));
     await db.delete(xmlBackups).where(eq(xmlBackups.orgId, id));
-    // boid_overrides has no Drizzle schema — delete via raw SQL
-    await db.execute(sql`DELETE FROM boid_overrides WHERE org_id = ${id}`);
+    // boid_overrides has no Drizzle schema — delete via raw SQL.
+    // Guard with to_regclass so deletion still succeeds in environments
+    // (e.g. prod) where the table was never created.
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF to_regclass('public.boid_overrides') IS NOT NULL THEN
+          EXECUTE format('DELETE FROM boid_overrides WHERE org_id = %L', ${id});
+        END IF;
+      END $$;
+    `);
 
     // 6. Warehouse hierarchy (bins → shelves → aisles after inventoryLocations)
     await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
@@ -360,7 +368,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(lotImages).where(eq(lotImages.orgId, id));
     await db.delete(itemTypeImages).where(eq(itemTypeImages.orgId, id));
     await db.delete(xmlBackups).where(eq(xmlBackups.orgId, id));
-    await db.execute(sql`DELETE FROM boid_overrides WHERE org_id = ${id}`);
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF to_regclass('public.boid_overrides') IS NOT NULL THEN
+          EXECUTE format('DELETE FROM boid_overrides WHERE org_id = %L', ${id});
+        END IF;
+      END $$;
+    `);
 
     await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
     await db.delete(whBins).where(eq(whBins.orgId, id));
