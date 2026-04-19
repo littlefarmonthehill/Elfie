@@ -2871,6 +2871,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                               <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
                               <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                               {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              {item.newOrUsed && (
+                                <Badge className={`text-[9px] px-1 py-0 shrink-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`} data-testid={`badge-condition-${item.id}`}>
+                                  {item.newOrUsed === 'N' ? 'New' : 'Used'}
+                                </Badge>
+                              )}
                               {item.binName
                                 ? <span className="text-[10px] font-mono text-yellow-500 shrink-0">{item.binName}</span>
                                 : <span className="text-[10px] text-muted-foreground/50 shrink-0">—</span>}
