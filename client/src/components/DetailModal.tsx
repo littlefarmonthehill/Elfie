@@ -69,7 +69,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
             <X className="w-4 h-4" />
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none touch-pan-y p-3 min-h-0">
           {renderDetail()}
         </div>
       </div>
@@ -106,7 +106,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
              detail.type === 'marketing' ? 'View detailed marketing campaign information' : 'View detailed information'}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none touch-pan-y px-4 pt-3 min-h-0">
           {renderDetail()}
         </div>
       </DrawerContent>
