@@ -868,9 +868,6 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
             <div className="space-y-3" data-testid="picklist-by-bin">
               {sortedShelves.map((shelf) => (
                 <div key={shelf} className="space-y-2" data-testid={`shelf-group-${shelf}`}>
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1.5">
-                    <h3 className="text-sm font-bold text-blue-400">{shelf}</h3>
-                  </div>
                   <div className="space-y-2">
                     {shelfGroups[shelf].map(renderBin)}
                   </div>
@@ -887,15 +884,9 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
               const shelvesByAisle = groupedBins[aisle];
               return (
                 <div key={aisle} className="space-y-2" data-testid={`aisle-group-${aisle}`}>
-                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg px-3 py-1.5">
-                    <h3 className="text-sm font-bold text-purple-400">{aisle}</h3>
-                  </div>
                   <div className="space-y-2">
                     {Object.entries(shelvesByAisle).map(([shelf, bins]) => (
                       <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1">
-                          <h4 className="text-xs font-bold text-blue-400">{shelf}</h4>
-                        </div>
                         <div className="space-y-2">
                           {bins.map(renderBin)}
                         </div>
