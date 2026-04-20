@@ -9,7 +9,8 @@ import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import { useSSE } from "@/hooks/use-sse";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
-import { WarehouseScanPanel } from "@/components/WarehouseScanPanel";
+import DetailModal, { DetailData } from "@/components/DetailModal";
+import { useToast } from "@/hooks/use-toast";
 import Home from "@/pages/home";
 import Signup from "@/pages/signup";
 import Landing from "@/pages/landing";
@@ -25,30 +26,97 @@ import NotFound from "@/pages/not-found";
 // useSSE() opens a persistent /api/events connection so every team member's
 // browser receives live cache-invalidation signals when another user makes a change.
 // useHardwareScanner intercepts BIN:/LOT: codes from a barcode scanner anywhere in the app.
+//
+// Default scan behavior:
+//   - LOT:<id>  → opens the Inventory Detail modal for that lot
+//   - BIN:<name> → opens the Bin Detail modal for that bin
 function AuthenticatedHome() {
   useSSE();
-  const [scanPanelOpen, setScanPanelOpen] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string | undefined>();
+  const { toast } = useToast();
+  const [scanDetail, setScanDetail] = useState<{ open: boolean; data: DetailData | null }>({
+    open: false,
+    data: null,
+  });
 
-  const handleScan = useCallback((code: string) => {
+  const closeScanDetail = useCallback(() => setScanDetail({ open: false, data: null }), []);
+
+  const handleScan = useCallback(async (code: string) => {
     const upper = code.toUpperCase();
-    if (upper.startsWith("BIN:") || upper.startsWith("LOT:")) {
-      setPendingCode(code);
-      setScanPanelOpen(true);
-    }
-  }, []);
+    if (!(upper.startsWith("BIN:") || upper.startsWith("LOT:"))) return;
 
-  useHardwareScanner({ onScan: handleScan, disabled: scanPanelOpen });
+    try {
+      const res = await fetch(`/api/warehouse/scan/resolve?code=${encodeURIComponent(code)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Scan not recognized" }));
+        toast({ title: "Scan failed", description: err.error ?? "Not found", variant: "destructive" });
+        return;
+      }
+      const resolved = await res.json();
+
+      if (resolved.type === "bin") {
+        setScanDetail({
+          open: true,
+          data: {
+            type: "bin",
+            data: {
+              binId: resolved.id,
+              name: resolved.name,
+              shelfName: resolved.shelfName,
+              aisleName: resolved.aisleName,
+              itemCount: resolved.itemCount,
+            },
+          },
+        });
+        return;
+      }
+
+      if (resolved.type === "lot") {
+        // Open the inventory detail modal immediately with the resolved lot data,
+        // then enrich with full inventory + price guide in the background.
+        setScanDetail({
+          open: true,
+          data: { type: "inventory", data: { id: resolved.id, loading: true } as any },
+        });
+
+        try {
+          const invRes = await fetch(`/api/inventory/${resolved.id}`);
+          if (invRes.ok) {
+            const inventoryData = await invRes.json();
+            setScanDetail({
+              open: true,
+              data: { type: "inventory", data: { ...inventoryData, loadingPriceOMagic: true } },
+            });
+
+            const params = new URLSearchParams();
+            if (inventoryData.colorId) params.append("color_id", String(inventoryData.colorId));
+            if (inventoryData.newOrUsed) params.append("new_or_used", inventoryData.newOrUsed);
+            const priceUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${params.toString() ? `?${params}` : ""}`;
+            const priceRes = await fetch(priceUrl);
+            const priceOMagic = priceRes.ok ? await priceRes.json() : null;
+            setScanDetail({
+              open: true,
+              data: { type: "inventory", data: { ...inventoryData, priceOMagic, loadingPriceOMagic: false } },
+            });
+          }
+        } catch {
+          /* leave whatever state was already shown */
+        }
+      }
+    } catch {
+      toast({ title: "Scan failed", description: "Network error", variant: "destructive" });
+    }
+  }, [toast]);
+
+  useHardwareScanner({ onScan: handleScan, disabled: scanDetail.open });
 
   return (
     <>
       <Home />
-      {scanPanelOpen && (
-        <WarehouseScanPanel
-          initialCode={pendingCode}
-          onClose={() => { setScanPanelOpen(false); setPendingCode(undefined); }}
-        />
-      )}
+      <DetailModal
+        open={scanDetail.open}
+        onClose={closeScanDetail}
+        detail={scanDetail.data}
+      />
     </>
   );
 }

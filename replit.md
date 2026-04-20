@@ -299,6 +299,13 @@ This is intentionally visible at all times — it is not hidden behind any gear/
 
 Both QR formats are handled in `POST /api/warehouse/scan/decode` which auto-detects the prefix and dispatches accordingly.
 
+### Default Global Scan Behavior (`AuthenticatedHome` in `App.tsx`)
+A global hardware-scanner listener intercepts `BIN:` / `LOT:` codes anywhere in the app and resolves them via `GET /api/warehouse/scan/resolve`. The default action is to open the appropriate detail modal:
+- **LOT scanned** → opens the Inventory Detail modal (same component used elsewhere — fetches `/api/inventory/:id` plus price guide).
+- **BIN scanned** → opens the new Bin Detail modal (`client/src/components/details/BinDetail.tsx`), which shows the bin location (aisle › shelf › bin), lot count, total qty, and the items currently in the bin (image, part #, name, condition, color, bag label, qty in stock). Tapping a row opens that lot's Inventory Detail.
+
+These are the global defaults; specific screens may override scan handling to bring up different modals/flows in the future.
+
 ### Scan Panel (`WarehouseScanPanel`)
 Full-screen overlay (`client/src/components/WarehouseScanPanel.tsx`) opened from the main warehouse sidebar. Two workflows:
 - **BIN → Lots**: Scan a bin QR → see all lots currently in that bin. Shows part number, color, quantity, name.

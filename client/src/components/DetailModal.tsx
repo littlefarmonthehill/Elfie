@@ -1,12 +1,13 @@
-import { X, Package, ShoppingCart, TrendingUp, Megaphone } from "lucide-react";
+import { X, Package, ShoppingCart, TrendingUp, Megaphone, Archive } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import InventoryDetail from "./details/InventoryDetail";
 import OrderDetail from "./details/OrderDetail";
 import SalesDetail from "./details/SalesDetail";
 import MarketingDetail from "./details/MarketingDetail";
+import BinDetail from "./details/BinDetail";
 
-export type DetailType = 'inventory' | 'order' | 'sales' | 'marketing';
+export type DetailType = 'inventory' | 'order' | 'sales' | 'marketing' | 'bin';
 
 export interface DetailData {
   type: DetailType;
@@ -30,6 +31,7 @@ const titleConfig: Record<DetailType, { icon: typeof Package; label: string; col
   order: { icon: ShoppingCart, label: 'Order Detail', color: 'text-orange-400' },
   sales: { icon: TrendingUp, label: 'Sales Detail', color: 'text-green-400' },
   marketing: { icon: Megaphone, label: 'Marketing Detail', color: 'text-yellow-400' },
+  bin: { icon: Archive, label: 'Bin Detail', color: 'text-yellow-400' },
 };
 
 export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick, onOpenSettings, onItemClick, inline }: DetailModalProps) {
@@ -45,6 +47,8 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
         return <SalesDetail data={detail.data} />;
       case 'marketing':
         return <MarketingDetail data={detail.data} />;
+      case 'bin':
+        return <BinDetail data={detail.data} onItemClick={onItemClick} />;
       default:
         return null;
     }
