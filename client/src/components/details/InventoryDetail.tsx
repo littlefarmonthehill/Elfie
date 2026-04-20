@@ -1863,21 +1863,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   />
                 </div>
 
-                {/* Location */}
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Location</span>
-                  <Input
-                    type="text"
-                    maxLength={5}
-                    value={readiness.saleLocation ?? ''}
-                    onChange={e => setReadiness(r => ({ ...r, saleLocation: e.target.value.toUpperCase().slice(0, 5) }))}
-                    onBlur={() => saveReadinessField({ saleLocation: readiness.saleLocation || undefined })}
-                    placeholder="e.g. A1-B"
-                    data-testid="input-readiness-location"
-                    className="h-7 text-xs bg-black/30 border-white/10 text-white placeholder:text-gray-600 font-mono"
-                  />
-                </div>
-
                 {/* Missing Pieces */}
                 <div className="flex flex-col gap-1">
                   <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Missing Pieces</span>

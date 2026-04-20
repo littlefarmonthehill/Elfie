@@ -1510,7 +1510,7 @@ router.get("/inventory/:id", isApproved, asyncRoute(async (req: any, res) => {
 }));
 
 // 21. PATCH /inventory/:id/readiness
-router.get("/inventory/:id/readiness", isApproved, asyncRoute(async (req: any, res) => {
+router.patch("/inventory/:id/readiness", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const itemId = parseInt(req.params.id);
   if (isNaN(itemId)) return res.status(400).json({ error: "Invalid item ID" });
