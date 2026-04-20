@@ -40,6 +40,36 @@ function AuthenticatedHome() {
 
   const closeScanDetail = useCallback(() => setScanDetail({ open: false, data: null }), []);
 
+  const openInventoryById = useCallback(async (id: number | string) => {
+    setScanDetail({
+      open: true,
+      data: { type: "inventory", data: { id, loading: true } as any },
+    });
+    try {
+      const invRes = await fetch(`/api/inventory/${id}`);
+      if (!invRes.ok) return;
+      const inventoryData = await invRes.json();
+      setScanDetail({
+        open: true,
+        data: { type: "inventory", data: { ...inventoryData, loadingPriceOMagic: true } },
+      });
+      const params = new URLSearchParams();
+      if (inventoryData.colorId) params.append("color_id", String(inventoryData.colorId));
+      if (inventoryData.newOrUsed) params.append("new_or_used", inventoryData.newOrUsed);
+      const priceUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${params.toString() ? `?${params}` : ""}`;
+      const priceRes = await fetch(priceUrl);
+      const priceOMagic = priceRes.ok ? await priceRes.json() : null;
+      setScanDetail({
+        open: true,
+        data: { type: "inventory", data: { ...inventoryData, priceOMagic, loadingPriceOMagic: false } },
+      });
+    } catch { /* keep current state */ }
+  }, []);
+
+  const handleScanItemClick = useCallback((type: 'order' | 'inventory', id: number | string) => {
+    if (type === 'inventory') openInventoryById(id);
+  }, [openInventoryById]);
+
   const handleScan = useCallback(async (code: string) => {
     const upper = code.toUpperCase();
     if (!(upper.startsWith("BIN:") || upper.startsWith("LOT:"))) return;
@@ -71,41 +101,12 @@ function AuthenticatedHome() {
       }
 
       if (resolved.type === "lot") {
-        // Open the inventory detail modal immediately with the resolved lot data,
-        // then enrich with full inventory + price guide in the background.
-        setScanDetail({
-          open: true,
-          data: { type: "inventory", data: { id: resolved.id, loading: true } as any },
-        });
-
-        try {
-          const invRes = await fetch(`/api/inventory/${resolved.id}`);
-          if (invRes.ok) {
-            const inventoryData = await invRes.json();
-            setScanDetail({
-              open: true,
-              data: { type: "inventory", data: { ...inventoryData, loadingPriceOMagic: true } },
-            });
-
-            const params = new URLSearchParams();
-            if (inventoryData.colorId) params.append("color_id", String(inventoryData.colorId));
-            if (inventoryData.newOrUsed) params.append("new_or_used", inventoryData.newOrUsed);
-            const priceUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${params.toString() ? `?${params}` : ""}`;
-            const priceRes = await fetch(priceUrl);
-            const priceOMagic = priceRes.ok ? await priceRes.json() : null;
-            setScanDetail({
-              open: true,
-              data: { type: "inventory", data: { ...inventoryData, priceOMagic, loadingPriceOMagic: false } },
-            });
-          }
-        } catch {
-          /* leave whatever state was already shown */
-        }
+        await openInventoryById(resolved.id);
       }
     } catch {
       toast({ title: "Scan failed", description: "Network error", variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, openInventoryById]);
 
   useHardwareScanner({ onScan: handleScan, disabled: scanDetail.open });
 
@@ -116,6 +117,7 @@ function AuthenticatedHome() {
         open={scanDetail.open}
         onClose={closeScanDetail}
         detail={scanDetail.data}
+        onItemClick={handleScanItemClick}
       />
     </>
   );
