@@ -769,7 +769,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                   }).map((item) => (
                     <div
                       key={item.picklistItemId}
-                      className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5 cursor-pointer"
+                      className="flex items-start gap-3 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5 cursor-pointer"
                       data-testid={`picklist-item-${item.picklistItemId}`}
                       onClick={() => {
                         if (item.inventoryId != null && onItemClick) {
