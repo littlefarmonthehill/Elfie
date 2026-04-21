@@ -1625,16 +1625,24 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       LEFT JOIN rb_colors rc ON rc.id = sp.color_id
       WHERE sp.set_num = ${setNo}
     ),
-    inv_agg AS (
-      SELECT inv.item_no, inv.color_id,
-             SUM(inv.quantity)::int                   AS qty,
-             COUNT(inv.id)::int                       AS lots,
-             array_agg(inv.id)                        AS ids
+    -- Filter inventory to ONLY the part numbers in this set BEFORE aggregating.
+    -- Without this, we aggregate the entire org's inventory (tens of thousands
+    -- of rows) and the query takes 100+ seconds on a real warehouse.
+    inv_filtered AS (
+      SELECT inv.id, inv.item_no, inv.color_id, inv.quantity
       FROM bl_inventory inv
       WHERE inv.org_id = ${orgId}
         AND inv.item_type = 'PART'
         AND COALESCE(inv.is_stock_room, false) = false
-      GROUP BY inv.item_no, inv.color_id
+        AND inv.item_no IN (SELECT part_num FROM set_rows)
+    ),
+    inv_agg AS (
+      SELECT item_no, color_id,
+             SUM(quantity)::int   AS qty,
+             COUNT(id)::int       AS lots,
+             array_agg(id)        AS ids
+      FROM inv_filtered
+      GROUP BY item_no, color_id
     ),
     bin_agg AS (
       SELECT il.inventory_id,
@@ -1642,6 +1650,7 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       FROM inventory_locations il
       JOIN wh_bins wb ON wb.id = il.bin_id
       WHERE il.org_id = ${orgId}
+        AND il.inventory_id IN (SELECT id FROM inv_filtered)
       GROUP BY il.inventory_id
     ),
     inv_with_bins AS (
