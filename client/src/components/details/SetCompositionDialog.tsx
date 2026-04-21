@@ -487,12 +487,28 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
                           <Minus className="h-3 w-3" />
                         </Button>
                         <Input
-                          type="number"
+                          type="text"
                           inputMode="numeric"
-                          min={0}
-                          value={owned}
-                          onChange={(e) => setOwnedFor(p, parseInt(e.target.value || '0', 10))}
-                          onFocus={(e) => e.target.select()}
+                          pattern="[0-9]*"
+                          value={String(owned)}
+                          onChange={(e) => {
+                            // Strip non-digits and any leading zeros so typing "5"
+                            // into a "0" reliably becomes "5" — not "05" → 5.
+                            const digits = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+                            setOwnedFor(p, digits === '' ? 0 : parseInt(digits, 10));
+                          }}
+                          onFocus={(e) => {
+                            // Mobile-safari friendly: clear "0" on focus instead of relying
+                            // on .select(), which doesn't work reliably for type=number.
+                            if (owned === 0) {
+                              e.target.value = '';
+                            } else {
+                              e.target.select();
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value.trim() === '') setOwnedFor(p, 0);
+                          }}
                           className="w-12 h-7 text-[11px] text-center font-mono bg-black/30 border-white/10 text-white px-1"
                           data-testid={`input-owned-${p.partNum}-${p.colorId ?? 'nc'}`}
                         />

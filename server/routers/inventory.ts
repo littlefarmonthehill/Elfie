@@ -1665,15 +1665,23 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       FROM set_part_owned
       WHERE inventory_id = ${inventoryId ?? -1}
     )
+    -- Fallback catalog row (any color) so a missing exact-color match still
+    -- yields a part name and thumbnail. Picks one row deterministically.
+    , cat_any AS (
+      SELECT DISTINCT ON (item_no) item_no, item_name, thumbnail_url, stored_image_key
+      FROM bl_catalog
+      WHERE item_type = 'PART' AND item_no IN (SELECT part_num FROM set_rows)
+      ORDER BY item_no, color_id
+    )
     SELECT
       sr.part_num,
       sr.rb_color_id                                AS color_id,
       sr.needed                                     AS needed,
-      cat.item_name                                 AS part_name,
+      COALESCE(cat.item_name, ca.item_name)         AS part_name,
       COALESCE(rc.name, blc.name)                   AS color_name,
       COALESCE(rc.rgb, blc.rgb)                     AS color_rgb,
-      cat.thumbnail_url                             AS thumbnail_url,
-      cat.stored_image_key                          AS stored_image_key,
+      COALESCE(cat.thumbnail_url, ca.thumbnail_url) AS thumbnail_url,
+      COALESCE(cat.stored_image_key, ca.stored_image_key) AS stored_image_key,
       COALESCE(iwb.qty, 0)::int                     AS inv_qty,
       COALESCE(iwb.lots, 0)::int                    AS inv_lots,
       COALESCE(iwb.ids, '{}')                       AS inv_ids,
@@ -1686,6 +1694,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       ON cat.item_no = sr.part_num
      AND cat.item_type = 'PART'
      AND cat.color_id = COALESCE(sr.bl_color_id, 0)
+    LEFT JOIN cat_any ca
+      ON ca.item_no = sr.part_num
     LEFT JOIN inv_with_bins iwb
       ON iwb.item_no = sr.part_num
      AND iwb.color_id IS NOT DISTINCT FROM sr.bl_color_id

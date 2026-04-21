@@ -196,7 +196,15 @@ export async function syncRebrickableSetParts(forceRefresh = false): Promise<Reb
           setNum,
           setName,
           partNum,
-          colorId: parseInt(record.color_id) || null,
+          colorId: (() => {
+            // BUG FIX: `parseInt('0') || null` evaluates to null because 0 is falsy,
+            // which silently dropped color id 0 (= Black) for ~250k rows.
+            // Treat empty/non-numeric as NULL but keep 0 and negative ids intact.
+            const raw = (record.color_id ?? '').toString().trim();
+            if (raw === '') return null;
+            const n = parseInt(raw, 10);
+            return Number.isFinite(n) ? n : null;
+          })(),
           quantity: parseInt(record.quantity) || 0,
         });
         
