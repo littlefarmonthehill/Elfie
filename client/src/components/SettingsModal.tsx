@@ -11471,6 +11471,50 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             )}
                           </div>
 
+                          {/* ── Rebrickable Colors (on-demand) ── */}
+                          <div className="sm-card">
+                            <div className="w-full px-4 py-3 flex items-center gap-3">
+                              <div className="h-2 w-2 rounded-full bg-sky-500/70 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Rebrickable Colors</p>
+                                  <Popover><PopoverTrigger asChild><span className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3">
+                                    <p className="mb-1.5">Pulls all color metadata from the Rebrickable API including the BrickLink color id mapping. Required for the Set Completion view to translate Rebrickable colors to your BrickLink inventory and to display the correct color names.</p>
+                                    <p className="text-gray-500 mt-1">Quick (~2–5 seconds). Re-runs are safe and idempotent.</p>
+                                  </PopoverContent></Popover>
+                                </div>
+                                <p className="sm-hint">On-demand · Maps Rebrickable color ids → BrickLink color ids</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={syncingRbColors} onClick={() => runManualSync('/api/sync/rebrickable/colors', setSyncingRbColors, 'RbColors', undefined, 'Color sync started', 'Pulling color metadata from Rebrickable.')} title="Run now" data-testid="button-trigger-rb-colors-sched">
+                                  {syncingRbColors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ── Rebrickable Set Minifigs (on-demand) ── */}
+                          <div className="sm-card">
+                            <div className="w-full px-4 py-3 flex items-center gap-3">
+                              <div className="h-2 w-2 rounded-full bg-sky-500/70 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Rebrickable Set Minifigs</p>
+                                  <Popover><PopoverTrigger asChild><span className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3">
+                                    <p className="mb-1.5">Streams Rebrickable's <code>inventory_minifigs.csv</code> and inserts each minifig as a <code>fig-XXXXX</code> row in the set-parts table. Without this, the Set Completion view is missing every set's minifigs.</p>
+                                    <p className="text-gray-500 mt-1">~2–4 minutes. Re-runs are safe — prior <code>fig-%</code> rows are cleared first.</p>
+                                  </PopoverContent></Popover>
+                                </div>
+                                <p className="sm-hint">On-demand · Adds minifigs to the Set Completion view</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={syncingRbMinifigs} onClick={() => runManualSync('/api/sync/rebrickable/set-minifigs', setSyncingRbMinifigs, 'RbMinifigs', undefined, 'Minifig sync started', 'Streaming inventory_minifigs.csv in the background.')} title="Run now" data-testid="button-trigger-rb-minifigs-sched">
+                                  {syncingRbMinifigs ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* ── Part Relationships (on-demand) ── */}
                           <div className="sm-card">
                             <div className="w-full px-4 py-3 flex items-center gap-3">
