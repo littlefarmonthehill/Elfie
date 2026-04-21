@@ -311,6 +311,22 @@ export const insertSetPartRelationshipSchema = createInsertSchema(setPartRelatio
 export type InsertSetPartRelationship = z.infer<typeof insertSetPartRelationshipSchema>;
 export type SetPartRelationship = typeof setPartRelationships.$inferSelect;
 
+// Per-set per-part owned quantity (independent of loose parts inventory).
+// Lets users mark "I have N of part X for THIS set" so a sealed/built set can
+// be tracked at 100% without needing the parts broken out into bl_inventory.
+export const setPartOwned = pgTable("set_part_owned", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  inventoryId: integer("inventory_id").notNull(), // FK → bl_inventory.id (the SET row)
+  partNum: text("part_num").notNull(),
+  colorId: integer("color_id").notNull().default(0), // 0 = no color / N/A
+  ownedQty: integer("owned_qty").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniq: uniqueIndex("set_part_owned_inv_part_color_idx").on(table.inventoryId, table.partNum, table.colorId),
+}));
+
+export type SetPartOwned = typeof setPartOwned.$inferSelect;
+
 // Rebrickable part-to-part relationships (type A = Alternate, M = Mold, P = Print, etc.)
 export const partRelationships = pgTable("part_relationships", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

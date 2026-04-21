@@ -6,7 +6,7 @@ import { db } from '../db';
 import { 
   blInventory, blCatalog, priceGuideCache, blCategories, blColors, 
   appSettings, inventoryHistory, brickanalyzerScans, partIdMappings, 
-  blApiCalls, setPartRelationships, partRelationships, inventoryLocations, whBins, whShelves, whAisles,
+  blApiCalls, setPartRelationships, setPartOwned, partRelationships, inventoryLocations, whBins, whShelves, whAisles,
   orderDetails, orders
 } from '@shared/schema';
 import { 
@@ -1547,9 +1547,12 @@ router.patch("/inventory/:id/readiness", isApproved, asyncRoute(async (req: any,
 }));
 
 // 21b. GET /inventory/sets/:setNo/composition — what's in this set vs. what I own
+//      Optional ?inventoryId=N attaches per-set owned quantities (set_part_owned)
+//      so a sealed/built set can be marked complete independently of loose parts.
 router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const setNoRaw = String(req.params.setNo || '').trim();
+  const inventoryId = req.query.inventoryId ? Number(req.query.inventoryId) : null;
   if (!setNoRaw) return res.status(400).json({ error: "Invalid set number" });
 
   // Rebrickable stores sets like "10179-1"; BL inventory may store "10179"
@@ -1597,22 +1600,49 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     color_rgb: string | null;
     thumbnail_url: string | null;
     stored_image_key: string | null;
-    owned: number;
-    lots: number;
+    inv_qty: number;
+    inv_lots: number;
     inv_ids: number[] | null;
+    bin_names: string | null;
+    set_owned: number;
   }>(sql`
+    WITH inv_agg AS (
+      SELECT
+        inv.item_no,
+        inv.color_id,
+        SUM(inv.quantity)::int AS qty,
+        COUNT(inv.id)::int     AS lots,
+        array_agg(inv.id)      AS ids,
+        STRING_AGG(DISTINCT wb.name, ', ' ORDER BY wb.name) AS bin_names
+      FROM bl_inventory inv
+      LEFT JOIN inventory_locations il
+        ON il.inventory_id = inv.id AND il.org_id = ${orgId}
+      LEFT JOIN wh_bins wb
+        ON wb.id = il.bin_id
+      WHERE inv.org_id = ${orgId}
+        AND inv.item_type = 'PART'
+        AND COALESCE(inv.is_stock_room, false) = false
+      GROUP BY inv.item_no, inv.color_id
+    ),
+    set_own AS (
+      SELECT part_num, color_id, owned_qty
+      FROM set_part_owned
+      WHERE inventory_id = ${inventoryId ?? -1}
+    )
     SELECT
       sp.part_num,
       sp.color_id,
-      sp.quantity::int                                AS needed,
-      cat.item_name                                   AS part_name,
-      col.name                                        AS color_name,
-      col.rgb                                         AS color_rgb,
-      cat.thumbnail_url                               AS thumbnail_url,
-      cat.stored_image_key                            AS stored_image_key,
-      COALESCE(SUM(inv.quantity), 0)::int             AS owned,
-      COUNT(inv.id)::int                              AS lots,
-      COALESCE(array_agg(inv.id) FILTER (WHERE inv.id IS NOT NULL), '{}') AS inv_ids
+      sp.quantity::int                              AS needed,
+      cat.item_name                                 AS part_name,
+      col.name                                      AS color_name,
+      col.rgb                                       AS color_rgb,
+      cat.thumbnail_url                             AS thumbnail_url,
+      cat.stored_image_key                          AS stored_image_key,
+      COALESCE(ia.qty, 0)::int                      AS inv_qty,
+      COALESCE(ia.lots, 0)::int                     AS inv_lots,
+      COALESCE(ia.ids, '{}')                        AS inv_ids,
+      ia.bin_names                                  AS bin_names,
+      COALESCE(so.owned_qty, 0)::int                AS set_owned
     FROM set_part_relationships sp
     LEFT JOIN bl_catalog cat
       ON cat.item_no = sp.part_num
@@ -1620,18 +1650,14 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
      AND cat.color_id = COALESCE(sp.color_id, 0)
     LEFT JOIN bl_colors col
       ON col.id = sp.color_id
-    LEFT JOIN bl_inventory inv
-      ON inv.item_no  = sp.part_num
-     AND inv.item_type = 'PART'
-     AND inv.color_id = sp.color_id
-     AND inv.org_id   = ${orgId}
-     AND COALESCE(inv.is_stock_room, false) = false
+    LEFT JOIN inv_agg ia
+      ON ia.item_no = sp.part_num
+     AND ia.color_id IS NOT DISTINCT FROM sp.color_id
+    LEFT JOIN set_own so
+      ON so.part_num = sp.part_num
+     AND so.color_id = COALESCE(sp.color_id, 0)
     WHERE sp.set_num = ${setNo}
-    GROUP BY sp.part_num, sp.color_id, sp.quantity, cat.item_name,
-             col.name, col.rgb, cat.thumbnail_url, cat.stored_image_key
-    ORDER BY (COALESCE(SUM(inv.quantity), 0) >= sp.quantity) ASC,
-             (COALESCE(SUM(inv.quantity), 0) > 0) ASC,
-             sp.color_id NULLS LAST, sp.part_num
+    ORDER BY sp.color_id NULLS LAST, sp.part_num
   `);
 
   const rows: any[] = Array.isArray(rowsResult) ? rowsResult : (rowsResult as any)?.rows ?? [];
@@ -1639,8 +1665,10 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     partNum: r.part_num,
     colorId: r.color_id,
     needed: Number(r.needed) || 0,
-    owned: Number(r.owned) || 0,
-    lots: Number(r.lots) || 0,
+    setOwned: Number(r.set_owned) || 0,
+    invQty: Number(r.inv_qty) || 0,
+    invLots: Number(r.inv_lots) || 0,
+    binNames: r.bin_names || null,
     partName: r.part_name,
     colorName: r.color_name,
     colorRgb: r.color_rgb,
@@ -1652,14 +1680,47 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
   const totals = parts.reduce((acc, p) => {
     acc.uniqueParts += 1;
     acc.piecesNeeded += p.needed;
-    acc.piecesOwned += Math.min(p.owned, p.needed);
-    if (p.owned >= p.needed) acc.completeParts += 1;
-    else if (p.owned > 0)    acc.partialParts += 1;
-    else                     acc.missingParts += 1;
+    acc.piecesOwned += Math.min(p.setOwned, p.needed);
+    if (p.setOwned >= p.needed) acc.completeParts += 1;
+    else if (p.setOwned > 0)    acc.partialParts += 1;
+    else                        acc.missingParts += 1;
     return acc;
   }, { uniqueParts: 0, completeParts: 0, partialParts: 0, missingParts: 0, piecesNeeded: 0, piecesOwned: 0 });
 
   res.json({ setNo, resolved: parts.length > 0, parts, totals });
+}));
+
+// 21c. PATCH /inventory/sets/:inventoryId/owned — upsert per-set per-part owned qty
+router.patch("/inventory/sets/:inventoryId/owned", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const inventoryId = parseInt(req.params.inventoryId, 10);
+  if (!Number.isFinite(inventoryId)) return res.status(400).json({ error: "Invalid inventoryId" });
+
+  const schema = z.object({
+    partNum: z.string().min(1),
+    colorId: z.number().int().nullable().optional(),
+    ownedQty: z.number().int().min(0),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+
+  // Verify the inventory row belongs to the caller's org
+  const owner = await db.select({ id: blInventory.id }).from(blInventory)
+    .where(and(eq(blInventory.id, inventoryId), eq(blInventory.orgId, orgId))).limit(1);
+  if (!owner.length) return res.status(404).json({ error: "Inventory not found" });
+
+  const partNum = parsed.data.partNum;
+  const colorId = parsed.data.colorId ?? 0;
+  const ownedQty = parsed.data.ownedQty;
+
+  await db.execute(sql`
+    INSERT INTO set_part_owned (inventory_id, part_num, color_id, owned_qty, updated_at)
+    VALUES (${inventoryId}, ${partNum}, ${colorId}, ${ownedQty}, NOW())
+    ON CONFLICT (inventory_id, part_num, color_id)
+    DO UPDATE SET owned_qty = EXCLUDED.owned_qty, updated_at = NOW()
+  `);
+
+  res.json({ success: true, inventoryId, partNum, colorId, ownedQty });
 }));
 
 // 22. GET /inventory/:id/analytics

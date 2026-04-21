@@ -2439,6 +2439,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               onOpenChange={setCompositionDialogOpen}
               setNo={data.itemNo || ''}
               setName={data.description || itemName}
+              inventoryId={data.id}
               onItemClick={onItemClick}
             />
           )}
