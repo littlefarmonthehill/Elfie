@@ -4249,6 +4249,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncingPomTrigger, setSyncingPomTrigger] = useState(false);
   const [syncingRebrickable, setSyncingRebrickable] = useState(false);
   const [syncingPartRel, setSyncingPartRel] = useState(false);
+  const [syncingRbColors, setSyncingRbColors] = useState(false);
+  const [syncingRbMinifigs, setSyncingRbMinifigs] = useState(false);
 
   const { data: pomLiveStatus } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/sync/priceomatic/status'],
@@ -8301,6 +8303,74 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Rebrickable Colors Sync */}
+                <div className="bg-card/40 border border-white/5 rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-gray-200">Rebrickable Colors</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-300">
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" className="sm-popover-lg">
+                            <p className="font-semibold text-gray-200">Rebrickable Colors Sync</p>
+                            <p className="text-gray-400">Pulls all color metadata from the Rebrickable API including the BrickLink color id mapping. Required for the Set Completion view to match Rebrickable color ids against your BrickLink inventory and to display the correct color names.</p>
+                            <p className="sm-description">Quick (~2–5 seconds). Re-runs are safe and idempotent.</p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Maps Rebrickable color ids → BrickLink color ids for set composition matching</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={syncingRbColors}
+                      onClick={() => runManualSync('/api/sync/rebrickable/colors', setSyncingRbColors, 'RbColors', undefined, 'Color sync started', 'Pulling color metadata from Rebrickable.')}
+                      title="Sync Rebrickable colors now"
+                      data-testid="button-run-rb-colors-sync"
+                    >
+                      {syncingRbColors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Rebrickable Set Minifigs Sync */}
+                <div className="bg-card/40 border border-white/5 rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-gray-200">Rebrickable Set Minifigs</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-300">
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" className="sm-popover-lg">
+                            <p className="font-semibold text-gray-200">Rebrickable Set Minifigs Sync</p>
+                            <p className="text-gray-400">Streams Rebrickable's <code>inventory_minifigs.csv</code> and inserts each minifig as an additional row in the set-parts table (as <code>fig-XXXXX</code>). Without this, the Set Completion view is missing every set's minifigs.</p>
+                            <p className="sm-description">~2–4 minutes depending on Rebrickable's CDN. Re-runs are safe — prior <code>fig-%</code> rows are cleared and reinserted.</p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Adds minifigs to the Set Completion view</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={syncingRbMinifigs}
+                      onClick={() => runManualSync('/api/sync/rebrickable/set-minifigs', setSyncingRbMinifigs, 'RbMinifigs', undefined, 'Minifig sync started', 'Streaming inventory_minifigs.csv in the background.')}
+                      title="Sync Rebrickable set minifigs now"
+                      data-testid="button-run-rb-minifigs-sync"
+                    >
+                      {syncingRbMinifigs ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Part Relationships Sync */}
