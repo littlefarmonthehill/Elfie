@@ -160,18 +160,26 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parts, localOwned]);
 
-  // Capture a stable snapshot of "owned at sort time" so the on-screen order
-  // doesn't reshuffle while the user is typing. New sort triggers a re-snapshot.
-  const sortSnapshotRef = useRef<{ key: string; dir: SortDir; ownedById: Record<string, number> } | null>(null);
+  // Capture a stable snapshot of "owned at sort time" so rows don't reshuffle
+  // when:
+  //   - the user is typing  → localOwned changes
+  //   - the server confirms → setOwned changes via refetch / mutation success
+  //   - the 8s poll lands   → parts array gets a new reference
+  // We re-snapshot ONLY when the sort key/dir is changed by the user, or when
+  // the *set of rows* itself changes (different part keys / new set / count
+  // changed) — never just because a value updated.
+  const partKeysSig = useMemo(
+    () => parts.map(partKey).sort().join('|'),
+    [parts],
+  );
+  const sortSnapshotRef = useRef<{ key: SortKey; dir: SortDir; ownedById: Record<string, number> } | null>(null);
   const sortSnapshot = useMemo(() => {
     const ownedById: Record<string, number> = {};
     for (const p of parts) ownedById[partKey(p)] = getOwned(p);
     sortSnapshotRef.current = { key: sortBy, dir: sortDir, ownedById };
     return sortSnapshotRef.current;
-    // Re-snapshot whenever sort key/dir or the underlying parts change (initial load)
-    // — but NOT when localOwned changes, so the order stays stable while editing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortBy, sortDir, parts]);
+  }, [sortBy, sortDir, partKeysSig]);
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
