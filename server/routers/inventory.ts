@@ -1552,10 +1552,14 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
   const setNoRaw = String(req.params.setNo || '').trim();
   if (!setNoRaw) return res.status(400).json({ error: "Invalid set number" });
 
-  // Rebrickable stores sets like "10179-1"; BL inventory often stores "10179"
-  // or "10179-1". Try every reasonable variant and pick the one with rows.
+  // Rebrickable stores sets like "10179-1"; BL inventory may store "10179"
+  // or "10179-1" (and a few oddballs like "7324-10"). Resolve in 3 stages:
+  //   1) exact / case variants
+  //   2) base-number variants ("10179" → "10179-1", "10179-1" → "10179")
+  //   3) LIKE "<base>-%" wildcard (covers "7324-10", "7324-2" style)
+  // Pick the variant that actually has the most rows.
   const stripped = setNoRaw.replace(/-\d+$/, '');
-  const variants = Array.from(new Set([
+  const exactCandidates = Array.from(new Set([
     setNoRaw,
     setNoRaw.toLowerCase(),
     setNoRaw.toUpperCase(),
@@ -1563,14 +1567,26 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     `${stripped}-1`,
   ])).filter(Boolean);
 
-  const matches = await db
+  let matches = await db
     .select({ setNum: setPartRelationships.setNum, n: sql<number>`count(*)::int` })
     .from(setPartRelationships)
-    .where(inArray(setPartRelationships.setNum, variants))
+    .where(inArray(setPartRelationships.setNum, exactCandidates))
     .groupBy(setPartRelationships.setNum);
+
+  if (matches.length === 0 && stripped) {
+    matches = await db
+      .select({ setNum: setPartRelationships.setNum, n: sql<number>`count(*)::int` })
+      .from(setPartRelationships)
+      .where(like(setPartRelationships.setNum, `${stripped}-%`))
+      .groupBy(setPartRelationships.setNum)
+      .limit(20);
+  }
 
   const best = matches.sort((a, b) => Number(b.n) - Number(a.n))[0];
   const setNo = best?.setNum ?? setNoRaw;
+  if (!best) {
+    console.log(`[set-composition] No match for "${setNoRaw}" (tried ${exactCandidates.join(', ')} and ${stripped}-%)`);
+  }
 
   const rows = await db.execute<{
     part_num: string;

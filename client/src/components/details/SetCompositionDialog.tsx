@@ -68,6 +68,9 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
   const { data, isLoading, isFetching } = useQuery<CompositionResponse>({
     queryKey: ['/api/inventory/sets', setNo, 'composition'],
     enabled: open && !!setNo,
+    staleTime: 30_000,
+    gcTime: 60_000,
+    refetchOnMount: 'always',
   });
 
   const totals = data?.totals;
