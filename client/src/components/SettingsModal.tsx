@@ -11447,6 +11447,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="sm" variant="outline" disabled={rbActive} onClick={(e) => { e.stopPropagation(); runManualSync('/api/sync/rebrickable/set-parts', () => {}, 'RbSetParts', { force: true }, 'Rebuilding set parts', 'Truncating and re-downloading the full set-parts table — this takes ~3–5 minutes.'); }} className="border-orange-500/40 text-orange-400 hover:text-orange-300 text-xs" data-testid="button-rb-force-rebuild-sched">
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                  Force Rebuild
+                                </Button>
                                 <Button size="icon" variant="ghost" disabled={rbActive} onClick={(e) => { e.stopPropagation(); handleTrigger('rebrickable_set_parts'); }} title="Run now" data-testid="button-trigger-rb-sched">
                                   {rbActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                 </Button>
