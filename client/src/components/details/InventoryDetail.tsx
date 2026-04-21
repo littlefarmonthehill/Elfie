@@ -4,6 +4,7 @@ import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import SetCompositionDialog from "./SetCompositionDialog";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -354,6 +355,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [partsDialogOpen, setPartsDialogOpen] = useState(false);
   const [partsSearch, setPartsSearch] = useState('');
+  const [compositionDialogOpen, setCompositionDialogOpen] = useState(false);
   const [uploadingLot, setUploadingLot] = useState(false);
   const [uploadingItemType, setUploadingItemType] = useState(false);
   const lotFileInputRef = useRef<HTMLInputElement>(null);
@@ -1617,6 +1619,27 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
+            {/* Set Completion — only for SET items */}
+            {isSet && (
+              <button
+                type="button"
+                className="app-card-muted p-2.5 cursor-pointer hover-elevate transition-colors w-full text-left"
+                onClick={() => setCompositionDialogOpen(true)}
+                data-testid="button-set-completion"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                    <p className="text-[10px] md:text-sm font-bold text-emerald-400 uppercase tracking-wide">Set Completion</p>
+                  </div>
+                  <ExternalLink className="h-3 w-3 text-gray-500" />
+                </div>
+                <p className="text-[10px] md:text-xs text-gray-400 mt-1.5">
+                  See which parts you have, which are short, and which to source.
+                </p>
+              </button>
+            )}
+
             {/* Warehouse Location */}
             <div className="app-card-muted p-2.5">
               <div className="flex items-center justify-between gap-1.5 mb-2">
@@ -2418,6 +2441,17 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Set Completion Dialog */}
+          {isSet && (
+            <SetCompositionDialog
+              open={compositionDialogOpen}
+              onOpenChange={setCompositionDialogOpen}
+              setNo={data.itemNo || ''}
+              setName={data.description || itemName}
+              onItemClick={onItemClick}
+            />
+          )}
 
           {/* Parts in Set Dialog */}
           {isSet && (

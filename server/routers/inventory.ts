@@ -1546,6 +1546,100 @@ router.patch("/inventory/:id/readiness", isApproved, asyncRoute(async (req: any,
   res.json({ success: true });
 }));
 
+// 21b. GET /inventory/sets/:setNo/composition — what's in this set vs. what I own
+router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const setNoRaw = String(req.params.setNo || '').trim();
+  if (!setNoRaw) return res.status(400).json({ error: "Invalid set number" });
+
+  // Rebrickable stores sets with the "-1" suffix; BL inventory often omits it.
+  // Try the value as-is first, then fall back to "-1" if nothing matches.
+  const candidates = setNoRaw.includes('-')
+    ? [setNoRaw]
+    : [setNoRaw, `${setNoRaw}-1`];
+
+  let setNo = candidates[0];
+  for (const c of candidates) {
+    const [hit] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(setPartRelationships)
+      .where(eq(setPartRelationships.setNum, c));
+    if (hit && Number(hit.n) > 0) { setNo = c; break; }
+  }
+
+  const rows = await db.execute<{
+    part_num: string;
+    color_id: number | null;
+    needed: number;
+    part_name: string | null;
+    color_name: string | null;
+    color_rgb: string | null;
+    thumbnail_url: string | null;
+    stored_image_key: string | null;
+    owned: number;
+    lots: number;
+    inv_ids: number[] | null;
+  }>(sql`
+    SELECT
+      sp.part_num,
+      sp.color_id,
+      sp.quantity::int                                AS needed,
+      cat.item_name                                   AS part_name,
+      col.name                                        AS color_name,
+      col.rgb                                         AS color_rgb,
+      cat.thumbnail_url                               AS thumbnail_url,
+      cat.stored_image_key                            AS stored_image_key,
+      COALESCE(SUM(inv.quantity), 0)::int             AS owned,
+      COUNT(inv.id)::int                              AS lots,
+      COALESCE(array_agg(inv.id) FILTER (WHERE inv.id IS NOT NULL), '{}') AS inv_ids
+    FROM set_part_relationships sp
+    LEFT JOIN bl_catalog cat
+      ON cat.item_no = sp.part_num
+     AND cat.item_type = 'PART'
+     AND cat.color_id = COALESCE(sp.color_id, 0)
+    LEFT JOIN bl_colors col
+      ON col.id = sp.color_id
+    LEFT JOIN bl_inventory inv
+      ON inv.item_no  = sp.part_num
+     AND inv.item_type = 'PART'
+     AND inv.color_id = sp.color_id
+     AND inv.org_id   = ${orgId}
+     AND COALESCE(inv.is_stock_room, false) = false
+    WHERE sp.set_num = ${setNo}
+    GROUP BY sp.part_num, sp.color_id, sp.quantity, cat.item_name,
+             col.name, col.rgb, cat.thumbnail_url, cat.stored_image_key
+    ORDER BY (COALESCE(SUM(inv.quantity), 0) >= sp.quantity) ASC,
+             (COALESCE(SUM(inv.quantity), 0) > 0) ASC,
+             sp.color_id NULLS LAST, sp.part_num
+  `);
+
+  const parts = (rows as any[]).map(r => ({
+    partNum: r.part_num,
+    colorId: r.color_id,
+    needed: Number(r.needed) || 0,
+    owned: Number(r.owned) || 0,
+    lots: Number(r.lots) || 0,
+    partName: r.part_name,
+    colorName: r.color_name,
+    colorRgb: r.color_rgb,
+    thumbnailUrl: r.thumbnail_url,
+    storedImageKey: r.stored_image_key,
+    inventoryIds: Array.isArray(r.inv_ids) ? r.inv_ids.filter((x: any) => x != null) : [],
+  }));
+
+  const totals = parts.reduce((acc, p) => {
+    acc.uniqueParts += 1;
+    acc.piecesNeeded += p.needed;
+    acc.piecesOwned += Math.min(p.owned, p.needed);
+    if (p.owned >= p.needed) acc.completeParts += 1;
+    else if (p.owned > 0)    acc.partialParts += 1;
+    else                     acc.missingParts += 1;
+    return acc;
+  }, { uniqueParts: 0, completeParts: 0, partialParts: 0, missingParts: 0, piecesNeeded: 0, piecesOwned: 0 });
+
+  res.json({ setNo, resolved: parts.length > 0, parts, totals });
+}));
+
 // 22. GET /inventory/:id/analytics
 router.get("/inventory/:id/analytics", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
