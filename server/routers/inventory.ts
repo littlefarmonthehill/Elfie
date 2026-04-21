@@ -1552,20 +1552,25 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
   const setNoRaw = String(req.params.setNo || '').trim();
   if (!setNoRaw) return res.status(400).json({ error: "Invalid set number" });
 
-  // Rebrickable stores sets with the "-1" suffix; BL inventory often omits it.
-  // Try the value as-is first, then fall back to "-1" if nothing matches.
-  const candidates = setNoRaw.includes('-')
-    ? [setNoRaw]
-    : [setNoRaw, `${setNoRaw}-1`];
+  // Rebrickable stores sets like "10179-1"; BL inventory often stores "10179"
+  // or "10179-1". Try every reasonable variant and pick the one with rows.
+  const stripped = setNoRaw.replace(/-\d+$/, '');
+  const variants = Array.from(new Set([
+    setNoRaw,
+    setNoRaw.toLowerCase(),
+    setNoRaw.toUpperCase(),
+    stripped,
+    `${stripped}-1`,
+  ])).filter(Boolean);
 
-  let setNo = candidates[0];
-  for (const c of candidates) {
-    const [hit] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(setPartRelationships)
-      .where(eq(setPartRelationships.setNum, c));
-    if (hit && Number(hit.n) > 0) { setNo = c; break; }
-  }
+  const matches = await db
+    .select({ setNum: setPartRelationships.setNum, n: sql<number>`count(*)::int` })
+    .from(setPartRelationships)
+    .where(inArray(setPartRelationships.setNum, variants))
+    .groupBy(setPartRelationships.setNum);
+
+  const best = matches.sort((a, b) => Number(b.n) - Number(a.n))[0];
+  const setNo = best?.setNum ?? setNoRaw;
 
   const rows = await db.execute<{
     part_num: string;

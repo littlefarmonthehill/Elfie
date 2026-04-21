@@ -839,7 +839,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           <TabsTrigger value="images" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-teal-600" data-testid="tab-images">IMAGES</TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none touch-pan-y min-h-0">
           {/* Overview Tab */}
           <TabsContent value="overview" className="mt-0 space-y-2.5">
             {/* Description & Remarks - Top priority */}
@@ -1619,27 +1619,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
-            {/* Set Completion — only for SET items */}
-            {isSet && (
-              <button
-                type="button"
-                className="app-card-muted p-2.5 cursor-pointer hover-elevate transition-colors w-full text-left"
-                onClick={() => setCompositionDialogOpen(true)}
-                data-testid="button-set-completion"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                    <p className="text-[10px] md:text-sm font-bold text-emerald-400 uppercase tracking-wide">Set Completion</p>
-                  </div>
-                  <ExternalLink className="h-3 w-3 text-gray-500" />
-                </div>
-                <p className="text-[10px] md:text-xs text-gray-400 mt-1.5">
-                  See which parts you have, which are short, and which to source.
-                </p>
-              </button>
-            )}
-
             {/* Warehouse Location */}
             <div className="app-card-muted p-2.5">
               <div className="flex items-center justify-between gap-1.5 mb-2">
@@ -1807,11 +1786,22 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
             {/* Sale Readiness */}
             <div className="app-card-muted p-2.5">
-              <div className="flex items-center gap-1.5 mb-3">
+              <div className="flex items-center gap-1.5 mb-3 flex-wrap">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                 <p className="text-[10px] md:text-sm font-bold text-emerald-400 uppercase tracking-wide">Sale Readiness</p>
                 {readinessSaved && (
-                  <span className="ml-auto text-[9px] text-emerald-400 font-medium animate-pulse">Saved</span>
+                  <span className="text-[9px] text-emerald-400 font-medium animate-pulse">Saved</span>
+                )}
+                {isSet && (
+                  <button
+                    type="button"
+                    onClick={() => setCompositionDialogOpen(true)}
+                    data-testid="button-set-completion"
+                    className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded border bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover-elevate active-elevate-2"
+                  >
+                    <Layers className="h-3 w-3" />
+                    Set Completion
+                  </button>
                 )}
               </div>
 
