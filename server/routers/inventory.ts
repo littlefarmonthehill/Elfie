@@ -1693,6 +1693,11 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       COALESCE(cat.item_name, ca.item_name)         AS part_name,
       COALESCE(blc.name, rc.name)                   AS color_name,
       COALESCE(blc.rgb, rc.rgb)                     AS color_rgb,
+      CASE
+        WHEN blc.name IS NOT NULL THEN 'bl'
+        WHEN rc.name  IS NOT NULL THEN 'rb'
+        ELSE NULL
+      END                                           AS color_source,
       COALESCE(cat.thumbnail_url, ca.thumbnail_url) AS thumbnail_url,
       COALESCE(cat.stored_image_key, ca.stored_image_key) AS stored_image_key,
       COALESCE(iwb.qty, 0)::int                     AS inv_qty,
@@ -1734,6 +1739,7 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     partName: r.part_name,
     colorName: r.color_name,
     colorRgb: r.color_rgb,
+    colorSource: (r as any).color_source ?? null,
     thumbnailUrl: r.thumbnail_url,
     storedImageKey: r.stored_image_key,
     inventoryIds: Array.isArray(r.inv_ids) ? r.inv_ids.filter((x: any) => x != null) : [],

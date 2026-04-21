@@ -21,6 +21,7 @@ interface CompositionPart {
   partName: string | null;
   colorName: string | null;
   colorRgb: string | null;
+  colorSource: 'bl' | 'rb' | null;
   thumbnailUrl: string | null;
   storedImageKey: string | null;
   inventoryIds: number[];
@@ -488,6 +489,23 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
                               style={{ backgroundColor: p.colorRgb ? `#${p.colorRgb}` : '#666' }}
                             />
                             <span className="text-[10px] text-gray-400 truncate">{p.colorName}</span>
+                            {p.colorSource === 'rb' && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button
+                                    className="text-[8px] uppercase tracking-wider font-bold text-amber-300/90 bg-amber-500/15 border border-amber-500/40 rounded px-1 py-px leading-none flex-shrink-0"
+                                    data-testid={`badge-color-rb-${p.partNum}-${p.colorId ?? 'na'}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    RB
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="top" className="max-w-xs text-xs p-2.5">
+                                  <p className="font-semibold mb-1">Rebrickable color (no BrickLink match)</p>
+                                  <p className="text-gray-400">BrickLink doesn't have a mapping for color id {p.colorId ?? '—'}, so the name and swatch shown here come from Rebrickable. The actual lot color in your inventory may render slightly differently.</p>
+                                </PopoverContent>
+                              </Popover>
+                            )}
                           </div>
                         )}
                       </div>
