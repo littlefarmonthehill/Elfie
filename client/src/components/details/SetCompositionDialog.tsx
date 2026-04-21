@@ -55,6 +55,7 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'parts' | 'minifigs'>('all');
   const [sortBy, setSortBy] = useState<SortKey>('status');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -175,6 +176,9 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
     const matches = parts.filter(p => {
+      const fig = isMinifig(p.partNum);
+      if (typeFilter === 'parts' && fig) return false;
+      if (typeFilter === 'minifigs' && !fig) return false;
       if (!q) return true;
       return (
         p.partNum.toLowerCase().includes(q) ||
@@ -329,7 +333,7 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
         {/* Search + sortable column header bar */}
         {data?.resolved && parts.length > 0 && (
           <>
-            <div className="px-4 pt-3 pb-2 flex-shrink-0">
+            <div className="px-4 pt-3 pb-2 flex-shrink-0 space-y-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                 <Input
@@ -340,6 +344,28 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
                   data-testid="input-composition-search"
                 />
               </div>
+              {(() => {
+                const figCount = parts.filter(p => isMinifig(p.partNum)).length;
+                const partCount = parts.length - figCount;
+                const FilterBtn = ({ value, label, count }: { value: typeof typeFilter; label: string; count: number }) => (
+                  <button
+                    type="button"
+                    onClick={() => setTypeFilter(value)}
+                    className={`toggle-elevate ${typeFilter === value ? 'toggle-elevated' : ''} px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${typeFilter === value ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-white/5 text-gray-400 border border-white/10'}`}
+                    data-testid={`filter-${value}`}
+                  >
+                    {label}
+                    <span className="font-mono opacity-70">{count}</span>
+                  </button>
+                );
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <FilterBtn value="all"      label="All"      count={parts.length} />
+                    <FilterBtn value="parts"    label="Parts"    count={partCount} />
+                    <FilterBtn value="minifigs" label="Minifigs" count={figCount} />
+                  </div>
+                );
+              })()}
             </div>
             <div className="px-4 pb-1 flex-shrink-0 flex items-center gap-2 text-[10px] uppercase tracking-wide text-gray-500 font-bold border-b border-gray-800/50">
               <span className="w-1" />
