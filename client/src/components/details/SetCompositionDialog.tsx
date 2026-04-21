@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Layers, Search, Package, AlertTriangle, CheckCircle2, Copy, MapPin, ShoppingCart, Minus, Plus, ArrowUp, ArrowDown, ArrowUpDown, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 interface CompositionPart {
   partNum: string;
+  blItemNo: string | null;
   colorId: number | null;
   needed: number;
   setOwned: number;
@@ -475,8 +477,13 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
                           className={`text-[11px] font-mono font-bold whitespace-nowrap ${clickable ? 'text-lego-blue cursor-pointer hover:underline' : 'text-lego-blue'}`}
                           onClick={clickable ? () => onItemClick!('inventory', firstInvId) : undefined}
                         >
-                          {p.partNum}
+                          {fig && p.blItemNo ? p.blItemNo : p.partNum}
                         </span>
+                        {fig && p.blItemNo && (
+                          <span className="text-[9px] font-mono text-gray-500 whitespace-nowrap" title="Rebrickable fig number">
+                            {p.partNum}
+                          </span>
+                        )}
                         {fig && (
                           <span className="text-[9px] uppercase tracking-wider text-amber-300/80 bg-amber-500/10 border border-amber-500/30 rounded px-1">
                             minifig

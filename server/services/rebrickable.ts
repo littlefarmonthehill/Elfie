@@ -3,6 +3,7 @@ import { setPartRelationships, partRelationships, rbColors, syncMetadata, blInve
 import type { InsertInventoryHistory } from "@shared/schema";
 import { sql, eq, and, inArray, isNotNull } from "drizzle-orm";
 import { recordInventoryChanges } from "./inventory-history";
+import { syncMinifigIdMappings } from "./rebrickable-images";
 import https from "https";
 import { parse } from "csv-parse";
 import { createGunzip } from "zlib";
@@ -666,6 +667,18 @@ export async function syncRebrickableAll(force = false): Promise<{
 
     console.log('[RbLane] ③ Set Minifigs…');
     const minifigs = await syncRebrickableSetMinifigs();
+
+    // Resolve fig-XXXXXX → BrickLink minifig item_no (sw0001a, cty0966…) into
+    // part_id_mappings so the Set Completion view can display BL identifiers
+    // and join bl_catalog (item_type='MINIFIG') for official names + images.
+    // Self-throttling: only fetches minifigs not yet in part_id_mappings.
+    console.log('[RbLane] ④ Minifig BL ID mappings…');
+    try {
+      const figMap = await syncMinifigIdMappings();
+      console.log(`[RbLane] ④ Mapped ${figMap.saved}/${figMap.processed} minifig BL IDs.`);
+    } catch (err: any) {
+      console.warn('[RbLane] ④ Minifig BL ID mapping failed (non-fatal):', err?.message);
+    }
 
     const totalRows = colors.inserted + setParts.partsProcessed + minifigs.inserted;
     const elapsedMs = Date.now() - t0;

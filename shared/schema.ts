@@ -341,6 +341,21 @@ export const rbColors = pgTable("rb_colors", {
 });
 export type RbColor = typeof rbColors.$inferSelect;
 
+// Rebrickable minifig catalog (fig-XXXXXX → official BrickLink-aligned name).
+// Populated from `minifigs.csv.gz`. Provides the human-readable name for
+// minifig rows in the Set Completion view (since bl_catalog only holds parts).
+export const rbMinifigs = pgTable("rb_minifigs", {
+  figNum: text("fig_num").primaryKey(),  // e.g. "fig-008609"
+  name: text("name").notNull(),
+  numParts: integer("num_parts"),
+  imgUrl: text("img_url"),
+  blItemNo: text("bl_item_no"),  // BrickLink minifig item_no e.g. "sw0001a", populated via Rebrickable API external_ids
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (t) => ({
+  blItemNoIdx: index("rb_minifigs_bl_item_no_idx").on(t.blItemNo),
+}));
+export type RbMinifig = typeof rbMinifigs.$inferSelect;
+
 // Rebrickable part-to-part relationships (type A = Alternate, M = Mold, P = Print, etc.)
 export const partRelationships = pgTable("part_relationships", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

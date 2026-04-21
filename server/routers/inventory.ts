@@ -1686,11 +1686,31 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       WHERE item_type = 'PART' AND item_no IN (SELECT part_num FROM set_rows)
       ORDER BY item_no, color_id
     )
+    -- For minifig rows (part_num like 'fig-XXXXXX'), bridge through
+    -- part_id_mappings (rebrickable_id → bl_id) to bl_catalog (item_type='MINIFIG')
+    -- so we can show the official BrickLink minifig number (sw0001a, cty0966…),
+    -- name, and image — instead of the raw Rebrickable fig_num.
+    , fig_map AS (
+      SELECT DISTINCT ON (pim.rebrickable_id)
+             pim.rebrickable_id AS fig_num,
+             pim.bl_id          AS bl_item_no
+      FROM part_id_mappings pim
+      WHERE pim.rebrickable_id IN (SELECT part_num FROM set_rows WHERE part_num LIKE 'fig-%')
+        AND pim.bl_id IS NOT NULL AND pim.bl_id <> ''
+      ORDER BY pim.rebrickable_id, pim.id
+    )
+    , fig_cat AS (
+      SELECT DISTINCT ON (bc.item_no) bc.item_no, bc.item_name, bc.thumbnail_url, bc.stored_image_key
+      FROM bl_catalog bc
+      WHERE bc.item_type = 'MINIFIG' AND bc.item_no IN (SELECT bl_item_no FROM fig_map)
+      ORDER BY bc.item_no, bc.color_id
+    )
     SELECT
       sr.part_num,
       sr.rb_color_id                                AS color_id,
       sr.needed                                     AS needed,
-      COALESCE(cat.item_name, ca.item_name)         AS part_name,
+      fm.bl_item_no                                 AS bl_item_no,
+      COALESCE(fc.item_name, cat.item_name, ca.item_name) AS part_name,
       COALESCE(blc.name, rc.name)                   AS color_name,
       COALESCE(blc.rgb, rc.rgb)                     AS color_rgb,
       CASE
@@ -1698,8 +1718,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
         WHEN rc.name  IS NOT NULL THEN 'rb'
         ELSE NULL
       END                                           AS color_source,
-      COALESCE(cat.thumbnail_url, ca.thumbnail_url) AS thumbnail_url,
-      COALESCE(cat.stored_image_key, ca.stored_image_key) AS stored_image_key,
+      COALESCE(fc.thumbnail_url, cat.thumbnail_url, ca.thumbnail_url) AS thumbnail_url,
+      COALESCE(fc.stored_image_key, cat.stored_image_key, ca.stored_image_key) AS stored_image_key,
       COALESCE(iwb.qty, 0)::int                     AS inv_qty,
       COALESCE(iwb.qty_new, 0)::int                 AS inv_qty_new,
       COALESCE(iwb.qty_used, 0)::int                AS inv_qty_used,
@@ -1710,6 +1730,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     FROM set_rows sr
     LEFT JOIN rb_colors rc  ON rc.id   = sr.rb_color_id
     LEFT JOIN bl_colors blc ON blc.id  = sr.bl_color_id
+    LEFT JOIN fig_map fm    ON fm.fig_num = sr.part_num
+    LEFT JOIN fig_cat fc    ON fc.item_no = fm.bl_item_no
     LEFT JOIN bl_catalog cat
       ON cat.item_no = sr.part_num
      AND cat.item_type = 'PART'
@@ -1728,6 +1750,7 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
   const rows: any[] = Array.isArray(rowsResult) ? rowsResult : (rowsResult as any)?.rows ?? [];
   const parts = rows.map(r => ({
     partNum: r.part_num,
+    blItemNo: r.bl_item_no ?? null,
     colorId: r.color_id,
     needed: Number(r.needed) || 0,
     setOwned: Number(r.set_owned) || 0,

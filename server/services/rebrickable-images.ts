@@ -440,3 +440,71 @@ export async function syncPartIdMappings(): Promise<{ processed: number; saved: 
   console.log(`[Part Mappings] Done: ${saved}/${rows.length} saved.`);
   return { processed: rows.length, saved };
 }
+
+// ── Minifig BL ID resolver ────────────────────────────────────────────────────
+// Sister of syncPartIdMappings, but for minifigs.
+// BrickLink minifig item numbers (sw0001a, cty0966, col451…) do NOT match
+// Rebrickable fig_num (fig-008609). Rebrickable's minifig API exposes the
+// mapping under external_ids.BrickLink. We persist it into the same
+// part_id_mappings table so it can be joined just like part mappings.
+//
+// Scoped to minifigs that actually appear in any synced set's parts list
+// (set_part_relationships LIKE 'fig-%'), so the work is bounded — typically
+// a few thousand entries instead of all ~14k Rebrickable minifigs.
+//
+// Self-throttling: only processes fig_nums NOT yet in part_id_mappings.
+export async function syncMinifigIdMappings(): Promise<{ processed: number; saved: number }> {
+  if (!REBRICKABLE_API_KEY) return { processed: 0, saved: 0 };
+
+  const unmapped = await db.execute(sql`
+    SELECT DISTINCT part_num AS "figNum"
+    FROM   set_part_relationships
+    WHERE  part_num LIKE 'fig-%'
+      AND  part_num NOT IN (
+        SELECT rebrickable_id FROM part_id_mappings WHERE rebrickable_id LIKE 'fig-%'
+      )
+  `) as any;
+
+  const rows: Array<{ figNum: string }> = unmapped.rows ?? unmapped;
+  if (rows.length === 0) {
+    console.log('[Minifig Mappings] All minifigs already mapped.');
+    return { processed: 0, saved: 0 };
+  }
+
+  console.log(`[Minifig Mappings] Resolving BrickLink IDs for ${rows.length} minifig(s)…`);
+  let saved = 0;
+
+  for (const { figNum } of rows) {
+    try {
+      const res = await axios.get(
+        `${REBRICKABLE_API_BASE}/lego/minifigs/${encodeURIComponent(figNum)}/`,
+        { params: { key: REBRICKABLE_API_KEY }, timeout: 10000 }
+      );
+      const blIds: string[] = res.data?.external_ids?.BrickLink?.ext_ids ?? [];
+
+      if (blIds.length === 0) {
+        // Insert a placeholder keyed on rebrickable_id so we don't retry it
+        await db.insert(partIdMappings).values({ rebrickableId: figNum }).onConflictDoNothing();
+      } else {
+        for (const blId of blIds) {
+          await db.insert(partIdMappings).values({
+            blId,
+            rebrickableId: figNum,
+          }).onConflictDoNothing();
+        }
+        saved++;
+        console.log(`[Minifig Mappings] ✓ ${figNum} → BL:${blIds.join(',')}`);
+      }
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        await db.insert(partIdMappings).values({ rebrickableId: figNum }).onConflictDoNothing();
+      } else {
+        console.warn(`[Minifig Mappings] Lookup failed for ${figNum}:`, err.message);
+      }
+    }
+    await new Promise(r => setTimeout(r, 1200));
+  }
+
+  console.log(`[Minifig Mappings] Done: ${saved}/${rows.length} saved.`);
+  return { processed: rows.length, saved };
+}
