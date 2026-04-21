@@ -225,7 +225,7 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
       return sortDir === 'asc' ? cmp : -cmp;
     };
     return matches.slice().sort(compare);
-  }, [parts, search, sortBy, sortDir, sortSnapshot]);
+  }, [parts, search, sortBy, sortDir, sortSnapshot, typeFilter]);
 
   const toggleSort = (key: SortKey) => {
     if (sortBy === key) {
