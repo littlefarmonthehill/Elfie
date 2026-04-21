@@ -327,6 +327,20 @@ export const setPartOwned = pgTable("set_part_owned", {
 
 export type SetPartOwned = typeof setPartOwned.$inferSelect;
 
+// Rebrickable colors mapped to BrickLink color IDs.
+// `id` is the Rebrickable color id (used by set_part_relationships.color_id).
+// `blColorId` is the matching BrickLink color id (used by bl_inventory.color_id).
+// Populated from the Rebrickable colors API which exposes `external_ids.BrickLink`.
+export const rbColors = pgTable("rb_colors", {
+  id: integer("id").primaryKey(), // Rebrickable color id
+  name: text("name").notNull(),
+  rgb: text("rgb"),
+  isTrans: boolean("is_trans").notNull().default(false),
+  blColorId: integer("bl_color_id"), // mapped BrickLink color id (null if no mapping)
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+});
+export type RbColor = typeof rbColors.$inferSelect;
+
 // Rebrickable part-to-part relationships (type A = Alternate, M = Mold, P = Print, etc.)
 export const partRelationships = pgTable("part_relationships", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

@@ -1554,6 +1554,30 @@ router.post("/sync/rebrickable/set-parts", isApproved, asyncRoute(async (req: an
   res.json({ success: true, message: 'Rebrickable set-parts sync started', force });
 }));
 
+router.post("/sync/rebrickable/colors", isApproved, asyncRoute(async (req: any, res) => {
+  const { syncRebrickableColors, getRbColorsSyncIsRunning } = await import('../services/rebrickable.js');
+  if (getRbColorsSyncIsRunning()) {
+    return res.status(409).json({ success: false, error: 'Rebrickable colors sync already running' });
+  }
+  try {
+    const result = await syncRebrickableColors();
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}));
+
+router.post("/sync/rebrickable/set-minifigs", isApproved, asyncRoute(async (req: any, res) => {
+  const { syncRebrickableSetMinifigs, getMinifigSyncIsRunning } = await import('../services/rebrickable.js');
+  if (getMinifigSyncIsRunning()) {
+    return res.status(409).json({ success: false, error: 'Rebrickable minifig sync already running' });
+  }
+  syncRebrickableSetMinifigs().catch((err: any) => {
+    console.error('[Rebrickable Minifigs] Sync error:', err.message);
+  });
+  res.json({ success: true, message: 'Rebrickable set-minifigs sync started' });
+}));
+
 router.post("/sync/rebrickable/part-relationships", isApproved, asyncRoute(async (req: any, res) => {
   const { force = false } = req.body || {};
   const { syncRebrickablePartRelationships, getPartRelSyncIsRunning } = await import('../services/rebrickable.js');

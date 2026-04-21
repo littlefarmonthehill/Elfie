@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { setPartRelationships, partRelationships, syncMetadata, blInventory, PLATFORM_ORG_ID } from "@shared/schema";
+import { setPartRelationships, partRelationships, rbColors, syncMetadata, blInventory, PLATFORM_ORG_ID } from "@shared/schema";
 import type { InsertInventoryHistory } from "@shared/schema";
 import { sql, eq, and, inArray, isNotNull } from "drizzle-orm";
 import { recordInventoryChanges } from "./inventory-history";
@@ -440,6 +440,170 @@ export async function syncRebrickablePartRelationships(forceRefresh = false): Pr
     return { rowsInserted: records.length, newAlternates: newAlternateCount };
   } finally {
     partRelSyncRunning = false;
+  }
+}
+
+// ─── Rebrickable Colors Sync ─────────────────────────────────────────────────
+// Pulls color metadata from the Rebrickable API and stores the BrickLink
+// mapping in `rb_colors`. Required for set-composition matching because
+// `set_part_relationships.color_id` uses Rebrickable IDs while
+// `bl_inventory.color_id` uses BrickLink IDs (they only partially overlap).
+let colorsSyncRunning = false;
+export function getRbColorsSyncIsRunning() { return colorsSyncRunning; }
+
+export async function syncRebrickableColors(): Promise<{ inserted: number; mapped: number }> {
+  if (colorsSyncRunning) throw new Error('Rebrickable colors sync already running');
+  const apiKey = process.env.REBRICKABLE_API_KEY;
+  if (!apiKey) throw new Error('REBRICKABLE_API_KEY not set');
+
+  colorsSyncRunning = true;
+  try {
+    console.log('[RbColors] Fetching colors from Rebrickable API…');
+    const fetchPage = (url: string): Promise<any> =>
+      new Promise((resolve, reject) => {
+        const req = https.get(url, (res) => {
+          let data = '';
+          res.on('data', (c) => { data += c; });
+          res.on('end', () => {
+            if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
+            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout')); });
+      });
+
+    const rows: { id: number; name: string; rgb: string | null; isTrans: boolean; blColorId: number | null }[] = [];
+    let url: string | null = `https://rebrickable.com/api/v3/lego/colors/?key=${apiKey}&page_size=300`;
+    while (url) {
+      const json: any = await fetchPage(url);
+      for (const c of json.results ?? []) {
+        const blIds: number[] = c.external_ids?.BrickLink?.ext_ids ?? [];
+        rows.push({
+          id: c.id,
+          name: c.name || `Color ${c.id}`,
+          rgb: c.rgb || null,
+          isTrans: !!c.is_trans,
+          blColorId: blIds[0] ?? null,
+        });
+      }
+      url = json.next || null;
+    }
+
+    console.log(`[RbColors] Upserting ${rows.length} colors…`);
+    await db.delete(rbColors);
+    if (rows.length > 0) {
+      const BATCH = 200;
+      for (let i = 0; i < rows.length; i += BATCH) {
+        await db.insert(rbColors).values(rows.slice(i, i + BATCH));
+      }
+    }
+    const mapped = rows.filter(r => r.blColorId != null).length;
+    console.log(`[RbColors] Done. ${rows.length} colors, ${mapped} mapped to BrickLink.`);
+    return { inserted: rows.length, mapped };
+  } finally {
+    colorsSyncRunning = false;
+  }
+}
+
+// ─── Rebrickable Set Minifigs Sync ───────────────────────────────────────────
+// Streams `inventory_minifigs.csv` and inserts each minifig as an additional
+// "part" row in `set_part_relationships` with `part_num = "fig-XXXXX"` and
+// `color_id = NULL`.  This makes minifigs appear in the Set Completion view.
+let minifigSyncRunning = false;
+export function getMinifigSyncIsRunning() { return minifigSyncRunning; }
+
+export async function syncRebrickableSetMinifigs(): Promise<{ inserted: number }> {
+  if (minifigSyncRunning) throw new Error('Rebrickable minifig sync already running');
+  if (isRunning) throw new Error('Set-parts sync is currently running; try again shortly');
+  minifigSyncRunning = true;
+  try {
+    console.log('[RbMinifigs] Loading set name + inventory→set maps…');
+    // Reuse the existing CSVs to map inventory_id → set_num and set_num → set_name
+    const setNamesMap = new Map<string, string>();
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream('https://cdn.rebrickable.com/media/downloads/sets.csv.gz');
+        const parser = parse({ columns: true, skip_empty_lines: true, trim: true });
+        parser.on('data', (r: any) => { if (r.set_num && r.name) setNamesMap.set(r.set_num, r.name); });
+        parser.on('end', () => resolve());
+        parser.on('error', reject);
+        stream.pipe(createGunzip()).pipe(parser);
+        stream.on('error', reject);
+      } catch (e) { reject(e); }
+    });
+
+    const inventoryMap = new Map<string, string>();
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream('https://cdn.rebrickable.com/media/downloads/inventories.csv.gz');
+        const parser = parse({ columns: true, skip_empty_lines: true, trim: true });
+        parser.on('data', (r: any) => { if (r.id && r.set_num) inventoryMap.set(r.id, r.set_num); });
+        parser.on('end', () => resolve());
+        parser.on('error', reject);
+        stream.pipe(createGunzip()).pipe(parser);
+        stream.on('error', reject);
+      } catch (e) { reject(e); }
+    });
+
+    console.log(`[RbMinifigs] Maps built (${setNamesMap.size} sets, ${inventoryMap.size} inventories). Removing prior minifig rows…`);
+    // Idempotent: clear out previously imported minifig rows so re-runs don't duplicate
+    await db.execute(sql`DELETE FROM set_part_relationships WHERE part_num LIKE 'fig-%'`);
+
+    console.log('[RbMinifigs] Streaming inventory_minifigs.csv…');
+    let inserted = 0;
+    let batch: any[] = [];
+    const BATCH_SIZE = 1000;
+
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream('https://cdn.rebrickable.com/media/downloads/inventory_minifigs.csv.gz');
+        const parser = parse({ columns: true, skip_empty_lines: true, trim: true });
+
+        parser.on('data', async (record: any) => {
+          const setNum = inventoryMap.get(record.inventory_id);
+          const fig = record.fig_num;
+          if (!setNum || !fig) return;
+          batch.push({
+            setNum,
+            setName: setNamesMap.get(setNum) || null,
+            partNum: fig,
+            colorId: null,
+            quantity: parseInt(record.quantity) || 1,
+          });
+          if (batch.length >= BATCH_SIZE) {
+            parser.pause();
+            try {
+              await db.insert(setPartRelationships).values(batch);
+              inserted += batch.length;
+              batch = [];
+              parser.resume();
+            } catch (err) {
+              parser.destroy();
+              reject(err);
+            }
+          }
+        });
+
+        parser.on('end', async () => {
+          if (batch.length > 0) {
+            try {
+              await db.insert(setPartRelationships).values(batch);
+              inserted += batch.length;
+            } catch (err) { return reject(err); }
+          }
+          resolve();
+        });
+        parser.on('error', reject);
+        stream.pipe(createGunzip()).pipe(parser);
+        stream.on('error', reject);
+      } catch (err) { reject(err); }
+    });
+
+    console.log(`[RbMinifigs] Inserted ${inserted} minifig rows into set_part_relationships.`);
+    return { inserted };
+  } finally {
+    minifigSyncRunning = false;
   }
 }
 

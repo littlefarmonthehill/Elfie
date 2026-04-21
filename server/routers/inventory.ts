@@ -1591,6 +1591,16 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     console.log(`[set-composition] No match for "${setNoRaw}" (tried ${exactCandidates.join(', ')} and ${stripped}-%)`);
   }
 
+  // Composition query
+  //
+  // Color mapping: `set_part_relationships.color_id` is a Rebrickable color id
+  // while `bl_inventory.color_id` is a BrickLink color id (only partly aligned).
+  // We translate via `rb_colors.bl_color_id` and fall back to the raw id when
+  // no mapping exists (early-life data or pre-color-sync orgs).
+  //
+  // Bin & lot aggregation are computed in *separate* CTEs because joining
+  // `inventory_locations` directly into the inventory aggregation multiplies
+  // rows (a single lot in 2 bins would have inflated SUM/COUNT).
   const rowsResult = await db.execute<{
     part_num: string;
     color_id: number | null;
@@ -1606,23 +1616,40 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     bin_names: string | null;
     set_owned: number;
   }>(sql`
-    WITH inv_agg AS (
-      SELECT
-        inv.item_no,
-        inv.color_id,
-        SUM(inv.quantity)::int AS qty,
-        COUNT(inv.id)::int     AS lots,
-        array_agg(inv.id)      AS ids,
-        STRING_AGG(DISTINCT wb.name, ', ' ORDER BY wb.name) AS bin_names
+    WITH set_rows AS (
+      SELECT sp.part_num,
+             sp.color_id                              AS rb_color_id,
+             sp.quantity::int                         AS needed,
+             COALESCE(rc.bl_color_id, sp.color_id)    AS bl_color_id
+      FROM set_part_relationships sp
+      LEFT JOIN rb_colors rc ON rc.id = sp.color_id
+      WHERE sp.set_num = ${setNo}
+    ),
+    inv_agg AS (
+      SELECT inv.item_no, inv.color_id,
+             SUM(inv.quantity)::int                   AS qty,
+             COUNT(inv.id)::int                       AS lots,
+             array_agg(inv.id)                        AS ids
       FROM bl_inventory inv
-      LEFT JOIN inventory_locations il
-        ON il.inventory_id = inv.id AND il.org_id = ${orgId}
-      LEFT JOIN wh_bins wb
-        ON wb.id = il.bin_id
       WHERE inv.org_id = ${orgId}
         AND inv.item_type = 'PART'
         AND COALESCE(inv.is_stock_room, false) = false
       GROUP BY inv.item_no, inv.color_id
+    ),
+    bin_agg AS (
+      SELECT il.inventory_id,
+             STRING_AGG(DISTINCT wb.name, ', ' ORDER BY wb.name) AS bins
+      FROM inventory_locations il
+      JOIN wh_bins wb ON wb.id = il.bin_id
+      WHERE il.org_id = ${orgId}
+      GROUP BY il.inventory_id
+    ),
+    inv_with_bins AS (
+      SELECT ia.item_no, ia.color_id, ia.qty, ia.lots, ia.ids,
+             (SELECT STRING_AGG(DISTINCT b.bins, ', ')
+              FROM unnest(ia.ids) AS x(id)
+              JOIN bin_agg b ON b.inventory_id = x.id) AS bin_names
+      FROM inv_agg ia
     ),
     set_own AS (
       SELECT part_num, color_id, owned_qty
@@ -1630,34 +1657,33 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       WHERE inventory_id = ${inventoryId ?? -1}
     )
     SELECT
-      sp.part_num,
-      sp.color_id,
-      sp.quantity::int                              AS needed,
+      sr.part_num,
+      sr.rb_color_id                                AS color_id,
+      sr.needed                                     AS needed,
       cat.item_name                                 AS part_name,
-      col.name                                      AS color_name,
-      col.rgb                                       AS color_rgb,
+      COALESCE(rc.name, blc.name)                   AS color_name,
+      COALESCE(rc.rgb, blc.rgb)                     AS color_rgb,
       cat.thumbnail_url                             AS thumbnail_url,
       cat.stored_image_key                          AS stored_image_key,
-      COALESCE(ia.qty, 0)::int                      AS inv_qty,
-      COALESCE(ia.lots, 0)::int                     AS inv_lots,
-      COALESCE(ia.ids, '{}')                        AS inv_ids,
-      ia.bin_names                                  AS bin_names,
+      COALESCE(iwb.qty, 0)::int                     AS inv_qty,
+      COALESCE(iwb.lots, 0)::int                    AS inv_lots,
+      COALESCE(iwb.ids, '{}')                       AS inv_ids,
+      iwb.bin_names                                 AS bin_names,
       COALESCE(so.owned_qty, 0)::int                AS set_owned
-    FROM set_part_relationships sp
+    FROM set_rows sr
+    LEFT JOIN rb_colors rc  ON rc.id   = sr.rb_color_id
+    LEFT JOIN bl_colors blc ON blc.id  = sr.bl_color_id
     LEFT JOIN bl_catalog cat
-      ON cat.item_no = sp.part_num
+      ON cat.item_no = sr.part_num
      AND cat.item_type = 'PART'
-     AND cat.color_id = COALESCE(sp.color_id, 0)
-    LEFT JOIN bl_colors col
-      ON col.id = sp.color_id
-    LEFT JOIN inv_agg ia
-      ON ia.item_no = sp.part_num
-     AND ia.color_id IS NOT DISTINCT FROM sp.color_id
+     AND cat.color_id = COALESCE(sr.bl_color_id, 0)
+    LEFT JOIN inv_with_bins iwb
+      ON iwb.item_no = sr.part_num
+     AND iwb.color_id IS NOT DISTINCT FROM sr.bl_color_id
     LEFT JOIN set_own so
-      ON so.part_num = sp.part_num
-     AND so.color_id = COALESCE(sp.color_id, 0)
-    WHERE sp.set_num = ${setNo}
-    ORDER BY sp.color_id NULLS LAST, sp.part_num
+      ON so.part_num = sr.part_num
+     AND so.color_id = COALESCE(sr.rb_color_id, 0)
+    ORDER BY sr.rb_color_id NULLS LAST, sr.part_num
   `);
 
   const rows: any[] = Array.isArray(rowsResult) ? rowsResult : (rowsResult as any)?.rows ?? [];
