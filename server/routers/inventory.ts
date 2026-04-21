@@ -1611,25 +1611,36 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     thumbnail_url: string | null;
     stored_image_key: string | null;
     inv_qty: number;
+    inv_qty_new: number;
+    inv_qty_used: number;
     inv_lots: number;
     inv_ids: number[] | null;
     bin_names: string | null;
     set_owned: number;
   }>(sql`
     WITH set_rows AS (
+      -- Aggregate by (part_num, color_id) so we get exactly one row per
+      -- part+color in the set. This collapses two cases into one:
+      --   (a) Rebrickable's CSV legitimately splits a part+color across
+      --       multiple rows (regular vs. spare), and
+      --   (b) historical duplicate inserts in set_part_relationships from
+      --       sync runs that didn't truncate first.
+      -- Without this aggregation a single part+color shows up 2-12 times
+      -- in the dialog with the per-row quantity instead of the true total.
       SELECT sp.part_num,
              sp.color_id                              AS rb_color_id,
-             sp.quantity::int                         AS needed,
-             COALESCE(rc.bl_color_id, sp.color_id)    AS bl_color_id
+             SUM(sp.quantity)::int                    AS needed,
+             COALESCE(MAX(rc.bl_color_id), sp.color_id) AS bl_color_id
       FROM set_part_relationships sp
       LEFT JOIN rb_colors rc ON rc.id = sp.color_id
       WHERE sp.set_num = ${setNo}
+      GROUP BY sp.part_num, sp.color_id
     ),
     -- Filter inventory to ONLY the part numbers in this set BEFORE aggregating.
     -- Without this, we aggregate the entire org's inventory (tens of thousands
     -- of rows) and the query takes 100+ seconds on a real warehouse.
     inv_filtered AS (
-      SELECT inv.id, inv.item_no, inv.color_id, inv.quantity
+      SELECT inv.id, inv.item_no, inv.color_id, inv.quantity, inv.new_or_used
       FROM bl_inventory inv
       WHERE inv.org_id = ${orgId}
         AND inv.item_type = 'PART'
@@ -1638,9 +1649,11 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     ),
     inv_agg AS (
       SELECT item_no, color_id,
-             SUM(quantity)::int   AS qty,
-             COUNT(id)::int       AS lots,
-             array_agg(id)        AS ids
+             SUM(quantity)::int                                                  AS qty,
+             SUM(CASE WHEN new_or_used = 'N' THEN quantity ELSE 0 END)::int      AS qty_new,
+             SUM(CASE WHEN new_or_used = 'U' THEN quantity ELSE 0 END)::int      AS qty_used,
+             COUNT(id)::int                                                      AS lots,
+             array_agg(id)                                                       AS ids
       FROM inv_filtered
       GROUP BY item_no, color_id
     ),
@@ -1654,7 +1667,7 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       GROUP BY il.inventory_id
     ),
     inv_with_bins AS (
-      SELECT ia.item_no, ia.color_id, ia.qty, ia.lots, ia.ids,
+      SELECT ia.item_no, ia.color_id, ia.qty, ia.qty_new, ia.qty_used, ia.lots, ia.ids,
              (SELECT STRING_AGG(DISTINCT b.bins, ', ')
               FROM unnest(ia.ids) AS x(id)
               JOIN bin_agg b ON b.inventory_id = x.id) AS bin_names
@@ -1683,6 +1696,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
       COALESCE(cat.thumbnail_url, ca.thumbnail_url) AS thumbnail_url,
       COALESCE(cat.stored_image_key, ca.stored_image_key) AS stored_image_key,
       COALESCE(iwb.qty, 0)::int                     AS inv_qty,
+      COALESCE(iwb.qty_new, 0)::int                 AS inv_qty_new,
+      COALESCE(iwb.qty_used, 0)::int                AS inv_qty_used,
       COALESCE(iwb.lots, 0)::int                    AS inv_lots,
       COALESCE(iwb.ids, '{}')                       AS inv_ids,
       iwb.bin_names                                 AS bin_names,
@@ -1712,6 +1727,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     needed: Number(r.needed) || 0,
     setOwned: Number(r.set_owned) || 0,
     invQty: Number(r.inv_qty) || 0,
+    invQtyNew: Number(r.inv_qty_new) || 0,
+    invQtyUsed: Number(r.inv_qty_used) || 0,
     invLots: Number(r.inv_lots) || 0,
     binNames: r.bin_names || null,
     partName: r.part_name,

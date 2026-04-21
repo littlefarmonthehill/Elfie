@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Layers, Search, Package, AlertTriangle, CheckCircle2, Copy, MapPin, ShoppingCart, Minus, Plus, ArrowUp, ArrowDown, ArrowUpDown, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -13,6 +14,8 @@ interface CompositionPart {
   needed: number;
   setOwned: number;
   invQty: number;
+  invQtyNew: number;
+  invQtyUsed: number;
   invLots: number;
   binNames: string | null;
   partName: string | null;
@@ -491,12 +494,17 @@ export default function SetCompositionDialog({ open, onOpenChange, setNo, setNam
                       <p className="text-[10px] text-gray-400 truncate mt-0.5">
                         {p.partName || (fig ? 'Minifig' : 'Unknown part')}
                       </p>
-                      {(p.invLots > 0 || p.binNames) && (
-                        <div className="flex items-center gap-2 text-[9px] text-gray-500 mt-0.5 flex-wrap">
-                          {p.invLots > 0 && (
-                            <span className="font-mono">
-                              {p.invLots} lot{p.invLots === 1 ? '' : 's'} · {p.invQty} loose
-                            </span>
+                      {p.invQty > 0 && (
+                        <div className="flex items-center gap-1.5 text-[9px] text-gray-500 mt-0.5 flex-wrap">
+                          {p.invQtyNew > 0 && (
+                            <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[9px] font-mono" data-testid={`badge-new-${p.partNum}-${p.colorId ?? 'nc'}`}>
+                              N {p.invQtyNew}
+                            </Badge>
+                          )}
+                          {p.invQtyUsed > 0 && (
+                            <Badge variant="outline" className="px-1.5 py-0 h-4 text-[9px] font-mono" data-testid={`badge-used-${p.partNum}-${p.colorId ?? 'nc'}`}>
+                              U {p.invQtyUsed}
+                            </Badge>
                           )}
                           {p.binNames && (
                             <span className="flex items-center gap-0.5 truncate max-w-[180px]">
