@@ -1588,7 +1588,7 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
     console.log(`[set-composition] No match for "${setNoRaw}" (tried ${exactCandidates.join(', ')} and ${stripped}-%)`);
   }
 
-  const rows = await db.execute<{
+  const rowsResult = await db.execute<{
     part_num: string;
     color_id: number | null;
     needed: number;
@@ -1634,7 +1634,8 @@ router.get("/inventory/sets/:setNo/composition", isApproved, asyncRoute(async (r
              sp.color_id NULLS LAST, sp.part_num
   `);
 
-  const parts = (rows as any[]).map(r => ({
+  const rows: any[] = Array.isArray(rowsResult) ? rowsResult : (rowsResult as any)?.rows ?? [];
+  const parts = rows.map(r => ({
     partNum: r.part_num,
     colorId: r.color_id,
     needed: Number(r.needed) || 0,
