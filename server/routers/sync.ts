@@ -1554,6 +1554,23 @@ router.post("/sync/rebrickable/set-parts", isApproved, asyncRoute(async (req: an
   res.json({ success: true, message: 'Rebrickable set-parts sync started', force });
 }));
 
+// Unified Rebrickable lane: Colors → Set Parts → Set Minifigs
+router.post("/sync/rebrickable/all", isApproved, asyncRoute(async (req: any, res) => {
+  const { force = false } = req.body || {};
+  const { syncRebrickableAll, getRebrickableAllRunning } = await import('../services/rebrickable.js');
+  if (getRebrickableAllRunning()) {
+    return res.status(409).json({ success: false, error: 'Rebrickable sync already running' });
+  }
+  syncRebrickableAll(force).catch((err: any) => {
+    console.error('[Rebrickable Lane] Failed:', err.message);
+  });
+  res.json({
+    success: true,
+    message: force ? 'Full Rebrickable rebuild started — this will take 5–10 minutes.' : 'Rebrickable sync started — this will take 2–4 minutes.',
+    force,
+  });
+}));
+
 router.post("/sync/rebrickable/colors", isApproved, asyncRoute(async (req: any, res) => {
   const { syncRebrickableColors, getRbColorsSyncIsRunning } = await import('../services/rebrickable.js');
   if (getRbColorsSyncIsRunning()) {

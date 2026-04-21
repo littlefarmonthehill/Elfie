@@ -60,9 +60,9 @@ async function checkAndRunRebrickableSync() {
     // Lock in-memory before launching so subsequent ticks in this session skip
     _firedMonthKey = nowMonthKey;
 
-    console.log('[Rebrickable Scheduler] Starting monthly set-parts sync...');
-    const { syncRebrickableSetParts, getRebrickableSyncIsRunning } = await import('./rebrickable.js');
-    if (getRebrickableSyncIsRunning()) {
+    console.log('[Rebrickable Scheduler] Starting unified Rebrickable lane (incremental)…');
+    const { syncRebrickableAll, getRebrickableAllRunning } = await import('./rebrickable.js');
+    if (getRebrickableAllRunning()) {
       console.log('[Rebrickable Scheduler] Already running, skipping');
       return;
     }
@@ -70,7 +70,7 @@ async function checkAndRunRebrickableSync() {
     await db.update(syncMetadata)
       .set({ lastSyncTime: new Date(), lastSyncStatus: 'success' })
       .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID)));
-    syncRebrickableSetParts(false).catch((err: any) => {
+    syncRebrickableAll(false).catch((err: any) => {
       console.error('[Rebrickable Scheduler] Sync failed:', err.message);
     });
   } catch (error: any) {

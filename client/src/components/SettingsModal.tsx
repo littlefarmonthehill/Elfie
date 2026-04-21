@@ -11430,28 +11430,33 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <div className="space-y-3">
                           <p className="sm-hint px-1">Visual (CLIP) and text embeddings for search, AI, and catalog enrichment.</p>
 
+                          {/* ── Rebrickable Catalog (unified lane) ── */}
                           <div className="sm-card">
                             <button onClick={() => toggleJob('rb')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-rb-sched">
                               {statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="sm-label">Rebrickable Set Parts</p>
+                                  <p className="sm-label">Rebrickable Catalog</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</p>
-                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
-                                      <p><span className="text-gray-500 dark:text-gray-400">Schedule:</span> <span className="font-medium">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Disabled'}</span></p>
-                                    </div>
+                                    <p className="mb-1.5 font-semibold">Three-stage pipeline (runs in sequence)</p>
+                                    <ol className="list-decimal pl-4 space-y-1 mb-2">
+                                      <li><span className="font-medium">Colors</span> — color metadata + BrickLink id mapping (~5s)</li>
+                                      <li><span className="font-medium">Set Parts</span> — every part in every set (~3–5 min on full)</li>
+                                      <li><span className="font-medium">Minifigs</span> — minifig rosters per set (~2–4 min)</li>
+                                    </ol>
+                                    <p className="text-gray-500 mb-1"><span className="font-medium text-gray-400">Run Now (▶):</span> incremental — skips Set Parts if already populated; refreshes Colors and Minifigs.</p>
+                                    <p className="text-gray-500"><span className="font-medium text-gray-400">Force Rebuild:</span> truncates and re-streams everything from scratch.</p>
                                   </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).color}`}>{statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
+                                <p className="sm-hint">Colors · Set Parts · Minifigs · {rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="sm" variant="outline" disabled={rbActive} onClick={(e) => { e.stopPropagation(); runManualSync('/api/sync/rebrickable/set-parts', () => {}, 'RbSetParts', { force: true }, 'Rebuilding set parts', 'Truncating and re-downloading the full set-parts table — this takes ~3–5 minutes.'); }} className="border-orange-500/40 text-orange-400 hover:text-orange-300 text-xs" data-testid="button-rb-force-rebuild-sched">
+                                <Button size="sm" variant="outline" disabled={rbActive} onClick={(e) => { e.stopPropagation(); runManualSync('/api/sync/rebrickable/all', () => {}, 'RbLane', { force: true }, 'Rebuilding Rebrickable catalog', 'Full rebuild started — colors, set-parts, and minifigs. This will take 5–10 minutes.'); }} className="border-orange-500/40 text-orange-400 hover:text-orange-300 text-xs" data-testid="button-rb-force-rebuild-sched">
                                   <RefreshCw className="h-3.5 w-3.5 mr-1" />
                                   Force Rebuild
                                 </Button>
-                                <Button size="icon" variant="ghost" disabled={rbActive} onClick={(e) => { e.stopPropagation(); handleTrigger('rebrickable_set_parts'); }} title="Run now" data-testid="button-trigger-rb-sched">
+                                <Button size="icon" variant="ghost" disabled={rbActive} onClick={(e) => { e.stopPropagation(); runManualSync('/api/sync/rebrickable/all', () => {}, 'RbLane', undefined, 'Rebrickable sync started', 'Running incremental sync — colors, then set-parts (skipped if populated), then minifigs.'); }} title="Run now (incremental)" data-testid="button-trigger-rb-sched">
                                   {rbActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                 </Button>
                                 {isExpanded('rb') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
@@ -11461,62 +11466,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             {isExpanded('rb') && (
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
-                                  <span className="sm-label">Enabled</span>
+                                  <span className="sm-label">Scheduled (incremental)</span>
                                   <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
                                   <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time-sched" />
                                 </div>
+                                <p className="sm-hint">Scheduler runs the incremental lane once per month at this time. Use <span className="text-orange-400 font-medium">Force Rebuild</span> from the header to trigger a full rebuild manually.</p>
                                 {((rbJob?.recordsAdded ?? 0) > 0 || (rbJob?.recordsUpdated ?? 0) > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob?.recordsAdded ?? 0} added · {rbJob?.recordsUpdated ?? 0} updated</p>
                                 )}
                               </div>
                             )}
-                          </div>
-
-                          {/* ── Rebrickable Colors (on-demand) ── */}
-                          <div className="sm-card">
-                            <div className="w-full px-4 py-3 flex items-center gap-3">
-                              <div className="h-2 w-2 rounded-full bg-sky-500/70 shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="sm-label">Rebrickable Colors</p>
-                                  <Popover><PopoverTrigger asChild><span className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3">
-                                    <p className="mb-1.5">Pulls all color metadata from the Rebrickable API including the BrickLink color id mapping. Required for the Set Completion view to translate Rebrickable colors to your BrickLink inventory and to display the correct color names.</p>
-                                    <p className="text-gray-500 mt-1">Quick (~2–5 seconds). Re-runs are safe and idempotent.</p>
-                                  </PopoverContent></Popover>
-                                </div>
-                                <p className="sm-hint">On-demand · Maps Rebrickable color ids → BrickLink color ids</p>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={syncingRbColors} onClick={() => runManualSync('/api/sync/rebrickable/colors', setSyncingRbColors, 'RbColors', undefined, 'Color sync started', 'Pulling color metadata from Rebrickable.')} title="Run now" data-testid="button-trigger-rb-colors-sched">
-                                  {syncingRbColors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* ── Rebrickable Set Minifigs (on-demand) ── */}
-                          <div className="sm-card">
-                            <div className="w-full px-4 py-3 flex items-center gap-3">
-                              <div className="h-2 w-2 rounded-full bg-sky-500/70 shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="sm-label">Rebrickable Set Minifigs</p>
-                                  <Popover><PopoverTrigger asChild><span className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3">
-                                    <p className="mb-1.5">Streams Rebrickable's <code>inventory_minifigs.csv</code> and inserts each minifig as a <code>fig-XXXXX</code> row in the set-parts table. Without this, the Set Completion view is missing every set's minifigs.</p>
-                                    <p className="text-gray-500 mt-1">~2–4 minutes. Re-runs are safe — prior <code>fig-%</code> rows are cleared first.</p>
-                                  </PopoverContent></Popover>
-                                </div>
-                                <p className="sm-hint">On-demand · Adds minifigs to the Set Completion view</p>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={syncingRbMinifigs} onClick={() => runManualSync('/api/sync/rebrickable/set-minifigs', setSyncingRbMinifigs, 'RbMinifigs', undefined, 'Minifig sync started', 'Streaming inventory_minifigs.csv in the background.')} title="Run now" data-testid="button-trigger-rb-minifigs-sched">
-                                  {syncingRbMinifigs ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                                </Button>
-                              </div>
-                            </div>
                           </div>
 
                           {/* ── Part Relationships (on-demand) ── */}

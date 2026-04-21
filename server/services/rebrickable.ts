@@ -615,6 +615,90 @@ export async function syncRebrickableSetMinifigs(): Promise<{ inserted: number }
   }
 }
 
+// ─── Rebrickable Unified Lane ────────────────────────────────────────────────
+// Runs Colors → Set Parts → Set Minifigs in sequence as a single pipeline,
+// mirroring how the BrickLink Inventory sync chains Colors → Categories →
+// Inventory. Status is reported under the existing `rebrickable_set_parts`
+// sync_metadata row so the schedule + UI continue to work unchanged.
+//
+// `force = false` (incremental):
+//   • Colors  → always re-pull (~5s, small + idempotent)
+//   • Sets    → skipped if already populated (no API call needed)
+//   • Minifigs→ always re-run (clears + re-inserts fig-% rows, ~2–4 min)
+//
+// `force = true` (full rebuild):
+//   • Truncates set_part_relationships and re-streams all CSVs.
+let allLaneRunning = false;
+export function getRebrickableAllRunning() {
+  return allLaneRunning || isRunning || colorsSyncRunning || minifigSyncRunning;
+}
+
+export async function syncRebrickableAll(force = false): Promise<{
+  colors: { inserted: number; mapped: number };
+  setParts: RebrickableSyncResult;
+  minifigs: { inserted: number };
+}> {
+  if (allLaneRunning) throw new Error('Rebrickable lane is already running');
+  allLaneRunning = true;
+
+  // Stamp in_progress on the canonical sync row up front so the UI shows it.
+  await db.insert(syncMetadata).values({
+    id: SYNC_ID,
+    lastSyncStatus: 'in_progress',
+    lastSyncTime: new Date(),
+    recordsAdded: 0,
+    recordsUpdated: 0,
+    orgId: ORG_ID,
+  }).onConflictDoUpdate({
+    target: syncMetadata.id,
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
+  });
+
+  const t0 = Date.now();
+  try {
+    console.log(`[RbLane] ▶ Starting unified Rebrickable sync (force=${force})…`);
+
+    console.log('[RbLane] ① Colors…');
+    const colors = await syncRebrickableColors();
+
+    console.log('[RbLane] ② Set Parts…');
+    const setParts = await syncRebrickableSetParts(force);
+
+    console.log('[RbLane] ③ Set Minifigs…');
+    const minifigs = await syncRebrickableSetMinifigs();
+
+    const totalRows = colors.inserted + setParts.partsProcessed + minifigs.inserted;
+    const elapsedMs = Date.now() - t0;
+    console.log(`[RbLane] ✓ Done in ${(elapsedMs / 1000).toFixed(1)}s — colors:${colors.inserted}, set-parts:${setParts.partsProcessed}, minifigs:${minifigs.inserted}`);
+
+    await db.update(syncMetadata)
+      .set({
+        lastSyncStatus: 'success',
+        lastSyncTime: new Date(),
+        recordsAdded: force ? totalRows : 0,
+        recordsUpdated: totalRows,
+        updatedAt: new Date(),
+        errorMessage: null,
+      })
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID)));
+
+    return { colors, setParts, minifigs };
+  } catch (err: any) {
+    console.error('[RbLane] ✗ Failed:', err?.message);
+    await db.update(syncMetadata)
+      .set({
+        lastSyncStatus: 'error',
+        lastSyncTime: new Date(),
+        updatedAt: new Date(),
+        errorMessage: err?.message?.slice(0, 500) || 'Unknown error',
+      })
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID)));
+    throw err;
+  } finally {
+    allLaneRunning = false;
+  }
+}
+
 // Helper function to create a download stream (follows redirects)
 function downloadStream(url: string): Promise<Readable> {
   return new Promise((resolve, reject) => {
