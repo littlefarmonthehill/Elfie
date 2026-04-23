@@ -696,7 +696,6 @@ export async function printLotLabels(
       condStr || null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    let L2_cursor = TEXT_X;
     let qPt = qtyPt;
     if (prominentParts) {
       doc.setFont('helvetica', 'bold');
@@ -706,24 +705,24 @@ export async function printLotLabels(
         qPt -= 0.25;
         doc.setFontSize(qPt);
       }
-      doc.text(prominentParts, L2_cursor, ty);
-      L2_cursor += doc.getTextWidth(prominentParts);
+      doc.text(prominentParts, TEXT_X, ty);
     }
+    ty += qPt * 0.36 + lineGap;
 
+    // ── Line 3: OrderRef · Lot N — own line, dark gray ───────────────────────
     const refTail = [
       orderRef || null,
       item.inventoryId != null ? `Lot ${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
     if (refTail) {
-      const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(refPt);
       doc.setTextColor(40, 40, 40);
-      doc.text(sep + refTail, L2_cursor, ty);
+      doc.text(refTail, TEXT_X, ty);
+      ty += refPt * 0.36 + lineGap;
     }
-    ty += qPt * 0.36 + lineGap;
 
-    // ── Line 3+: Comment (italic over yellow highlight) ──────────────────────
+    // ── Line 4: Comment (italic over yellow highlight) ───────────────────────
     if (noteText) {
       const maxNoteLines = small ? 1 : 3;
       doc.setFont('helvetica', 'oblique');
