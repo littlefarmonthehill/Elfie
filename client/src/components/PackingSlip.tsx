@@ -564,12 +564,13 @@ export async function printLotLabels(
   // (landscape feed direction on the QL-800).
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
-  const LM      = 2.5;
-  const RM      = 2.5;
-  const TM      = 2;
-  const BM      = 2;
-  const SC_W    = preset.widthMm < 32 ? 9  : 12;   // shortcode column
-  const SC_GAP  = 1.5;
+  const small   = preset.widthMm < 32;   // 29-mm DK tapes get a tighter layout
+  const LM      = small ? 1.5 : 2.5;
+  const RM      = small ? 1.5 : 2.5;
+  const TM      = small ? 1   : 2;
+  const BM      = small ? 1   : 2;
+  const SC_W    = small ? 8   : 12;      // shortcode column
+  const SC_GAP  = small ? 1   : 1.5;
   const IMG_W   = preset.showImage ? Math.min(14, preset.widthMm - 6) : 0;
   const IMG_H   = IMG_W;
   const IMG_GAP = preset.showImage ? 2 : 0;
@@ -644,10 +645,16 @@ export async function printLotLabels(
     }
 
     // Text block — flowing Y cursor, starts a touch below top margin
-    let ty = TM + 2.5;
+    let ty = TM + (small ? 1 : 2.5);
+
+    // Per-section gap (smaller on the cramped 29-mm tape)
+    const GAP    = small ? 0.4 : 1.2;
+    const BIG_GAP = small ? 0.6 : 1.5;
+    const MAX_NAME_LINES = small ? 1 : 2;
+    const MAX_NOTE_LINES = small ? 1 : 3;
 
     // ── Part# — bold, matches picklist L1 ─────────────────────────────────────
-    const partBasePt = preset.widthMm < 32 ? 10 : 12;
+    const partBasePt = small ? 10 : 12;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
     let pSize = partBasePt;
@@ -657,22 +664,20 @@ export async function printLotLabels(
       doc.setFontSize(pSize);
     }
     doc.text(partStr, TEXT_X, ty + pSize * 0.36);
-    ty += pSize * 0.36 + 1.2;
+    ty += pSize * 0.36 + GAP;
 
     // ── Name — small gray, word-wrapped, matches picklist L1 ──────────────────
     if (item.itemName) {
       const name = cleanItemName(item.itemName, partStr);
-      const namePt = preset.widthMm < 32 ? 7.5 : 9;
-      const nameLineH = namePt * 0.42;
+      const namePt = small ? 7 : 9;
+      const nameLineH = namePt * 0.4;
       doc.setFontSize(namePt);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 100, 100);
-      const nameLines = (doc.splitTextToSize(name, TEXT_W) as string[]).slice(0, 2);
+      const nameLines = (doc.splitTextToSize(name, TEXT_W) as string[]).slice(0, MAX_NAME_LINES);
       nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + namePt * 0.32 + li * nameLineH));
-      ty += nameLines.length * nameLineH + 1.5;
+      ty += nameLines.length * nameLineH + BIG_GAP;
     }
-
-    ty += 1.5;  // gap before ×qty line
 
     // ── ×Qty · Color · Condition — bold, matches picklist L2 ──────────────────
     const prominentParts = [
@@ -682,7 +687,7 @@ export async function printLotLabels(
     ].filter(Boolean).join('  \u00b7  ');
 
     if (prominentParts) {
-      const qBasePt = preset.widthMm < 32 ? 9 : 11;
+      const qBasePt = small ? 9 : 11;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(25, 25, 25);
       let qSize = qBasePt;
@@ -692,36 +697,42 @@ export async function printLotLabels(
         doc.setFontSize(qSize);
       }
       doc.text(prominentParts, TEXT_X, ty + qSize * 0.36);
-      ty += qSize * 0.36 + 1.2;
+      ty += qSize * 0.36 + GAP;
     }
 
     // ── Order ref · Lot ID — gray, matches picklist L2 tail ───────────────────
+    // On the 29-mm tape this line is dropped (no vertical room) so the qty/
+    // color/condition stays the most prominent thing under the part #.
     const refLineParts = [
       orderRef || null,
       item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    if (refLineParts) {
-      const refPt = preset.widthMm < 32 ? 7 : 8;
+    if (refLineParts && !small) {
+      const refPt = 8;
       doc.setFontSize(refPt);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(60, 60, 60);
       doc.text(refLineParts, TEXT_X, ty + refPt * 0.36);
-      ty += refPt * 0.36 + 1.5;
+      ty += refPt * 0.36 + BIG_GAP;
     }
 
     // ── Comment — italic, yellow highlight, word-wrapped, matches picklist L3 ─
+    // Skipped if there's no vertical room left on the small tape.
     if (noteText) {
-      const cmtPt = preset.widthMm < 32 ? 7.5 : 9;
-      const CMT_LINE_H = cmtPt * 0.45;
-      doc.setFontSize(cmtPt);
-      doc.setFont('helvetica', 'oblique');
-      doc.setTextColor(40, 40, 40);
-      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, 3);
-      const hlH = noteLines.length * CMT_LINE_H + 1.2;
-      doc.setFillColor(255, 245, 100);
-      doc.rect(TEXT_X - 1, ty - 0.4, TEXT_W + 2, hlH, 'F');
-      noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + cmtPt * 0.32 + li * CMT_LINE_H));
+      const cmtPt = small ? 7 : 9;
+      const CMT_LINE_H = cmtPt * 0.42;
+      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, MAX_NOTE_LINES);
+      const hlH = noteLines.length * CMT_LINE_H + (small ? 0.6 : 1.2);
+      // Only draw if it fits in the remaining vertical space.
+      if (ty + hlH <= TM + LBL_CH) {
+        doc.setFontSize(cmtPt);
+        doc.setFont('helvetica', 'oblique');
+        doc.setTextColor(40, 40, 40);
+        doc.setFillColor(255, 245, 100);
+        doc.rect(TEXT_X - 1, ty - 0.4, TEXT_W + 2, hlH, 'F');
+        noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + cmtPt * 0.32 + li * CMT_LINE_H));
+      }
     }
 
     // ── Org name — tiny, bottom-right (suppressed on the smallest tapes) ─────
