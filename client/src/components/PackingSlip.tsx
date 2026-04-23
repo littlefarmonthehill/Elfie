@@ -559,22 +559,19 @@ export async function printLotLabels(
   // (landscape feed direction on the QL-800).
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
-  const tiny    = preset.widthMm < 22;   // 17-mm DK tapes (multi-purpose / file)
-  const small   = preset.widthMm < 32;   // 29-mm DK tapes
-  const LM      = tiny ? 1   : small ? 1.5 : 2.5;
-  const RM      = tiny ? 1   : small ? 1.5 : 2.5;
-  const TM      = tiny ? 0.8 : small ? 1   : 2;
-  const BM      = tiny ? 0.8 : small ? 1   : 2;
-  const SC_W    = tiny ? 6   : small ? 8   : 12;   // shortcode column
-  const SC_GAP  = tiny ? 0.8 : small ? 1   : 1.5;
+  const small   = preset.widthMm < 32;   // 29-mm and narrower DK tapes
+  // Margins kept minimal — printer's own unprintable border is the real edge.
+  const LM      = 0.5;
+  const RM      = 0.5;
+  const TM      = small ? 1 : 2;
+  const BM      = small ? 1 : 2;
+  const SC_W    = small ? 8 : 12;        // shortcode column
+  const SC_GAP  = small ? 1 : 1.5;
   const LBL_CH  = LBL_H - TM - BM;
-  // Square thumbnail. Tighter on tiny tapes so the text column gets more room.
-  const IMG_W   = preset.showImage
-    ? (tiny ? Math.max(6, Math.min(8,  LBL_CH - 2))
-            :         Math.max(6, Math.min(11, LBL_CH - 4)))
-    : 0;
+  // Square thumbnail: at most 14 mm wide, leaving ≥3 mm vertical padding.
+  const IMG_W   = preset.showImage ? Math.max(8, Math.min(14, LBL_CH - 3)) : 0;
   const IMG_H   = IMG_W;
-  const IMG_GAP = preset.showImage ? (tiny ? 0.8 : small ? 1.5 : 2) : 0;
+  const IMG_GAP = preset.showImage ? (small ? 1.5 : 2) : 0;
   const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
   const TEXT_W  = LBL_W - RM - TEXT_X;
 
