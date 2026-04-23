@@ -184,12 +184,7 @@ function LabelPreviewCard({
       )}
       {showImage && (
         <div className="w-8 h-8 rounded bg-muted shrink-0 overflow-hidden flex items-center justify-center">
-          {item.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt="" className="w-full h-full object-contain" />
-          ) : (
-            <span className="text-[8px] text-muted-foreground">img</span>
-          )}
+          <span className="text-[8px] text-muted-foreground">img</span>
         </div>
       )}
       <div className="flex-1 min-w-0 leading-tight">
