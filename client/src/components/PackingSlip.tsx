@@ -520,15 +520,27 @@ export interface LabelPreset {
   showImage: boolean;
 }
 
+// Brother QL series DK label catalog. Die-cut labels (DK-1xxx) have a fixed
+// length; continuous tape (DK-2xxx) is cut to the length below. Order roughly
+// matches Brother's catalog so the picker reads like P-touch / Lots-o-Matic.
 export const LABEL_PRESETS: LabelPreset[] = [
-  { id: 'dk-2210', label: '29 mm Continuous (DK-2210) — thinnest', widthMm: 29,   lengthMm: 70,   showImage: false },
-  { id: 'dk-1201', label: '29 × 90 mm Address (DK-1201)',          widthMm: 29,   lengthMm: 90,   showImage: false },
-  { id: 'dk-2225', label: '38 mm Continuous (DK-2225)',            widthMm: 38,   lengthMm: 70,   showImage: true  },
-  { id: 'dk-1208', label: '38 × 90 mm Address (DK-1208)',          widthMm: 38,   lengthMm: 90,   showImage: true  },
-  { id: 'dk-2205', label: '62 mm Continuous (DK-2205) — 3"×2"',    widthMm: 62,   lengthMm: 76.2, showImage: true  },
+  // Die-cut address / multi-purpose
+  { id: 'dk-1204', label: '17 × 54 mm Multi-purpose (DK-1204)',  widthMm: 17,   lengthMm: 54,    showImage: false },
+  { id: 'dk-1203', label: '17 × 87 mm File folder (DK-1203)',    widthMm: 17,   lengthMm: 87,    showImage: false },
+  { id: 'dk-1209', label: '29 × 62 mm Small address (DK-1209)',  widthMm: 29,   lengthMm: 62,    showImage: false },
+  { id: 'dk-1201', label: '29 × 90 mm Standard address (DK-1201)', widthMm: 29, lengthMm: 90,    showImage: false },
+  { id: 'dk-1208', label: '38 × 90 mm Large address (DK-1208)',  widthMm: 38,   lengthMm: 90,    showImage: true  },
+  { id: 'dk-1202', label: '62 × 100 mm Shipping (DK-1202)',      widthMm: 62,   lengthMm: 100,   showImage: true  },
+  { id: 'dk-1240', label: '102 × 51 mm Large multi (DK-1240)',   widthMm: 51,   lengthMm: 102,   showImage: true  },
+  { id: 'dk-1241', label: '102 × 152 mm Large shipping (DK-1241)', widthMm: 102, lengthMm: 152,  showImage: true  },
+  // Continuous tape (length is what we actually cut per label)
+  { id: 'dk-2210', label: '29 mm Continuous (DK-2210)',          widthMm: 29,   lengthMm: 70,    showImage: false },
+  { id: 'dk-2225', label: '38 mm Continuous (DK-2225)',          widthMm: 38,   lengthMm: 70,    showImage: true  },
+  { id: 'dk-2205', label: '62 mm Continuous (DK-2205)',          widthMm: 62,   lengthMm: 76.2,  showImage: true  },
+  { id: 'dk-2243', label: '102 mm Continuous (DK-2243)',         widthMm: 102,  lengthMm: 100,   showImage: true  },
 ];
 
-export const DEFAULT_LABEL_PRESET_ID = 'dk-2210';
+export const DEFAULT_LABEL_PRESET_ID = 'dk-1209';
 
 export function getLabelPreset(id: string | null | undefined): LabelPreset {
   return LABEL_PRESETS.find(p => p.id === id) ?? LABEL_PRESETS[0];
