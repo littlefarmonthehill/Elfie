@@ -703,13 +703,16 @@ export async function printLotLabels(
       L2_cursor += doc.getTextWidth(prominentParts);
     }
 
-    if (orderRef) {
-      const lotLabel = item.inventoryId != null ? `  \u00b7  Lot ${item.inventoryId}` : '';
+    const refTail = [
+      orderRef || null,
+      item.inventoryId != null ? `Lot ${item.inventoryId}` : null,
+    ].filter(Boolean).join('  \u00b7  ');
+    if (refTail) {
       const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(refPt);
       doc.setTextColor(40, 40, 40);
-      doc.text(sep + orderRef + lotLabel, L2_cursor, ty);
+      doc.text(sep + refTail, L2_cursor, ty);
     }
     ty += qPt * 0.36 + lineGap;
 
