@@ -579,21 +579,21 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem
-                        onClick={() => handlePrintPackingSlip(order.id)}
+                        onClick={(e) => { e.stopPropagation(); handlePrintPackingSlip(order.id); }}
                         data-testid={`menu-print-packing-slip-${order.orderNumber}`}
                       >
                         <FileText className="w-4 h-4 mr-2" />
                         Print Packing Slip
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handlePrintPicklistForOrder(order)}
+                        onClick={(e) => { e.stopPropagation(); handlePrintPicklistForOrder(order); }}
                         data-testid={`menu-print-picklist-${order.orderNumber}`}
                       >
                         <ClipboardList className="w-4 h-4 mr-2" />
                         Print Picklist
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handlePrintShippingLabel(order)}
+                        onClick={(e) => { e.stopPropagation(); handlePrintShippingLabel(order); }}
                         disabled={!order.labelUrl}
                         data-testid={`menu-print-shipping-label-${order.orderNumber}`}
                       >
@@ -601,14 +601,14 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         Print Shipping Label
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handlePrintLotLabels(order)}
+                        onClick={(e) => { e.stopPropagation(); handlePrintLotLabels(order); }}
                         data-testid={`menu-print-lot-labels-${order.orderNumber}`}
                       >
                         <Tag className="w-4 h-4 mr-2" />
                         Print Lot Labels
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handlePrintEodForm(order.id)}
+                        onClick={(e) => { e.stopPropagation(); handlePrintEodForm(order.id); }}
                         disabled={eodPending === order.id}
                         data-testid={`menu-print-eod-form-${order.orderNumber}`}
                       >
