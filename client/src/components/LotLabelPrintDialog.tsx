@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Tag, Printer, ChevronDown, ChevronUp } from "lucide-react";
+import { Tag, Printer } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,13 +10,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   LABEL_PRESETS,
   DEFAULT_LABEL_PRESET_ID,
   getLabelPreset,
   printLotLabels,
   buildShortCodeMap,
   type LotLabelItem,
-  type LabelPreset,
   type OrgBranding,
 } from "./PackingSlip";
 
@@ -35,16 +43,14 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
     return localStorage.getItem(PRESET_KEY) || DEFAULT_LABEL_PRESET_ID;
   });
   const [printing, setPrinting] = useState(false);
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(PRESET_KEY, presetId);
   }, [presetId]);
 
   const preset = getLabelPreset(presetId);
-  const visiblePresets = showAll ? LABEL_PRESETS : LABEL_PRESETS.filter(p => p.common);
-  const dieCut = visiblePresets.filter(p => p.kind === "die-cut");
-  const continuous = visiblePresets.filter(p => p.kind === "continuous");
+  const dieCut = LABEL_PRESETS.filter(p => p.kind === "die-cut");
+  const continuous = LABEL_PRESETS.filter(p => p.kind === "continuous");
 
   const codeMap = buildShortCodeMap(items.map(i => i.orderNumber).filter(Boolean) as string[]);
 
@@ -59,9 +65,13 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
     }
   };
 
+  const dim = preset.kind === "continuous"
+    ? `${preset.widthMm} mm continuous`
+    : `${preset.widthMm} × ${preset.lengthMm} mm`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto top-[max(1rem,env(safe-area-inset-top))] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
+      <DialogContent className="max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto top-[max(1rem,env(safe-area-inset-top))] translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Tag className="h-4 w-4 text-muted-foreground" />
@@ -73,42 +83,43 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label className="text-xs mb-2 block">Label media</Label>
-            <div className="flex flex-col gap-1.5">
-              {dieCut.length > 0 && (
-                <>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Die-cut labels</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="label-media-select" className="text-xs">Label media</Label>
+            <Select value={presetId} onValueChange={setPresetId}>
+              <SelectTrigger id="label-media-select" data-testid="select-lot-label-media">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Die-cut labels</SelectLabel>
                   {dieCut.map(p => (
-                    <PresetButton key={p.id} preset={p} active={presetId === p.id} onClick={() => setPresetId(p.id)} />
+                    <SelectItem key={p.id} value={p.id} data-testid={`option-lot-label-${p.id}`}>
+                      {p.sku} — {p.desc} ({p.widthMm} × {p.lengthMm} mm)
+                    </SelectItem>
                   ))}
-                </>
-              )}
-              {continuous.length > 0 && (
-                <>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-1">Continuous tape</p>
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Continuous tape</SelectLabel>
                   {continuous.map(p => (
-                    <PresetButton key={p.id} preset={p} active={presetId === p.id} onClick={() => setPresetId(p.id)} />
+                    <SelectItem key={p.id} value={p.id} data-testid={`option-lot-label-${p.id}`}>
+                      {p.sku} — {p.widthMm} mm continuous
+                    </SelectItem>
                   ))}
-                </>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAll(s => !s)}
-                className="self-start text-xs text-muted-foreground mt-1"
-                data-testid="button-toggle-all-labels"
-              >
-                {showAll ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                {showAll ? "Show fewer sizes" : "Show all sizes"}
-              </Button>
-            </div>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">
+              Saved as your default for next time.
+            </p>
           </div>
 
           <div>
-            <Label className="text-xs mb-2 block text-muted-foreground">
-              Preview (first {Math.min(4, items.length)} of {items.length})
-            </Label>
+            <div className="flex items-baseline justify-between mb-2">
+              <Label className="text-xs text-muted-foreground">
+                Preview (first {Math.min(4, items.length)} of {items.length})
+              </Label>
+              <span className="text-[10px] font-mono text-muted-foreground">{dim}</span>
+            </div>
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {items.slice(0, 4).map((item, i) => (
                 <LabelPreviewCard
@@ -145,40 +156,6 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function PresetButton({
-  preset,
-  active,
-  onClick,
-}: {
-  preset: LabelPreset;
-  active: boolean;
-  onClick: () => void;
-}) {
-  // Mirror the bin-label dialog's button style: name + small dimensions on the right.
-  const dim = preset.kind === "continuous"
-    ? `${preset.widthMm} mm`
-    : `${preset.widthMm} × ${preset.lengthMm} mm`;
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 ${
-        active ? "border-primary bg-primary/10 text-primary" : "border-border hover-elevate"
-      }`}
-      data-testid={`button-lot-label-preset-${preset.id}`}
-    >
-      <div>
-        <div className="font-semibold">{preset.sku}</div>
-        <div className={`mt-0.5 ${active ? "text-primary/70" : "text-muted-foreground"}`}>
-          {preset.desc}
-        </div>
-      </div>
-      <div className={`text-[10px] font-mono shrink-0 ${active ? "text-primary/60" : "text-muted-foreground"}`}>
-        {dim}
-      </div>
-    </button>
   );
 }
 
