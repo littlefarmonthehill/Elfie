@@ -651,15 +651,15 @@ export async function printLotLabels(
     //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
     //   L3: italic note over a yellow highlight rect
     // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
-    const partPt = tiny ? 6   : small ? 8   : 10;
-    const namePt = tiny ? 4.5 : small ? 5.5 : 7.5;
-    const qtyPt  = tiny ? 5.5 : small ? 7   : 9;
-    const refPt  = tiny ? 4.5 : small ? 5.5 : 6.5;
-    const notePt = tiny ? 4.5 : small ? 5.5 : 7.5;
+    const partPt = small ? 10 : 12;
+    const namePt = small ? 7  : 9;
+    const qtyPt  = small ? 9  : 11;
+    const refPt  = small ? 7  : 8;
+    const notePt = small ? 7  : 9;
     // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
     const cmtScale = notePt / 9;
     const CMT_LINE_H = 5 * cmtScale;
-    const lineGap = tiny ? 0.9 : small ? 1.4 : 2.2;
+    const lineGap = small ? 1.4 : 2.2;
 
     // ── Line 1: Part# (bold) + Name (gray, ellipsis-truncated) ───────────────
     let ty = TM + (small ? 2.4 : 4);
@@ -705,7 +705,7 @@ export async function printLotLabels(
       // Render line 1 inline next to Part#; line 2 (if any) on its own row.
       if (lines[0]) doc.text('\u00a0\u00a0' + lines[0], TEXT_X + partStrW, ty);
       if (lines[1]) {
-        const ty2 = ty + namePt * 0.36 + (tiny ? 0.4 : 0.7);
+        const ty2 = ty + namePt * 0.36 + 0.7;
         doc.text(lines[1], TEXT_X, ty2);
         ty = ty2;
       }
