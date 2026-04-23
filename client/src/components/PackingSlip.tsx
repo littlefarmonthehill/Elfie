@@ -564,8 +564,8 @@ export async function printLotLabels(
   const RM      = 1;
   const TM      = small ? 1 : 2;
   const BM      = small ? 1 : 2;
-  const SC_W    = small ? 8 : 12;        // shortcode column
-  const SC_GAP  = small ? 1 : 1.5;
+  const SC_W    = small ? 5   : 9;       // shortcode column (≈ 2-char width)
+  const SC_GAP  = small ? 0.5 : 1;
   const LBL_CH  = LBL_H - TM - BM;
   // Square thumbnail: at most 14 mm wide, leaving ≥3 mm vertical padding.
   const IMG_W   = preset.showImage ? Math.max(8, Math.min(14, LBL_CH - 3)) : 0;
