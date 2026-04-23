@@ -567,10 +567,10 @@ export async function printLotLabels(
   const SC_W    = small ? 8   : 12;      // shortcode column
   const SC_GAP  = small ? 1   : 1.5;
   const LBL_CH  = LBL_H - TM - BM;
-  // Square thumbnail. Sized so it always leaves ≥3 mm of vertical padding
-  // (1.5 mm above + 1.5 mm below) inside the usable label height, then capped
-  // at 14 mm so it doesn't dominate wider tapes.
-  const IMG_W   = preset.showImage ? Math.max(8, Math.min(14, LBL_CH - 3)) : 0;
+  // Square thumbnail. Sized so it always leaves ≥4 mm of vertical padding
+  // inside the usable label height, then capped at 11 mm so it doesn't
+  // dominate the label.
+  const IMG_W   = preset.showImage ? Math.max(6, Math.min(11, LBL_CH - 4)) : 0;
   const IMG_H   = IMG_W;
   const IMG_GAP = preset.showImage ? (small ? 1.5 : 2) : 0;
   const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
@@ -617,7 +617,7 @@ export async function printLotLabels(
     if (sc) {
       // Tiered down for narrow tapes so the shortcode doesn't dominate the
       // label height: 17-mm tape gets 8 pt, 29-mm gets 11 pt, ≥38-mm gets 14 pt.
-      const scPt = preset.widthMm < 22 ? 8 : preset.widthMm < 32 ? 11 : 14;
+      const scPt = preset.widthMm < 22 ? 7 : preset.widthMm < 32 ? 9 : 11;
       doc.setFontSize(scPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
@@ -652,11 +652,11 @@ export async function printLotLabels(
     //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
     //   L3: italic note over a yellow highlight rect
     // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
-    const partPt = small ? 10 : 12;
-    const namePt = small ? 7  : 9;
-    const qtyPt  = small ? 9  : 11;
-    const refPt  = small ? 7  : 8;
-    const notePt = small ? 7  : 9;
+    const partPt = small ? 8   : 10;
+    const namePt = small ? 5.5 : 7.5;
+    const qtyPt  = small ? 7   : 9;
+    const refPt  = small ? 5.5 : 6.5;
+    const notePt = small ? 5.5 : 7.5;
     // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
     const cmtScale = notePt / 9;
     const CMT_LINE_H = 5 * cmtScale;
