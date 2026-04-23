@@ -620,7 +620,9 @@ export async function printLotLabels(
 
     // ── Shortcode column — vertically centred, bold (matches picklist) ────────
     if (sc) {
-      const scPt = preset.widthMm < 32 ? 11 : 14;
+      // Tiered down for narrow tapes so the shortcode doesn't dominate the
+      // label height: 17-mm tape gets 8 pt, 29-mm gets 11 pt, ≥38-mm gets 14 pt.
+      const scPt = preset.widthMm < 22 ? 8 : preset.widthMm < 32 ? 11 : 14;
       doc.setFontSize(scPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
