@@ -534,12 +534,14 @@ export interface LabelPreset {
 // the catalog is limited to die-cut presets that fall within that and to
 // continuous-tape cuts capped at 76 mm.
 export const LABEL_PRESETS: LabelPreset[] = [
-  // Die-cut (≤ 3" long)
+  // Die-cut
   { id: 'dk-1204', sku: 'DK-1204', desc: 'Multi-purpose',     kind: 'die-cut',    widthMm: 17,   lengthMm: 54,    showImage: true,  common: false },
   { id: 'dk-1209', sku: 'DK-1209', desc: 'Small address',     kind: 'die-cut',    widthMm: 29,   lengthMm: 62,    showImage: true,  common: true  },
-  // Continuous tape — width ≤ 1.5", cut length ≈ 2"
+  { id: 'dk-1201', sku: 'DK-1201', desc: 'Standard address',  kind: 'die-cut',    widthMm: 29,   lengthMm: 90,    showImage: true,  common: true  },
+  // Continuous tape — cut length ≈ 50 mm
   { id: 'dk-2210', sku: 'DK-2210', desc: 'Continuous tape',   kind: 'continuous', widthMm: 29,   lengthMm: 50,    showImage: true,  common: true  },
   { id: 'dk-2225', sku: 'DK-2225', desc: 'Continuous tape',   kind: 'continuous', widthMm: 38,   lengthMm: 50,    showImage: true,  common: true  },
+  { id: 'dk-2205', sku: 'DK-2205', desc: 'Continuous tape',   kind: 'continuous', widthMm: 62,   lengthMm: 90,    showImage: true,  common: true  },
 ];
 
 export const DEFAULT_LABEL_PRESET_ID = 'dk-1209';
