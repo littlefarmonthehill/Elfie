@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { cleanItemName, shippingTier } from "@/lib/item-utils";
+import { printHtmlLabels, escapeHtml } from "@/lib/labelPrint";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
 export interface OrgBranding {
@@ -560,27 +561,11 @@ export async function printLotLabels(
 ): Promise<void> {
   if (items.length === 0) return;
 
-  // Geometry derived from the chosen preset. Long side runs left→right
-  // (landscape feed direction on the QL-800).
-  const LBL_W   = preset.lengthMm;
-  const LBL_H   = preset.widthMm;
-  const LM      = 2.5;
-  const RM      = 2.5;
-  const TM      = 2;
-  const BM      = 2;
-  const SC_W    = preset.widthMm < 32 ? 9  : 12;   // shortcode column
-  const SC_GAP  = 1.5;
-  const IMG_W   = preset.showImage ? Math.min(14, preset.widthMm - 6) : 0;
-  const IMG_H   = IMG_W;
-  const IMG_GAP = preset.showImage ? 2 : 0;
-  const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
-  const TEXT_W  = LBL_W - RM - TEXT_X;
-  const LBL_CH  = LBL_H - TM - BM;
-
   // Build collision-free short codes for all orders in this label batch
   const orderNumbers = items.map(i => i.orderNumber).filter(Boolean) as string[];
   const codeMap = buildShortCodeMap(orderNumbers);
 
+  // Pre-load thumbnails as PNG data URLs (works in <img src=...>)
   const imgDataUrls = preset.showImage
     ? await Promise.all(
         items.map(item =>
@@ -589,153 +574,158 @@ export async function printLotLabels(
       )
     : items.map(() => null);
 
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: [LBL_H, LBL_W],   // jsPDF format is [shorter, longer] for landscape
-  });
+  // Smaller tapes (<32mm) get a denser font scale.
+  const small = preset.widthMm < 32;
+  const orgName = (org?.name || '').trim();
 
-  for (let i = 0; i < items.length; i++) {
-    if (i > 0) doc.addPage([LBL_H, LBL_W], 'landscape');
-
-    const item    = items[i];
-    const imgData = imgDataUrls[i];
-    const partStr = item.partNumber || item.sku || '';
-    const condStr = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
+  const labels = items.map((item, i) => {
+    const partStr  = item.partNumber || item.sku || '';
+    const condStr  = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
     const noteText = (item.comment || item.remarks || '').trim();
-
-    // Order ref helpers — same logic as picklist
-    const chanPfx = item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+    const chanPfx  = item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
     const orderRef = rawOrder ? `${chanPfx}.${rawOrder}` : '';
     const sc = item.orderNumber
       ? (codeMap.get(item.orderNumber) ?? shortCode(item.orderNumber))
       : '';
+    const name     = item.itemName ? cleanItemName(item.itemName, partStr) : '';
+    const imgData  = imgDataUrls[i];
 
-    // ── Shortcode column — vertically centred, bold (matches picklist) ────────
-    if (sc) {
-      const scPt = preset.widthMm < 32 ? 11 : 14;
-      doc.setFontSize(scPt);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 15, 15);
-      const scW = doc.getTextWidth(sc);
-      const scX = LM + (SC_W - scW) / 2;
-      const scY = TM + LBL_CH / 2 + scPt * 0.18;
-      doc.text(sc, scX, scY);
-    }
-
-    // Vertical divider between shortcode col and image/text
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(0.15);
-    const divX = LM + SC_W + SC_GAP / 2;
-    doc.line(divX, TM, divX, TM + LBL_CH);
-
-    // ── Thumbnail — vertically centred (only on wider tapes) ──────────────────
-    if (preset.showImage) {
-      const imgX = LM + SC_W + SC_GAP;
-      const imgY = TM + (LBL_CH - IMG_H) / 2;
-      if (imgData) {
-        try { doc.addImage(imgData, 'PNG', imgX, imgY, IMG_W, IMG_H); } catch { /* skip */ }
-      } else {
-        doc.setDrawColor(210, 210, 210);
-        doc.setFillColor(248, 248, 248);
-        doc.roundedRect(imgX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
-      }
-    }
-
-    // Text block — flowing Y cursor, starts a touch below top margin
-    let ty = TM + 2.5;
-
-    // ── Part# — bold, matches picklist L1 ─────────────────────────────────────
-    const partBasePt = preset.widthMm < 32 ? 10 : 12;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 15, 15);
-    let pSize = partBasePt;
-    doc.setFontSize(pSize);
-    while (pSize > 7 && doc.getTextWidth(partStr) > TEXT_W) {
-      pSize -= 0.5;
-      doc.setFontSize(pSize);
-    }
-    doc.text(partStr, TEXT_X, ty + pSize * 0.36);
-    ty += pSize * 0.36 + 1.2;
-
-    // ── Name — small gray, word-wrapped, matches picklist L1 ──────────────────
-    if (item.itemName) {
-      const name = cleanItemName(item.itemName, partStr);
-      const namePt = preset.widthMm < 32 ? 7.5 : 9;
-      const nameLineH = namePt * 0.42;
-      doc.setFontSize(namePt);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      const nameLines = (doc.splitTextToSize(name, TEXT_W) as string[]).slice(0, 2);
-      nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + namePt * 0.32 + li * nameLineH));
-      ty += nameLines.length * nameLineH + 1.5;
-    }
-
-    ty += 1.5;  // gap before ×qty line
-
-    // ── ×Qty · Color · Condition — bold, matches picklist L2 ──────────────────
-    const prominentParts = [
-      `\u00d7${item.quantity}`,
-      item.colorName,
-      condStr || null,
-    ].filter(Boolean).join('  \u00b7  ');
-
-    if (prominentParts) {
-      const qBasePt = preset.widthMm < 32 ? 9 : 11;
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(25, 25, 25);
-      let qSize = qBasePt;
-      doc.setFontSize(qSize);
-      while (qSize > 6.5 && doc.getTextWidth(prominentParts) > TEXT_W) {
-        qSize -= 0.25;
-        doc.setFontSize(qSize);
-      }
-      doc.text(prominentParts, TEXT_X, ty + qSize * 0.36);
-      ty += qSize * 0.36 + 1.2;
-    }
-
-    // ── Order ref · Lot ID — gray, matches picklist L2 tail ───────────────────
-    const refLineParts = [
+    const prominent = [`\u00d7${item.quantity}`, item.colorName, condStr || null]
+      .filter(Boolean).join('  \u00b7  ');
+    const refLine = [
       orderRef || null,
       item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    if (refLineParts) {
-      const refPt = preset.widthMm < 32 ? 7 : 8;
-      doc.setFontSize(refPt);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(60, 60, 60);
-      doc.text(refLineParts, TEXT_X, ty + refPt * 0.36);
-      ty += refPt * 0.36 + 1.5;
-    }
+    return `
+      ${sc ? `<div class="sc">${escapeHtml(sc)}</div>` : '<div class="sc"></div>'}
+      ${preset.showImage
+        ? (imgData
+            ? `<img class="thumb" src="${imgData}" alt="" />`
+            : `<div class="thumb thumb-empty"></div>`)
+        : ''}
+      <div class="info">
+        <div class="part">${escapeHtml(partStr)}</div>
+        ${name ? `<div class="name">${escapeHtml(name)}</div>` : ''}
+        ${prominent ? `<div class="qty">${escapeHtml(prominent)}</div>` : ''}
+        ${refLine ? `<div class="ref">${escapeHtml(refLine)}</div>` : ''}
+        ${noteText ? `<div class="note">${escapeHtml(noteText)}</div>` : ''}
+      </div>
+      ${orgName && preset.widthMm >= 38 ? `<div class="org">${escapeHtml(orgName.toUpperCase())}</div>` : ''}
+    `;
+  });
 
-    // ── Comment — italic, yellow highlight, word-wrapped, matches picklist L3 ─
-    if (noteText) {
-      const cmtPt = preset.widthMm < 32 ? 7.5 : 9;
-      const CMT_LINE_H = cmtPt * 0.45;
-      doc.setFontSize(cmtPt);
-      doc.setFont('helvetica', 'oblique');
-      doc.setTextColor(40, 40, 40);
-      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, 3);
-      const hlH = noteLines.length * CMT_LINE_H + 1.2;
-      doc.setFillColor(255, 245, 100);
-      doc.rect(TEXT_X - 1, ty - 0.4, TEXT_W + 2, hlH, 'F');
-      noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + cmtPt * 0.32 + li * CMT_LINE_H));
+  const css = `
+    .label {
+      display: grid;
+      grid-template-columns: ${small ? '7mm' : '10mm'} ${preset.showImage ? `${Math.min(14, preset.widthMm - 6)}mm` : '0'} 1fr;
+      grid-template-rows: 1fr auto;
+      column-gap: 1.5mm;
+      padding: 1.5mm 2mm;
+      position: relative;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      color: #0f0f0f;
     }
-
-    // ── Org name — tiny, bottom-right (suppressed on the smallest tapes) ─────
-    const orgName = (org?.name || '').trim();
-    if (orgName && preset.widthMm >= 38) {
-      doc.setFontSize(5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(190, 190, 190);
-      const onW = doc.getTextWidth(orgName.toUpperCase());
-      doc.text(orgName.toUpperCase(), LBL_W - RM - onW, LBL_H - BM + 1.5);
+    .sc {
+      grid-column: 1; grid-row: 1 / span 2;
+      align-self: center;
+      text-align: center;
+      font-weight: 700;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: ${small ? '11pt' : '14pt'};
+      border-right: 0.2mm solid #dcdcdc;
+      padding-right: 1mm;
+      line-height: 1;
     }
-  }
+    .thumb {
+      grid-column: 2; grid-row: 1 / span 2;
+      align-self: center;
+      width: 100%;
+      object-fit: contain;
+      filter: grayscale(1);
+    }
+    .thumb-empty {
+      background: #f8f8f8;
+      border: 0.15mm solid #d2d2d2;
+      border-radius: 0.6mm;
+      aspect-ratio: 1 / 1;
+    }
+    .info {
+      grid-column: 3; grid-row: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6mm;
+      overflow: hidden;
+    }
+    .part {
+      font-weight: 700;
+      font-size: ${small ? '10pt' : '12pt'};
+      line-height: 1.05;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .name {
+      font-size: ${small ? '7.5pt' : '9pt'};
+      color: #6a6a6a;
+      line-height: 1.15;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .qty {
+      font-weight: 700;
+      font-size: ${small ? '9pt' : '11pt'};
+      color: #191919;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ref {
+      font-size: ${small ? '7pt' : '8pt'};
+      color: #555;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .note {
+      font-style: italic;
+      font-size: ${small ? '7.5pt' : '9pt'};
+      background: #fff564;
+      padding: 0.4mm 1mm;
+      margin-top: 0.4mm;
+      border-radius: 0.4mm;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.15;
+    }
+    .org {
+      position: absolute;
+      right: 1.5mm;
+      bottom: 0.5mm;
+      font-size: 5pt;
+      color: #bdbdbd;
+      letter-spacing: 0.05em;
+    }
+  `;
 
-  hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
+  printHtmlLabels({
+    title: 'Lot labels',
+    pageSize: {
+      widthMm: preset.lengthMm,   // long side = page width (landscape feed)
+      heightMm: preset.widthMm,
+      marginMm: 0,
+    },
+    css,
+    labels,
+  });
 }
 
 // ─── Packing slips ────────────────────────────────────────────────────────────
