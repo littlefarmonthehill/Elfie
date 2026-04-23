@@ -541,7 +541,7 @@ export const LABEL_PRESETS: LabelPreset[] = [
   // Continuous tape — cut length ≈ 50 mm
   { id: 'dk-2210', sku: 'DK-2210', desc: 'Continuous tape',   kind: 'continuous', widthMm: 29,   lengthMm: 50,    showImage: true,  common: true  },
   { id: 'dk-2225', sku: 'DK-2225', desc: 'Continuous tape',   kind: 'continuous', widthMm: 38,   lengthMm: 50,    showImage: true,  common: true  },
-  { id: 'dk-2205', sku: 'DK-2205', desc: 'Continuous tape',   kind: 'continuous', widthMm: 62,   lengthMm: 40,    showImage: true,  common: true  },
+  { id: 'dk-2205', sku: 'DK-2205', desc: 'Continuous tape',   kind: 'continuous', widthMm: 62,   lengthMm: 25,    showImage: true,  common: true  },
 ];
 
 export const DEFAULT_LABEL_PRESET_ID = 'dk-1209';
