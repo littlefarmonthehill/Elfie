@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
-import { printPackingSlips, printPicklist, printLotLabels, buildShortCodeMap, shortCode } from "./PackingSlip";
+import { printPackingSlips, printPicklist, printLotLabels, buildShortCodeMap, shortCode, LABEL_PRESETS, DEFAULT_LABEL_PRESET_ID, getLabelPreset } from "./PackingSlip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -307,6 +308,14 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
   // Batch shipping state
   const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
   const [purchasedLabels, setPurchasedLabels] = useState<Map<string, PurchasedLabelResult>>(new Map());
+  // Brother QL-800 lot-label tape choice — persisted so reprints stay consistent.
+  const [lotLabelPresetId, setLotLabelPresetId] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_LABEL_PRESET_ID;
+    return localStorage.getItem('lotLabelPresetId') || DEFAULT_LABEL_PRESET_ID;
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('lotLabelPresetId', lotLabelPresetId);
+  }, [lotLabelPresetId]);
   const [isShippingAll, setIsShippingAll] = useState(false);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
 
@@ -982,7 +991,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       }
       await printLotLabels(
         labels,
-        org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined
+        org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined,
+        getLabelPreset(lotLabelPresetId),
       );
     } catch (error) {
       console.error('Error generating lot labels:', error);
@@ -1600,6 +1610,22 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               <Tag className="w-3.5 h-3.5" />
               Labels
             </Button>
+            <Select value={lotLabelPresetId} onValueChange={setLotLabelPresetId}>
+              <SelectTrigger
+                className="h-8 text-xs w-[170px] shrink-0"
+                data-testid="select-lot-label-size"
+                title="Brother QL-800 tape size"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LABEL_PRESETS.map(p => (
+                  <SelectItem key={p.id} value={p.id} data-testid={`option-label-${p.id}`}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {/* Separator */}
             <div className="w-px h-5 bg-gray-700/60 shrink-0 mx-0.5" />
             {/* Packing */}

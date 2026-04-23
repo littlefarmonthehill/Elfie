@@ -505,35 +505,70 @@ export interface LotLabelItem {
   binLocation?: string | null;
 }
 
-// Landscape 3" × 2"
-const LBL_W  = 76.2;   // 3" in mm  (wide side)
-const LBL_H  = 50.8;   // 2" in mm  (tall side)
-const LM     = 3;      // left / right margin
-const RM     = 3;
-const TM     = 3;      // top / bottom margin
-const BM     = 3;
-// Column layout — mirrors picklist: [SC col] [image] [text block]
-const SC_W   = 13;     // shortcode column width
-const SC_GAP = 2;      // gap between SC col and image
-const IMG_W  = 14;     // thumbnail size
-const IMG_H  = 14;
-const IMG_GAP = 3;     // gap between image and text
-const TEXT_X = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;  // text block left edge
-const TEXT_W = LBL_W - RM - TEXT_X;                    // text block width (~39mm)
-const LBL_CH = LBL_H - TM - BM;                        // content height (44.8mm)
+/**
+ * Brother QL-800 label presets. The QL-800 maxes out at 62 mm wide rolls.
+ * Width is the tape width (short side); length is the printable label length
+ * (long side). Continuous tape uses a fixed length here so each label ejects
+ * at a consistent size. `showImage` is dropped on narrow tapes where there's
+ * no room for a thumbnail next to the text.
+ */
+export interface LabelPreset {
+  id: string;
+  label: string;       // human-readable name shown in the picker
+  widthMm: number;     // tape width (short side)
+  lengthMm: number;    // label length (long side, landscape)
+  showImage: boolean;
+}
 
-export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): Promise<void> {
+export const LABEL_PRESETS: LabelPreset[] = [
+  { id: 'dk-2210', label: '29 mm Continuous (DK-2210) — thinnest', widthMm: 29,   lengthMm: 70,   showImage: false },
+  { id: 'dk-1201', label: '29 × 90 mm Address (DK-1201)',          widthMm: 29,   lengthMm: 90,   showImage: false },
+  { id: 'dk-2225', label: '38 mm Continuous (DK-2225)',            widthMm: 38,   lengthMm: 70,   showImage: true  },
+  { id: 'dk-1208', label: '38 × 90 mm Address (DK-1208)',          widthMm: 38,   lengthMm: 90,   showImage: true  },
+  { id: 'dk-2205', label: '62 mm Continuous (DK-2205) — 3"×2"',    widthMm: 62,   lengthMm: 76.2, showImage: true  },
+];
+
+export const DEFAULT_LABEL_PRESET_ID = 'dk-2210';
+
+export function getLabelPreset(id: string | null | undefined): LabelPreset {
+  return LABEL_PRESETS.find(p => p.id === id) ?? LABEL_PRESETS[0];
+}
+
+export async function printLotLabels(
+  items: LotLabelItem[],
+  org?: OrgBranding,
+  preset: LabelPreset = LABEL_PRESETS[0],
+): Promise<void> {
   if (items.length === 0) return;
+
+  // Geometry derived from the chosen preset. Long side runs left→right
+  // (landscape feed direction on the QL-800).
+  const LBL_W   = preset.lengthMm;
+  const LBL_H   = preset.widthMm;
+  const LM      = 2.5;
+  const RM      = 2.5;
+  const TM      = 2;
+  const BM      = 2;
+  const SC_W    = preset.widthMm < 32 ? 9  : 12;   // shortcode column
+  const SC_GAP  = 1.5;
+  const IMG_W   = preset.showImage ? Math.min(14, preset.widthMm - 6) : 0;
+  const IMG_H   = IMG_W;
+  const IMG_GAP = preset.showImage ? 2 : 0;
+  const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
+  const TEXT_W  = LBL_W - RM - TEXT_X;
+  const LBL_CH  = LBL_H - TM - BM;
 
   // Build collision-free short codes for all orders in this label batch
   const orderNumbers = items.map(i => i.orderNumber).filter(Boolean) as string[];
   const codeMap = buildShortCodeMap(orderNumbers);
 
-  const imgDataUrls = await Promise.all(
-    items.map(item =>
-      loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl })
-    )
-  );
+  const imgDataUrls = preset.showImage
+    ? await Promise.all(
+        items.map(item =>
+          loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl })
+        )
+      )
+    : items.map(() => null);
 
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -558,63 +593,69 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
       ? (codeMap.get(item.orderNumber) ?? shortCode(item.orderNumber))
       : '';
 
-    // ── Shortcode column — vertically centred, 14pt bold (matches picklist) ────
+    // ── Shortcode column — vertically centred, bold (matches picklist) ────────
     if (sc) {
-      doc.setFontSize(14);
+      const scPt = preset.widthMm < 32 ? 11 : 14;
+      doc.setFontSize(scPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
       const scW = doc.getTextWidth(sc);
       const scX = LM + (SC_W - scW) / 2;
-      const scY = TM + LBL_CH / 2 + 2.5;  // 2.5 ≈ half cap-height of 14pt
+      const scY = TM + LBL_CH / 2 + scPt * 0.18;
       doc.text(sc, scX, scY);
     }
 
-    // Vertical divider between shortcode col and image
+    // Vertical divider between shortcode col and image/text
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.15);
     const divX = LM + SC_W + SC_GAP / 2;
     doc.line(divX, TM, divX, TM + LBL_CH);
 
-    // ── Thumbnail — vertically centred ────────────────────────────────────────
-    const imgX = LM + SC_W + SC_GAP;
-    const imgY = TM + (LBL_CH - IMG_H) / 2;
-    if (imgData) {
-      try { doc.addImage(imgData, 'PNG', imgX, imgY, IMG_W, IMG_H); } catch { /* skip */ }
-    } else {
-      doc.setDrawColor(210, 210, 210);
-      doc.setFillColor(248, 248, 248);
-      doc.roundedRect(imgX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
+    // ── Thumbnail — vertically centred (only on wider tapes) ──────────────────
+    if (preset.showImage) {
+      const imgX = LM + SC_W + SC_GAP;
+      const imgY = TM + (LBL_CH - IMG_H) / 2;
+      if (imgData) {
+        try { doc.addImage(imgData, 'PNG', imgX, imgY, IMG_W, IMG_H); } catch { /* skip */ }
+      } else {
+        doc.setDrawColor(210, 210, 210);
+        doc.setFillColor(248, 248, 248);
+        doc.roundedRect(imgX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
+      }
     }
 
-    // Text block — flowing Y cursor, starts 4mm below top margin
-    let ty = TM + 4;
+    // Text block — flowing Y cursor, starts a touch below top margin
+    let ty = TM + 2.5;
 
-    // ── Part# — 12pt bold, matches picklist L1 ────────────────────────────────
-    doc.setFontSize(12);
+    // ── Part# — bold, matches picklist L1 ─────────────────────────────────────
+    const partBasePt = preset.widthMm < 32 ? 10 : 12;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
-    let pSize = 12;
+    let pSize = partBasePt;
+    doc.setFontSize(pSize);
     while (pSize > 7 && doc.getTextWidth(partStr) > TEXT_W) {
       pSize -= 0.5;
       doc.setFontSize(pSize);
     }
-    doc.text(partStr, TEXT_X, ty + 4.6);
-    ty += 4.6 + 1.5;
+    doc.text(partStr, TEXT_X, ty + pSize * 0.36);
+    ty += pSize * 0.36 + 1.2;
 
-    // ── Name — 9pt gray, word-wrapped, matches picklist L1 ────────────────────
+    // ── Name — small gray, word-wrapped, matches picklist L1 ──────────────────
     if (item.itemName) {
       const name = cleanItemName(item.itemName, partStr);
-      doc.setFontSize(9);
+      const namePt = preset.widthMm < 32 ? 7.5 : 9;
+      const nameLineH = namePt * 0.42;
+      doc.setFontSize(namePt);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 100, 100);
-      const nameLines = doc.splitTextToSize(name, TEXT_W) as string[];
-      nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + 3.2 + li * 3.8));
-      ty += nameLines.length * 3.8 + 2;
+      const nameLines = (doc.splitTextToSize(name, TEXT_W) as string[]).slice(0, 2);
+      nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + namePt * 0.32 + li * nameLineH));
+      ty += nameLines.length * nameLineH + 1.5;
     }
 
-    ty += 2;  // gap before ×qty line
+    ty += 1.5;  // gap before ×qty line
 
-    // ── ×Qty · Color · Condition — 11pt bold, matches picklist L2 ─────────────
+    // ── ×Qty · Color · Condition — bold, matches picklist L2 ──────────────────
     const prominentParts = [
       `\u00d7${item.quantity}`,
       item.colorName,
@@ -622,50 +663,51 @@ export async function printLotLabels(items: LotLabelItem[], org?: OrgBranding): 
     ].filter(Boolean).join('  \u00b7  ');
 
     if (prominentParts) {
-      doc.setFontSize(11);
+      const qBasePt = preset.widthMm < 32 ? 9 : 11;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(25, 25, 25);
-      let qSize = 11;
-      while (qSize > 7 && doc.getTextWidth(prominentParts) > TEXT_W) {
+      let qSize = qBasePt;
+      doc.setFontSize(qSize);
+      while (qSize > 6.5 && doc.getTextWidth(prominentParts) > TEXT_W) {
         qSize -= 0.25;
         doc.setFontSize(qSize);
       }
-      doc.text(prominentParts, TEXT_X, ty + 4.0);
-      ty += 4.0 + 1.5;
+      doc.text(prominentParts, TEXT_X, ty + qSize * 0.36);
+      ty += qSize * 0.36 + 1.2;
     }
 
-    // ── Order ref · Lot ID — 8pt gray, matches picklist L2 tail ──────────────
+    // ── Order ref · Lot ID — gray, matches picklist L2 tail ───────────────────
     const refLineParts = [
       orderRef || null,
       item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
 
     if (refLineParts) {
-      doc.setFontSize(8);
+      const refPt = preset.widthMm < 32 ? 7 : 8;
+      doc.setFontSize(refPt);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(60, 60, 60);
-      doc.text(refLineParts, TEXT_X, ty + 3.0);
-      ty += 3.0 + 2;
+      doc.text(refLineParts, TEXT_X, ty + refPt * 0.36);
+      ty += refPt * 0.36 + 1.5;
     }
 
-    ty += 2;  // gap before comment
-
-    // ── Comment — 9pt italic, yellow highlight, word-wrapped, matches picklist L3
+    // ── Comment — italic, yellow highlight, word-wrapped, matches picklist L3 ─
     if (noteText) {
-      doc.setFontSize(9);
+      const cmtPt = preset.widthMm < 32 ? 7.5 : 9;
+      const CMT_LINE_H = cmtPt * 0.45;
+      doc.setFontSize(cmtPt);
       doc.setFont('helvetica', 'oblique');
       doc.setTextColor(40, 40, 40);
-      const CMT_LINE_H = 4.0;
-      const noteLines = doc.splitTextToSize(noteText, TEXT_W) as string[];
-      const hlH = noteLines.length * CMT_LINE_H + 1.5;
+      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, 3);
+      const hlH = noteLines.length * CMT_LINE_H + 1.2;
       doc.setFillColor(255, 245, 100);
-      doc.rect(TEXT_X - 1, ty - 0.5, TEXT_W + 2, hlH, 'F');
-      noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + 3.2 + li * CMT_LINE_H));
+      doc.rect(TEXT_X - 1, ty - 0.4, TEXT_W + 2, hlH, 'F');
+      noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + cmtPt * 0.32 + li * CMT_LINE_H));
     }
 
-    // ── Org name — tiny, bottom-right ─────────────────────────────────────────
+    // ── Org name — tiny, bottom-right (suppressed on the smallest tapes) ─────
     const orgName = (org?.name || '').trim();
-    if (orgName) {
+    if (orgName && preset.widthMm >= 38) {
       doc.setFontSize(5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(190, 190, 190);
