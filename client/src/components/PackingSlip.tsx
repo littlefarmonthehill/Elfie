@@ -560,7 +560,7 @@ export async function printLotLabels(
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
   const small   = preset.widthMm < 32;   // 29-mm and narrower DK tapes
-  const LM      = 0;
+  const LM      = 1;
   const RM      = 1;
   const TM      = small ? 1 : 2;
   const BM      = small ? 1 : 2;
