@@ -530,21 +530,17 @@ export interface LabelPreset {
 // Brother QL series DK label catalog. Die-cut labels (DK-1xxx) have a fixed
 // length; continuous tape (DK-2xxx) is cut to the length below. The picker
 // shows `common` items by default and reveals the rest behind a toggle.
+// Maximum label length supported by this setup is just under 3" (76 mm), so
+// the catalog is limited to die-cut presets that fall within that and to
+// continuous-tape cuts capped at 76 mm.
 export const LABEL_PRESETS: LabelPreset[] = [
-  // Die-cut address / multi-purpose
+  // Die-cut (≤ 3" long)
   { id: 'dk-1204', sku: 'DK-1204', desc: 'Multi-purpose',     kind: 'die-cut',    widthMm: 17,   lengthMm: 54,    showImage: true,  common: false },
-  { id: 'dk-1203', sku: 'DK-1203', desc: 'File folder',       kind: 'die-cut',    widthMm: 17,   lengthMm: 87,    showImage: true,  common: false },
   { id: 'dk-1209', sku: 'DK-1209', desc: 'Small address',     kind: 'die-cut',    widthMm: 29,   lengthMm: 62,    showImage: true,  common: true  },
-  { id: 'dk-1201', sku: 'DK-1201', desc: 'Standard address',  kind: 'die-cut',    widthMm: 29,   lengthMm: 90,    showImage: true,  common: true  },
-  { id: 'dk-1208', sku: 'DK-1208', desc: 'Large address',     kind: 'die-cut',    widthMm: 38,   lengthMm: 90,    showImage: true,  common: true  },
-  { id: 'dk-1202', sku: 'DK-1202', desc: 'Shipping',          kind: 'die-cut',    widthMm: 62,   lengthMm: 100,   showImage: true,  common: true  },
-  { id: 'dk-1240', sku: 'DK-1240', desc: 'Large multi',       kind: 'die-cut',    widthMm: 51,   lengthMm: 102,   showImage: true,  common: false },
-  { id: 'dk-1241', sku: 'DK-1241', desc: 'Large shipping',    kind: 'die-cut',    widthMm: 102,  lengthMm: 152,   showImage: true,  common: false },
-  // Continuous tape (length is what we actually cut per label)
-  { id: 'dk-2210', sku: 'DK-2210', desc: 'Continuous tape',   kind: 'continuous', widthMm: 29,   lengthMm: 70,    showImage: false, common: true  },
-  { id: 'dk-2225', sku: 'DK-2225', desc: 'Continuous tape',   kind: 'continuous', widthMm: 38,   lengthMm: 70,    showImage: true,  common: true  },
-  { id: 'dk-2205', sku: 'DK-2205', desc: 'Continuous tape',   kind: 'continuous', widthMm: 62,   lengthMm: 76.2,  showImage: true,  common: true  },
-  { id: 'dk-2243', sku: 'DK-2243', desc: 'Continuous tape',   kind: 'continuous', widthMm: 102,  lengthMm: 100,   showImage: true,  common: false },
+  // Continuous tape — cut length kept thin (≈ 1–2")
+  { id: 'dk-2210', sku: 'DK-2210', desc: 'Continuous tape',   kind: 'continuous', widthMm: 29,   lengthMm: 50,    showImage: true,  common: true  },
+  { id: 'dk-2225', sku: 'DK-2225', desc: 'Continuous tape',   kind: 'continuous', widthMm: 38,   lengthMm: 50,    showImage: true,  common: true  },
+  { id: 'dk-2205', sku: 'DK-2205', desc: 'Continuous tape',   kind: 'continuous', widthMm: 62,   lengthMm: 50,    showImage: true,  common: true  },
 ];
 
 export const DEFAULT_LABEL_PRESET_ID = 'dk-1209';
