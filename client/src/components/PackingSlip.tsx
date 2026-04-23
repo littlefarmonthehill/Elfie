@@ -644,94 +644,86 @@ export async function printLotLabels(
       }
     }
 
-    // Text block — flowing Y cursor, starts a touch below top margin
-    let ty = TM + (small ? 1 : 2.5);
+    // ── Two-line layout matching the picklist sheet ──────────────────────────
+    // Line 1: [bold dark Part#]  [light gray Name…]
+    // Line 2: [bold dark ×Qty · Color · Condition]  [light gray · OrderRef · Lot]
+    // Optional Line 3: italic note with yellow highlight (only when it fits)
+    //
+    // Each line uses jsPDF.getTextWidth to draw the bold prefix first, measure
+    // it, then draw the lighter trailing segment on the same baseline.
+    const partPt = small ? 10 : 12;
+    const namePt = small ? 7  : 9;
+    const qtyPt  = small ? 9  : 11;
+    const refPt  = small ? 7  : 8;
+    const notePt = small ? 7  : 9;
+    const lineGap = small ? 0.8 : 1.6;
 
-    // Per-section gap (smaller on the cramped 29-mm tape)
-    const GAP    = small ? 0.4 : 1.2;
-    const BIG_GAP = small ? 0.6 : 1.5;
-    const MAX_NAME_LINES = small ? 1 : 2;
-    const MAX_NOTE_LINES = small ? 1 : 3;
-
-    // ── Part# — bold, matches picklist L1 ─────────────────────────────────────
-    const partBasePt = small ? 10 : 12;
+    // ── Line 1 ───────────────────────────────────────────────────────────────
+    let ty = TM + (small ? 2 : 3.5);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(partPt);
     doc.setTextColor(15, 15, 15);
-    let pSize = partBasePt;
-    doc.setFontSize(pSize);
-    while (pSize > 7 && doc.getTextWidth(partStr) > TEXT_W) {
-      pSize -= 0.5;
-      doc.setFontSize(pSize);
-    }
-    doc.text(partStr, TEXT_X, ty + pSize * 0.36);
-    ty += pSize * 0.36 + GAP;
+    const partW = doc.getTextWidth(partStr);
+    doc.text(partStr, TEXT_X, ty);
 
-    // ── Name — small gray, word-wrapped, matches picklist L1 ──────────────────
     if (item.itemName) {
       const name = cleanItemName(item.itemName, partStr);
-      const namePt = small ? 7 : 9;
-      const nameLineH = namePt * 0.4;
-      doc.setFontSize(namePt);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      const nameLines = (doc.splitTextToSize(name, TEXT_W) as string[]).slice(0, MAX_NAME_LINES);
-      nameLines.forEach((line, li) => doc.text(line, TEXT_X, ty + namePt * 0.32 + li * nameLineH));
-      ty += nameLines.length * nameLineH + BIG_GAP;
+      doc.setFontSize(namePt);
+      doc.setTextColor(120, 120, 120);
+      const nameStartX = TEXT_X + partW + 1.5;
+      const nameMaxW   = TEXT_X + TEXT_W - nameStartX;
+      const fitted = (doc.splitTextToSize(name, nameMaxW) as string[])[0] || '';
+      doc.text(fitted, nameStartX, ty);
     }
+    ty += partPt * 0.36 + lineGap;
 
-    // ── ×Qty · Color · Condition — bold, matches picklist L2 ──────────────────
-    const prominentParts = [
-      `\u00d7${item.quantity}`,
-      item.colorName,
-      condStr || null,
-    ].filter(Boolean).join('  \u00b7  ');
-
-    if (prominentParts) {
-      const qBasePt = small ? 9 : 11;
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(25, 25, 25);
-      let qSize = qBasePt;
-      doc.setFontSize(qSize);
-      while (qSize > 6.5 && doc.getTextWidth(prominentParts) > TEXT_W) {
-        qSize -= 0.25;
-        doc.setFontSize(qSize);
-      }
-      doc.text(prominentParts, TEXT_X, ty + qSize * 0.36);
-      ty += qSize * 0.36 + GAP;
+    // ── Line 2 ───────────────────────────────────────────────────────────────
+    const qtyText = [`\u00d7${item.quantity}`, item.colorName, condStr || null]
+      .filter(Boolean).join('  \u00b7  ');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(qtyPt);
+    doc.setTextColor(20, 20, 20);
+    let qPt = qtyPt;
+    while (qPt > 6.5 && doc.getTextWidth(qtyText) > TEXT_W) {
+      qPt -= 0.25;
+      doc.setFontSize(qPt);
     }
+    const qtyW = doc.getTextWidth(qtyText);
+    doc.text(qtyText, TEXT_X, ty);
 
-    // ── Order ref · Lot ID — gray, matches picklist L2 tail ───────────────────
-    // On the 29-mm tape this line is dropped (no vertical room) so the qty/
-    // color/condition stays the most prominent thing under the part #.
-    const refLineParts = [
+    const refTail = [
       orderRef || null,
       item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
     ].filter(Boolean).join('  \u00b7  ');
-
-    if (refLineParts && !small) {
-      const refPt = 8;
-      doc.setFontSize(refPt);
+    if (refTail) {
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(60, 60, 60);
-      doc.text(refLineParts, TEXT_X, ty + refPt * 0.36);
-      ty += refPt * 0.36 + BIG_GAP;
+      doc.setFontSize(refPt);
+      doc.setTextColor(120, 120, 120);
+      const refStartX = TEXT_X + qtyW + 2;
+      const refMaxW   = TEXT_X + TEXT_W - refStartX;
+      const sep = '  \u00b7  ';
+      const candidate = `${sep}${refTail}`;
+      const fitted = doc.getTextWidth(candidate) <= refMaxW
+        ? candidate
+        : (doc.splitTextToSize(candidate, refMaxW) as string[])[0] || '';
+      doc.text(fitted, refStartX, ty);
     }
+    ty += qPt * 0.36 + lineGap;
 
-    // ── Comment — italic, yellow highlight, word-wrapped, matches picklist L3 ─
-    // Skipped if there's no vertical room left on the small tape.
+    // ── Optional Line 3: note ────────────────────────────────────────────────
     if (noteText) {
-      const cmtPt = small ? 7 : 9;
-      const CMT_LINE_H = cmtPt * 0.42;
-      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, MAX_NOTE_LINES);
-      const hlH = noteLines.length * CMT_LINE_H + (small ? 0.6 : 1.2);
-      // Only draw if it fits in the remaining vertical space.
+      const lineH = notePt * 0.42;
+      const maxNoteLines = small ? 1 : 3;
+      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, maxNoteLines);
+      const hlH = noteLines.length * lineH + (small ? 0.6 : 1.2);
       if (ty + hlH <= TM + LBL_CH) {
-        doc.setFontSize(cmtPt);
-        doc.setFont('helvetica', 'oblique');
-        doc.setTextColor(40, 40, 40);
         doc.setFillColor(255, 245, 100);
-        doc.rect(TEXT_X - 1, ty - 0.4, TEXT_W + 2, hlH, 'F');
-        noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + cmtPt * 0.32 + li * CMT_LINE_H));
+        doc.rect(TEXT_X - 1, ty - lineH * 0.7, TEXT_W + 2, hlH, 'F');
+        doc.setFont('helvetica', 'oblique');
+        doc.setFontSize(notePt);
+        doc.setTextColor(40, 40, 40);
+        noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + li * lineH));
       }
     }
 
