@@ -24,7 +24,14 @@ import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, 
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-import { printPackingSlips, printPicklist } from "./PackingSlip";
+import { printPackingSlips, printPicklist, printLotLabels, getLabelPreset, DEFAULT_LABEL_PRESET_ID, LABEL_PRESETS } from "./PackingSlip";
+import {
+  Select as LotLabelSelect,
+  SelectContent as LotLabelSelectContent,
+  SelectItem as LotLabelSelectItem,
+  SelectTrigger as LotLabelSelectTrigger,
+  SelectValue as LotLabelSelectValue,
+} from "@/components/ui/select";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 function getMarketplacePrefix(marketplace: string | null): string {
@@ -304,11 +311,62 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     }
   };
 
-  const handlePrintLotLabels = (_orderId: string) => {
-    toast({
-      title: "Lot Labels",
-      description: "Lot label printing will be implemented soon. This feature is coming in a future update.",
-    });
+  // Brother QL-800 lot-label tape choice — same key as FulfillmentTool so the
+  // user's roll selection is shared across screens.
+  const [lotLabelPresetId, setLotLabelPresetId] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_LABEL_PRESET_ID;
+    return localStorage.getItem('lotLabelPresetId') || DEFAULT_LABEL_PRESET_ID;
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('lotLabelPresetId', lotLabelPresetId);
+  }, [lotLabelPresetId]);
+
+  const handlePrintLotLabels = async (order: ShippedOrder) => {
+    try {
+      // Re-use the packing-slip endpoint as the source of truth for an order's
+      // line items — same as handlePrintPicklistForOrder. Live picklist data
+      // isn't available for already-shipped orders.
+      const response = await fetch('/api/fulfillment/packing-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: [order.id] }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch order items');
+      const [slip] = await response.json();
+      if (!slip?.items?.length) {
+        toast({ title: "No Items", description: "This order has no line items to print.", variant: "destructive" });
+        return;
+      }
+      const labelItems = slip.items
+        .sort((a: any, b: any) => {
+          const pk = (a.bricklinkPartNumber || '').localeCompare(b.bricklinkPartNumber || '', undefined, { numeric: true });
+          if (pk !== 0) return pk;
+          const ck = (a.condition || '').localeCompare(b.condition || '');
+          if (ck !== 0) return ck;
+          return (a.colorName || '').localeCompare(b.colorName || '');
+        })
+        .map((item: any) => ({
+          partNumber: item.bricklinkPartNumber || null,
+          sku: item.inventoryId || null,
+          colorName: item.colorName || null,
+          colorId: item.colorId ?? null,
+          condition: item.condition || null,
+          itemName: item.name || null,
+          quantity: item.quantity,
+          orderNumber: order.orderNumber,
+          marketplace: order.marketplace || null,
+          inventoryId: item.inventoryId ? Number(item.inventoryId) : null,
+          comment: item.comment || null,
+          imageUrl: item.imageUrl || null,
+        }));
+      await printLotLabels(
+        labelItems,
+        org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined,
+        getLabelPreset(lotLabelPresetId),
+      );
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to generate lot labels", variant: "destructive" });
+    }
   };
 
   const handlePrintEodForm = async (orderId: string) => {
@@ -557,12 +615,34 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         Print Shipping Label
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handlePrintLotLabels(order.id)}
+                        onClick={() => handlePrintLotLabels(order)}
                         data-testid={`menu-print-lot-labels-${order.orderNumber}`}
                       >
                         <Tag className="w-4 h-4 mr-2" />
                         Print Lot Labels
                       </DropdownMenuItem>
+                      <div
+                        className="px-2 py-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <LotLabelSelect value={lotLabelPresetId} onValueChange={setLotLabelPresetId}>
+                          <LotLabelSelectTrigger
+                            className="h-7 text-xs"
+                            data-testid={`select-lot-label-size-${order.orderNumber}`}
+                            title="Brother QL-800 tape size"
+                          >
+                            <LotLabelSelectValue />
+                          </LotLabelSelectTrigger>
+                          <LotLabelSelectContent>
+                            {LABEL_PRESETS.map(p => (
+                              <LotLabelSelectItem key={p.id} value={p.id} data-testid={`option-label-${p.id}`}>
+                                {p.label}
+                              </LotLabelSelectItem>
+                            ))}
+                          </LotLabelSelectContent>
+                        </LotLabelSelect>
+                      </div>
                       <DropdownMenuItem
                         onClick={() => handlePrintEodForm(order.id)}
                         disabled={eodPending === order.id}
