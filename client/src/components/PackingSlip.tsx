@@ -560,9 +560,10 @@ export async function printLotLabels(
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
   const small   = preset.widthMm < 32;   // 29-mm and narrower DK tapes
-  // Margins kept minimal — printer's own unprintable border is the real edge.
-  const LM      = 0.5;
-  const RM      = 0.5;
+  // QL-800 has ~1.5 mm of unprintable border at each cut edge of a DK label;
+  // anything closer than that gets chopped off at the cutter blade.
+  const LM      = 1.5;
+  const RM      = 2;
   const TM      = small ? 1 : 2;
   const BM      = small ? 1 : 2;
   const SC_W    = small ? 8 : 12;        // shortcode column
