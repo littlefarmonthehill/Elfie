@@ -602,7 +602,7 @@ export async function printLotLabels(
     const item    = items[i];
     const imgData = imgDataUrls[i];
     const partStr = item.partNumber || item.sku || '';
-    const condStr = item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : (item.condition || '');
+    const condStr = item.condition ? condLabel(item.condition) : '';
     const noteText = (item.comment || item.remarks || '').trim();
 
     // Order ref helpers — same logic as picklist
@@ -644,86 +644,88 @@ export async function printLotLabels(
       }
     }
 
-    // ── Two-line layout matching the picklist sheet ──────────────────────────
-    // Line 1: [bold dark Part#]  [light gray Name…]
-    // Line 2: [bold dark ×Qty · Color · Condition]  [light gray · OrderRef · Lot]
-    // Optional Line 3: italic note with yellow highlight (only when it fits)
-    //
-    // Each line uses jsPDF.getTextWidth to draw the bold prefix first, measure
-    // it, then draw the lighter trailing segment on the same baseline.
+    // ── Picklist-sheet text recipe, scaled to label size ─────────────────────
+    // Same layout as `printPicklist`:
+    //   L1: bold dark Part#  +  gray Name (char-by-char ellipsis)
+    //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
+    //   L3: italic note over a yellow highlight rect
+    // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
     const partPt = small ? 10 : 12;
     const namePt = small ? 7  : 9;
     const qtyPt  = small ? 9  : 11;
     const refPt  = small ? 7  : 8;
     const notePt = small ? 7  : 9;
-    const lineGap = small ? 0.8 : 1.6;
+    // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
+    const cmtScale = notePt / 9;
+    const CMT_LINE_H = 5 * cmtScale;
+    const lineGap = small ? 1.4 : 2.2;
 
-    // ── Line 1 ───────────────────────────────────────────────────────────────
-    let ty = TM + (small ? 2 : 3.5);
+    // ── Line 1: Part# (bold) + Name (gray, ellipsis-truncated) ───────────────
+    let ty = TM + (small ? 2.4 : 4);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(partPt);
     doc.setTextColor(15, 15, 15);
-    const partW = doc.getTextWidth(partStr);
     doc.text(partStr, TEXT_X, ty);
+    const partStrW = doc.getTextWidth(partStr);
 
-    if (item.itemName) {
-      const name = cleanItemName(item.itemName, partStr);
-      doc.setFont('helvetica', 'normal');
+    const rawName = item.itemName ? cleanItemName(item.itemName, partStr) : '';
+    if (rawName) {
+      const maxNameW = TEXT_W - partStrW - 4;
       doc.setFontSize(namePt);
-      doc.setTextColor(120, 120, 120);
-      const nameStartX = TEXT_X + partW + 1.5;
-      const nameMaxW   = TEXT_X + TEXT_W - nameStartX;
-      const fitted = (doc.splitTextToSize(name, nameMaxW) as string[])[0] || '';
-      doc.text(fitted, nameStartX, ty);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      let name = rawName;
+      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
+        name = name.slice(0, -1);
+      if (name.length < rawName.length) name = name.slice(0, -1) + '\u2026';
+      doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, ty);
     }
     ty += partPt * 0.36 + lineGap;
 
-    // ── Line 2 ───────────────────────────────────────────────────────────────
-    const qtyText = [`\u00d7${item.quantity}`, item.colorName, condStr || null]
-      .filter(Boolean).join('  \u00b7  ');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(qtyPt);
-    doc.setTextColor(20, 20, 20);
-    let qPt = qtyPt;
-    while (qPt > 6.5 && doc.getTextWidth(qtyText) > TEXT_W) {
-      qPt -= 0.25;
-      doc.setFontSize(qPt);
-    }
-    const qtyW = doc.getTextWidth(qtyText);
-    doc.text(qtyText, TEXT_X, ty);
-
-    const refTail = [
-      orderRef || null,
-      item.inventoryId != null ? `Lot\u00a0${item.inventoryId}` : null,
+    // ── Line 2: ×Qty · Color · Condition  +  · OrderRef · Lot N ──────────────
+    const prominentParts = [
+      `\u00d7${item.quantity}`,
+      item.colorName,
+      condStr || null,
     ].filter(Boolean).join('  \u00b7  ');
-    if (refTail) {
+
+    let L2_cursor = TEXT_X;
+    let qPt = qtyPt;
+    if (prominentParts) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(qPt);
+      doc.setTextColor(25, 25, 25);
+      while (qPt > 6.5 && doc.getTextWidth(prominentParts) > TEXT_W) {
+        qPt -= 0.25;
+        doc.setFontSize(qPt);
+      }
+      doc.text(prominentParts, L2_cursor, ty);
+      L2_cursor += doc.getTextWidth(prominentParts);
+    }
+
+    if (orderRef) {
+      const lotLabel = item.inventoryId != null ? `  \u00b7  Lot ${item.inventoryId}` : '';
+      const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(refPt);
-      doc.setTextColor(120, 120, 120);
-      const refStartX = TEXT_X + qtyW + 2;
-      const refMaxW   = TEXT_X + TEXT_W - refStartX;
-      const sep = '  \u00b7  ';
-      const candidate = `${sep}${refTail}`;
-      const fitted = doc.getTextWidth(candidate) <= refMaxW
-        ? candidate
-        : (doc.splitTextToSize(candidate, refMaxW) as string[])[0] || '';
-      doc.text(fitted, refStartX, ty);
+      doc.setTextColor(40, 40, 40);
+      doc.text(sep + orderRef + lotLabel, L2_cursor, ty);
     }
     ty += qPt * 0.36 + lineGap;
 
-    // ── Optional Line 3: note ────────────────────────────────────────────────
+    // ── Line 3+: Comment (italic over yellow highlight) ──────────────────────
     if (noteText) {
-      const lineH = notePt * 0.42;
       const maxNoteLines = small ? 1 : 3;
-      const noteLines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, maxNoteLines);
-      const hlH = noteLines.length * lineH + (small ? 0.6 : 1.2);
-      if (ty + hlH <= TM + LBL_CH) {
+      doc.setFont('helvetica', 'oblique');
+      doc.setFontSize(notePt);
+      const lines = (doc.splitTextToSize(noteText, TEXT_W) as string[]).slice(0, maxNoteLines);
+      const hlH = lines.length * CMT_LINE_H;
+      // Skip the highlight if it would overflow the label height
+      if (ty + hlH - 3.5 * cmtScale <= TM + LBL_CH) {
         doc.setFillColor(255, 245, 100);
-        doc.rect(TEXT_X - 1, ty - lineH * 0.7, TEXT_W + 2, hlH, 'F');
-        doc.setFont('helvetica', 'oblique');
-        doc.setFontSize(notePt);
+        doc.rect(TEXT_X - 1, ty - 3.5 * cmtScale, TEXT_W + 2, hlH + 0.5 * cmtScale, 'F');
         doc.setTextColor(40, 40, 40);
-        noteLines.forEach((line, li) => doc.text(line, TEXT_X, ty + li * lineH));
+        lines.forEach((line, idx) => doc.text(line, TEXT_X, ty + idx * CMT_LINE_H));
       }
     }
 
