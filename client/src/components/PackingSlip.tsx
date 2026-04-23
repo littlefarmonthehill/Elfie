@@ -559,20 +559,22 @@ export async function printLotLabels(
   // (landscape feed direction on the QL-800).
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
-  const small   = preset.widthMm < 32;   // 29-mm DK tapes get a tighter layout
-  const LM      = small ? 1.5 : 2.5;
-  const RM      = small ? 1.5 : 2.5;
-  const TM      = small ? 1   : 2;
-  const BM      = small ? 1   : 2;
-  const SC_W    = small ? 8   : 12;      // shortcode column
-  const SC_GAP  = small ? 1   : 1.5;
+  const tiny    = preset.widthMm < 22;   // 17-mm DK tapes (multi-purpose / file)
+  const small   = preset.widthMm < 32;   // 29-mm DK tapes
+  const LM      = tiny ? 1   : small ? 1.5 : 2.5;
+  const RM      = tiny ? 1   : small ? 1.5 : 2.5;
+  const TM      = tiny ? 0.8 : small ? 1   : 2;
+  const BM      = tiny ? 0.8 : small ? 1   : 2;
+  const SC_W    = tiny ? 6   : small ? 8   : 12;   // shortcode column
+  const SC_GAP  = tiny ? 0.8 : small ? 1   : 1.5;
   const LBL_CH  = LBL_H - TM - BM;
-  // Square thumbnail. Sized so it always leaves ≥4 mm of vertical padding
-  // inside the usable label height, then capped at 11 mm so it doesn't
-  // dominate the label.
-  const IMG_W   = preset.showImage ? Math.max(6, Math.min(11, LBL_CH - 4)) : 0;
+  // Square thumbnail. Tighter on tiny tapes so the text column gets more room.
+  const IMG_W   = preset.showImage
+    ? (tiny ? Math.max(6, Math.min(8,  LBL_CH - 2))
+            :         Math.max(6, Math.min(11, LBL_CH - 4)))
+    : 0;
   const IMG_H   = IMG_W;
-  const IMG_GAP = preset.showImage ? (small ? 1.5 : 2) : 0;
+  const IMG_GAP = preset.showImage ? (tiny ? 0.8 : small ? 1.5 : 2) : 0;
   const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
   const TEXT_W  = LBL_W - RM - TEXT_X;
 
@@ -652,15 +654,15 @@ export async function printLotLabels(
     //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
     //   L3: italic note over a yellow highlight rect
     // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
-    const partPt = small ? 8   : 10;
-    const namePt = small ? 5.5 : 7.5;
-    const qtyPt  = small ? 7   : 9;
-    const refPt  = small ? 5.5 : 6.5;
-    const notePt = small ? 5.5 : 7.5;
+    const partPt = tiny ? 6   : small ? 8   : 10;
+    const namePt = tiny ? 4.5 : small ? 5.5 : 7.5;
+    const qtyPt  = tiny ? 5.5 : small ? 7   : 9;
+    const refPt  = tiny ? 4.5 : small ? 5.5 : 6.5;
+    const notePt = tiny ? 4.5 : small ? 5.5 : 7.5;
     // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
     const cmtScale = notePt / 9;
     const CMT_LINE_H = 5 * cmtScale;
-    const lineGap = small ? 1.4 : 2.2;
+    const lineGap = tiny ? 0.9 : small ? 1.4 : 2.2;
 
     // ── Line 1: Part# (bold) + Name (gray, ellipsis-truncated) ───────────────
     let ty = TM + (small ? 2.4 : 4);
@@ -672,15 +674,44 @@ export async function printLotLabels(
 
     const rawName = item.itemName ? cleanItemName(item.itemName, partStr) : '';
     if (rawName) {
-      const maxNameW = TEXT_W - partStrW - 4;
+      const firstW = TEXT_W - partStrW - 2;       // room next to Part#
+      const restW  = TEXT_W;                       // full width on wrap row
       doc.setFontSize(namePt);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 100, 100);
-      let name = rawName;
-      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
-        name = name.slice(0, -1);
-      if (name.length < rawName.length) name = name.slice(0, -1) + '\u2026';
-      doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, ty);
+      // Word-wrap into up to 2 lines, ellipsising the last if it overflows.
+      const words = rawName.split(/\s+/).filter(Boolean);
+      const lines: string[] = [];
+      let cur = '';
+      let limit = firstW;
+      for (const w of words) {
+        const trial = cur ? cur + ' ' + w : w;
+        if (doc.getTextWidth(trial) <= limit) {
+          cur = trial;
+        } else {
+          if (cur) lines.push(cur);
+          if (lines.length >= 2) break;
+          cur = w;
+          limit = restW;
+        }
+      }
+      if (cur && lines.length < 2) lines.push(cur);
+      // Ellipsise final line if there were leftover words.
+      const consumed = lines.join(' ').split(/\s+/).filter(Boolean).length;
+      if (consumed < words.length && lines.length) {
+        let last = lines[lines.length - 1];
+        const lineLimit = lines.length === 1 ? firstW : restW;
+        while (doc.getTextWidth(last + '\u2026') > lineLimit && last.length > 2)
+          last = last.slice(0, -1);
+        lines[lines.length - 1] = last + '\u2026';
+      }
+      // Render line 1 inline next to Part#; line 2 (if any) on its own row.
+      if (lines[0]) doc.text('\u00a0\u00a0' + lines[0], TEXT_X + partStrW, ty);
+      if (lines[1]) {
+        const ty2 = ty + namePt * 0.36 + (tiny ? 0.4 : 0.7);
+        doc.text(lines[1], TEXT_X, ty2);
+        ty = ty2;
+      }
     }
     ty += partPt * 0.36 + lineGap;
 
