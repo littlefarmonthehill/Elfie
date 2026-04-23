@@ -725,7 +725,8 @@ export async function printLotLabels(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(qPt);
       doc.setTextColor(25, 25, 25);
-      while (qPt > 6.5 && doc.getTextWidth(prominentParts) > TEXT_W) {
+      const qFloor = small ? 5 : 6.5;
+      while (qPt > qFloor && doc.getTextWidth(prominentParts) > TEXT_W) {
         qPt -= 0.25;
         doc.setFontSize(qPt);
       }
@@ -740,10 +741,16 @@ export async function printLotLabels(
     ].filter(Boolean).join('  \u00b7  ');
     if (refTail) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(refPt);
+      let rPt = refPt;
+      doc.setFontSize(rPt);
       doc.setTextColor(40, 40, 40);
+      const rFloor = small ? 4.5 : 6;
+      while (rPt > rFloor && doc.getTextWidth(refTail) > TEXT_W) {
+        rPt -= 0.25;
+        doc.setFontSize(rPt);
+      }
       doc.text(refTail, TEXT_X, ty);
-      ty += refPt * 0.36 + lineGap;
+      ty += rPt * 0.36 + lineGap;
     }
 
     // ── Line 4: Comment (italic over yellow highlight) ───────────────────────
