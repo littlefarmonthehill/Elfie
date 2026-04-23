@@ -24,14 +24,8 @@ import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, 
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-import { printPackingSlips, printPicklist, printLotLabels, getLabelPreset, DEFAULT_LABEL_PRESET_ID, LABEL_PRESETS } from "./PackingSlip";
-import {
-  Select as LotLabelSelect,
-  SelectContent as LotLabelSelectContent,
-  SelectItem as LotLabelSelectItem,
-  SelectTrigger as LotLabelSelectTrigger,
-  SelectValue as LotLabelSelectValue,
-} from "@/components/ui/select";
+import { printPackingSlips, printPicklist, type LotLabelItem } from "./PackingSlip";
+import LotLabelPrintDialog from "./LotLabelPrintDialog";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 function getMarketplacePrefix(marketplace: string | null): string {
@@ -311,15 +305,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     }
   };
 
-  // Brother QL-800 lot-label tape choice — same key as FulfillmentTool so the
-  // user's roll selection is shared across screens.
-  const [lotLabelPresetId, setLotLabelPresetId] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_LABEL_PRESET_ID;
-    return localStorage.getItem('lotLabelPresetId') || DEFAULT_LABEL_PRESET_ID;
-  });
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('lotLabelPresetId', lotLabelPresetId);
-  }, [lotLabelPresetId]);
+  // Lot-label print dialog — opens a size picker + preview, same UX as the
+  // bin/warehouse label flow. Persists the chosen Brother DK preset itself.
+  const [lotLabelDialogOpen, setLotLabelDialogOpen] = useState(false);
+  const [lotLabelItems, setLotLabelItems] = useState<LotLabelItem[]>([]);
 
   const handlePrintLotLabels = async (order: ShippedOrder) => {
     try {
@@ -359,11 +348,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           comment: item.comment || null,
           imageUrl: item.imageUrl || null,
         }));
-      await printLotLabels(
-        labelItems,
-        org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined,
-        getLabelPreset(lotLabelPresetId),
-      );
+      setLotLabelItems(labelItems);
+      setLotLabelDialogOpen(true);
     } catch (error) {
       toast({ title: "Error", description: "Failed to generate lot labels", variant: "destructive" });
     }
@@ -621,28 +607,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         <Tag className="w-4 h-4 mr-2" />
                         Print Lot Labels
                       </DropdownMenuItem>
-                      <div
-                        className="px-2 py-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      >
-                        <LotLabelSelect value={lotLabelPresetId} onValueChange={setLotLabelPresetId}>
-                          <LotLabelSelectTrigger
-                            className="h-7 text-xs"
-                            data-testid={`select-lot-label-size-${order.orderNumber}`}
-                            title="Brother QL-800 tape size"
-                          >
-                            <LotLabelSelectValue />
-                          </LotLabelSelectTrigger>
-                          <LotLabelSelectContent>
-                            {LABEL_PRESETS.map(p => (
-                              <LotLabelSelectItem key={p.id} value={p.id} data-testid={`option-label-${p.id}`}>
-                                {p.label}
-                              </LotLabelSelectItem>
-                            ))}
-                          </LotLabelSelectContent>
-                        </LotLabelSelect>
-                      </div>
                       <DropdownMenuItem
                         onClick={() => handlePrintEodForm(order.id)}
                         disabled={eodPending === order.id}
@@ -807,6 +771,13 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LotLabelPrintDialog
+        open={lotLabelDialogOpen}
+        onOpenChange={setLotLabelDialogOpen}
+        items={lotLabelItems}
+        org={org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined}
+      />
     </>
   );
 }
