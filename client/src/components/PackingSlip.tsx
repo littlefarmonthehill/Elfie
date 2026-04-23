@@ -560,10 +560,8 @@ export async function printLotLabels(
   const LBL_W   = preset.lengthMm;
   const LBL_H   = preset.widthMm;
   const small   = preset.widthMm < 32;   // 29-mm and narrower DK tapes
-  // QL-800 has ~1.5 mm of unprintable border at each cut edge of a DK label;
-  // anything closer than that gets chopped off at the cutter blade.
-  const LM      = 1.5;
-  const RM      = 2;
+  const LM      = 1;
+  const RM      = 1;
   const TM      = small ? 1 : 2;
   const BM      = small ? 1 : 2;
   const SC_W    = small ? 8 : 12;        // shortcode column
@@ -720,19 +718,16 @@ export async function printLotLabels(
       condStr || null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    let qPt = qtyPt;
     if (prominentParts) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(qPt);
+      doc.setFontSize(qtyPt);
       doc.setTextColor(25, 25, 25);
-      const qFloor = small ? 5 : 6.5;
-      while (qPt > qFloor && doc.getTextWidth(prominentParts) > TEXT_W) {
-        qPt -= 0.25;
-        doc.setFontSize(qPt);
-      }
-      doc.text(prominentParts, TEXT_X, ty);
+      let q = prominentParts;
+      while (doc.getTextWidth(q) > TEXT_W && q.length > 4) q = q.slice(0, -1);
+      if (q.length < prominentParts.length) q = q.slice(0, -1) + '\u2026';
+      doc.text(q, TEXT_X, ty);
     }
-    ty += qPt * 0.36 + lineGap;
+    ty += qtyPt * 0.36 + lineGap;
 
     // ── Line 3: OrderRef · Lot N — own line, dark gray ───────────────────────
     const refTail = [
@@ -741,16 +736,13 @@ export async function printLotLabels(
     ].filter(Boolean).join('  \u00b7  ');
     if (refTail) {
       doc.setFont('helvetica', 'normal');
-      let rPt = refPt;
-      doc.setFontSize(rPt);
+      doc.setFontSize(refPt);
       doc.setTextColor(40, 40, 40);
-      const rFloor = small ? 4.5 : 6;
-      while (rPt > rFloor && doc.getTextWidth(refTail) > TEXT_W) {
-        rPt -= 0.25;
-        doc.setFontSize(rPt);
-      }
-      doc.text(refTail, TEXT_X, ty);
-      ty += rPt * 0.36 + lineGap;
+      let r = refTail;
+      while (doc.getTextWidth(r) > TEXT_W && r.length > 4) r = r.slice(0, -1);
+      if (r.length < refTail.length) r = r.slice(0, -1) + '\u2026';
+      doc.text(r, TEXT_X, ty);
+      ty += refPt * 0.36 + lineGap;
     }
 
     // ── Line 4: Comment (italic over yellow highlight) ───────────────────────
