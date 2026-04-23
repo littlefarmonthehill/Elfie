@@ -534,8 +534,8 @@ export const LABEL_PRESETS: LabelPreset[] = [
   // Die-cut address / multi-purpose
   { id: 'dk-1204', sku: 'DK-1204', desc: 'Multi-purpose',     kind: 'die-cut',    widthMm: 17,   lengthMm: 54,    showImage: false, common: false },
   { id: 'dk-1203', sku: 'DK-1203', desc: 'File folder',       kind: 'die-cut',    widthMm: 17,   lengthMm: 87,    showImage: false, common: false },
-  { id: 'dk-1209', sku: 'DK-1209', desc: 'Small address',     kind: 'die-cut',    widthMm: 29,   lengthMm: 62,    showImage: false, common: true  },
-  { id: 'dk-1201', sku: 'DK-1201', desc: 'Standard address',  kind: 'die-cut',    widthMm: 29,   lengthMm: 90,    showImage: false, common: true  },
+  { id: 'dk-1209', sku: 'DK-1209', desc: 'Small address',     kind: 'die-cut',    widthMm: 29,   lengthMm: 62,    showImage: true,  common: true  },
+  { id: 'dk-1201', sku: 'DK-1201', desc: 'Standard address',  kind: 'die-cut',    widthMm: 29,   lengthMm: 90,    showImage: true,  common: true  },
   { id: 'dk-1208', sku: 'DK-1208', desc: 'Large address',     kind: 'die-cut',    widthMm: 38,   lengthMm: 90,    showImage: true,  common: true  },
   { id: 'dk-1202', sku: 'DK-1202', desc: 'Shipping',          kind: 'die-cut',    widthMm: 62,   lengthMm: 100,   showImage: true,  common: true  },
   { id: 'dk-1240', sku: 'DK-1240', desc: 'Large multi',       kind: 'die-cut',    widthMm: 51,   lengthMm: 102,   showImage: true,  common: false },
@@ -571,9 +571,12 @@ export async function printLotLabels(
   const BM      = small ? 1   : 2;
   const SC_W    = small ? 8   : 12;      // shortcode column
   const SC_GAP  = small ? 1   : 1.5;
-  const IMG_W   = preset.showImage ? Math.min(14, preset.widthMm - 6) : 0;
+  // Square thumbnail: at most 14 mm wide, and always leaves ≥7 mm of vertical
+  // padding above + below so the 29-mm tape doesn't end up with an image that
+  // touches the cut edge.
+  const IMG_W   = preset.showImage ? Math.min(14, preset.widthMm - 14) : 0;
   const IMG_H   = IMG_W;
-  const IMG_GAP = preset.showImage ? 2 : 0;
+  const IMG_GAP = preset.showImage ? (small ? 1.5 : 2) : 0;
   const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
   const TEXT_W  = LBL_W - RM - TEXT_X;
   const LBL_CH  = LBL_H - TM - BM;
@@ -603,7 +606,9 @@ export async function printLotLabels(
     const imgData = imgDataUrls[i];
     const partStr = item.partNumber || item.sku || '';
     const condStr = item.condition ? condLabel(item.condition) : '';
-    const noteText = (item.comment || item.remarks || '').trim();
+    // Public buyer-facing comment only — never the private seller remarks,
+    // matching the picklist sheet which uses bl_inventory.description.
+    const noteText = (item.comment || '').trim();
 
     // Order ref helpers — same logic as picklist
     const chanPfx = item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
