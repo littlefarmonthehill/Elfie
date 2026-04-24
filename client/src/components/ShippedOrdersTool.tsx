@@ -49,6 +49,63 @@ function getTrackingUrl(trackingNumber: string, carrier?: string | null): string
   return `https://parcelsapp.com/en/tracking/${t}`;
 }
 
+type TrackingStatusOption = {
+  value: 'pre_transit' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'available_for_pickup' | 'return_to_sender' | 'failure';
+  label: string;
+  Icon: typeof Clock;
+  badgeClass: string;
+};
+
+const TRACKING_STATUS_OPTIONS: TrackingStatusOption[] = [
+  { value: 'pre_transit',          label: 'Label Created',     Icon: Clock,           badgeClass: 'bg-gray-800/80 text-gray-400 border border-gray-600/50' },
+  { value: 'in_transit',           label: 'In Transit',        Icon: Truck,           badgeClass: 'bg-blue-900/60 text-blue-300 border border-blue-700/50' },
+  { value: 'out_for_delivery',     label: 'Out for Delivery',  Icon: Truck,           badgeClass: 'bg-amber-900/60 text-amber-300 border border-amber-700/50' },
+  { value: 'delivered',            label: 'Delivered',         Icon: CheckCircle2,    badgeClass: 'bg-green-900/60 text-green-300 border border-green-700/50' },
+  { value: 'available_for_pickup', label: 'Ready for Pickup',  Icon: MapPin,          badgeClass: 'bg-teal-900/60 text-teal-300 border border-teal-700/50' },
+  { value: 'return_to_sender',     label: 'Return to Sender',  Icon: ArrowLeftRight,  badgeClass: 'bg-red-900/60 text-red-300 border border-red-700/50' },
+  { value: 'failure',              label: 'Delivery Issue',    Icon: AlertTriangle,   badgeClass: 'bg-red-900/60 text-red-300 border border-red-700/50' },
+];
+
+function TrackingStatusBadge({ orderNumber, status, onChange }: { orderNumber: string; status: string | null; onChange: (s: TrackingStatusOption['value']) => void }) {
+  const current = TRACKING_STATUS_OPTIONS.find(o => o.value === status)
+    ?? (status === 'error' || status === 'cancelled'
+      ? { value: 'pre_transit' as const, label: 'Tracking Error', Icon: AlertTriangle, badgeClass: 'bg-orange-900/60 text-orange-300 border border-orange-700/50' }
+      : TRACKING_STATUS_OPTIONS[0]);
+  const CurrentIcon = current.Icon;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+        <button
+          type="button"
+          className="shrink-0"
+          data-testid={`button-tracking-status-${orderNumber}`}
+          aria-label={`Change tracking status (currently ${current.label})`}
+        >
+          <Badge className={`text-xs gap-1 cursor-pointer hover-elevate ${current.badgeClass}`}>
+            <CurrentIcon className="w-3 h-3" /> {current.label}
+          </Badge>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" onClick={e => e.stopPropagation()}>
+        {TRACKING_STATUS_OPTIONS.map(opt => {
+          const Icon = opt.Icon;
+          return (
+            <DropdownMenuItem
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              data-testid={`menu-tracking-status-${opt.value}-${orderNumber}`}
+            >
+              <Icon className="w-4 h-4 mr-2" />
+              {opt.label}
+              {status === opt.value && <span className="ml-auto text-muted-foreground text-xs">current</span>}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 type ShippedOrder = {
   id: string;
   orderNumber: string;
@@ -163,6 +220,20 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         msg = parsed.error || msg;
       } catch {}
       toast({ title: "Return failed", description: msg, variant: "destructive" });
+    },
+  });
+
+  const setTrackingStatusMutation = useMutation({
+    mutationFn: async ({ orderId, trackingStatus }: { orderId: string; trackingStatus: string }) =>
+      apiRequest('PUT', `/api/orders/${encodeURIComponent(orderId)}/tracking-status`, { trackingStatus }),
+    onSuccess: () => {
+      toast({ title: "Tracking status updated" });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update status", description: err?.message ?? '', variant: "destructive" });
     },
   });
 
@@ -479,46 +550,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     <h3 className="text-sm font-mono font-bold text-white shrink-0">
                       <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
                     </h3>
-                    {order.trackingStatus === 'delivered' && (
-                      <Badge className="text-xs bg-green-900/60 text-green-300 border border-green-700/50 gap-1 shrink-0">
-                        <CheckCircle2 className="w-3 h-3" /> Delivered
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'out_for_delivery' && (
-                      <Badge className="text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50 gap-1 shrink-0">
-                        <Truck className="w-3 h-3" /> Out for Delivery
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'in_transit' && (
-                      <Badge className="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 gap-1 shrink-0">
-                        <Truck className="w-3 h-3" /> In Transit
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'return_to_sender' && (
-                      <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
-                        <ArrowLeftRight className="w-3 h-3" /> Return to Sender
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'failure' && (
-                      <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
-                        <AlertTriangle className="w-3 h-3" /> Delivery Issue
-                      </Badge>
-                    )}
-                    {(order.trackingStatus === 'pre_transit' || order.trackingStatus === 'unknown' || !order.trackingStatus) && (
-                      <Badge className="text-xs bg-gray-800/80 text-gray-400 border border-gray-600/50 gap-1 shrink-0">
-                        <Clock className="w-3 h-3" /> Label Created
-                      </Badge>
-                    )}
-                    {order.trackingStatus === 'available_for_pickup' && (
-                      <Badge className="text-xs bg-teal-900/60 text-teal-300 border border-teal-700/50 gap-1 shrink-0">
-                        <MapPin className="w-3 h-3" /> Ready for Pickup
-                      </Badge>
-                    )}
-                    {(order.trackingStatus === 'error' || order.trackingStatus === 'cancelled') && (
-                      <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1 shrink-0">
-                        <AlertTriangle className="w-3 h-3" /> Tracking Error
-                      </Badge>
-                    )}
+                    <TrackingStatusBadge
+                      orderId={order.id}
+                      orderNumber={order.orderNumber}
+                      status={order.trackingStatus}
+                      onChange={(s) => setTrackingStatusMutation.mutate({ orderId: order.id, trackingStatus: s })}
+                    />
                     {isReturned && (
                       <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1 shrink-0">
                         <RotateCcw className="w-3 h-3" /> Returned

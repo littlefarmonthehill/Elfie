@@ -697,6 +697,8 @@ export async function shipWithoutLabel(
       vendorShipmentId: `manual-${Date.now()}`,
       trackingNumber,
       status: 'manual',
+      trackingStatus: 'in_transit',
+      trackingUpdatedAt: new Date(),
       purchasedAt: new Date(),
     });
   }

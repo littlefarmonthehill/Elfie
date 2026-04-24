@@ -1687,6 +1687,28 @@ router.post("/orders/:orderId/ship-without-label", isApproved, asyncRoute(async 
   res.json({ success: true });
 }));
 
+router.put("/orders/:orderId/tracking-status", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { orderId } = req.params;
+  const { trackingStatus } = req.body as { trackingStatus?: string };
+  const allowed = ['pre_transit','in_transit','out_for_delivery','delivered','return_to_sender','failure','available_for_pickup'];
+  if (!trackingStatus || !allowed.includes(trackingStatus)) {
+    return res.status(400).json({ error: `trackingStatus must be one of: ${allowed.join(', ')}` });
+  }
+  const { shipments: shipmentsTable } = await import('@shared/schema');
+  const [shipment] = await db.select({ id: shipmentsTable.id })
+    .from(shipmentsTable)
+    .innerJoin(orders, eq(shipmentsTable.orderId, orders.id))
+    .where(and(eq(shipmentsTable.orderId, orderId), eq(orders.orgId, orgId)))
+    .orderBy(desc(shipmentsTable.purchasedAt))
+    .limit(1);
+  if (!shipment) return res.status(404).json({ error: 'No shipment found for this order' });
+  await db.update(shipmentsTable)
+    .set({ trackingStatus, trackingUpdatedAt: new Date() })
+    .where(eq(shipmentsTable.id, shipment.id));
+  res.json({ success: true, trackingStatus });
+}));
+
 router.get("/shipments/:orderId", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { orderId } = req.params;
