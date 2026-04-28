@@ -652,18 +652,18 @@ export async function printLotLabels(
     //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
     //   L3: italic note over a yellow highlight rect
     // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
-    const partPt = small ? 10 : 12;
-    const namePt = small ? 7  : 9;
-    const qtyPt  = small ? 9  : 11;
-    const refPt  = small ? 7  : 8;
-    const notePt = small ? 7  : 9;
+    const partPt = small ? 8  : 12;
+    const namePt = small ? 6  : 9;
+    const qtyPt  = small ? 7  : 11;
+    const refPt  = small ? 6  : 8;
+    const notePt = small ? 6  : 9;
     // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
     const cmtScale = notePt / 9;
     const CMT_LINE_H = 5 * cmtScale;
-    const lineGap = small ? 1.4 : 2.2;
+    const lineGap = small ? 0.9 : 2.2;
 
     // ── Line 1: Part# (bold) + Name (gray, ellipsis-truncated) ───────────────
-    let ty = TM + (small ? 2.4 : 4);
+    let ty = TM + (small ? 2.0 : 4);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(partPt);
     doc.setTextColor(15, 15, 15);
