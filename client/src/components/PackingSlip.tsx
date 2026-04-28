@@ -564,8 +564,10 @@ export async function printLotLabels(
   const small   = preset.widthMm < 32;   // 29-mm and narrower DK tapes
   const LM      = 1;
   const RM      = 1;
-  const TM      = small ? 1 : 2;
-  const BM      = small ? 1 : 2;
+  // QL-800 has a ~1.5 mm unprintable top/bottom edge — keep margins ≥ 2 mm
+  // so the first/last line never gets shaved.
+  const TM      = small ? 2 : 2.5;
+  const BM      = small ? 2 : 2.5;
   const SC_W    = small ? 5   : 9;       // shortcode column (≈ 2-char width)
   const SC_GAP  = small ? 0.5 : 1;
   const LBL_CH  = LBL_H - TM - BM;
