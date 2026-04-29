@@ -647,6 +647,21 @@ export async function printLotLabels(
         doc.setFillColor(248, 248, 248);
         doc.roundedRect(imgX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
       }
+      // Warehouse location under the image (skip on the tiny 17-mm tape — no room).
+      const locStr = (item.binLocation ?? '').trim();
+      if (locStr && !tiny) {
+        const locPt = preset.widthMm < 32 ? 6 : 7;
+        doc.setFontSize(locPt);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(60, 60, 60);
+        let l = locStr;
+        while (doc.getTextWidth(l) > IMG_W + 1 && l.length > 3) l = l.slice(0, -1);
+        if (l.length < locStr.length) l = l.slice(0, -1) + '\u2026';
+        const lw = doc.getTextWidth(l);
+        const lx = imgX + (IMG_W - lw) / 2;
+        const ly = Math.min(imgY + IMG_H + locPt * 0.42 + 0.6, TM + LBL_CH - 0.5);
+        doc.text(l, lx, ly);
+      }
     }
 
     // ── Picklist-sheet text recipe, scaled to label size ─────────────────────

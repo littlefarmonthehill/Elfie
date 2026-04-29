@@ -970,14 +970,16 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       const labels = freshBins
         .flatMap(bin => {
           const loc = bin.warehouseLocation;
-          // QR encodes just the bin name (matches scan-to-pick BIN: protocol)
-          const binName = loc?.bin.name ?? null;
+          // Full warehouse path: "Aisle · Shelf · Bin" with missing parts dropped
+          const locStr = loc
+            ? [loc.aisle?.name, loc.shelf?.name, loc.bin?.name].filter(Boolean).join(' \u00b7 ')
+            : null;
           return bin.items
             .filter(item => selectedOrders.has(item.orderId))
             .map(item => ({
               ...item,
-              binLocation: binName,
-              _sortKey: `${loc?.aisle.name ?? 'zzz'}\x00${loc?.shelf.name ?? 'zzz'}\x00${loc?.bin.name ?? 'zzz'}\x00${item.partNumber || item.sku || ''}`,
+              binLocation: locStr,
+              _sortKey: `${loc?.aisle?.name ?? 'zzz'}\x00${loc?.shelf?.name ?? 'zzz'}\x00${loc?.bin?.name ?? 'zzz'}\x00${item.partNumber || item.sku || ''}`,
             }));
         })
         .sort((a, b) => a._sortKey.localeCompare(b._sortKey, undefined, { numeric: true }));
