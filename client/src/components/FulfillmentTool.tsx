@@ -970,10 +970,8 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       const labels = freshBins
         .flatMap(bin => {
           const loc = bin.warehouseLocation;
-          // Full warehouse path: "Aisle · Shelf · Bin" with missing parts dropped
-          const locStr = loc
-            ? [loc.aisle?.name, loc.shelf?.name, loc.bin?.name].filter(Boolean).join(' \u00b7 ')
-            : null;
+          // Bin name already encodes aisle/shelf/bin in our naming scheme.
+          const locStr = loc?.bin?.name ?? null;
           return bin.items
             .filter(item => selectedOrders.has(item.orderId))
             .map(item => ({
