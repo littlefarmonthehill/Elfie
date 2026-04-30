@@ -70,7 +70,7 @@ function TrackingStatusBadge({ orderNumber, status, onChange }: { orderNumber: s
   const current = TRACKING_STATUS_OPTIONS.find(o => o.value === status)
     ?? (status === 'error' || status === 'cancelled'
       ? { value: 'pre_transit' as const, label: 'Tracking Error', Icon: AlertTriangle, badgeClass: 'bg-orange-900/60 text-orange-300 border border-orange-700/50' }
-      : TRACKING_STATUS_OPTIONS[0]);
+      : { value: 'pre_transit' as const, label: 'Tracking Unknown', Icon: Clock, badgeClass: 'bg-gray-800/60 text-gray-400 border border-gray-700/50' });
   const CurrentIcon = current.Icon;
   return (
     <DropdownMenu>
@@ -238,6 +238,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   });
 
   const [isRefreshingTracking, setIsRefreshingTracking] = useState(false);
+  const [autoRefreshDone, setAutoRefreshDone] = useState(false);
 
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
@@ -286,25 +287,27 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     : (notDeliveredOrders ?? []).length;
   const visibleTotal = visibleNotDeliveredCount + (deliveredOrders ?? []).length;
 
-  const handleRefreshTracking = async () => {
+  const handleRefreshTracking = async (silent = false) => {
     if (!shippedOrders?.length) return;
     const eligibleIds = shippedOrders
       .filter(o => o.trackingNumber && o.trackingStatus !== 'delivered' && o.orderStatus !== 'returned')
       .map(o => o.id);
     if (!eligibleIds.length) {
-      toast({ title: "Nothing to refresh", description: "All tracked orders are already delivered." });
+      if (!silent) toast({ title: "Nothing to refresh", description: "All tracked orders are already delivered." });
       return;
     }
     setIsRefreshingTracking(true);
     try {
       const res = await apiRequest('POST', '/api/orders/shipped/refresh-tracking', { orderIds: eligibleIds });
       const count = Object.keys(res as object).length;
-      toast({ title: "Tracking refreshed", description: `Updated ${count} shipment${count !== 1 ? 's' : ''}.` });
+      if (!silent) toast({ title: "Tracking refreshed", description: `Updated ${count} shipment${count !== 1 ? 's' : ''}.` });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
       queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
     } catch (e: any) {
       const msg = e?.message || '';
-      if (msg.includes('not configured')) {
+      if (silent) {
+        console.warn('[Tracking] Auto-refresh failed:', msg);
+      } else if (msg.includes('not configured')) {
         toast({ title: "EasyPost not configured", description: "Add your EasyPost API key in Settings to use live tracking.", variant: "destructive" });
       } else {
         toast({ title: "Tracking refresh failed", description: msg, variant: "destructive" });
@@ -313,6 +316,22 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       setIsRefreshingTracking(false);
     }
   };
+
+  // Auto-refresh tracking statuses once when the page first has data, so badges
+  // don't sit on stale "Label Created" values forever. The backend rate-limits
+  // to 2 minutes per shipment, so this is cheap on the EasyPost side.
+  useEffect(() => {
+    if (autoRefreshDone) return;
+    if (isLoadingNotDelivered) return;
+    if (!notDeliveredOrders) return;
+    const hasEligible = notDeliveredOrders.some(
+      o => o.trackingNumber && o.trackingStatus !== 'delivered' && o.orderStatus !== 'returned'
+    );
+    if (!hasEligible) { setAutoRefreshDone(true); return; }
+    setAutoRefreshDone(true);
+    handleRefreshTracking(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingNotDelivered, notDeliveredOrders, autoRefreshDone]);
 
   const handlePrintPackingSlip = async (orderId: string) => {
     try {
@@ -492,7 +511,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           <Button
             size="default"
             variant="outline"
-            onClick={handleRefreshTracking}
+            onClick={() => handleRefreshTracking(false)}
             disabled={isRefreshingTracking || !shippedOrders?.length}
             data-testid="button-refresh-tracking"
           >
