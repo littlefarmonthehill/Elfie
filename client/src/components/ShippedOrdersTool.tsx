@@ -66,8 +66,17 @@ const TRACKING_STATUS_OPTIONS: TrackingStatusOption[] = [
   { value: 'failure',              label: 'Delivery Issue',    Icon: AlertTriangle,   badgeClass: 'bg-red-900/60 text-red-300 border border-red-700/50' },
 ];
 
-function TrackingStatusBadge({ orderNumber, status, onChange }: { orderNumber: string; status: string | null; onChange: (s: TrackingStatusOption['value']) => void }) {
-  const current = TRACKING_STATUS_OPTIONS.find(o => o.value === status)
+function TrackingStatusBadge({ orderNumber, status, shipDate, onChange }: { orderNumber: string; status: string | null; shipDate: string | null; onChange: (s: TrackingStatusOption['value']) => void }) {
+  // EasyPost can lag behind the carrier — when a label has been bought for
+  // more than 24h and the carrier already has scans (visible on USPS/UPS sites)
+  // EasyPost may still report `pre_transit`. Once a shipment is older than a
+  // day, treat `pre_transit` as `in_transit` for display so the badge matches
+  // what the user sees when they click the tracking number. The stored value
+  // in the DB is unchanged — manual overrides via the dropdown still win.
+  const ageHrs = shipDate ? (Date.now() - new Date(shipDate).getTime()) / 3_600_000 : 0;
+  const displayStatus = status === 'pre_transit' && ageHrs > 24 ? 'in_transit' : status;
+
+  const current = TRACKING_STATUS_OPTIONS.find(o => o.value === displayStatus)
     ?? (status === 'error' || status === 'cancelled'
       ? { value: 'pre_transit' as const, label: 'Tracking Error', Icon: AlertTriangle, badgeClass: 'bg-orange-900/60 text-orange-300 border border-orange-700/50' }
       : TRACKING_STATUS_OPTIONS[0]);
@@ -551,9 +560,9 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                       <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
                     </h3>
                     <TrackingStatusBadge
-                      orderId={order.id}
                       orderNumber={order.orderNumber}
                       status={order.trackingStatus}
+                      shipDate={order.shipDate}
                       onChange={(s) => setTrackingStatusMutation.mutate({ orderId: order.id, trackingStatus: s })}
                     />
                     {isReturned && (
