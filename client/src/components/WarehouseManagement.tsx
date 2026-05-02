@@ -1900,15 +1900,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   orphanShelvesElsewhere > 0 ? `${orphanShelvesElsewhere} orphaned shelf${orphanShelvesElsewhere === 1 ? '' : 'ves'}` : null,
                 ].filter(Boolean).join(' and ');
                 return (
-                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1.5 mb-2" data-testid="banner-orphans-elsewhere">
-                    <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                    <span className="text-[11px] text-amber-300 flex-1">
-                      {parts} in another zone (or no zone)
+                  <div className="flex items-center gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 mb-2" data-testid="banner-orphans-elsewhere">
+                    <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span className="text-xs text-amber-200 flex-1">
+                      <span className="font-semibold">{parts}</span> in another zone (or no zone). They're still pickable in the bin dropdowns below.
                     </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-[10px] h-6 px-2 shrink-0"
+                      className="text-[11px] shrink-0"
                       onClick={() => setActiveZoneId(null)}
                       data-testid="button-view-all-zones-orphans"
                     >
@@ -2171,22 +2171,28 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <SelectValue placeholder="Select a bin…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[...bins]
-                    .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
-                    .map((b: any) => {
-                      const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
-                      return (
-                        <SelectItem key={b.id} value={String(b.id)}>
-                          {b.shelfId == null ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
-                              {b.name}
-                              <span className="text-muted-foreground">(orphan — no shelf)</span>
-                            </span>
-                          ) : path}
-                        </SelectItem>
-                      );
-                    })}
+                  {(() => {
+                    const seen = new Set(bins.map((b: any) => b.id));
+                    const extraOrphans = unassignedBins.filter((ob: any) => !seen.has(ob.id));
+                    const merged = [...bins, ...extraOrphans];
+                    return merged
+                      .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
+                      .map((b: any) => {
+                        const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
+                        const zoneHint = b.zoneName ? `in ${b.zoneName}` : 'no zone';
+                        return (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.shelfId == null ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                                {b.name}
+                                <span className="text-muted-foreground">(orphan — {zoneHint})</span>
+                              </span>
+                            ) : path}
+                          </SelectItem>
+                        );
+                      });
+                  })()}
                 </SelectContent>
               </Select>
               {selectedItems.size > 0 && (
@@ -2571,22 +2577,28 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <SelectValue placeholder="Select bin…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[...bins]
-                      .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
-                      .map((b: any) => {
-                        const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
-                        return (
-                          <SelectItem key={b.id} value={String(b.id)}>
-                            {b.shelfId == null ? (
-                              <span className="inline-flex items-center gap-1.5">
-                                <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
-                                {b.name}
-                                <span className="text-muted-foreground">(orphan — no shelf)</span>
-                              </span>
-                            ) : path}
-                          </SelectItem>
-                        );
-                      })}
+                    {(() => {
+                      const seen = new Set(bins.map((b: any) => b.id));
+                      const extraOrphans = unassignedBins.filter((ob: any) => !seen.has(ob.id));
+                      const merged = [...bins, ...extraOrphans];
+                      return merged
+                        .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
+                        .map((b: any) => {
+                          const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
+                          const zoneHint = b.zoneName ? `in ${b.zoneName}` : 'no zone';
+                          return (
+                            <SelectItem key={b.id} value={String(b.id)}>
+                              {b.shelfId == null ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                                  {b.name}
+                                  <span className="text-muted-foreground">(orphan — {zoneHint})</span>
+                                </span>
+                              ) : path}
+                            </SelectItem>
+                          );
+                        });
+                    })()}
                   </SelectContent>
                 </Select>
                 <div className="grid grid-cols-2 gap-2">

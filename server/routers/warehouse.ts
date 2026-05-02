@@ -712,8 +712,20 @@ router.get("/warehouse/unassigned/range", isApproved, asyncRoute(async (req: any
 router.get("/warehouse/unassigned/bins", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const unassignedBins = await db
-    .select()
+    .select({
+      id: whBins.id,
+      name: whBins.name,
+      shelfId: whBins.shelfId,
+      zoneId: whBins.zoneId,
+      zoneName: whZones.name,
+      position: whBins.position,
+      description: whBins.description,
+      isFilingQueue: whBins.isFilingQueue,
+      createdAt: whBins.createdAt,
+      updatedAt: whBins.updatedAt,
+    })
     .from(whBins)
+    .leftJoin(whZones, eq(whBins.zoneId, whZones.id))
     .where(and(eq(whBins.orgId, orgId), sql`${whBins.shelfId} IS NULL`));
   res.json(unassignedBins);
 }));
