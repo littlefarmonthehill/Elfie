@@ -2171,9 +2171,22 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <SelectValue placeholder="Select a bin…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bins.map((b: any) => (
-                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                  ))}
+                  {[...bins]
+                    .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
+                    .map((b: any) => {
+                      const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
+                      return (
+                        <SelectItem key={b.id} value={String(b.id)}>
+                          {b.shelfId == null ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                              {b.name}
+                              <span className="text-muted-foreground">(orphan — no shelf)</span>
+                            </span>
+                          ) : path}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
               {selectedItems.size > 0 && (
@@ -2558,9 +2571,22 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <SelectValue placeholder="Select bin…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {bins.map((b: any) => (
-                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                    ))}
+                    {[...bins]
+                      .sort((a: any, b: any) => (a.shelfId == null ? 1 : 0) - (b.shelfId == null ? 1 : 0) || alphaNumericSort(a, b))
+                      .map((b: any) => {
+                        const path = [b.aisleName, b.shelfName, b.name].filter(Boolean).join(' → ');
+                        return (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.shelfId == null ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <AlertCircle className="h-3 w-3 text-amber-400 shrink-0" />
+                                {b.name}
+                                <span className="text-muted-foreground">(orphan — no shelf)</span>
+                              </span>
+                            ) : path}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
                 <div className="grid grid-cols-2 gap-2">
