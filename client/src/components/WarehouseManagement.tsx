@@ -1888,6 +1888,36 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </div>
               </div>
 
+              {/* Cross-zone orphan banner — shows when orphans exist somewhere else in the org */}
+              {(() => {
+                const orphanBinsHere = bins.filter((b: any) => b.shelfId == null).length;
+                const orphanShelvesHere = depth >= 3 ? shelves.filter((s: any) => s.aisleId == null).length : 0;
+                const orphanBinsElsewhere = unassignedBins.length - orphanBinsHere;
+                const orphanShelvesElsewhere = unassignedShelves.length - orphanShelvesHere;
+                if (orphanBinsElsewhere <= 0 && orphanShelvesElsewhere <= 0) return null;
+                const parts = [
+                  orphanBinsElsewhere > 0 ? `${orphanBinsElsewhere} orphaned bin${orphanBinsElsewhere === 1 ? '' : 's'}` : null,
+                  orphanShelvesElsewhere > 0 ? `${orphanShelvesElsewhere} orphaned shelf${orphanShelvesElsewhere === 1 ? '' : 'ves'}` : null,
+                ].filter(Boolean).join(' and ');
+                return (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1.5 mb-2" data-testid="banner-orphans-elsewhere">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <span className="text-[11px] text-amber-300 flex-1">
+                      {parts} in another zone (or no zone)
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-[10px] h-6 px-2 shrink-0"
+                      onClick={() => setActiveZoneId(null)}
+                      data-testid="button-view-all-zones-orphans"
+                    >
+                      View all zones
+                    </Button>
+                  </div>
+                );
+              })()}
+
               {/* Structure tree */}
               <div className="space-y-1 max-h-[calc(100dvh-280px)] overflow-y-auto pr-0.5">
                 {/* Aisles (depth >= 3) */}
@@ -1950,15 +1980,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   );
                 })}
 
-                {/* Floating shelves (no aisle) — shown for depth >= 2 */}
-                {depth >= 2 && (() => {
+                {/* Orphan shelves (no aisle) — shown for depth >= 3, where they don't belong anywhere */}
+                {depth >= 3 && (() => {
                   const floatingShelvesData = (shelvesByAisleId.get(null) ?? []).sort(alphaNumericSort);
                   if (floatingShelvesData.length === 0) return null;
                   return (
-                    <div className={depth >= 3 && aisles.length > 0 ? "border-t border-border/40 pt-2 mt-1" : ""}>
-                      {depth >= 3 && aisles.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground/50 px-1 mb-1">Shelves (no aisle)</p>
-                      )}
+                    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 mt-2" data-testid="section-orphan-shelves">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <p className="text-[11px] font-semibold text-amber-300">
+                          Orphaned shelves <span className="font-normal text-amber-300/70">— no aisle assigned</span>
+                        </p>
+                      </div>
                       <div className="space-y-0.5">
                         {floatingShelvesData.map((shelf: any) => renderShelfRow(shelf))}
                       </div>
@@ -1966,19 +1999,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   );
                 })()}
 
-                {/* Floating bins (no shelf) */}
-                {(() => {
+                {/* Orphan bins (no shelf) — shown when depth >= 2, where they don't belong anywhere */}
+                {depth >= 2 && (() => {
                   const floatingBinsData = (binsByShelfId.get(null) ?? []).sort(alphaNumericSort);
                   if (floatingBinsData.length === 0) return null;
-                  const hasOtherStructure = shelves.length > 0 || aisles.length > 0;
                   return (
-                    <div className={hasOtherStructure ? "border-t border-border/40 pt-2 mt-1" : ""}>
-                      {hasOtherStructure && (
-                        <p className="text-[10px] text-muted-foreground/50 px-1 mb-1">Bins (no shelf)</p>
-                      )}
+                    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 mt-2" data-testid="section-orphan-bins">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <p className="text-[11px] font-semibold text-amber-300">
+                          Orphaned bins <span className="font-normal text-amber-300/70">— no shelf assigned, use the menu to move them</span>
+                        </p>
+                      </div>
                       <div className="space-y-0.5">
                         {floatingBinsData.map((bin: any) => renderBinRow(bin))}
                       </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Bins-only mode (depth 1): just render any bins flat */}
+                {depth < 2 && (() => {
+                  const floatingBinsData = (binsByShelfId.get(null) ?? []).sort(alphaNumericSort);
+                  if (floatingBinsData.length === 0) return null;
+                  return (
+                    <div className="space-y-0.5">
+                      {floatingBinsData.map((bin: any) => renderBinRow(bin))}
                     </div>
                   );
                 })()}
