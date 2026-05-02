@@ -981,6 +981,78 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </Button>
       </div>
 
+      {/* Orphan callout — visible at the top so users can see/heal them without entering a zone */}
+      {(unassignedBins.length > 0 || unassignedShelves.length > 0) && zones.length > 0 && (() => {
+        const byZone = new Map<string, { zoneId: number | null; zoneName: string; count: number }>();
+        unassignedBins.forEach((b: any) => {
+          const key = b.zoneId == null ? 'no-zone' : String(b.zoneId);
+          if (!byZone.has(key)) {
+            const zoneName = b.zoneName ?? zones.find((z: any) => z.id === b.zoneId)?.name ?? 'no zone';
+            byZone.set(key, { zoneId: b.zoneId ?? null, zoneName, count: 0 });
+          }
+          byZone.get(key)!.count++;
+        });
+        const groups = Array.from(byZone.values()).sort((a, b) => (a.zoneId == null ? 1 : 0) - (b.zoneId == null ? 1 : 0) || b.count - a.count);
+        return (
+          <Card className="p-4 border-amber-500/60 bg-amber-500/10" data-testid="card-orphans-callout">
+            <div className="flex items-start gap-2 mb-3">
+              <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-200">
+                  {unassignedBins.length > 0 && `${unassignedBins.length} orphaned bin${unassignedBins.length === 1 ? '' : 's'}`}
+                  {unassignedBins.length > 0 && unassignedShelves.length > 0 && ' and '}
+                  {unassignedShelves.length > 0 && `${unassignedShelves.length} orphaned shelf${unassignedShelves.length === 1 ? '' : 'ves'}`}
+                </p>
+                <p className="text-xs text-amber-300/80 mt-0.5">
+                  These items don't have a parent shelf or aisle. Open the zone they belong to use the menu to organise them, or pick a zone for the ones that have none.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {groups.map(g => g.zoneId != null ? (
+                <button
+                  key={`zoned-${g.zoneId}`}
+                  type="button"
+                  onClick={() => { setActiveZoneId(g.zoneId); setActiveView('structure'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/30 hover-elevate text-left"
+                  data-testid={`button-orphan-group-zone-${g.zoneId}`}
+                >
+                  <span className="text-xs text-amber-200">
+                    <span className="font-semibold">{g.count}</span> orphan{g.count === 1 ? '' : 's'} in <span className="font-semibold">{g.zoneName}</span>
+                  </span>
+                  <span className="text-[10px] text-amber-300 inline-flex items-center gap-0.5 shrink-0">Open zone <ChevronRight className="h-3 w-3" /></span>
+                </button>
+              ) : (
+                <div key="no-zone" className="px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/30 space-y-1.5">
+                  <p className="text-xs text-amber-200">
+                    <span className="font-semibold">{g.count}</span> orphan{g.count === 1 ? '' : 's'} with no zone — pick a destination:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {zones.map((z: any) => (
+                      <Button
+                        key={z.id}
+                        size="sm"
+                        variant="outline"
+                        className="text-[11px]"
+                        disabled={moveToZoneMutation.isPending}
+                        onClick={() => {
+                          unassignedBins
+                            .filter((b: any) => b.zoneId == null)
+                            .forEach((b: any) => moveToZoneMutation.mutate({ type: 'bin', id: b.id, targetZoneId: z.id }));
+                        }}
+                        data-testid={`button-heal-orphans-to-zone-${z.id}`}
+                      >
+                        <MoveRight className="h-3 w-3 mr-1" />Move all to {z.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
       {zonesLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : zones.length === 0 ? (
