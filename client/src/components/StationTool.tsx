@@ -20,14 +20,14 @@ export function StationTool({
   onClick,
   testId,
 }: StationToolProps) {
-  const lampSize = isCompact ? 22 : 26;
-  const iconSize = isCompact ? 10 : 12;
+  const lampSize = isCompact ? 28 : 32;
+  const iconSize = isCompact ? 13 : 15;
 
   return (
     <button
       onClick={onClick}
       data-testid={testId}
-      className="group flex items-center gap-2.5 w-full active-elevate-2 transition-all rounded-sm px-2 py-1.5"
+      className="group flex items-center gap-2.5 w-full active-elevate-2 transition-all rounded-sm px-2.5 py-2"
       style={{
         background: 'rgba(0,0,0,0.18)',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -58,7 +58,7 @@ export function StationTool({
       <span
         className="truncate min-w-0 font-mono uppercase tracking-widest leading-none"
         style={{
-          fontSize: '8.5px',
+          fontSize: '10px',
           color: `color-mix(in srgb, ${hex} 55%, #8fa3bf)`,
           letterSpacing: '0.12em',
         }}

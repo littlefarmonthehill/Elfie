@@ -1531,29 +1531,29 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   // ── Structure tree helpers ────────────────────────────────────────────────
   const renderBinRow = (bin: any) => (
-    <div key={bin.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover-elevate" data-testid={`item-structure-bin-${bin.id}`}>
+    <div key={bin.id} className="flex items-center gap-2 px-2 py-2 rounded-md hover-elevate" data-testid={`item-structure-bin-${bin.id}`}>
       {bin.isFilingQueue
-        ? <Inbox className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-        : <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
+        ? <Inbox className="h-4 w-4 text-indigo-400 shrink-0" />
+        : <Archive className="h-4 w-4 text-green-400 shrink-0" />
       }
-      <span className="text-xs md:text-sm font-medium flex-1 truncate">{bin.name}</span>
+      <span className="text-sm md:text-base font-medium flex-1 truncate">{bin.name}</span>
       {bin.isFilingQueue && (
-        <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 py-0.5 shrink-0" data-testid={`badge-filing-queue-${bin.id}`}>
+        <span className="text-[9px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 py-0.5 shrink-0" data-testid={`badge-filing-queue-${bin.id}`}>
           Queue
         </span>
       )}
       {bin.itemCount > 0
-        ? <span className="text-[10px] md:text-sm text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
-        : <span className="text-[10px] md:text-sm text-muted-foreground/40 shrink-0 italic">empty</span>
+        ? <span className="text-xs md:text-sm text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
+        : <span className="text-xs md:text-sm text-muted-foreground/40 shrink-0 italic">empty</span>
       }
-      <Button size="sm" variant="outline" className="text-[10px] md:text-sm h-6 px-2 shrink-0"
+      <Button size="sm" variant="outline" className="text-sm h-7 px-2.5 shrink-0"
         onClick={() => openFillBin(String(bin.id), bin.name)} data-testid={`button-fill-bin-${bin.id}`}>
         Fill
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" data-testid={`button-menu-bin-${bin.id}`}>
-            <MoreHorizontal className="h-3 w-3" />
+          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" data-testid={`button-menu-bin-${bin.id}`}>
+            <MoreHorizontal className="h-3.5 w-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
@@ -1594,16 +1594,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const shelfBinsData = (binsByShelfId.get(shelf.id) ?? []).sort(alphaNumericSort);
     return (
       <div key={shelf.id} className="rounded-md border border-border/60 my-0.5" data-testid={`item-structure-shelf-${shelf.id}`}>
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/10 cursor-pointer hover-elevate rounded-md"
+        <div className="flex items-center gap-2 px-2 py-2 bg-muted/10 cursor-pointer hover-elevate rounded-md"
           onClick={() => setCollapsedShelves(prev => { const n = new Set(prev); n.has(shelf.id) ? n.delete(shelf.id) : n.add(shelf.id); return n; })}>
-          <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
-          <Layers className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-          <span className="text-xs md:text-sm font-medium flex-1 truncate">{shelf.name}</span>
-          <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{shelfBinsData.length} bin{shelfBinsData.length !== 1 ? 's' : ''}</span>
+          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
+          <Layers className="h-4 w-4 text-orange-400 shrink-0" />
+          <span className="text-sm md:text-base font-medium flex-1 truncate">{shelf.name}</span>
+          <span className="text-xs md:text-sm text-muted-foreground shrink-0">{shelfBinsData.length} bin{shelfBinsData.length !== 1 ? 's' : ''}</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-shelf-${shelf.id}`}>
-                <MoreHorizontal className="h-3 w-3" />
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-shelf-${shelf.id}`}>
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
@@ -1735,57 +1735,57 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         <div className="md:flex md:gap-0">
 
           {/* ── Desktop left sidebar ─────────────────────────── */}
-          <div className="hidden md:flex md:flex-col md:w-52 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:mr-4 gap-3">
+          <div className="hidden md:flex md:flex-col md:w-56 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:mr-4 gap-3">
             <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs md:text-sm h-7 px-2 gap-1 flex-1"
+                className="text-sm h-8 px-2.5 gap-1 flex-1"
                 onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
                 data-testid="button-import-csv-sidebar"
               >
-                <Upload className="h-3 w-3" />
+                <Upload className="h-3.5 w-3.5" />
                 Import
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDepthSetup(true)}
-                className="text-xs md:text-sm h-7 px-2"
+                className="text-sm h-8 px-2"
                 data-testid="button-warehouse-setup-sidebar"
               >
-                <Settings2 className="h-3.5 w-3.5" />
+                <Settings2 className="h-4 w-4" />
               </Button>
             </div>
             <nav className="flex flex-col gap-0.5">
               <button
                 onClick={() => { setActiveView('structure'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'structure' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-base font-medium transition-colors text-left ${activeView === 'structure' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                 data-testid="button-view-structure-sidebar"
               >
                 <Archive className="w-4 h-4 shrink-0" />
                 Locations
-                {bins.length > 0 && <span className="ml-auto text-xs md:text-sm opacity-60">{bins.length} bins</span>}
+                {bins.length > 0 && <span className="ml-auto text-sm opacity-60">{bins.length} bins</span>}
               </button>
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${activeView === 'lots' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-base font-medium transition-colors text-left ${activeView === 'lots' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                 data-testid="button-view-lots-sidebar"
               >
                 <Package className="w-4 h-4 shrink-0" />
                 File
-                {unassignedLots > 0 && <Badge className="ml-auto text-[9px] md:text-[11px] md:text-sm px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
+                {unassignedLots > 0 && <Badge className="ml-auto text-xs px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
             </nav>
             {/* Zone filter */}
             <div className="border-t border-border pt-3 space-y-1.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] md:text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Zone
                 </span>
                 <button
                   onClick={() => setManageZonesOpen(true)}
-                  className="text-[10px] md:text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
                   data-testid="button-manage-zones-sidebar"
                 >Manage</button>
               </div>
@@ -1805,13 +1805,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     data-testid={`button-zone-filter-${z.id}`}
                   >
                     <span className="truncate">{z.name}</span>
-                    {Number(z.binCount) > 0 && <span className="ml-auto text-xs md:text-sm opacity-60 shrink-0">{z.binCount}</span>}
+                    {Number(z.binCount) > 0 && <span className="ml-auto text-sm opacity-60 shrink-0">{z.binCount}</span>}
                   </button>
                 ))}
                 {zones.length === 0 && (
                   <button
                     onClick={() => setManageZonesOpen(true)}
-                    className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md text-xs md:text-sm text-muted-foreground/60 hover-elevate text-left"
+                    className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md text-sm text-muted-foreground/60 hover-elevate text-left"
                   >
                     <Plus className="h-3 w-3" /> Add zone
                   </button>
@@ -1823,8 +1823,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div className="border-t border-border pt-3">
               <div className="flex items-center justify-between px-1 gap-2">
                 <div className="min-w-0">
-                  <span className="text-[10px] md:text-sm font-medium uppercase tracking-wide text-muted-foreground block">Filing mode</span>
-                  <span className="text-[10px] md:text-sm text-muted-foreground/70 block mt-0.5 leading-tight">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground block">Filing mode</span>
+                  <span className="text-xs text-muted-foreground/70 block mt-0.5 leading-tight">
                     {(warehouseSettings?.oneLotPerBin ?? true) ? 'One lot → one bin (strict)' : 'One lot → many bins (loose)'}
                   </span>
                 </div>
@@ -1936,34 +1936,34 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <>
               {/* Structure header: stats + action buttons */}
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                <div className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground flex-wrap">
+                <div className="flex items-center gap-3 text-sm md:text-base text-muted-foreground flex-wrap">
                   {depth >= 3 && <span>Aisles: <span className="font-semibold text-purple-400">{aisles.length}</span></span>}
                   {depth >= 2 && <span>Shelves: <span className="font-semibold text-orange-400">{shelves.length}</span></span>}
                   <span>Bins: <span className="font-semibold text-green-400">{bins.length}</span></span>
                 </div>
                 <div className="flex gap-1 flex-wrap">
                   {depth >= 3 && (
-                    <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-aisle"
+                    <Button size="sm" variant="outline" className="text-sm" data-testid="button-add-aisle"
                       onClick={() => { setCreateType('aisle'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
-                      <Plus className="w-3 h-3 mr-1" />Aisle
+                      <Plus className="w-3.5 h-3.5 mr-1" />Aisle
                     </Button>
                   )}
                   {depth >= 2 && (
-                    <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-shelf"
+                    <Button size="sm" variant="outline" className="text-sm" data-testid="button-add-shelf"
                       onClick={() => { setCreateType('shelf'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
-                      <Plus className="w-3 h-3 mr-1" />Shelf
+                      <Plus className="w-3.5 h-3.5 mr-1" />Shelf
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-bin"
+                  <Button size="sm" variant="outline" className="text-sm" data-testid="button-add-bin"
                     onClick={() => { setCreateType('bin'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
-                    <Plus className="w-3 h-3 mr-1" />Bin
+                    <Plus className="w-3.5 h-3.5 mr-1" />Bin
                   </Button>
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" onClick={() => setBulkDialogOpen(true)} data-testid="button-bulk-create-bins">
-                    <Zap className="w-3 h-3 mr-1" />Bulk
+                  <Button size="sm" variant="outline" className="text-sm" onClick={() => setBulkDialogOpen(true)} data-testid="button-bulk-create-bins">
+                    <Zap className="w-3.5 h-3.5 mr-1" />Bulk
                   </Button>
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-import-csv"
+                  <Button size="sm" variant="outline" className="text-sm" data-testid="button-import-csv"
                     onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}>
-                    <Upload className="w-3 h-3 mr-1" />Import
+                    <Upload className="w-3.5 h-3.5 mr-1" />Import
                   </Button>
                 </div>
               </div>
@@ -1982,13 +1982,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 return (
                   <div className="flex items-center gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 mb-2" data-testid="banner-orphans-elsewhere">
                     <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
-                    <span className="text-xs md:text-sm text-amber-200 flex-1">
+                    <span className="text-sm md:text-base text-amber-200 flex-1">
                       <span className="font-semibold">{parts}</span> in another zone (or no zone). They're still pickable in the bin dropdowns below.
                     </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-[11px] md:text-sm shrink-0"
+                      className="text-sm shrink-0"
                       onClick={() => setActiveZoneId(null)}
                       data-testid="button-view-all-zones-orphans"
                     >
@@ -2006,16 +2006,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   const aisleShelvesData = (shelvesByAisleId.get(aisle.id) ?? []).sort(alphaNumericSort);
                   return (
                     <div key={aisle.id} className="rounded-md border border-border" data-testid={`item-structure-aisle-${aisle.id}`}>
-                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 cursor-pointer hover-elevate rounded-md"
+                      <div className="flex items-center gap-2 px-2.5 py-2 bg-muted/20 cursor-pointer hover-elevate rounded-md"
                         onClick={() => setCollapsedAisles(prev => { const n = new Set(prev); n.has(aisle.id) ? n.delete(aisle.id) : n.add(aisle.id); return n; })}>
-                        <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
-                        <MapPin className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-                        <span className="text-xs md:text-sm font-semibold flex-1 truncate">{aisle.name}</span>
-                        <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{aisleShelvesData.length} shelf{aisleShelvesData.length !== 1 ? 'ves' : ''}</span>
+                        <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
+                        <MapPin className="h-4 w-4 text-purple-400 shrink-0" />
+                        <span className="text-sm md:text-base font-semibold flex-1 truncate">{aisle.name}</span>
+                        <span className="text-xs md:text-sm text-muted-foreground shrink-0">{aisleShelvesData.length} shelf{aisleShelvesData.length !== 1 ? 'ves' : ''}</span>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-aisle-${aisle.id}`}>
-                              <MoreHorizontal className="h-3 w-3" />
+                            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-aisle-${aisle.id}`}>
+                              <MoreHorizontal className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
