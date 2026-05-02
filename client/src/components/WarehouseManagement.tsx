@@ -897,7 +897,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     try {
       let targetBinId: number;
       if (binMoveType === 'new') {
-        const newBin: any = await apiRequest('POST', '/api/warehouse/bins', { name: binMoveNewName.trim() });
+        // Inherit zone from the current view filter (or fall back to the source bin's zone),
+        // and inherit shelf from the source bin so the new sibling bin lands in the same place.
+        const inheritedZoneId = activeZoneId ?? binDetailBin?.zoneId ?? undefined;
+        const inheritedShelfId = binDetailBin?.shelfId ?? undefined;
+        const newBin: any = await apiRequest('POST', '/api/warehouse/bins', {
+          name: binMoveNewName.trim(),
+          ...(inheritedShelfId ? { shelfId: inheritedShelfId } : {}),
+          ...(inheritedZoneId ? { zoneId: inheritedZoneId } : {}),
+        });
         targetBinId = newBin.id;
       } else {
         targetBinId = parseInt(binMoveExistingId);
