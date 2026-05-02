@@ -968,7 +968,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">Warehouse Zones</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Each zone is an independent area with its own storage hierarchy</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Each zone is an independent area with its own storage hierarchy</p>
         </div>
         <Button
           size="sm"
@@ -1003,7 +1003,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   {unassignedBins.length > 0 && unassignedShelves.length > 0 && ' and '}
                   {unassignedShelves.length > 0 && `${unassignedShelves.length} orphaned shelf${unassignedShelves.length === 1 ? '' : 'ves'}`}
                 </p>
-                <p className="text-xs text-amber-300/80 mt-0.5">
+                <p className="text-xs md:text-sm text-amber-300/80 mt-0.5">
                   These items don't have a parent shelf or aisle. Open the zone they belong to use the menu to organise them, or pick a zone for the ones that have none.
                 </p>
               </div>
@@ -1017,14 +1017,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/30 hover-elevate text-left"
                   data-testid={`button-orphan-group-zone-${g.zoneId}`}
                 >
-                  <span className="text-xs text-amber-200">
+                  <span className="text-xs md:text-sm text-amber-200">
                     <span className="font-semibold">{g.count}</span> orphan{g.count === 1 ? '' : 's'} in <span className="font-semibold">{g.zoneName}</span>
                   </span>
-                  <span className="text-[10px] text-amber-300 inline-flex items-center gap-0.5 shrink-0">Open zone <ChevronRight className="h-3 w-3" /></span>
+                  <span className="text-[10px] md:text-sm text-amber-300 inline-flex items-center gap-0.5 shrink-0">Open zone <ChevronRight className="h-3 w-3" /></span>
                 </button>
               ) : (
                 <div key="no-zone" className="px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/30 space-y-1.5">
-                  <p className="text-xs text-amber-200">
+                  <p className="text-xs md:text-sm text-amber-200">
                     <span className="font-semibold">{g.count}</span> orphan{g.count === 1 ? '' : 's'} with no zone — pick a destination:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -1033,7 +1033,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         key={z.id}
                         size="sm"
                         variant="outline"
-                        className="text-[11px]"
+                        className="text-[11px] md:text-sm"
                         disabled={moveToZoneMutation.isPending}
                         onClick={() => {
                           unassignedBins
@@ -1059,7 +1059,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         <Card className="p-8 text-center">
           <Building2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-foreground">No zones yet</p>
-          <p className="text-xs text-muted-foreground/70 mt-1 mb-4">Create your first warehouse zone to start organising your storage</p>
+          <p className="text-xs md:text-sm text-muted-foreground/70 mt-1 mb-4">Create your first warehouse zone to start organising your storage</p>
           <Button size="sm" onClick={() => setCreateZoneOpen(true)} data-testid="button-create-first-zone">
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Create Zone
           </Button>
@@ -1113,19 +1113,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </DropdownMenu>
                 </div>
                 {zone.description && (
-                  <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{zone.description}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground mb-2 line-clamp-1">{zone.description}</p>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className="text-[10px] px-1.5 py-0 no-default-active-elevate">{dOpt.label}</Badge>
+                  <Badge className="text-[10px] md:text-sm px-1.5 py-0 no-default-active-elevate">{dOpt.label}</Badge>
                   {Number(zone.binCount) > 0 && (
-                    <span className="text-[10px] text-muted-foreground/70">{zone.binCount} bin{zone.binCount !== 1 ? 's' : ''}</span>
+                    <span className="text-[10px] md:text-sm text-muted-foreground/70">{zone.binCount} bin{zone.binCount !== 1 ? 's' : ''}</span>
                   )}
                   {Number(zone.assignedLotCount) > 0 && (
-                    <span className="text-[10px] text-muted-foreground/70">· {zone.assignedLotCount} lot{zone.assignedLotCount !== 1 ? 's' : ''} stored</span>
+                    <span className="text-[10px] md:text-sm text-muted-foreground/70">· {zone.assignedLotCount} lot{zone.assignedLotCount !== 1 ? 's' : ''} stored</span>
                   )}
                 </div>
                 <div className="flex items-center justify-end mt-2">
-                  <span className="text-[10px] text-muted-foreground/50 flex items-center gap-0.5">Enter zone <ChevronRight className="h-3 w-3" /></span>
+                  <span className="text-[10px] md:text-sm text-muted-foreground/50 flex items-center gap-0.5">Enter zone <ChevronRight className="h-3 w-3" /></span>
                 </div>
               </Card>
             );
@@ -1160,10 +1160,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold">{opt.label}</span>
-                      {newZoneDepth === opt.value && <Badge className="text-[9px] px-1 py-0 no-default-active-elevate">Selected</Badge>}
+                      <span className="text-xs md:text-sm font-semibold">{opt.label}</span>
+                      {newZoneDepth === opt.value && <Badge className="text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate">Selected</Badge>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{opt.example}</p>
+                    <p className="text-[10px] md:text-sm text-muted-foreground font-mono mt-0.5">{opt.example}</p>
                   </div>
                 </button>
               ))}
@@ -1205,10 +1205,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold">{opt.label}</span>
-                      {newZoneDepth === opt.value && <Badge className="text-[9px] px-1 py-0 no-default-active-elevate">Selected</Badge>}
+                      <span className="text-xs md:text-sm font-semibold">{opt.label}</span>
+                      {newZoneDepth === opt.value && <Badge className="text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate">Selected</Badge>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{opt.example}</p>
+                    <p className="text-[10px] md:text-sm text-muted-foreground font-mono mt-0.5">{opt.example}</p>
                   </div>
                 </button>
               ))}
@@ -1536,17 +1536,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         ? <Inbox className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
         : <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
       }
-      <span className="text-xs font-medium flex-1 truncate">{bin.name}</span>
+      <span className="text-xs md:text-sm font-medium flex-1 truncate">{bin.name}</span>
       {bin.isFilingQueue && (
         <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 py-0.5 shrink-0" data-testid={`badge-filing-queue-${bin.id}`}>
           Queue
         </span>
       )}
       {bin.itemCount > 0
-        ? <span className="text-[10px] text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
-        : <span className="text-[10px] text-muted-foreground/40 shrink-0 italic">empty</span>
+        ? <span className="text-[10px] md:text-sm text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
+        : <span className="text-[10px] md:text-sm text-muted-foreground/40 shrink-0 italic">empty</span>
       }
-      <Button size="sm" variant="outline" className="text-[10px] h-6 px-2 shrink-0"
+      <Button size="sm" variant="outline" className="text-[10px] md:text-sm h-6 px-2 shrink-0"
         onClick={() => openFillBin(String(bin.id), bin.name)} data-testid={`button-fill-bin-${bin.id}`}>
         Fill
       </Button>
@@ -1598,8 +1598,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           onClick={() => setCollapsedShelves(prev => { const n = new Set(prev); n.has(shelf.id) ? n.delete(shelf.id) : n.add(shelf.id); return n; })}>
           <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
           <Layers className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-          <span className="text-xs font-medium flex-1 truncate">{shelf.name}</span>
-          <span className="text-[10px] text-muted-foreground shrink-0">{shelfBinsData.length} bin{shelfBinsData.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs md:text-sm font-medium flex-1 truncate">{shelf.name}</span>
+          <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{shelfBinsData.length} bin{shelfBinsData.length !== 1 ? 's' : ''}</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-shelf-${shelf.id}`}>
@@ -1645,7 +1645,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         {!isCollapsed && (
           <div className="pl-5 pb-1.5 pt-0.5 space-y-0.5">
             {shelfBinsData.map((bin: any) => renderBinRow(bin))}
-            <button className="flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
+            <button className="flex items-center gap-1 text-[10px] md:text-sm text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
               onClick={() => { setCreateType('bin'); setCreateParentShelfId(String(shelf.id)); setCreateParentAisleId(''); setCreateDialogOpen(true); }}>
               <Plus className="h-2.5 w-2.5" />Add Bin
             </button>
@@ -1664,7 +1664,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold">Zone Setup — {activeZone?.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Choose how deep the location hierarchy goes in this zone</p>
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Choose how deep the location hierarchy goes in this zone</p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(false)}>Cancel</Button>
           </div>
@@ -1680,16 +1680,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">{opt.label}</span>
-                    {depth === opt.value && <Badge className="text-[10px] px-1.5 py-0">Current</Badge>}
+                    {depth === opt.value && <Badge className="text-[10px] md:text-sm px-1.5 py-0">Current</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5 font-mono">{opt.example}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{opt.description}</p>
+                  <p className="text-[10px] md:text-sm text-muted-foreground/70 mt-0.5 font-mono">{opt.example}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border">
+          <p className="text-[10px] md:text-sm text-muted-foreground/60 pt-1 border-t border-border">
             Upgrading to a deeper level is safe — your existing bins and all lot assignments are preserved. You simply gain the ability to organise bins onto shelves or aisles.
           </p>
 
@@ -1697,7 +1697,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <div className="pt-1 border-t border-border space-y-3">
             <div>
               <p className="text-sm font-semibold">Naming Format</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
                 Controls what characters are accepted when creating locations.
                 Industry standard: Aisles = Numbers, Shelves = Letters, Bins = Numbers (e.g. <span className="font-mono">1-A-01</span>).
               </p>
@@ -1710,8 +1710,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               return (
                 <div key={level} className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs font-medium text-muted-foreground w-10 shrink-0">{label}</span>
-                    <span className="text-[10px] text-muted-foreground/60 font-mono">e.g. {formatExample(current as LocationFormat, level)}</span>
+                    <span className="text-xs md:text-sm font-medium text-muted-foreground w-10 shrink-0">{label}</span>
+                    <span className="text-[10px] md:text-sm text-muted-foreground/60 font-mono">e.g. {formatExample(current as LocationFormat, level)}</span>
                   </div>
                   <div className="flex rounded-md border border-border overflow-hidden shrink-0">
                     {(['numeric', 'alpha', 'alphanumeric'] as LocationFormat[]).map(opt => (
@@ -1719,7 +1719,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         key={opt}
                         type="button"
                         onClick={() => updateFormatMutation.mutate({ [`${level}Format`]: opt })}
-                        className={`text-[11px] px-2.5 py-1 border-l first:border-l-0 border-border transition-colors ${current === opt ? 'bg-yellow-500/20 text-yellow-300 font-medium' : 'text-muted-foreground hover:bg-muted/40'}`}
+                        className={`text-[11px] md:text-sm px-2.5 py-1 border-l first:border-l-0 border-border transition-colors ${current === opt ? 'bg-yellow-500/20 text-yellow-300 font-medium' : 'text-muted-foreground hover:bg-muted/40'}`}
                         data-testid={`button-format-${level}-${opt}`}
                       >
                         {FORMAT_LABELS[opt]}
@@ -1740,7 +1740,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Button
                 variant="outline"
                 size="sm"
-                className="text-xs h-7 px-2 gap-1 flex-1"
+                className="text-xs md:text-sm h-7 px-2 gap-1 flex-1"
                 onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
                 data-testid="button-import-csv-sidebar"
               >
@@ -1751,7 +1751,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDepthSetup(true)}
-                className="text-xs h-7 px-2"
+                className="text-xs md:text-sm h-7 px-2"
                 data-testid="button-warehouse-setup-sidebar"
               >
                 <Settings2 className="h-3.5 w-3.5" />
@@ -1765,7 +1765,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               >
                 <Archive className="w-4 h-4 shrink-0" />
                 Locations
-                {bins.length > 0 && <span className="ml-auto text-xs opacity-60">{bins.length} bins</span>}
+                {bins.length > 0 && <span className="ml-auto text-xs md:text-sm opacity-60">{bins.length} bins</span>}
               </button>
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1774,18 +1774,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               >
                 <Package className="w-4 h-4 shrink-0" />
                 File
-                {unassignedLots > 0 && <Badge className="ml-auto text-[9px] px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
+                {unassignedLots > 0 && <Badge className="ml-auto text-[9px] md:text-[11px] md:text-sm px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
             </nav>
             {/* Zone filter */}
             <div className="border-t border-border pt-3 space-y-1.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-[10px] md:text-sm font-medium uppercase tracking-wide text-muted-foreground">
                   Zone
                 </span>
                 <button
                   onClick={() => setManageZonesOpen(true)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  className="text-[10px] md:text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
                   data-testid="button-manage-zones-sidebar"
                 >Manage</button>
               </div>
@@ -1805,13 +1805,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     data-testid={`button-zone-filter-${z.id}`}
                   >
                     <span className="truncate">{z.name}</span>
-                    {Number(z.binCount) > 0 && <span className="ml-auto text-xs opacity-60 shrink-0">{z.binCount}</span>}
+                    {Number(z.binCount) > 0 && <span className="ml-auto text-xs md:text-sm opacity-60 shrink-0">{z.binCount}</span>}
                   </button>
                 ))}
                 {zones.length === 0 && (
                   <button
                     onClick={() => setManageZonesOpen(true)}
-                    className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md text-xs text-muted-foreground/60 hover-elevate text-left"
+                    className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md text-xs md:text-sm text-muted-foreground/60 hover-elevate text-left"
                   >
                     <Plus className="h-3 w-3" /> Add zone
                   </button>
@@ -1823,8 +1823,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div className="border-t border-border pt-3">
               <div className="flex items-center justify-between px-1 gap-2">
                 <div className="min-w-0">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground block">Filing mode</span>
-                  <span className="text-[10px] text-muted-foreground/70 block mt-0.5 leading-tight">
+                  <span className="text-[10px] md:text-sm font-medium uppercase tracking-wide text-muted-foreground block">Filing mode</span>
+                  <span className="text-[10px] md:text-sm text-muted-foreground/70 block mt-0.5 leading-tight">
                     {(warehouseSettings?.oneLotPerBin ?? true) ? 'One lot → one bin (strict)' : 'One lot → many bins (loose)'}
                   </span>
                 </div>
@@ -1852,30 +1852,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
                 <button
                   onClick={() => { setActiveZoneId(null); setFilter('all'); setSelectedItems(new Set()); }}
-                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${activeZoneId === null ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs md:text-sm font-medium transition-colors ${activeZoneId === null ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                   data-testid="button-zone-filter-all-mobile"
                 >All</button>
                 {zones.map((z: any) => (
                   <button
                     key={z.id}
                     onClick={() => { setActiveZoneId(z.id); setFilter('all'); setSelectedItems(new Set()); }}
-                    className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors truncate max-w-[100px] ${activeZoneId === z.id ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                    className={`shrink-0 px-2.5 py-1 rounded-md text-xs md:text-sm font-medium transition-colors truncate max-w-[100px] ${activeZoneId === z.id ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                     data-testid={`button-zone-filter-mobile-${z.id}`}
                   >{z.name}</button>
                 ))}
                 <button
                   onClick={() => setManageZonesOpen(true)}
-                  className="shrink-0 px-2 py-1 rounded-md text-xs text-muted-foreground/60 hover-elevate flex items-center gap-0.5"
+                  className="shrink-0 px-2 py-1 rounded-md text-xs md:text-sm text-muted-foreground/60 hover-elevate flex items-center gap-0.5"
                   data-testid="button-manage-zones-mobile"
                 ><Building2 className="h-3 w-3" /></button>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <Button variant="outline" size="sm" className="text-xs h-7 px-2 gap-1"
+                <Button variant="outline" size="sm" className="text-xs md:text-sm h-7 px-2 gap-1"
                   onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
                   data-testid="button-import-csv-top">
                   <Upload className="h-3 w-3" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(true)} className="text-xs h-7 px-2"
+                <Button variant="ghost" size="sm" onClick={() => setShowDepthSetup(true)} className="text-xs md:text-sm h-7 px-2"
                   data-testid="button-warehouse-setup">
                   <Settings2 className="h-3.5 w-3.5" />
                 </Button>
@@ -1885,8 +1885,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {/* Mobile-only: filing mode toggle */}
             <div className="md:hidden flex items-center justify-between gap-2 px-0.5 py-1 border-t border-border">
               <div className="min-w-0">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Filing mode</span>
-                <span className="text-[10px] text-muted-foreground/70 ml-2">
+                <span className="text-[10px] md:text-sm font-medium uppercase tracking-wide text-muted-foreground">Filing mode</span>
+                <span className="text-[10px] md:text-sm text-muted-foreground/70 ml-2">
                   {(warehouseSettings?.oneLotPerBin ?? true) ? 'One lot → one bin' : 'One lot → many bins'}
                 </span>
               </div>
@@ -1912,7 +1912,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               >
                 <Archive className="w-3.5 h-3.5" />
                 Locations
-                {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
+                {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px] md:text-sm">{bins.length}</span>}
               </button>
               <button
                 onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
@@ -1922,7 +1922,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 <Package className="w-3.5 h-3.5" />
                 File
                 {unassignedLots > 0 && (
-                  <Badge className="text-[9px] px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
+                  <Badge className="text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
                 )}
               </button>
             </div>
@@ -1936,32 +1936,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <>
               {/* Structure header: stats + action buttons */}
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                <div className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground flex-wrap">
                   {depth >= 3 && <span>Aisles: <span className="font-semibold text-purple-400">{aisles.length}</span></span>}
                   {depth >= 2 && <span>Shelves: <span className="font-semibold text-orange-400">{shelves.length}</span></span>}
                   <span>Bins: <span className="font-semibold text-green-400">{bins.length}</span></span>
                 </div>
                 <div className="flex gap-1 flex-wrap">
                   {depth >= 3 && (
-                    <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-aisle"
+                    <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-aisle"
                       onClick={() => { setCreateType('aisle'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
                       <Plus className="w-3 h-3 mr-1" />Aisle
                     </Button>
                   )}
                   {depth >= 2 && (
-                    <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-shelf"
+                    <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-shelf"
                       onClick={() => { setCreateType('shelf'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
                       <Plus className="w-3 h-3 mr-1" />Shelf
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-add-bin"
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-add-bin"
                     onClick={() => { setCreateType('bin'); setCreateParentAisleId(''); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
                     <Plus className="w-3 h-3 mr-1" />Bin
                   </Button>
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" onClick={() => setBulkDialogOpen(true)} data-testid="button-bulk-create-bins">
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" onClick={() => setBulkDialogOpen(true)} data-testid="button-bulk-create-bins">
                     <Zap className="w-3 h-3 mr-1" />Bulk
                   </Button>
-                  <Button size="sm" variant="outline" className="text-[10px] md:text-xs" data-testid="button-import-csv"
+                  <Button size="sm" variant="outline" className="text-[10px] md:text-sm" data-testid="button-import-csv"
                     onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}>
                     <Upload className="w-3 h-3 mr-1" />Import
                   </Button>
@@ -1982,13 +1982,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 return (
                   <div className="flex items-center gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 mb-2" data-testid="banner-orphans-elsewhere">
                     <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
-                    <span className="text-xs text-amber-200 flex-1">
+                    <span className="text-xs md:text-sm text-amber-200 flex-1">
                       <span className="font-semibold">{parts}</span> in another zone (or no zone). They're still pickable in the bin dropdowns below.
                     </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-[11px] shrink-0"
+                      className="text-[11px] md:text-sm shrink-0"
                       onClick={() => setActiveZoneId(null)}
                       data-testid="button-view-all-zones-orphans"
                     >
@@ -2010,8 +2010,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         onClick={() => setCollapsedAisles(prev => { const n = new Set(prev); n.has(aisle.id) ? n.delete(aisle.id) : n.add(aisle.id); return n; })}>
                         <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`} />
                         <MapPin className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-                        <span className="text-xs font-semibold flex-1 truncate">{aisle.name}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">{aisleShelvesData.length} shelf{aisleShelvesData.length !== 1 ? 'ves' : ''}</span>
+                        <span className="text-xs md:text-sm font-semibold flex-1 truncate">{aisle.name}</span>
+                        <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{aisleShelvesData.length} shelf{aisleShelvesData.length !== 1 ? 'ves' : ''}</span>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" onClick={e => e.stopPropagation()} data-testid={`button-menu-aisle-${aisle.id}`}>
@@ -2050,7 +2050,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       {!isCollapsed && (
                         <div className="pl-5 pb-1.5 pt-0.5 space-y-0.5">
                           {aisleShelvesData.map((shelf: any) => renderShelfRow(shelf))}
-                          <button className="flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
+                          <button className="flex items-center gap-1 text-[10px] md:text-sm text-muted-foreground/40 hover:text-muted-foreground px-2 py-1 rounded transition-colors"
                             onClick={() => { setCreateType('shelf'); setCreateParentAisleId(String(aisle.id)); setCreateParentShelfId(''); setCreateDialogOpen(true); }}>
                             <Plus className="h-2.5 w-2.5" />Add Shelf
                           </button>
@@ -2068,7 +2068,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 mt-2" data-testid="section-orphan-shelves">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                        <p className="text-[11px] font-semibold text-amber-300">
+                        <p className="text-[11px] md:text-sm font-semibold text-amber-300">
                           Orphaned shelves <span className="font-normal text-amber-300/70">— no aisle assigned</span>
                         </p>
                       </div>
@@ -2087,7 +2087,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 mt-2" data-testid="section-orphan-bins">
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                        <p className="text-[11px] font-semibold text-amber-300">
+                        <p className="text-[11px] md:text-sm font-semibold text-amber-300">
                           Orphaned bins <span className="font-normal text-amber-300/70">— no shelf assigned, use the menu to move them</span>
                         </p>
                       </div>
@@ -2110,7 +2110,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 })()}
 
                 {bins.length === 0 && shelves.length === 0 && aisles.length === 0 && (
-                  <p className="text-center text-xs text-muted-foreground py-8">
+                  <p className="text-center text-xs md:text-sm text-muted-foreground py-8">
                     No warehouse structure yet. Use the buttons above to get started.
                   </p>
                 )}
@@ -2129,7 +2129,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <button
                 key={f}
                 onClick={() => { setFilter(f); setLotsSearchSubmitted(''); setLotsRangeCommitted(null); setSearchQuery(''); setSelectedItems(new Set()); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${filter === f ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs md:text-sm font-medium transition-colors ${filter === f ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
                 data-testid={`filter-${f}`}
               >
                 {label}
@@ -2148,7 +2148,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     placeholder="Search by part number or name…"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="text-xs pr-7"
+                    className="text-xs md:text-sm pr-7"
                     data-testid="input-search-lots"
                     onKeyDown={e => {
                       if (e.key === 'Enter' && searchQuery.trim()) {
@@ -2181,7 +2181,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   placeholder="From (e.g. bb0001)"
                   value={lotsRangeFrom}
                   onChange={e => { setLotsRangeFrom(e.target.value); setLotsRangeCommitted(null); }}
-                  className="text-xs flex-1"
+                  className="text-xs md:text-sm flex-1"
                   data-testid="input-lots-range-from"
                   onKeyDown={e => {
                     if (e.key === 'Enter' && lotsRangeFrom.trim() && lotsRangeTo.trim()) {
@@ -2191,14 +2191,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     }
                   }}
                 />
-                <span className="text-muted-foreground text-xs shrink-0">–</span>
+                <span className="text-muted-foreground text-xs md:text-sm shrink-0">–</span>
                 <Input
                   type="text"
                   inputMode="text"
                   placeholder="To (e.g. bb9999)"
                   value={lotsRangeTo}
                   onChange={e => { setLotsRangeTo(e.target.value); setLotsRangeCommitted(null); }}
-                  className="text-xs flex-1"
+                  className="text-xs md:text-sm flex-1"
                   data-testid="input-lots-range-to"
                   onKeyDown={e => {
                     if (e.key === 'Enter' && lotsRangeFrom.trim() && lotsRangeTo.trim()) {
@@ -2231,12 +2231,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div className="flex justify-end mb-2">
               {selectedItems.size > 0 && selectedItems.size === filteredList.length ? (
                 <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}
-                  className="text-[10px] md:text-xs" data-testid="button-deselect-all">
+                  className="text-[10px] md:text-sm" data-testid="button-deselect-all">
                   <CheckSquare className="w-3 h-3 mr-1 text-purple-400" />Deselect All
                 </Button>
               ) : (
                 <Button size="sm" variant="ghost" onClick={handleSelectAll}
-                  className="text-[10px] md:text-xs" data-testid="button-select-all">
+                  className="text-[10px] md:text-sm" data-testid="button-select-all">
                   <Square className="w-3 h-3 mr-1" />Select All ({filteredList.length})
                 </Button>
               )}
@@ -2247,7 +2247,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           {bins.length > 0 && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <Select value={bulkBinId} onValueChange={setBulkBinId}>
-                <SelectTrigger className="h-8 text-xs flex-1 min-w-[140px]" data-testid="select-assign-bin">
+                <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm flex-1 min-w-[140px]" data-testid="select-assign-bin">
                   <SelectValue placeholder="Select a bin…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2277,7 +2277,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </Select>
               {selectedItems.size > 0 && (
                 <>
-                  <span className="text-xs text-muted-foreground shrink-0">{selectedItems.size} selected</span>
+                  <span className="text-xs md:text-sm text-muted-foreground shrink-0">{selectedItems.size} selected</span>
                   <Button size="sm" onClick={handleBulkAssign} disabled={!bulkBinId} data-testid="button-assign-lots">
                     Assign
                   </Button>
@@ -2294,10 +2294,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {lotsLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-xs">Loading…</span>
+                <span className="text-xs md:text-sm">Loading…</span>
               </div>
             ) : filteredList.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-8">
+              <p className="text-center text-xs md:text-sm text-muted-foreground py-8">
                 {lotsSearchSubmitted
                   ? `No lots matching "${lotsSearchSubmitted}".`
                   : lotsRangeCommitted
@@ -2334,29 +2334,29 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium truncate">{item.itemNo || item.name || '—'}</span>
+                    <span className="text-xs md:text-sm font-medium truncate">{item.itemNo || item.name || '—'}</span>
                     {item.itemType && (
-                      <span className="text-[10px] text-muted-foreground/70">
+                      <span className="text-[10px] md:text-sm text-muted-foreground/70">
                         {item.itemType === 'PART' ? 'Part' : item.itemType === 'MINIFIG' ? 'Fig' : item.itemType === 'SET' ? 'Set' : item.itemType === 'GEAR' ? 'Gear' : item.itemType}
                       </span>
                     )}
-                    {item.colorName && <span className="text-[10px] text-muted-foreground">{item.colorName}</span>}
-                    {item.quantity != null && <span className="text-[10px] text-muted-foreground/70">×{item.quantity}</span>}
+                    {item.colorName && <span className="text-[10px] md:text-sm text-muted-foreground">{item.colorName}</span>}
+                    {item.quantity != null && <span className="text-[10px] md:text-sm text-muted-foreground/70">×{item.quantity}</span>}
                     {item.newOrUsed && (
-                      <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}>
+                      <Badge className={`text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`}>
                         {item.newOrUsed === 'N' ? 'New' : 'Used'}
                       </Badge>
                     )}
-                    <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/40'}`}>
+                    <Badge className={`text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-yellow-400/20 text-yellow-300 border border-yellow-400/40'}`}>
                       {item.assigned ? 'Assigned' : 'Unassigned'}
                     </Badge>
                     {item.locationCount > 1 && (
-                      <Badge className="text-[9px] px-1 py-0 bg-purple-500/20 text-purple-300 no-default-active-elevate">
+                      <Badge className="text-[9px] md:text-[11px] md:text-sm px-1 py-0 bg-purple-500/20 text-purple-300 no-default-active-elevate">
                         <SplitSquareHorizontal className="h-2.5 w-2.5 mr-0.5" />{item.locationCount} bins
                       </Badge>
                     )}
                   </div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                  <div className="text-[10px] md:text-sm text-muted-foreground mt-0.5">
                     {item.itemName && <span className="truncate block">{item.itemName}</span>}
                     {item.assigned && item.binNames?.length > 0 && (
                       <span>
@@ -2393,41 +2393,41 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <div className="space-y-4">
             {/* Template selector */}
             <div>
-              <Label className="text-xs mb-2 block">Label template</Label>
+              <Label className="text-xs md:text-sm mb-2 block">Label template</Label>
               <div className="flex flex-col gap-1.5">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sheet labels (Avery)</p>
+                <p className="text-[10px] md:text-sm font-medium text-muted-foreground uppercase tracking-wide">Sheet labels (Avery)</p>
                 {(['avery5160', 'avery5163', 'avery5164'] as const).map(key => {
                   const t = LABEL_TEMPLATES[key];
                   return (
                     <button
                       key={key}
                       onClick={() => setPrintLabelSize(key)}
-                      className={`rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                      className={`rounded-md border py-2 px-3 text-xs md:text-sm text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
                       data-testid={`button-label-size-${key}`}
                     >
                       <div>
                         <div className="font-semibold">{t.name}</div>
                         <div className={`mt-0.5 ${printLabelSize === key ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc} — {t.cols} across, {t.perSheet} per sheet</div>
                       </div>
-                      <div className={`text-[10px] font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
+                      <div className={`text-[10px] md:text-sm font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
                     </button>
                   );
                 })}
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-1">Dymo label maker</p>
+                <p className="text-[10px] md:text-sm font-medium text-muted-foreground uppercase tracking-wide mt-1">Dymo label maker</p>
                 {(['dymo30252', 'dymo30336'] as const).map(key => {
                   const t = LABEL_TEMPLATES[key];
                   return (
                     <button
                       key={key}
                       onClick={() => setPrintLabelSize(key)}
-                      className={`rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                      className={`rounded-md border py-2 px-3 text-xs md:text-sm text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
                       data-testid={`button-label-size-${key}`}
                     >
                       <div>
                         <div className="font-semibold">{t.name}</div>
                         <div className={`mt-0.5 ${printLabelSize === key ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc} — one label at a time</div>
                       </div>
-                      <div className={`text-[10px] font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
+                      <div className={`text-[10px] md:text-sm font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
                     </button>
                   );
                 })}
@@ -2437,8 +2437,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {/* Row pitch calibration — only shown for sheet labels */}
             {LABEL_TEMPLATES[printLabelSize].mode === 'sheet' && (
               <div>
-                <Label className="text-xs mb-1 block">Row spacing calibration</Label>
-                <p className="text-[10px] text-muted-foreground mb-2">
+                <Label className="text-xs md:text-sm mb-1 block">Row spacing calibration</Label>
+                <p className="text-[10px] md:text-sm text-muted-foreground mb-2">
                   Row 1 prints correctly but each lower row drifts? Adjust here. Each step is 0.02". Setting is remembered.
                 </p>
                 <div className="flex items-center gap-2">
@@ -2473,7 +2473,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-xs text-muted-foreground"
+                      className="text-xs md:text-sm text-muted-foreground"
                       onClick={() => {
                         setPrintPitchOffset(0);
                         localStorage.removeItem('printPitchOffset');
@@ -2484,7 +2484,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     </Button>
                   )}
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">
+                <p className="text-[10px] md:text-sm text-muted-foreground mt-1.5">
                   Rows drift <span className="font-semibold">up</span> → tap <span className="font-mono font-bold">+</span> &nbsp;·&nbsp; Rows drift <span className="font-semibold">down</span> → tap <span className="font-mono font-bold">−</span>
                 </p>
               </div>
@@ -2492,7 +2492,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
             {/* Preview */}
             <div>
-              <Label className="text-xs mb-2 block text-muted-foreground">Preview (first {Math.min(4, printItems.length)})</Label>
+              <Label className="text-xs md:text-sm mb-2 block text-muted-foreground">Preview (first {Math.min(4, printItems.length)})</Label>
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                 {printItems.slice(0, 4).map((item: any) => {
                   const qrData = getLabelQrData(item);
@@ -2511,18 +2511,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         className="shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-foreground truncate text-xs">
+                        <p className="font-bold text-foreground truncate text-xs md:text-sm">
                           {item.name}
                         </p>
                         {sub && (
-                          <p className="text-[9px] text-muted-foreground truncate mt-0.5">{sub}</p>
+                          <p className="text-[9px] md:text-[11px] md:text-sm text-muted-foreground truncate mt-0.5">{sub}</p>
                         )}
                       </div>
                     </div>
                   );
                 })}
                 {printItems.length > 4 && (
-                  <div className="col-span-2 text-center text-xs text-muted-foreground py-2">
+                  <div className="col-span-2 text-center text-xs md:text-sm text-muted-foreground py-2">
                     +{printItems.length - 4} more labels will be printed
                   </div>
                 )}
@@ -2555,9 +2555,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </DialogTitle>
             {selectedLot && (
               <DialogDescription className="text-left">
-                <span className="font-mono text-xs">{selectedLot.itemNo}</span>
-                {selectedLot.colorName && <span className="text-xs"> · {selectedLot.colorName}</span>}
-                {selectedLot.itemName && <span className="text-xs text-muted-foreground block truncate">{selectedLot.itemName}</span>}
+                <span className="font-mono text-xs md:text-sm">{selectedLot.itemNo}</span>
+                {selectedLot.colorName && <span className="text-xs md:text-sm"> · {selectedLot.colorName}</span>}
+                {selectedLot.itemName && <span className="text-xs md:text-sm text-muted-foreground block truncate">{selectedLot.itemName}</span>}
               </DialogDescription>
             )}
           </DialogHeader>
@@ -2569,7 +2569,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             ) : lotLocations.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No bin assignments yet.</p>
+              <p className="text-xs md:text-sm text-muted-foreground text-center py-4">No bin assignments yet.</p>
             ) : (
               <div className="space-y-1.5">
                 {lotLocations.map((loc: any) => {
@@ -2579,8 +2579,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <div key={loc.id} className="flex items-center gap-2 p-2 rounded-md border border-border bg-muted/20">
                       <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{address || loc.binName || '—'}</p>
-                        {loc.bagLabel && <p className="text-[10px] text-muted-foreground">Label: {loc.bagLabel}</p>}
+                        <p className="text-xs md:text-sm font-medium">{address || loc.binName || '—'}</p>
+                        {loc.bagLabel && <p className="text-[10px] md:text-sm text-muted-foreground">Label: {loc.bagLabel}</p>}
                         {isEditing ? (
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <Input
@@ -2588,11 +2588,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                               placeholder="Qty"
                               value={editLocQty}
                               onChange={e => setEditLocQty(e.target.value)}
-                              className="h-6 text-xs w-20"
+                              className="h-6 md:h-8 text-xs md:text-sm w-20"
                             />
                             <Button
                               size="sm"
-                              className="h-6 text-[10px] px-2"
+                              className="h-6 md:h-8 text-[10px] md:text-sm px-2"
                               disabled={updateLocationMutation.isPending}
                               onClick={() => updateLocationMutation.mutate({
                                 id: loc.id,
@@ -2601,12 +2601,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             >
                               Save
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => setEditingLocationId(null)}>
+                            <Button size="sm" variant="ghost" className="h-6 md:h-8 text-[10px] md:text-sm px-2" onClick={() => setEditingLocationId(null)}>
                               Cancel
                             </Button>
                           </div>
                         ) : (
-                          loc.quantity != null && <p className="text-[10px] text-muted-foreground">Qty: {loc.quantity}</p>
+                          loc.quantity != null && <p className="text-[10px] md:text-sm text-muted-foreground">Qty: {loc.quantity}</p>
                         )}
                       </div>
                       {!isEditing && (
@@ -2651,9 +2651,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {/* Add another location */}
             {showAddLocation ? (
               <div className="border border-dashed border-border rounded-md p-3 space-y-2.5">
-                <p className="text-xs font-medium">Add Another Bin</p>
+                <p className="text-xs md:text-sm font-medium">Add Another Bin</p>
                 <Select value={addLocBinId} onValueChange={setAddLocBinId}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-add-loc-bin">
+                  <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm" data-testid="select-add-loc-bin">
                     <SelectValue placeholder="Select bin…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2683,23 +2683,23 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </Select>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-[10px]">Qty in this bin <span className="text-muted-foreground">(optional)</span></Label>
+                    <Label className="text-[10px] md:text-sm">Qty in this bin <span className="text-muted-foreground">(optional)</span></Label>
                     <Input
                       type="number"
                       placeholder="e.g. 150"
                       value={addLocQty}
                       onChange={e => setAddLocQty(e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-8 md:h-10 text-xs md:text-sm"
                       data-testid="input-add-loc-qty"
                     />
                   </div>
                   <div>
-                    <Label className="text-[10px]">Bag label <span className="text-muted-foreground">(optional)</span></Label>
+                    <Label className="text-[10px] md:text-sm">Bag label <span className="text-muted-foreground">(optional)</span></Label>
                     <Input
                       placeholder="e.g. Bag-3"
                       value={addLocBagLabel}
                       onChange={e => setAddLocBagLabel(e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-8 md:h-10 text-xs md:text-sm"
                       data-testid="input-add-loc-label"
                     />
                   </div>
@@ -2741,7 +2741,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-xs text-muted-foreground"
+                className="w-full text-xs md:text-sm text-muted-foreground"
                 onClick={() => { setLotDialogOpen(false); onItemClick('inventory', selectedLot.id); }}
                 data-testid="button-open-inventory-detail"
               >
@@ -2768,7 +2768,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <>
                     <div className="flex items-center justify-between mb-1">
                       <Label>Name *</Label>
-                      <span className="text-[10px] text-muted-foreground">{formatHint(fmt)} — e.g. {formatExample(fmt, level)}</span>
+                      <span className="text-[10px] md:text-sm text-muted-foreground">{formatHint(fmt)} — e.g. {formatExample(fmt, level)}</span>
                     </div>
                     <Input
                       value={createName}
@@ -2852,7 +2852,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )}
             {/* Auto prefix display */}
             {bulkComputedPrefix && (
-              <div className="flex items-center gap-2 text-xs bg-muted/30 rounded-md px-3 py-2">
+              <div className="flex items-center gap-2 text-xs md:text-sm bg-muted/30 rounded-md px-3 py-2">
                 <span className="text-muted-foreground shrink-0">Auto prefix:</span>
                 <span className="font-mono text-foreground font-medium">{bulkComputedPrefix}</span>
                 <span className="text-muted-foreground/60">derived from shelf hierarchy</span>
@@ -2873,7 +2873,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             </div>
             {bulkPreviewCount > 0 && (
-              <div className="bg-muted/30 rounded-md p-3 text-xs space-y-1">
+              <div className="bg-muted/30 rounded-md p-3 text-xs md:text-sm space-y-1">
                 <p className="font-medium">Preview — {bulkPreviewCount} bins (existing names on this shelf are skipped)</p>
                 <p className="text-muted-foreground font-mono">{bulkPreviewNames.join(', ')}</p>
               </div>
@@ -2915,7 +2915,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <div className="flex-1 overflow-y-auto space-y-3 pt-1 pr-1">
             {/* Bin selector */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Bin</Label>
+              <Label className="text-xs md:text-sm">Bin</Label>
               <Select value={fillBinTargetId} onValueChange={setFillBinTargetId}>
                 <SelectTrigger data-testid="select-fill-bin-target">
                   <SelectValue placeholder="Select a bin…" />
@@ -2936,15 +2936,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 onChange={e => setFillBinTrackQty(e.target.checked)}
                 className="h-3.5 w-3.5 rounded shrink-0"
               />
-              <span className="text-xs text-muted-foreground">Track quantities per bin <span className="text-muted-foreground/60">(split inventory count)</span></span>
+              <span className="text-xs md:text-sm text-muted-foreground">Track quantities per bin <span className="text-muted-foreground/60">(split inventory count)</span></span>
             </label>
 
             {/* Range fill — fill by part number range, e.g. 974 – 2335 */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <Label className="text-xs">Fill by part number range</Label>
+                <Label className="text-xs md:text-sm">Fill by part number range</Label>
                 {fillBinRangeAutoDetected && fillBinRangeCommitted && (
-                  <span className="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-sm">
+                  <span className="text-[10px] md:text-sm text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-sm">
                     auto-detected from bin name
                   </span>
                 )}
@@ -2956,7 +2956,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   placeholder="From  e.g. 973pb0100"
                   value={fillBinRangeFrom}
                   onChange={e => { setFillBinRangeFrom(e.target.value); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
-                  className="text-xs flex-1"
+                  className="text-xs md:text-sm flex-1"
                   data-testid="input-fill-bin-range-from"
                   onKeyDown={e => {
                     if (e.key === 'Enter' && fillBinRangeFrom && fillBinRangeTo) {
@@ -2964,14 +2964,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     }
                   }}
                 />
-                <span className="text-muted-foreground text-xs shrink-0">–</span>
+                <span className="text-muted-foreground text-xs md:text-sm shrink-0">–</span>
                 <Input
                   type="text"
                   inputMode="text"
                   placeholder="To  e.g. 973pb0300"
                   value={fillBinRangeTo}
                   onChange={e => { setFillBinRangeTo(e.target.value); setFillBinRangeCommitted(null); setFillBinRangeSelected(new Set()); }}
-                  className="text-xs flex-1"
+                  className="text-xs md:text-sm flex-1"
                   data-testid="input-fill-bin-range-to"
                   onKeyDown={e => {
                     if (e.key === 'Enter' && fillBinRangeFrom && fillBinRangeTo) {
@@ -2993,20 +2993,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {fillBinRangeCommitted && !fillBinRangeFetching && (
                 <div className="space-y-1">
                   {fillBinRangeResults.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground px-1">No lots found in that range.</p>
+                    <p className="text-[10px] md:text-sm text-muted-foreground px-1">No lots found in that range.</p>
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2 px-0.5">
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[10px] md:text-sm text-muted-foreground">
                           <span className="font-semibold text-foreground">{fillBinRangeResults.length}</span> lot{fillBinRangeResults.length !== 1 ? 's' : ''} in range {fillBinRangeFrom}–{fillBinRangeTo}
                         </p>
                         <div className="flex items-center gap-2">
-                          <div className="flex gap-1.5 text-[10px] text-muted-foreground">
+                          <div className="flex gap-1.5 text-[10px] md:text-sm text-muted-foreground">
                             <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinRangeSelected(new Set(fillBinRangeResults.map((i: any) => i.id)))}>all</button>
                             <button className="hover:text-foreground underline underline-offset-2" onClick={() => setFillBinRangeSelected(new Set())}>none</button>
                           </div>
                           <button
-                            className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                            className="text-[10px] md:text-sm text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
                             onClick={() => {
                               const toAdd = fillBinRangeSelected.size > 0
                                 ? fillBinRangeResults.filter((i: any) => fillBinRangeSelected.has(i.id))
@@ -3032,17 +3032,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                                 onChange={() => setFillBinRangeSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })}
                                 className="h-3.5 w-3.5 rounded shrink-0"
                               />
-                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <span className="font-mono text-xs md:text-sm font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] md:text-sm text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{item.colorName}</span>}
                               {item.newOrUsed && (
-                                <Badge className={`text-[9px] px-1 py-0 shrink-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`} data-testid={`badge-condition-${item.id}`}>
+                                <Badge className={`text-[9px] md:text-[11px] md:text-sm px-1 py-0 shrink-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`} data-testid={`badge-condition-${item.id}`}>
                                   {item.newOrUsed === 'N' ? 'New' : 'Used'}
                                 </Badge>
                               )}
                               {item.binName
-                                ? <span className="text-[10px] font-mono text-yellow-500 shrink-0">{item.binName}</span>
-                                : <span className="text-[10px] text-muted-foreground/50 shrink-0">—</span>}
+                                ? <span className="text-[10px] md:text-sm font-mono text-yellow-500 shrink-0">{item.binName}</span>
+                                : <span className="text-[10px] md:text-sm text-muted-foreground/50 shrink-0">—</span>}
                               <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
                             </label>
                           );
@@ -3056,19 +3056,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
             {/* Search to add individual parts */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Find individual parts</Label>
+              <Label className="text-xs md:text-sm">Find individual parts</Label>
               <Input
                 placeholder="Search by part number or name (e.g. x102, pb7730)"
                 value={fillBinSearch}
                 onChange={e => { setFillBinSearch(e.target.value); setFillBinSearchSelected(new Set()); }}
-                className="text-xs"
+                className="text-xs md:text-sm"
                 data-testid="input-fill-bin-search"
               />
               {fillBinSearchResults.length > 0 && (
                 <div className="space-y-1">
                   {/* Global all/none + add controls */}
                   <div className="flex items-center justify-between gap-2 px-0.5">
-                    <div className="flex gap-2 text-[10px] text-muted-foreground">
+                    <div className="flex gap-2 text-[10px] md:text-sm text-muted-foreground">
                       <button
                         className="hover:text-foreground underline underline-offset-2"
                         onClick={() => setFillBinSearchSelected(new Set(fillBinSearchResults.map((i: any) => i.id)))}
@@ -3082,7 +3082,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     </div>
                     {fillBinSearchSelected.size > 0 ? (
                       <button
-                        className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                        className="text-[10px] md:text-sm text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
                         onClick={() => addFillBinManualMultiple(fillBinSearchResults.filter((i: any) => fillBinSearchSelected.has(i.id)))}
                         data-testid="button-fill-bin-search-add-selected"
                       >
@@ -3090,7 +3090,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       </button>
                     ) : (
                       <button
-                        className="text-[10px] text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
+                        className="text-[10px] md:text-sm text-blue-400 hover:text-blue-300 font-medium underline underline-offset-2"
                         onClick={() => addFillBinManualMultiple(fillBinSearchResults)}
                         data-testid="button-fill-bin-search-add-all"
                       >
@@ -3104,11 +3104,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     {fillBinResultsStartsWith.length > 0 && (
                       <>
                         <div className="flex items-center justify-between gap-2 px-1 pt-0.5 pb-1">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                          <p className="text-[9px] md:text-[11px] md:text-sm font-semibold uppercase tracking-wider text-muted-foreground/60">
                             Starts with "{debouncedFillBinSearch}"
                           </p>
                           <button
-                            className="text-[9px] text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                            className="text-[9px] md:text-[11px] md:text-sm text-blue-400 hover:text-blue-300 underline underline-offset-2"
                             onClick={() => setFillBinSearchSelected(prev => {
                               const next = new Set(prev);
                               fillBinResultsStartsWith.forEach((i: any) => next.add(i.id));
@@ -3121,9 +3121,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                           return (
                             <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`button-add-search-${item.id}`}>
                               <input type="checkbox" checked={checked} onChange={() => { setFillBinSearchSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); }} className="h-3.5 w-3.5 rounded shrink-0" />
-                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <span className="font-mono text-xs md:text-sm font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] md:text-sm text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{item.colorName}</span>}
                               <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
                             </label>
                           );
@@ -3133,11 +3133,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     {fillBinResultsContains.length > 0 && (
                       <>
                         <div className={`flex items-center justify-between gap-2 px-1 pb-1 ${fillBinResultsStartsWith.length > 0 ? 'pt-2 border-t border-border/50 mt-1' : 'pt-0.5'}`}>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                          <p className="text-[9px] md:text-[11px] md:text-sm font-semibold uppercase tracking-wider text-muted-foreground/60">
                             Contains "{debouncedFillBinSearch}"
                           </p>
                           <button
-                            className="text-[9px] text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                            className="text-[9px] md:text-[11px] md:text-sm text-blue-400 hover:text-blue-300 underline underline-offset-2"
                             onClick={() => setFillBinSearchSelected(prev => {
                               const next = new Set(prev);
                               fillBinResultsContains.forEach((i: any) => next.add(i.id));
@@ -3150,9 +3150,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                           return (
                             <label key={item.id} className="w-full flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none hover-elevate" data-testid={`button-add-search-${item.id}`}>
                               <input type="checkbox" checked={checked} onChange={() => { setFillBinSearchSelected(prev => { const next = new Set(prev); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }); }} className="h-3.5 w-3.5 rounded shrink-0" />
-                              <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                              <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                              {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                              <span className="font-mono text-xs md:text-sm font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                              <span className="text-[11px] md:text-sm text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                              {item.colorName && <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{item.colorName}</span>}
                               <button onClick={e => { e.preventDefault(); addFillBinManual(item); }} className="h-4 w-4 shrink-0 text-blue-400 hover:text-blue-300" title="Add just this one"><Plus className="h-3 w-3" /></button>
                             </label>
                           );
@@ -3163,12 +3163,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </div>
               )}
               {fillBinSearch.trim().length >= 1 && fillBinSearchLoading && (
-                <p className="text-[10px] text-muted-foreground px-1 flex items-center gap-1.5">
+                <p className="text-[10px] md:text-sm text-muted-foreground px-1 flex items-center gap-1.5">
                   <Loader2 className="h-3 w-3 animate-spin shrink-0" />Searching…
                 </p>
               )}
               {fillBinSearch.trim().length >= 1 && !fillBinSearchLoading && fillBinSearchResults.length === 0 && (
-                <p className="text-[10px] text-muted-foreground px-1">No unassigned lots match — part may already be added or already assigned.</p>
+                <p className="text-[10px] md:text-sm text-muted-foreground px-1">No unassigned lots match — part may already be added or already assigned.</p>
               )}
             </div>
 
@@ -3176,9 +3176,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             {fillBinManualAdds.size > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">Lots to assign ({fillBinManualAdds.size})</p>
+                  <p className="text-xs md:text-sm font-medium text-muted-foreground">Lots to assign ({fillBinManualAdds.size})</p>
                   <button
-                    className="text-[10px] text-muted-foreground hover:text-destructive underline underline-offset-2"
+                    className="text-[10px] md:text-sm text-muted-foreground hover:text-destructive underline underline-offset-2"
                     onClick={() => setFillBinManualAdds(new Map())}
                     data-testid="button-clear-all-manual"
                   >clear all</button>
@@ -3186,11 +3186,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-0.5">
                   {Array.from(fillBinManualAdds.values()).map((item: any) => (
                     <div key={item.id} className="flex items-center gap-2 px-1.5 py-1">
-                      <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
-                      <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
-                      {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                      <span className="font-mono text-xs md:text-sm font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
+                      <span className="text-[11px] md:text-sm text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
+                      {item.colorName && <span className="text-[10px] md:text-sm text-muted-foreground shrink-0">{item.colorName}</span>}
                       {item.newOrUsed && (
-                        <Badge className={`text-[9px] px-1 py-0 shrink-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`} data-testid={`badge-condition-manual-${item.id}`}>
+                        <Badge className={`text-[9px] md:text-[11px] md:text-sm px-1 py-0 shrink-0 no-default-active-elevate ${item.newOrUsed === 'N' ? 'bg-blue-500/20 text-blue-300' : 'bg-orange-500/20 text-orange-300'}`} data-testid={`badge-condition-manual-${item.id}`}>
                           {item.newOrUsed === 'N' ? 'New' : 'Used'}
                         </Badge>
                       )}
@@ -3204,7 +3204,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             const v = e.target.value;
                             setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
                           }}
-                          className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                          className="h-5 w-16 text-[10px] md:text-sm rounded border border-border bg-background px-1 shrink-0"
                           data-testid={`input-fill-bin-qty-manual-${item.id}`}
                         />
                       )}
@@ -3224,7 +3224,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* Pinned footer */}
           <div className="shrink-0 flex items-center justify-between gap-3 pt-3 border-t border-border flex-wrap">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{fillBinToAssign.length}</span> lots will be assigned
               {fillBinTrackQty && fillBinQties.size > 0 && <span className="text-muted-foreground"> · {fillBinQties.size} with quantities</span>}
             </p>
@@ -3265,11 +3265,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {binDetailFetching ? (
                 <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs">Loading lots…</span>
+                  <span className="text-xs md:text-sm">Loading lots…</span>
                 </div>
               ) : binDetailLots.length === 0 ? (
                 <div className="text-center py-6 space-y-3">
-                  <p className="text-xs text-muted-foreground italic">This bin is empty.</p>
+                  <p className="text-xs md:text-sm text-muted-foreground italic">This bin is empty.</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -3287,8 +3287,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               ) : (
                 <>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">Check the lots you want to move</p>
-                    <div className="flex gap-2 text-[10px] text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground">Check the lots you want to move</p>
+                    <div className="flex gap-2 text-[10px] md:text-sm text-muted-foreground">
                       <button className="hover:text-foreground underline underline-offset-2"
                         onClick={() => setBinDetailSelected(new Set(binDetailLots.map((l: any) => l.id)))}>all</button>
                       <button className="hover:text-foreground underline underline-offset-2"
@@ -3310,17 +3310,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             })} />
                           <div className="flex flex-col flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-mono text-xs font-semibold shrink-0">{loc.itemNo}</span>
-                              <span className={`text-[9px] font-bold px-1 rounded shrink-0 ${isNew ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                              <span className="font-mono text-xs md:text-sm font-semibold shrink-0">{loc.itemNo}</span>
+                              <span className={`text-[9px] md:text-[11px] md:text-sm font-bold px-1 rounded shrink-0 ${isNew ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}`}>
                                 {isNew ? 'N' : 'U'}
                               </span>
                               {loc.bagLabel && (
-                                <span className="text-[9px] text-muted-foreground shrink-0">bag {loc.bagLabel}</span>
+                                <span className="text-[9px] md:text-[11px] md:text-sm text-muted-foreground shrink-0">bag {loc.bagLabel}</span>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-[10px] text-muted-foreground truncate">{loc.itemName || '—'}</span>
-                              {loc.colorName && <span className="text-[10px] text-muted-foreground/70 shrink-0">· {loc.colorName}</span>}
+                              <span className="text-[10px] md:text-sm text-muted-foreground truncate">{loc.itemName || '—'}</span>
+                              {loc.colorName && <span className="text-[10px] md:text-sm text-muted-foreground/70 shrink-0">· {loc.colorName}</span>}
                             </div>
                           </div>
                           {checked ? (
@@ -3334,11 +3334,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                                 setBinMoveQties(prev => { const m = new Map(prev); if (v) m.set(loc.id, v); else m.delete(loc.id); return m; });
                               }}
                               onClick={e => e.stopPropagation()}
-                              className="h-5 w-14 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                              className="h-5 w-14 text-[10px] md:text-sm rounded border border-border bg-background px-1 shrink-0"
                               data-testid={`input-move-qty-${loc.id}`}
                             />
                           ) : (
-                            <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                            <span className="text-[10px] md:text-sm text-muted-foreground shrink-0 tabular-nums">
                               ×{loc.quantity ?? '?'}
                             </span>
                           )}
@@ -3379,7 +3379,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 {(['existing', 'new'] as const).map(t => (
                   <button key={t}
                     onClick={() => { setBinMoveType(t); setBinMoveExistingId(''); setBinMoveNewName(''); }}
-                    className={`flex-1 rounded-md border py-2 px-3 text-xs text-left transition-colors ${binMoveType === t ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                    className={`flex-1 rounded-md border py-2 px-3 text-xs md:text-sm text-left transition-colors ${binMoveType === t ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
                     data-testid={`button-move-type-${t}`}
                   >
                     <div className="font-semibold capitalize">{t === 'existing' ? 'Existing bin' : 'New bin'}</div>
@@ -3392,7 +3392,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
               {binMoveType === 'existing' ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Destination bin</Label>
+                  <Label className="text-xs md:text-sm">Destination bin</Label>
                   <Select value={binMoveExistingId} onValueChange={setBinMoveExistingId}>
                     <SelectTrigger data-testid="select-move-bin-target">
                       <SelectValue placeholder="Select a bin…" />
@@ -3408,12 +3408,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">New bin name</Label>
+                  <Label className="text-xs md:text-sm">New bin name</Label>
                   <Input
                     placeholder="e.g. BIN-42"
                     value={binMoveNewName}
                     onChange={e => setBinMoveNewName(e.target.value)}
-                    className="text-xs"
+                    className="text-xs md:text-sm"
                     data-testid="input-move-new-bin-name"
                   />
                 </div>
@@ -3509,14 +3509,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div className="flex rounded-md overflow-hidden border border-border">
               <button
                 onClick={() => { setImportMode('structure'); resetImportDialog(); }}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${importMode === 'structure' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                className={`flex-1 py-2 text-xs md:text-sm font-medium transition-colors ${importMode === 'structure' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
                 data-testid="button-import-mode-structure"
               >
                 Warehouse Structure
               </button>
               <button
                 onClick={() => { setImportMode('assignments'); resetImportDialog(); }}
-                className={`flex-1 py-2 text-xs font-medium transition-colors border-l border-border ${importMode === 'assignments' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                className={`flex-1 py-2 text-xs md:text-sm font-medium transition-colors border-l border-border ${importMode === 'assignments' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
                 data-testid="button-import-mode-assignments"
               >
                 Lot Assignments
@@ -3530,12 +3530,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {/* ── Structure mode ── */}
               {importMode === 'structure' && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — creates bins, shelves, aisles</p>
+                  <p className="text-xs md:text-sm font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — creates bins, shelves, aisles</p>
                   <div className="space-y-1">
-                    {depth === 1 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`bin\nBIN-01\nBIN-02\nBIN-03`}</pre>}
-                    {depth === 2 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`shelf,bin\nShelf-A,BIN-A1\nShelf-A,BIN-A2\nShelf-B,BIN-B1`}</pre>}
-                    {depth === 3 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`aisle,shelf,bin\nA,Shelf-A1,BIN-A1-01\nA,Shelf-A1,BIN-A1-02\nB,Shelf-B1,BIN-B1-01`}</pre>}
-                    <p className="text-[10px] text-muted-foreground pt-1">Column order doesn't matter. Existing names are skipped.</p>
+                    {depth === 1 && <pre className="text-[10px] md:text-sm font-mono text-green-400 bg-black/30 p-2 rounded">{`bin\nBIN-01\nBIN-02\nBIN-03`}</pre>}
+                    {depth === 2 && <pre className="text-[10px] md:text-sm font-mono text-green-400 bg-black/30 p-2 rounded">{`shelf,bin\nShelf-A,BIN-A1\nShelf-A,BIN-A2\nShelf-B,BIN-B1`}</pre>}
+                    {depth === 3 && <pre className="text-[10px] md:text-sm font-mono text-green-400 bg-black/30 p-2 rounded">{`aisle,shelf,bin\nA,Shelf-A1,BIN-A1-01\nA,Shelf-A1,BIN-A1-02\nB,Shelf-B1,BIN-B1-01`}</pre>}
+                    <p className="text-[10px] md:text-sm text-muted-foreground pt-1">Column order doesn't matter. Existing names are skipped.</p>
                   </div>
                 </div>
               )}
@@ -3543,14 +3543,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               {/* ── Lot assignments mode ── */}
               {importMode === 'assignments' && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — assigns inventory lots to bins</p>
+                  <p className="text-xs md:text-sm font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — assigns inventory lots to bins</p>
                   <div className="space-y-2">
                     <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Required columns: <code className="bg-muted px-1 rounded">part_number</code> and <code className="bg-muted px-1 rounded">bin</code></p>
-                      <p className="text-[10px] text-muted-foreground mb-1.5">Optional: <code className="bg-muted px-1 rounded">color_id</code> <code className="bg-muted px-1 rounded">condition</code> (N/U) <code className="bg-muted px-1 rounded">qty</code></p>
-                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`part_number,color_id,condition,bin,qty\n3001,5,N,BIN-A1,50\n3002,11,U,BIN-A2,12\n3003,,N,BIN-B1,`}</pre>
+                      <p className="text-[10px] md:text-sm text-muted-foreground mb-1">Required columns: <code className="bg-muted px-1 rounded">part_number</code> and <code className="bg-muted px-1 rounded">bin</code></p>
+                      <p className="text-[10px] md:text-sm text-muted-foreground mb-1.5">Optional: <code className="bg-muted px-1 rounded">color_id</code> <code className="bg-muted px-1 rounded">condition</code> (N/U) <code className="bg-muted px-1 rounded">qty</code></p>
+                      <pre className="text-[10px] md:text-sm font-mono text-green-400 bg-black/30 p-2 rounded">{`part_number,color_id,condition,bin,qty\n3001,5,N,BIN-A1,50\n3002,11,U,BIN-A2,12\n3003,,N,BIN-B1,`}</pre>
                     </div>
-                    <div className="space-y-1 text-[10px] text-muted-foreground">
+                    <div className="space-y-1 text-[10px] md:text-sm text-muted-foreground">
                       <p>• <code className="bg-muted px-1 rounded">part_number</code> must match a BrickLink item number in your inventory (e.g. <code>3001</code>)</p>
                       <p>• If <code className="bg-muted px-1 rounded">color_id</code> or <code className="bg-muted px-1 rounded">condition</code> are blank, all matching lots get assigned</p>
                       <p>• Existing assignments are skipped automatically</p>
@@ -3562,16 +3562,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
               {/* CSV textarea */}
               <div className="space-y-1.5">
-                <Label className="text-xs">Paste your CSV here</Label>
+                <Label className="text-xs md:text-sm">Paste your CSV here</Label>
                 <textarea
                   value={importCsvText}
                   onChange={e => setImportCsvText(e.target.value)}
                   rows={9}
                   placeholder={importMode === 'structure' ? 'bin\nBIN-01\nBIN-02\n...' : 'part_number,bin\n3001,BIN-A1\n3002,BIN-A2\n...'}
-                  className="w-full rounded-md border border-border bg-background text-xs font-mono p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-md border border-border bg-background text-xs md:text-sm font-mono p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                   data-testid="textarea-import-csv"
                 />
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] md:text-sm text-muted-foreground">
                   {importCsvText.split('\n').filter(l => l.trim()).length > 1
                     ? `${importCsvText.split('\n').filter(l => l.trim()).length - 1} data rows detected`
                     : 'Add your CSV data above'}
@@ -3602,7 +3602,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <CheckCircle2 className="h-4 w-4" />
                   Import complete
                 </div>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs md:text-sm text-muted-foreground">
                   {importResult.created && <>
                     {depth >= 3 && <span>Aisles created: <span className="font-semibold text-foreground">{importResult.created.aisles}</span></span>}
                     {depth >= 2 && <span>Shelves created: <span className="font-semibold text-foreground">{importResult.created.shelves}</span></span>}
@@ -3619,11 +3619,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
               {importResult.errors.length > 0 && (
                 <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-red-400 text-xs font-semibold">
+                  <div className="flex items-center gap-1.5 text-red-400 text-xs md:text-sm font-semibold">
                     <AlertCircle className="h-3.5 w-3.5" />
                     {importResult.errors.length} row{importResult.errors.length !== 1 ? 's' : ''} had errors
                   </div>
-                  <ul className="text-[10px] text-red-300/80 font-mono space-y-0.5 max-h-32 overflow-y-auto">
+                  <ul className="text-[10px] md:text-sm text-red-300/80 font-mono space-y-0.5 max-h-32 overflow-y-auto">
                     {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
                 </div>
@@ -3734,8 +3734,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{z.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{depthLabel}</p>
-                      {reason && <p className="text-[10px] text-destructive mt-0.5">{reason}</p>}
+                      <p className="text-[10px] md:text-sm text-muted-foreground">{depthLabel}</p>
+                      {reason && <p className="text-[10px] md:text-sm text-destructive mt-0.5">{reason}</p>}
                     </div>
                     {isSelected && <CheckCircle2 className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />}
                   </button>
