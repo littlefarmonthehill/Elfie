@@ -847,23 +847,16 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     );
   }
 
-  // Within a group: express first, then priority, then others; oldest first within tier
-  const tierRank = (o: Order) => {
-    const t = shippingTier(o.requestedShippingService);
-    if (t === 'express') return 0;
-    if (t === 'priority') return 1;
-    return 2;
-  };
-  const sortWithinGroup = (a: Order, b: Order) => {
-    const rankDiff = tierRank(a) - tierRank(b);
-    if (rankDiff !== 0) return rankDiff;
-    const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
-    const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
-    return dateA - dateB;
-  };
   const allOrders = data?.orders || [];
   // Build collision-free 2-char shortcodes for all active orders (same algorithm as picklist/packing slip)
   const orderShortCodeMap = buildShortCodeMap(allOrders.map(o => o.orderNumber).filter(Boolean));
+  // Within a group: sort by reference shortcode (AA → ZZ) so on-screen order
+  // matches the printed picklist / packing slips.
+  const sortWithinGroup = (a: Order, b: Order) => {
+    const ca = (a.orderNumber && orderShortCodeMap.get(a.orderNumber)) || shortCode(a.orderNumber || a.id);
+    const cb = (b.orderNumber && orderShortCodeMap.get(b.orderNumber)) || shortCode(b.orderNumber || b.id);
+    return ca.localeCompare(cb);
+  };
   // Flat sorted list used for select-all / print — excludes done orders
   const sortedOrders = [...allOrders]
     .filter(o => (o.workflowStatus || 'new') !== 'done')
