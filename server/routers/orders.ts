@@ -284,11 +284,23 @@ router.get("/orders/workflow-summary", isApproved, asyncRoute(async (req: any, r
 
 router.get("/shipments/tracking-summary", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
+  // NOTE: EasyPost can lag behind the carrier — labels often stay in
+  // `pre_transit` for a day even though the post office has already scanned
+  // them. The Shipped Orders detail view auto-flips `pre_transit` → `in_transit`
+  // once a shipment is older than 24 h (see ShippedOrdersTool.tsx). We mirror
+  // that rule here so the Command Central lamp counts (LABEL / TRNST) always
+  // match what the user sees inside the drawer.
   const result = await db.execute(sql`
     SELECT status, COUNT(*) AS count
     FROM (
       SELECT DISTINCT ON (o.id)
-        COALESCE(NULLIF(s.tracking_status, 'unknown'), 'pre_transit') AS status
+        CASE
+          WHEN COALESCE(NULLIF(s.tracking_status, 'unknown'), 'pre_transit') = 'pre_transit'
+           AND o.ship_date IS NOT NULL
+           AND o.ship_date < NOW() - INTERVAL '24 hours'
+          THEN 'in_transit'
+          ELSE COALESCE(NULLIF(s.tracking_status, 'unknown'), 'pre_transit')
+        END AS status
       FROM ${orders} o
       INNER JOIN ${shipments} s ON s.order_id = o.id AND s.status NOT IN ('voided', 'failed')
       WHERE o.org_id = ${orgId}
