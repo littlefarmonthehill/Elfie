@@ -226,9 +226,12 @@ const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === '
 const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
 /**
- * Unified part image loader for PDF embedding (picklist + packing slip).
+ * Unified part image loader for PDF embedding (picklist + packing slip + lot labels).
  *
- * Priority (same as partImageSources in lib/part-image.ts):
+ * Priority mirrors partImageSources in lib/part-image.ts so on-screen and PDF
+ * see the same image (especially for minifigs where the parts endpoint often
+ * misses but the lot resolver succeeds via user uploads or the catalog):
+ *   0. /api/images/lot/:lotId               — user-uploaded → catalog (when lotId known)
  *   1. /api/images/parts/:partNum/:colorId  — object storage → BL CDN → processed PNG
  *   2. /api/images/proxy?url=...            — any imageUrl from bl_catalog / BrickOwl
  *
@@ -244,12 +247,16 @@ async function loadItemImageForPDF(opts: {
   partNumber?: string | null;
   colorId?: number | null;
   imageUrl?: string | null;
+  lotId?: number | null;
   grayscale?: boolean;
 }): Promise<string | null> {
-  const { partNumber, colorId, imageUrl, grayscale = true } = opts;
+  const { partNumber, colorId, imageUrl, lotId, grayscale = true } = opts;
 
   // Build candidate URLs in priority order (all same-origin proxies)
   const urls: string[] = [];
+  if (lotId != null) {
+    urls.push(`/api/images/lot/${lotId}`);
+  }
   if (partNumber && colorId != null) {
     urls.push(`/api/images/parts/${encodeURIComponent(partNumber)}/${colorId}`);
   }
@@ -332,6 +339,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
         partNumber: item.partNumber,
         colorId:    item.colorId,
         imageUrl:   item.imageUrl,
+        lotId:      item.inventoryId,
       })
     )
   );
@@ -586,7 +594,7 @@ export async function printLotLabels(
   const imgDataUrls = preset.showImage
     ? await Promise.all(
         items.map(item =>
-          loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl })
+          loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl, lotId: item.inventoryId })
         )
       )
     : items.map(() => null);
@@ -834,6 +842,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
           partNumber: item.bricklinkPartNumber,
           colorId:    item.colorId,
           imageUrl:   item.imageUrl,
+          lotId:      item.inventoryId ? parseInt(item.inventoryId, 10) || null : null,
         })
       )
     );
