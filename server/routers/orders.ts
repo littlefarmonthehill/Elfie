@@ -1819,11 +1819,23 @@ router.post("/orders/:orderId/feedback-left", isApproved, asyncRoute(async (req:
       warnings.push(`Feedback comment not posted to ${order.marketplace}: ${adapterErr.message ?? 'Unknown error'}`);
     }
   }
-  // NOTE: We deliberately do NOT mark the BrickLink order as COMPLETED here.
-  // COMPLETED on BL means the buyer has received the package. The seller leaving
-  // feedback is unrelated to package receipt — it's just the seller's own action.
-  // The buyer marks COMPLETED themselves when their package arrives, and the
-  // regular BL order sync will pick that up and advance our local status.
+  if (!skip && order.marketplace === 'BrickLink' && order.orderNumber) {
+    try {
+      const { getBricklinkCredentials } = await import('../services/bricklink.js');
+      const blCreds = await getBricklinkCredentials(orgId).catch(() => null);
+      if (blCreds) {
+        const { updateBrickLinkOrderToCompleted } = await import('../services/bricklink-orders.js');
+        await updateBrickLinkOrderToCompleted(order.orderNumber, blCreds.consumerKey, blCreds.consumerSecret, blCreds.tokenValue, blCreds.tokenSecret);
+      }
+    } catch (blErr: any) {
+      warnings.push(`Order not marked Completed on BrickLink: ${blErr.message ?? 'Unknown error'}`);
+    }
+    try {
+      await db.update(orders).set({ orderStatus: 'completed' }).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+    } catch (dbErr: any) {
+      console.warn(`[Feedback] Local status update failed for order ${orderId}:`, dbErr.message);
+    }
+  }
   const [updated] = await db.update(orders).set({ feedbackLeftAt: new Date() }).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).returning({ id: orders.id, feedbackLeftAt: orders.feedbackLeftAt });
   if (!updated) return res.status(404).json({ error: "Order not found" });
   res.json({ ...updated, warnings });

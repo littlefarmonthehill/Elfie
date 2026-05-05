@@ -254,13 +254,9 @@ export function mapBrickLinkCondition(newOrUsed: string): string {
 /**
  * Update BrickLink order status to SHIPPED with tracking information.
  * Step 1: sets the tracking number on the order.
- * Step 2: PUTs status = SHIPPED on the order.
- *
- * NOTE: We deliberately do NOT call BrickLink's "drive_thru" endpoint here.
- * Despite its name, drive_thru advances the order all the way to COMPLETED on
- * BrickLink (it's the seller's "I'm done, buyer can take it from here" action).
- * COMPLETED is supposed to mean the buyer has received the package, so it's
- * the buyer's job to mark the order COMPLETED — not ours when we ship it.
+ * Step 2: calls the drive_through endpoint — this marks the order SHIPPED AND
+ *         sends the buyer notification email with tracking number (BL's "drive-through").
+ * Falls back to a plain status PUT if drive_through returns an error (e.g. wrong state).
  */
 export async function updateBrickLinkOrderShipped(
   orderId: string,
@@ -271,7 +267,7 @@ export async function updateBrickLinkOrderShipped(
   tokenValue: string,
   tokenSecret: string
 ): Promise<void> {
-  // Never touch real BL orders from dev
+  // Never email real buyers from dev
   if (process.env.NODE_ENV === 'development') {
     console.log(`[DEV] updateBrickLinkOrderShipped suppressed for order ${orderId} — tracking ${trackingNumber}`);
     return;
@@ -314,8 +310,20 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update order error: ${updateResponse.status} ${errorText}`);
   }
 
-  // Step 2: Set status = SHIPPED via the status endpoint.
-  // The buyer will mark the order COMPLETED themselves on receipt.
+  // Step 2: Drive-through — sends "Thank You, Drive Thru!" email to buyer with tracking number.
+  // BL API: GET /orders/{order_id}/drive_thru?tracking_no=...
+  // Eligible from any active fulfillment status (Processing → Completed, incl. PAID, PACKED, SHIPPED).
+  const dtDriveThrough = await sendBrickLinkDriveThrough(
+    orderId, trackingNumber, consumerKey, consumerSecret, tokenValue, tokenSecret
+  );
+
+  if (dtDriveThrough.ok) {
+    console.log(`✅ BrickLink order ${orderId} drive-through sent — tracking ${trackingNumber}, buyer notified`);
+    return;
+  }
+
+  // Fallback: drive_thru failed — set SHIPPED directly via status PUT (no buyer email).
+  console.warn(`[BL] drive_thru failed for ${orderId} (${dtDriveThrough.error}), falling back to status PUT`);
   const statusUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
   const statusData = { field: 'status', value: 'SHIPPED' };
   const statusRequest = { url: statusUrl, method: 'PUT', body: statusData };
@@ -335,7 +343,7 @@ export async function updateBrickLinkOrderShipped(
     throw new Error(`BrickLink update status error: ${statusResponse.status} ${errorText}`);
   }
 
-  console.log(`✅ BrickLink order ${orderId} marked SHIPPED with tracking ${trackingNumber}`);
+  console.log(`✅ BrickLink order ${orderId} marked SHIPPED with tracking ${trackingNumber} (no drive-through email)`);
 }
 
 /**
