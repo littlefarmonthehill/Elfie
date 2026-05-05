@@ -1601,6 +1601,7 @@ router.post("/fulfillment/packing-slip", isApproved, asyncRoute(async (req, res)
     colorName: sql<string>`COALESCE((SELECT bc.name FROM bl_colors bc WHERE bc.id = ${orderDetails.colorId} LIMIT 1), ${blColors.name})`,
     condition: sql<string>`COALESCE(${orderDetails.condition}, CASE WHEN ${blInventory.newOrUsed} = 'N' THEN 'New' WHEN ${blInventory.newOrUsed} = 'U' THEN 'Used' WHEN ${orderDetails.name} LIKE '%(Used)%' THEN 'Used' WHEN ${orderDetails.name} LIKE '%(New)%' THEN 'New' ELSE NULL END)`,
     comment: blInventory.description, colorId: sql<number>`COALESCE(${orderDetails.colorId}, ${blInventory.colorId})`, imageUrl: blCatalog.imageUrl,
+    itemType: blInventory.itemType,
   }).from(orderDetails)
     .leftJoin(blInventory, or(eq(blInventory.id, orderDetails.bricklinkInventoryId), and(isNull(orderDetails.bricklinkInventoryId), eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))))
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
@@ -2005,7 +2006,7 @@ router.get("/picklist", isApproved, asyncRoute(async (req: any, res) => {
   const uniqueInvIds = Array.from(new Set(lookupIds));
   const inventoryData = uniqueInvIds.length > 0
     ? await db
-        .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
+        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -2095,6 +2096,7 @@ router.get("/picklist", isApproved, asyncRoute(async (req: any, res) => {
         condition,
         pulled: item.pulled,
         inventoryId: lookupId,
+        itemType: inv?.itemType ?? null,
         remarks: inv?.remarks ?? null,
         comment: inv?.description ?? null,
         imageUrl: inv?.imageUrl ?? null,
@@ -2532,7 +2534,7 @@ router.get("/api/picklist", isApproved, asyncRoute(async (req: any, res) => {
   const uniqueInvIds = Array.from(new Set(lookupIds));
   const inventoryData = uniqueInvIds.length > 0
     ? await db
-        .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
+        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -2646,6 +2648,7 @@ router.get("/api/picklist", isApproved, asyncRoute(async (req: any, res) => {
         condition,
         pulled: item.pulled,
         inventoryId: lookupId,
+        itemType: inv?.itemType ?? null,
         remarks: inv?.remarks ?? null,
         comment: inv?.description ?? null,
         imageUrl: inv?.imageUrl ?? null,

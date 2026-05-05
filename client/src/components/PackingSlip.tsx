@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { cleanItemName, shippingTier } from "@/lib/item-utils";
+import { partImageSources } from "@/lib/part-image";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
 export interface OrgBranding {
@@ -38,6 +39,8 @@ type PackingSlipOrder = {
     bricklinkPartNumber: string | null;
     colorId?: number | null;
     imageUrl?: string | null;
+    /** BrickLink item type (PART/MINIFIG/SET/GEAR) — used by global image resolver. */
+    itemType?: string | null;
     name: string;
     quantity: number;
     colorName: string | null;
@@ -217,6 +220,8 @@ export interface PicklistItem {
   orderNumber?: string | null;
   marketplace?: string | null;
   inventoryId?: number | null;
+  /** BrickLink item type (PART/MINIFIG/SET/GEAR) — used by global image resolver. */
+  itemType?: string | null;
   comment?: string | null;
   imageUrl?: string | null;
 }
@@ -228,14 +233,11 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 /**
  * Unified part image loader for PDF embedding (picklist + packing slip + lot labels).
  *
- * Priority mirrors partImageSources in lib/part-image.ts so on-screen and PDF
- * see the same image (especially for minifigs where the parts endpoint often
- * misses but the lot resolver succeeds via user uploads or the catalog):
- *   0. /api/images/lot/:lotId               — user-uploaded → catalog (when lotId known)
- *   1. /api/images/parts/:partNum/:colorId  — object storage → BL CDN → processed PNG
- *   2. /api/images/proxy?url=...            — any imageUrl from bl_catalog / BrickOwl
- *
- * All URLs are same-origin server proxies — no CORS tainting of the canvas.
+ * Uses the global `partImageSources` resolver — the same source chain that
+ * `<PartImage>` uses on screen — so the PDF and the UI always agree on which
+ * image to show. Each candidate URL is tried in order until one loads cleanly
+ * into a canvas. URLs that taint the canvas (cross-origin without CORS headers
+ * — e.g. raw BrickLink CDN) fail naturally and we fall through to the next.
  *
  * The returned data URL is always a SQUARE PNG (the shorter side is padded with
  * transparent pixels). This prevents jsPDF from squishing non-square images when
@@ -247,26 +249,12 @@ async function loadItemImageForPDF(opts: {
   partNumber?: string | null;
   colorId?: number | null;
   imageUrl?: string | null;
+  itemType?: string | null;
   lotId?: number | null;
   grayscale?: boolean;
 }): Promise<string | null> {
-  const { partNumber, colorId, imageUrl, lotId, grayscale = true } = opts;
-
-  // Build candidate URLs in priority order (all same-origin proxies)
-  const urls: string[] = [];
-  if (lotId != null) {
-    urls.push(`/api/images/lot/${lotId}`);
-  }
-  if (partNumber && colorId != null) {
-    urls.push(`/api/images/parts/${encodeURIComponent(partNumber)}/${colorId}`);
-  }
-  if (imageUrl) {
-    const proxied = imageUrl.startsWith('/api/')
-      ? imageUrl
-      : `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
-    if (!urls.includes(proxied)) urls.push(proxied);
-  }
-
+  const { partNumber, colorId, imageUrl, itemType, lotId, grayscale = true } = opts;
+  const urls = partImageSources(imageUrl, partNumber, colorId, itemType, lotId);
   for (const url of urls) {
     const dataUrl = await loadUrlToSquarePNG(url, grayscale);
     if (dataUrl) return dataUrl;
@@ -278,6 +266,9 @@ async function loadItemImageForPDF(opts: {
 function loadUrlToSquarePNG(url: string, grayscale: boolean): Promise<string | null> {
   return new Promise(resolve => {
     const img = new Image();
+    // Request CORS so cross-origin images that allow it (e.g. via our proxy)
+    // can be drawn to canvas without tainting. Same-origin URLs are unaffected.
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const w = img.naturalWidth  || img.width  || 0;
@@ -339,6 +330,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
         partNumber: item.partNumber,
         colorId:    item.colorId,
         imageUrl:   item.imageUrl,
+        itemType:   item.itemType,
         lotId:      item.inventoryId,
       })
     )
@@ -501,6 +493,8 @@ export interface LotLabelItem {
   quantity: number;
   inventoryId?: number | null;
   imageUrl?: string | null;
+  /** BrickLink item type (PART/MINIFIG/SET/GEAR) — used by global image resolver. */
+  itemType?: string | null;
   /** Order number this lot belongs to — used for order ref + shortcode. */
   orderNumber?: string | null;
   /** Channel marketplace ('BrickLink' | 'BrickOwl') — for ref prefix. */
@@ -594,7 +588,7 @@ export async function printLotLabels(
   const imgDataUrls = preset.showImage
     ? await Promise.all(
         items.map(item =>
-          loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl, lotId: item.inventoryId })
+          loadItemImageForPDF({ partNumber: item.partNumber, colorId: item.colorId, imageUrl: item.imageUrl, itemType: item.itemType, lotId: item.inventoryId })
         )
       )
     : items.map(() => null);
@@ -842,6 +836,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
           partNumber: item.bricklinkPartNumber,
           colorId:    item.colorId,
           imageUrl:   item.imageUrl,
+          itemType:   item.itemType,
           lotId:      item.inventoryId ? parseInt(item.inventoryId, 10) || null : null,
         })
       )

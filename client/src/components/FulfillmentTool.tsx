@@ -46,6 +46,7 @@ type PicklistBinItem = {
   condition: string | null;
   pulled: boolean;
   inventoryId: number | null;
+  itemType: string | null;
   remarks: string | null;
   comment: string | null;
   imageUrl: string | null;
