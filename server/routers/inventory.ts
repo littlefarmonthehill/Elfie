@@ -170,7 +170,10 @@ router.get("/inventory/stats", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const [stats, colorCount, categoryCount, soldAvgResult] = await Promise.all([
     db.select({
-      totalLots: sql<number>`COUNT(*)`,
+      // Lot count = lots actually in stock (qty > 0, not soft-deleted).
+      // Soft-deleted rows and zero-qty rows are not "lots we have" for the
+      // purposes of the dashboard top metric.
+      totalLots: sql<number>`COUNT(*) FILTER (WHERE ${blInventory.quantity} > 0 AND ${blInventory.deletedAt} IS NULL)`,
       totalParts: sql<number>`SUM(${blInventory.quantity})`,
       totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
       totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
