@@ -179,9 +179,25 @@ export async function embedInventoryItem(inventoryId: number, operationOverride?
     
     return { success: true, inventoryId };
   } catch (error: any) {
-    console.error(`Error embedding inventory ${inventoryId}:`, error);
+    console.error(`Error embedding inventory ${inventoryId}:`, error?.message || error);
+    // Re-throw fatal/persistent errors (rate limit, quota, auth) so the worker
+    // marks the job as failed instead of looping forever on the same items.
+    if (isFatalEmbeddingError(error)) throw error;
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * Detect OpenAI errors that should halt embedding work entirely (rather than
+ * being silently swallowed per-item). Re-trying these immediately is wasteful
+ * and was previously causing the inventory embed worker to loop forever on
+ * exhausted quotas.
+ */
+function isFatalEmbeddingError(error: any): boolean {
+  const status = error?.status ?? error?.response?.status;
+  if (status === 429 || status === 401 || status === 403) return true;
+  const msg = String(error?.message || '');
+  return /quota|rate limit|insufficient_quota|invalid_api_key/i.test(msg);
 }
 
 /**
@@ -231,7 +247,8 @@ export async function embedOrder(orderId: string, operationOverride?: string) {
     
     return { success: true, orderId };
   } catch (error: any) {
-    console.error(`Error embedding order ${orderId}:`, error);
+    console.error(`Error embedding order ${orderId}:`, error?.message || error);
+    if (isFatalEmbeddingError(error)) throw error;
     return { success: false, error: error.message };
   }
 }
@@ -338,7 +355,8 @@ export async function embedOrderDetail(orderDetailId: string) {
     
     return { success: true, orderDetailId };
   } catch (error: any) {
-    console.error(`Error embedding order detail ${orderDetailId}:`, error);
+    console.error(`Error embedding order detail ${orderDetailId}:`, error?.message || error);
+    if (isFatalEmbeddingError(error)) throw error;
     return { success: false, error: error.message };
   }
 }

@@ -229,8 +229,16 @@ export async function generateForumEmbeddings(): Promise<number> {
         });
         
         embeddedCount++;
-      } catch (err) {
-        console.error(`⚠️ Error embedding post ${row.id}:`, err);
+      } catch (err: any) {
+        const status = err?.status ?? err?.response?.status;
+        const msg = String(err?.message || '');
+        const fatal = status === 429 || status === 401 || status === 403 ||
+          /quota|rate limit|insufficient_quota|invalid_api_key/i.test(msg);
+        console.error(`⚠️ Error embedding post ${row.id}:`, msg || err);
+        if (fatal) {
+          console.error('🛑 Aborting forum embedding batch due to fatal OpenAI error (quota / rate limit / auth)');
+          break;
+        }
       }
     }
     

@@ -110,9 +110,15 @@ async function processNextJob() {
             const existingCount = await db.execute(sql`SELECT COUNT(*)::int AS cnt FROM inventory_embeddings`);
             const isOnboarding = (existingCount.rows[0] as any)?.cnt < 10;
             const inventoryIds = unembeddedItems.rows.map((r: any) => r.id);
-            await batchEmbedInventory(inventoryIds, isOnboarding);
-            console.log(`  ✓ Embedded ${inventoryIds.length} inventory items (new)`);
-            // If we got a full batch there are likely more remaining
+            const results = await batchEmbedInventory(inventoryIds, isOnboarding);
+            const succeeded = results.filter((r: any) => r?.success).length;
+            console.log(`  ✓ Embedded ${succeeded}/${inventoryIds.length} inventory items (new)`);
+            // Guard: if nothing actually embedded, do not re-queue — would loop
+            // forever on the same items hitting whatever soft error blocked them.
+            if (succeeded === 0) {
+              throw new Error(`Inventory embed batch had 0 successes out of ${inventoryIds.length}`);
+            }
+            // If we got a full batch (and made progress) there are likely more remaining
             hasMore = unembeddedItems.rows.length >= BATCH;
           } else {
             // All items have embeddings — do a maintenance re-embed of recent changes
