@@ -375,7 +375,10 @@ const brickowlDeleteLot = deleteBrickOwlLot;
 export async function updateBrickOwlLot(data: {
   lot_id?: string;
   external_id_1?: string;
-  external_id?: string;   // Sets external_lot_ids.other (same field as create's external_id)
+  // Note: BrickOwl's /inventory/update endpoint does NOT accept the `external_id`
+  // (other) field — it returns 400 "Invalid external ID". Only external_id_1/2/3
+  // can be set on update. To link a BL inventory row to a BO lot, persist the
+  // mapping in channel_lot_links instead.
   absolute_quantity?: number;
   price?: number;
   condition?: string;
@@ -392,7 +395,6 @@ export async function updateBrickOwlLot(data: {
   
   if (data.lot_id) updateData.lot_id = data.lot_id;
   if (data.external_id_1) updateData.external_id_1 = data.external_id_1;
-  if (data.external_id) updateData.external_id = data.external_id;
   if (data.absolute_quantity !== undefined) updateData.absolute_quantity = data.absolute_quantity.toString();
   if (data.price !== undefined) updateData.price = data.price.toFixed(3);
   if (data.condition) updateData.condition = data.condition;
@@ -819,10 +821,13 @@ export async function syncInventoryItem(
           console.log(`[Sync] Analysis: would adopt pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} — skipping write`);
           return { success: true, action: 'skipped' };
         }
-        console.log(`[Sync] Adopting pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} (BOID ${boid}) and tagging with BL inv ID ${blItem.id}`);
+        console.log(`[Sync] Adopting pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} (BOID ${boid}) and linking with BL inv ID ${blItem.id}`);
+        // Note: BrickOwl's /inventory/update endpoint rejects the `external_id`
+        // field ("Invalid external ID"). We persist the BL↔BO link in
+        // channel_lot_links instead — Step 1 of future syncs uses that for an
+        // O(1) lookup, so the BO-side tag is unnecessary.
         await updateBrickOwlLot({
           lot_id: untaggedLot.lot_id,
-          external_id: blItem.id.toString(), // Tag it so future syncs use Step 1
           absolute_quantity: blItem.quantity,
           price: newPrice,
           condition: apiCondition,
@@ -830,6 +835,14 @@ export async function syncInventoryItem(
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
         }, orgId);
+        if (orgId) {
+          await db.insert(channelLotLinks)
+            .values({ blInvId: blItem.id, orgId, channel: BO_CHANNEL, channelLotId: untaggedLot.lot_id, syncedAt: new Date() })
+            .onConflictDoUpdate({
+              target: [channelLotLinks.blInvId, channelLotLinks.orgId, channelLotLinks.channel],
+              set: { channelLotId: untaggedLot.lot_id, syncedAt: new Date() },
+            });
+        }
         return { success: true, action: 'updated' };
       }
 
@@ -1644,9 +1657,12 @@ export async function syncBrickLinkToBrickOwl(
         try {
           const adoptedLotId = untagged[0].lot_id;
           const itemSalePercent = fields.salePercent ? (item.saleRate ?? 0) : undefined;
+          // Note: BrickOwl's /inventory/update endpoint rejects the `external_id`
+          // field ("Invalid external ID"). The BL↔BO link is persisted below in
+          // channel_lot_links instead, which Step 1 of future syncs uses for O(1)
+          // lookups, so the BO-side tag is unnecessary.
           await updateBrickOwlLot({
             lot_id: adoptedLotId,
-            external_id: item.id.toString(),
             absolute_quantity: item.quantity,
             price: newPrice,
             condition: apiCondition,
