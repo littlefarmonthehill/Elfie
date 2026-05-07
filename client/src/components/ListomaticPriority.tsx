@@ -80,6 +80,11 @@ interface LotItem {
   description?: string | null;   // public buyer-facing comment
   // Source change-type when queued from a listing batch — drives queue filter pills.
   changeType?: 'new' | 'qty_updated' | null;
+  // Aisle of the lot's current physical bin, used as a pre-sort hint on the
+  // printed label so the filer can split the print run into one tote per
+  // aisle and walk the warehouse only once. Not a permanent address — the
+  // label is still identity-only.
+  aisleName?: string | null;
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
@@ -111,6 +116,7 @@ interface ListingBatchItem {
   description: string | null;
   currentBinId: number | null;
   currentBinName: string | null;
+  aisleName: string | null;
 }
 interface ListingBatchDetail {
   batch: ListingBatch & { orgId: string; deletedAt: string | null };
@@ -250,6 +256,7 @@ interface RangeRow {
   remarks: string | null;
   description: string | null;
   changeType: 'new' | 'qty_updated';
+  aisleName: string | null;
 }
 
 function DateRangeLabels(props: {
@@ -365,6 +372,7 @@ function DateRangeLabels(props: {
                       remarks: r.remarks,
                       description: r.description,
                       changeType: r.changeType,
+                      aisleName: r.aisleName,
                     }));
                     onAddToQueue(items);
                   }}
@@ -419,7 +427,7 @@ export default function ListomaticPriority() {
   // The print queue is persisted across page loads so a partially-built batch
   // survives an accidental refresh or a deploy. The version key is bumped
   // whenever the LotItem shape changes — older payloads are dropped on load.
-  const LOT_QUEUE_STORAGE_KEY = 'elfie.lotQueue.v3';
+  const LOT_QUEUE_STORAGE_KEY = 'elfie.lotQueue.v4';
   const [lotQueue, setLotQueue] = useState<LotItem[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -438,6 +446,7 @@ export default function ListomaticPriority() {
     try {
       window.localStorage.removeItem('elfie.lotQueue.v1');
       window.localStorage.removeItem('elfie.lotQueue.v2');
+      window.localStorage.removeItem('elfie.lotQueue.v3');
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
@@ -768,6 +777,19 @@ export default function ListomaticPriority() {
             doc.setFillColor(248, 248, 248);
             doc.roundedRect(imgX, sideTopY, imgIn, imgIn, 0.03, 0.03, 'FD');
           }
+
+          // Aisle hint UNDER the image — pre-sort target only. The label is
+          // still identity-only; the aisle is meaningless once filed but lets
+          // the filer split a print run into one tote per aisle and walk the
+          // warehouse only once.
+          if (lot.aisleName) {
+            const aislePt = 8;
+            const aisleY = sideTopY + imgIn + sideGap;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(aislePt);
+            doc.setTextColor(26, 95, 26);
+            doc.text(`A${lot.aisleName}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
+          }
         } else {
           // No image — still print LOT id on the right side under nothing,
           // anchored to the right edge so it doesn't collide with the name.
@@ -1093,6 +1115,7 @@ export default function ListomaticPriority() {
                       remarks: i.remarks,
                       description: i.description,
                       changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
+                      aisleName: i.aisleName,
                     });
                     const newItems = batchDetail.items.filter(i => i.changeType === 'new');
                     const updItems = batchDetail.items.filter(i => i.changeType === 'qty_updated');
@@ -1205,6 +1228,7 @@ export default function ListomaticPriority() {
                               remarks: i.remarks,
                               description: i.description,
                               changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
+                              aisleName: i.aisleName,
                             }]);
                           }}
                           disabled={inQueue}

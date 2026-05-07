@@ -6,7 +6,7 @@ import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
 import {
   listingBatches, listingBatchItems, blInventory, blCatalog,
-  whBins, whZones, inventoryLocations, workerMemoryZones,
+  whBins, whZones, whShelves, whAisles, inventoryLocations, workerMemoryZones,
 } from "@shared/schema";
 
 const router = Router();
@@ -63,6 +63,9 @@ router.get("/listing-batches/:id", isApproved, asyncRoute(async (req: any, res) 
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
       currentBinId: inventoryLocations.binId,
       currentBinName: whBins.name,
+      // Aisle name is shown on the printed label as a pre-sort hint so the
+      // filer can grab one tote per aisle and walk the warehouse only once.
+      aisleName: whAisles.name,
     })
     .from(listingBatchItems)
     .innerJoin(blInventory, eq(blInventory.id, listingBatchItems.inventoryId))
@@ -73,6 +76,8 @@ router.get("/listing-batches/:id", isApproved, asyncRoute(async (req: any, res) 
     ))
     .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
     .leftJoin(whBins, eq(whBins.id, inventoryLocations.binId))
+    .leftJoin(whShelves, eq(whShelves.id, whBins.shelfId))
+    .leftJoin(whAisles, eq(whAisles.id, whShelves.aisleId))
     .where(eq(listingBatchItems.batchId, id));
 
   res.json({ batch, items });
@@ -220,6 +225,8 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       itemName: sql<string | null>`COALESCE(${blCatalog.itemName}, NULL)`,
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
+      // Aisle of the lot's current bin (if any) — for pre-sort label hints.
+      aisleName: whAisles.name,
     })
     .from(blInventory)
     .leftJoin(blCatalog, and(
@@ -227,6 +234,10 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       eq(blCatalog.itemType, blInventory.itemType),
       eq(blCatalog.colorId, blInventory.colorId),
     ))
+    .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+    .leftJoin(whBins, eq(whBins.id, inventoryLocations.binId))
+    .leftJoin(whShelves, eq(whShelves.id, whBins.shelfId))
+    .leftJoin(whAisles, eq(whAisles.id, whShelves.aisleId))
     .where(and(
       eq(blInventory.orgId, orgId),
       isNull(blInventory.deletedAt),
