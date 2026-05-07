@@ -422,6 +422,7 @@ export default function ListomaticPriority() {
   // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchItemFilter, setBatchItemFilter] = useState<'all' | 'new' | 'updated'>('all');
+  const [listingView, setListingView] = useState<'select' | 'print'>('select');
   const [fastPathBinName, setFastPathBinName] = useState('');
   const [fastPathZoneId, setFastPathZoneId] = useState<number | null>(null);
   const [rangeFrom, setRangeFrom] = useState('');
@@ -852,7 +853,41 @@ export default function ListomaticPriority() {
 
         {/* ── LISTING TAB (Smart Parts) ─────────────────────────────── */}
         <TabsContent value="listing" className="space-y-3 mt-0">
-          {!selectedBatchId && !rangeMode && (
+          {/* Top-level Select / Print switcher — keeps queue one click away */}
+          <div className="flex items-center gap-1 rounded-md border border-border bg-muted/20 p-0.5">
+            <button
+              onClick={() => setListingView('select')}
+              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded transition-colors ${
+                listingView === 'select'
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              data-testid="listing-view-select"
+            >
+              Select Lots
+            </button>
+            <button
+              onClick={() => setListingView('print')}
+              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 ${
+                listingView === 'print'
+                  ? 'bg-emerald-500/20 text-emerald-200'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              data-testid="listing-view-print"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Print Queue
+              {lotQueue.length > 0 && (
+                <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+                  listingView === 'print' ? 'bg-emerald-500/30 text-emerald-100' : 'bg-emerald-500/20 text-emerald-300'
+                }`}>
+                  {lotQueue.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {listingView === 'select' && !selectedBatchId && !rangeMode && (
             <>
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-gray-100">Listing Batches</h3>
@@ -914,7 +949,7 @@ export default function ListomaticPriority() {
           )}
 
           {/* ── Date range mode ─────────────────────────────────────── */}
-          {rangeMode && !selectedBatchId && (
+          {listingView === 'select' && rangeMode && !selectedBatchId && (
             <DateRangeLabels
               from={rangeFrom}
               to={rangeTo}
@@ -928,7 +963,7 @@ export default function ListomaticPriority() {
           )}
 
           {/* ── Batch detail view ───────────────────────────────────── */}
-          {selectedBatchId && (
+          {listingView === 'select' && selectedBatchId && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Button
@@ -1197,19 +1232,20 @@ export default function ListomaticPriority() {
             </div>
           )}
 
-          {/* ── Print Queue (always visible at the bottom of the Listing tab) ── */}
-          <div className="space-y-2 pt-3 border-t border-border/50">
+          {/* ── Print Queue view ─────────────────────────────────────── */}
+          {listingView === 'print' && (
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="text-xs font-semibold text-foreground">
-                Print Queue
-                {lotQueue.length > 0 && (
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                    ({lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''})
-                  </span>
-                )}
-              </h4>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">Print Queue</h3>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {lotQueue.length === 0
+                    ? 'Nothing queued yet.'
+                    : `${lotQueue.length} label${lotQueue.length !== 1 ? 's' : ''} ready to print.`}
+                </p>
+              </div>
               {lotQueue.length > 0 && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -1233,14 +1269,24 @@ export default function ListomaticPriority() {
             </div>
 
             {lotQueue.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border bg-muted/10 py-6 text-center">
+              <div className="rounded-md border border-dashed border-border bg-muted/10 py-10 text-center">
+                <Package className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-xs text-muted-foreground">No labels queued.</p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                  Open a batch above and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
+                  Switch to <span className="font-medium">Select Lots</span> and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
                 </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setListingView('select')}
+                  className="mt-3 gap-1.5 text-xs"
+                  data-testid="button-back-to-select"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Select Lots
+                </Button>
               </div>
             ) : (
-              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-64 overflow-y-auto">
+              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
                 {lotQueue.map((lot) => {
                   const cond = conditionLabel(lot.newOrUsed);
                   return (
@@ -1268,6 +1314,7 @@ export default function ListomaticPriority() {
               </div>
             )}
           </div>
+          )}
         </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
