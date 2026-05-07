@@ -78,6 +78,8 @@ interface LotItem {
   imageUrl?: string | null;
   remarks?: string | null;       // private seller note
   description?: string | null;   // public buyer-facing comment
+  // Source change-type when queued from a listing batch — drives queue filter pills.
+  changeType?: 'new' | 'qty_updated' | null;
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
@@ -414,6 +416,9 @@ export default function ListomaticPriority() {
   const [lotFilter, setLotFilter] = useState<LotFilter>('all');
   const [lotQueue, setLotQueue] = useState<LotItem[]>([]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  // When set, handlePrintLotLabels prints this subset instead of the full queue.
+  // Cleared automatically when the print dialog closes.
+  const [pendingPrintIds, setPendingPrintIds] = useState<Set<number> | null>(null);
   const [lotLabelSize, setLotLabelSize] = useState<LotLabelKey>('brotherDK1201');
   // identityOnly = Smart Parts mode: no bin info on label, identity stays
   // valid forever regardless of where the bag physically lives.
@@ -423,6 +428,7 @@ export default function ListomaticPriority() {
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchItemFilter, setBatchItemFilter] = useState<'all' | 'new' | 'updated'>('all');
   const [listingView, setListingView] = useState<'select' | 'print'>('select');
+  const [queueFilter, setQueueFilter] = useState<'all' | 'new' | 'updated'>('all');
   const [fastPathBinName, setFastPathBinName] = useState('');
   const [fastPathZoneId, setFastPathZoneId] = useState<number | null>(null);
   const [rangeFrom, setRangeFrom] = useState('');
@@ -628,10 +634,17 @@ export default function ListomaticPriority() {
   };
 
   const handlePrintLotLabels = async () => {
-    if (lotQueue.length === 0) return;
+    // Honour an in-flight subset selection from the queue's filter pills so
+    // the user can print just NEW (or just UPDATED) without disturbing the
+    // rest of the queue.
+    const itemsToPrint = pendingPrintIds
+      ? lotQueue.filter(l => pendingPrintIds.has(l.id))
+      : lotQueue;
+    if (itemsToPrint.length === 0) return;
     const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
     const identityOnly = printIdentityOnly;
     setPrintDialogOpen(false);
+    setPendingPrintIds(null);
 
     try {
       const parseIn = (s: string) => parseFloat(s);
@@ -647,7 +660,7 @@ export default function ListomaticPriority() {
       const imgGap = showImage ? 0.06 : 0;
 
       // Pre-render each lot's QR to a canvas (jsPDF accepts canvas natively).
-      const qrCanvases = await Promise.all(lotQueue.map(async (lot) => {
+      const qrCanvases = await Promise.all(itemsToPrint.map(async (lot) => {
         const canvas = document.createElement('canvas');
         await QRCode.toCanvas(canvas, `LOT:${lot.id}`, {
           width: tmpl.qrPx * 2,
@@ -661,7 +674,7 @@ export default function ListomaticPriority() {
       // used for picklists & order detail (lot id → user image → catalog →
       // BL CDN). Failures are non-fatal — the cell is left blank.
       const partImages = showImage
-        ? await Promise.all(lotQueue.map(lot => loadItemImageForPDF({
+        ? await Promise.all(itemsToPrint.map(lot => loadItemImageForPDF({
             partNumber: lot.itemNo,
             colorId: lot.colorId ?? null,
             imageUrl: lot.imageUrl ?? null,
@@ -669,7 +682,7 @@ export default function ListomaticPriority() {
             lotId: lot.id,
             grayscale: false,
           })))
-        : lotQueue.map(() => null);
+        : itemsToPrint.map(() => null);
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
@@ -682,7 +695,7 @@ export default function ListomaticPriority() {
         return parts.length > 1 ? parts[parts.length - 1] : raw;
       };
 
-      lotQueue.forEach((lot, i) => {
+      itemsToPrint.forEach((lot, i) => {
         if (i > 0) doc.addPage([pageW, pageH], 'landscape');
 
         const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
@@ -1081,6 +1094,7 @@ export default function ListomaticPriority() {
                       imageUrl: i.thumbnailUrl,
                       remarks: i.remarks,
                       description: i.description,
+                      changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
                     });
                     const newItems = batchDetail.items.filter(i => i.changeType === 'new');
                     const updItems = batchDetail.items.filter(i => i.changeType === 'qty_updated');
@@ -1192,6 +1206,7 @@ export default function ListomaticPriority() {
                               imageUrl: i.thumbnailUrl,
                               remarks: i.remarks,
                               description: i.description,
+                              changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
                             }], { identityOnly: true });
                           }}
                           disabled={inQueue}
@@ -1233,88 +1248,160 @@ export default function ListomaticPriority() {
           )}
 
           {/* ── Print Queue view ─────────────────────────────────────── */}
-          {listingView === 'print' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">Print Queue</h3>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {lotQueue.length === 0
-                    ? 'Nothing queued yet.'
-                    : `${lotQueue.length} label${lotQueue.length !== 1 ? 's' : ''} ready to print.`}
-                </p>
-              </div>
-              {lotQueue.length > 0 && (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setLotQueue([])}
-                    className="text-[10px] text-muted-foreground"
-                    data-testid="button-listing-clear-queue"
-                  >
-                    Clear all
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setPrintDialogOpen(true)}
-                    className="gap-1.5 text-xs"
-                    data-testid="button-listing-print-labels"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Print Labels
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {lotQueue.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border bg-muted/10 py-10 text-center">
-                <Package className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-xs text-muted-foreground">No labels queued.</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                  Switch to <span className="font-medium">Select Lots</span> and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setListingView('select')}
-                  className="mt-3 gap-1.5 text-xs"
-                  data-testid="button-back-to-select"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Select Lots
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-                {lotQueue.map((lot) => {
-                  const cond = conditionLabel(lot.newOrUsed);
-                  return (
-                    <div
-                      key={lot.id}
-                      className="flex items-center gap-2 px-3 py-2"
-                      data-testid={`queue-item-${lot.id}`}
-                    >
-                      <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
-                      <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                      {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
-                      {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                      {lot.binName && <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>}
-                      <button
-                        onClick={() => removeFromQueue(lot.id)}
-                        className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
-                        data-testid={`remove-queue-${lot.id}`}
+          {listingView === 'print' && (() => {
+            const newQ = lotQueue.filter(l => l.changeType === 'new');
+            const updQ = lotQueue.filter(l => l.changeType === 'qty_updated');
+            const otherQ = lotQueue.filter(l => l.changeType !== 'new' && l.changeType !== 'qty_updated');
+            const shown =
+              queueFilter === 'new' ? newQ
+              : queueFilter === 'updated' ? updQ
+              : lotQueue;
+            const pills: [typeof queueFilter, string, number][] = [
+              ['all', 'All', lotQueue.length],
+              ['new', 'New', newQ.length],
+              ['updated', 'Updated', updQ.length],
+            ];
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">Print Queue</h3>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {lotQueue.length === 0
+                        ? 'Nothing queued yet.'
+                        : queueFilter === 'all'
+                          ? `${lotQueue.length} label${lotQueue.length !== 1 ? 's' : ''} ready to print.`
+                          : `Showing ${shown.length} of ${lotQueue.length} queued.`}
+                    </p>
+                  </div>
+                  {lotQueue.length > 0 && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (queueFilter === 'all') {
+                            setLotQueue([]);
+                          } else {
+                            const idsToRemove = new Set(shown.map(l => l.id));
+                            setLotQueue(prev => prev.filter(l => !idsToRemove.has(l.id)));
+                          }
+                        }}
+                        className="text-[10px] text-muted-foreground"
+                        data-testid="button-listing-clear-queue"
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                        {queueFilter === 'all' ? 'Clear all' : `Clear ${shown.length}`}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setPendingPrintIds(
+                            queueFilter === 'all' ? null : new Set(shown.map(l => l.id))
+                          );
+                          setPrintDialogOpen(true);
+                        }}
+                        disabled={shown.length === 0}
+                        className="gap-1.5 text-xs"
+                        data-testid="button-listing-print-labels"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        Print {queueFilter === 'all' ? 'Labels' : `(${shown.length})`}
+                      </Button>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+
+                {lotQueue.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {pills.map(([key, label, count]) => (
+                      <button
+                        key={key}
+                        onClick={() => setQueueFilter(key)}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                          queueFilter === key
+                            ? key === 'new'
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : key === 'updated'
+                                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                : 'bg-foreground/10 text-foreground border-foreground/30'
+                            : 'text-muted-foreground hover:text-foreground border-border hover:border-foreground/40'
+                        }`}
+                        data-testid={`filter-queue-${key}`}
+                      >
+                        {label} <span className="opacity-60 tabular-nums">({count})</span>
+                      </button>
+                    ))}
+                    {otherQ.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground/60 ml-1">
+                        · {otherQ.length} other
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {lotQueue.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border bg-muted/10 py-10 text-center">
+                    <Package className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
+                    <p className="text-xs text-muted-foreground">No labels queued.</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                      Switch to <span className="font-medium">Select Lots</span> and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setListingView('select')}
+                      className="mt-3 gap-1.5 text-xs"
+                      data-testid="button-back-to-select"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" /> Back to Select Lots
+                    </Button>
+                  </div>
+                ) : shown.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
+                    <p className="text-xs text-muted-foreground">No {queueFilter === 'new' ? 'NEW' : 'UPDATED'} lots in queue.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                    {shown.map((lot) => {
+                      const cond = conditionLabel(lot.newOrUsed);
+                      const isNew = lot.changeType === 'new';
+                      const isUpd = lot.changeType === 'qty_updated';
+                      return (
+                        <div
+                          key={lot.id}
+                          className="flex items-center gap-2 px-3 py-2"
+                          data-testid={`queue-item-${lot.id}`}
+                        >
+                          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                          {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
+                          {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                          {(isNew || isUpd) && (
+                            <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
+                              isNew
+                                ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+                                : 'text-blue-300 bg-blue-500/10 border-blue-500/30'
+                            }`}>
+                              {isNew ? 'NEW' : 'UPD'}
+                            </span>
+                          )}
+                          {lot.binName && <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>}
+                          <button
+                            onClick={() => removeFromQueue(lot.id)}
+                            className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+                            data-testid={`remove-queue-${lot.id}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          )}
+            );
+          })()}
         </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
@@ -1754,7 +1841,7 @@ export default function ListomaticPriority() {
       </Dialog>
 
       {/* ── Lot label print dialog ────────────────────────────────────── */}
-      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+      <Dialog open={printDialogOpen} onOpenChange={(open) => { setPrintDialogOpen(open); if (!open) setPendingPrintIds(null); }}>
         <DialogContent className="max-w-lg z-[9999]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
