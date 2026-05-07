@@ -778,17 +778,18 @@ export default function ListomaticPriority() {
             doc.roundedRect(imgX, sideTopY, imgIn, imgIn, 0.03, 0.03, 'FD');
           }
 
-          // Aisle hint UNDER the image — pre-sort target only. The label is
-          // still identity-only; the aisle is meaningless once filed but lets
-          // the filer split a print run into one tote per aisle and walk the
-          // warehouse only once.
-          if (lot.aisleName) {
+          // Pre-file tote hint UNDER the image. Lots with a known aisle land
+          // in that aisle's tote ("rtf {n}"); brand-new lots without an aisle
+          // land in the universal "rtf 0" tote, where the filer drains them
+          // by assigning each bag a real bin. The label stays identity-only
+          // — the rtf value is meaningless once the bag is officially filed.
+          {
             const aislePt = 8;
             const aisleY = sideTopY + imgIn + sideGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(aislePt);
             doc.setTextColor(26, 95, 26);
-            doc.text(`rtf ${lot.aisleName}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
+            doc.text(`rtf ${lot.aisleName ?? 0}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
           }
         } else {
           // No image — still print LOT id on the right side under nothing,
@@ -868,14 +869,14 @@ export default function ListomaticPriority() {
 
       hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
 
-      // Stamp a Ready-to-File hint on every lot we just printed that has an
-      // aisle — the printed label tells the filer which pre-file tote the bag
-      // goes into, and that same value should surface on the picklist so a
-      // picker can find the bag before it's officially refiled. New lots with
-      // no aisle yet are skipped (they'll get a real bin via assign-bin).
+      // Stamp a Ready-to-File hint on every lot we just printed. Lots with a
+      // known aisle land in that aisle's pre-file tote ("rtf {n}"); brand-new
+      // lots without an aisle yet land in the universal "rtf 0" tote, which
+      // the filer drains by assigning each bag a real bin. Either way the
+      // hint surfaces on the picklist so an order can be pulled before the
+      // bag is officially filed.
       const rtfPayload = itemsToPrint
-        .filter(l => l.aisleName)
-        .map(l => ({ inventoryId: l.id, rtfBin: String(l.aisleName) }));
+        .map(l => ({ inventoryId: l.id, rtfBin: l.aisleName ? String(l.aisleName) : "0" }));
       if (rtfPayload.length > 0) {
         try {
           await apiRequest('POST', '/api/listing-batches/mark-rtf', { items: rtfPayload });
