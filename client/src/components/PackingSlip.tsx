@@ -245,7 +245,7 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
  *
  * Grayscale conversion is applied when grayscale=true.
  */
-async function loadItemImageForPDF(opts: {
+export async function loadItemImageForPDF(opts: {
   partNumber?: string | null;
   colorId?: number | null;
   imageUrl?: string | null;

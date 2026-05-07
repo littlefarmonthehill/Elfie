@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QRCodeSVG } from "qrcode.react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
-import { hiddenPrint } from "./PackingSlip";
+import { hiddenPrint, loadItemImageForPDF } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -71,6 +71,11 @@ interface LotItem {
   locationLabel: string | null;
   assigned: boolean;
   isFilingQueue: boolean;
+  // Optional fields used by the label image resolver. The lot id alone is
+  // enough (via /api/images/lot/:lotId) but these improve fallback chances.
+  itemType?: string | null;
+  colorId?: number | null;
+  imageUrl?: string | null;
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
@@ -345,6 +350,9 @@ function DateRangeLabels(props: {
                       locationLabel: null,
                       assigned: false,
                       isFilingQueue: false,
+                      itemType: r.itemType,
+                      colorId: r.colorId,
+                      imageUrl: r.thumbnailUrl,
                     }));
                     onAddToQueue(items);
                   }}
@@ -621,6 +629,12 @@ export default function ListomaticPriority() {
       const pageH = parseIn(tmpl.h);
       const padIn = 0.05;
       const qrIn = tmpl.qrPx / 96;
+      // Skip the part image on the tiny DK-1209 template — there's not enough
+      // horizontal room for QR + image + readable text. Every other template
+      // shows a square thumbnail the same size as the QR.
+      const showImage = lotLabelSize !== 'brotherDK1209';
+      const imgIn = showImage ? qrIn : 0;
+      const imgGap = showImage ? 0.06 : 0;
 
       // Pre-render each lot's QR to a canvas (jsPDF accepts canvas natively).
       const qrCanvases = await Promise.all(lotQueue.map(async (lot) => {
@@ -632,6 +646,20 @@ export default function ListomaticPriority() {
         });
         return canvas;
       }));
+
+      // Pre-load the part image for each lot via the same global resolver
+      // used for picklists & order detail (lot id → user image → catalog →
+      // BL CDN). Failures are non-fatal — the cell is left blank.
+      const partImages = showImage
+        ? await Promise.all(lotQueue.map(lot => loadItemImageForPDF({
+            partNumber: lot.itemNo,
+            colorId: lot.colorId ?? null,
+            imageUrl: lot.imageUrl ?? null,
+            itemType: lot.itemType ?? null,
+            lotId: lot.id,
+            grayscale: false,
+          })))
+        : lotQueue.map(() => null);
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
@@ -656,8 +684,23 @@ export default function ListomaticPriority() {
         const qrY = (pageH - qrIn) / 2;
         doc.addImage(qrCanvases[i], 'PNG', qrX, qrY, qrIn, qrIn);
 
-        // Text column to the right of QR
-        const textX = qrX + qrIn + 0.08;
+        // Part image to the right of the QR (same size, vertically centered).
+        // Falls back to a faint placeholder rectangle if no image was found.
+        if (showImage) {
+          const imgX = qrX + qrIn + imgGap;
+          const imgY = (pageH - imgIn) / 2;
+          const imgData = partImages[i];
+          if (imgData) {
+            try { doc.addImage(imgData, 'PNG', imgX, imgY, imgIn, imgIn); } catch { /* skip */ }
+          } else {
+            doc.setDrawColor(220, 220, 220);
+            doc.setFillColor(248, 248, 248);
+            doc.roundedRect(imgX, imgY, imgIn, imgIn, 0.03, 0.03, 'FD');
+          }
+        }
+
+        // Text column to the right of QR (and image, if present)
+        const textX = qrX + qrIn + (showImage ? imgGap + imgIn + 0.08 : 0.08);
         const textRight = pageW - padIn;
         const textW = textRight - textX;
 
@@ -972,6 +1015,9 @@ export default function ListomaticPriority() {
                           locationLabel: null,
                           assigned: i.currentBinId != null,
                           isFilingQueue: false,
+                          itemType: i.itemType,
+                          colorId: i.colorId,
+                          imageUrl: i.thumbnailUrl,
                         }));
                         enqueueForPrint(items, { identityOnly: true });
                       }}
@@ -1004,6 +1050,9 @@ export default function ListomaticPriority() {
                               locationLabel: null,
                               assigned: i.currentBinId != null,
                               isFilingQueue: false,
+                              itemType: i.itemType,
+                              colorId: i.colorId,
+                              imageUrl: i.thumbnailUrl,
                             }], { identityOnly: true });
                           }}
                           disabled={inQueue}
