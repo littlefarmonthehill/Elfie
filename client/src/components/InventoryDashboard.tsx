@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse } from "lucide-react";
+import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse, Check } from "lucide-react";
 import { StationTool } from "./StationTool";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
@@ -372,6 +372,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             onButtonClick,
             testId,
             statuses,
+            trailingContent,
           }: {
             buttonIcon: React.ReactNode;
             buttonLabel: string;
@@ -380,6 +381,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             onButtonClick: () => void;
             testId: string;
             statuses: { key: string; label: string; count: number; lampColor: string }[];
+            trailingContent?: React.ReactNode;
           }) => (
             <div className="flex items-stretch gap-3">
               <button
@@ -418,6 +420,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       </div>
                     );
                   })}
+                  {trailingContent}
                 </div>
               </div>
             </div>
@@ -490,6 +493,20 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     lampColor: RTF_LAMPS[i % RTF_LAMPS.length],
                   })),
                 ]}
+                trailingContent={rtfBuckets.length === 0 ? (
+                  // Inbox-zero hug for the rtf section — when every tote is
+                  // drained the row otherwise looks oddly empty, so tell the
+                  // filer outright that there's nothing waiting.
+                  <div
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-0"
+                    data-testid="status-rtf-all-filed"
+                  >
+                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span className="font-mono text-[9px] uppercase tracking-wide text-emerald-300/90 whitespace-nowrap">
+                      All rtf filed
+                    </span>
+                  </div>
+                ) : undefined}
               />
               </div>
             </div>
