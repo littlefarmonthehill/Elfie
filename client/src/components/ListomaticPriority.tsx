@@ -733,147 +733,148 @@ export default function ListomaticPriority() {
         const cond = conditionLabel(lot.newOrUsed);
         const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
 
-        // QR (left side, vertically centered)
-        const qrX = padIn;
-        const qrY = (pageH - qrIn) / 2;
-        doc.addImage(qrCanvases[i], 'PNG', qrX, qrY, qrIn, qrIn);
+        // ── Side stacks: QR + part# on left, image + LOT id on right ──────
+        // Each side reserves one short caption line beneath the square so
+        // the QR/image still fill most of the label height.
+        const sideCaptionPt = 7;
+        const sideCaptionLineH = sideCaptionPt / 72;
+        const sideGap = 0.03;
+        const sideStackH = qrIn + sideGap + sideCaptionLineH;
+        const sideTopY = Math.max(padIn, (pageH - sideStackH) / 2);
 
-        // Part image on the right side (same size as QR, vertically centered).
-        // Falls back to a faint placeholder rectangle if no image was found.
+        // LEFT: QR centered horizontally over its caption (#partNo)
+        const partLabel = `#${lot.itemNo}`;
+        doc.addImage(qrCanvases[i], 'PNG', padIn, sideTopY, qrIn, qrIn);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(sideCaptionPt);
+        doc.setTextColor(102, 102, 102);
+        const partTextW = doc.getTextWidth(partLabel);
+        const partTextX = padIn + (qrIn - partTextW) / 2;
+        const captionY = sideTopY + qrIn + sideGap;
+        doc.text(partLabel, partTextX, captionY, { baseline: 'top' });
+
+        // RIGHT: image centered horizontally over its caption (LOT:id)
         if (showImage) {
           const imgX = pageW - padIn - imgIn;
-          const imgY = (pageH - imgIn) / 2;
           const imgData = partImages[i];
           if (imgData) {
-            try { doc.addImage(imgData, 'PNG', imgX, imgY, imgIn, imgIn); } catch { /* skip */ }
+            try { doc.addImage(imgData, 'PNG', imgX, sideTopY, imgIn, imgIn); } catch { /* skip */ }
           } else {
             doc.setDrawColor(220, 220, 220);
             doc.setFillColor(248, 248, 248);
-            doc.roundedRect(imgX, imgY, imgIn, imgIn, 0.03, 0.03, 'FD');
+            doc.roundedRect(imgX, sideTopY, imgIn, imgIn, 0.03, 0.03, 'FD');
           }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(sideCaptionPt);
+          doc.setTextColor(26, 95, 26);
+          const lotLabel = `LOT:${lot.id}`;
+          const lotTextW = doc.getTextWidth(lotLabel);
+          const lotTextX = imgX + (imgIn - lotTextW) / 2;
+          doc.text(lotLabel, lotTextX, captionY, { baseline: 'top' });
+        } else {
+          // No image — still print LOT id on the right side under nothing,
+          // anchored to the right edge so it doesn't collide with the name.
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(sideCaptionPt);
+          doc.setTextColor(26, 95, 26);
+          const lotLabel = `LOT:${lot.id}`;
+          const lotTextW = doc.getTextWidth(lotLabel);
+          doc.text(lotLabel, pageW - padIn - lotTextW, captionY, { baseline: 'top' });
         }
 
-        // Text column sits between the QR (left) and the part image (right)
-        const textX = qrX + qrIn + 0.08;
+        // ── Middle text column between the QR and the image ───────────────
+        const textX = padIn + qrIn + 0.08;
         const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
         const textW = textRight - textX;
 
-        const partLabel = `#${lot.itemNo}`;
         // Smart Parts identity mode: no bin info at all on the label.
         const isUnassigned = !identityOnly && !lot.locationLabel;
         const locText = identityOnly
           ? ''
           : (isUnassigned ? 'UNASSIGNED' : shortBin(lot.locationLabel));
 
-        // ── Pre-measure the full text block so we can vertically center it ──
-        const partPt = 8;
-        const locPt = isUnassigned ? 11 : 10;
-        const namePt = 12;
+        const namePt = 10;
         const metaPt = 7;
-        const lotPt = 7;
+        const locPt = isUnassigned ? 11 : 10;
         const lineGap = 0.04;
-
-        const partLineH = partPt / 72;
-        const locLineH = locPt / 72;
-        const headerLineH = Math.max(partLineH, locLineH) + (isUnassigned ? 0.06 : 0.02);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(namePt);
         const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
         const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
+        const metaLineH = metaParts ? (metaPt / 72) : 0;
+        const locLineH = locText ? (locPt / 72) + 0.04 : 0;
 
-        const metaLineH = metaParts ? (metaPt / 72) + lineGap : 0;
-
-        const totalH = headerLineH + nameBlockH + metaLineH;
-        let y = (pageH - totalH) / 2;
-        if (y < padIn) y = padIn;
-
-        // ── Header row: part # + LOT id (left) + location pill (right) ──
-        const headerY = y;
-        const headerTextY = headerY + (headerLineH - partLineH) / 2;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(partPt);
-        doc.setTextColor(102, 102, 102);
-        doc.text(partLabel, textX, headerTextY, { baseline: 'top' });
-        const partTextW = doc.getTextWidth(partLabel);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(lotPt);
-        doc.setTextColor(26, 95, 26);
-        doc.text(`LOT:${lot.id}`, textX + partTextW + 0.08, headerTextY, { baseline: 'top' });
-
-        doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
-        doc.setFontSize(locPt);
-        const locTextW = identityOnly ? 0 : doc.getTextWidth(locText);
-
-        if (identityOnly) {
-          // No location text — leave the right side of the header empty.
-        } else if (isUnassigned) {
-          // Bold yellow pill stretching to match the part # — full attention
-          const pillPadX = 0.06;
-          const pillPadY = 0.025;
-          const pillH = locLineH + pillPadY * 2;
-          const pillW = locTextW + pillPadX * 2;
-          const pillX = textRight - pillW;
-          const pillY = headerY + (headerLineH - pillH) / 2;
-          doc.setFillColor(250, 204, 21); // yellow-400
-          doc.roundedRect(pillX, pillY, pillW, pillH, 0.03, 0.03, 'F');
-          doc.setTextColor(89, 65, 0);
-          doc.text(locText, pillX + pillPadX, pillY + pillPadY, { baseline: 'top' });
-        } else {
-          doc.setTextColor(51, 51, 51);
-          const locY = headerY + (headerLineH - locLineH) / 2;
-          doc.text(locText, textRight - locTextW, locY, { baseline: 'top' });
+        const noteText = (lot.remarks ?? lot.description ?? '').trim();
+        const notePt = 7;
+        const noteLineH = (notePt / 72) * 1.25;
+        let noteWrapped: string[] = [];
+        let noteBlockH = 0;
+        if (noteText) {
+          doc.setFont('helvetica', 'oblique');
+          doc.setFontSize(notePt);
+          noteWrapped = (doc.splitTextToSize(noteText, textW) as string[]).slice(0, 2);
+          noteBlockH = noteWrapped.length * noteLineH;
         }
 
-        // ── Item name (large, bold) ──
-        const nameY = headerY + headerLineH;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(namePt);
-        doc.setTextColor(0, 0, 0);
-        doc.text(nameLines, textX, nameY, { baseline: 'top' });
-        const nameBottomY = nameY + nameBlockH;
+        const totalH =
+          (metaLineH ? metaLineH + lineGap : 0) +
+          nameBlockH +
+          (noteBlockH ? lineGap + noteBlockH : 0) +
+          locLineH;
+        let cursorY = Math.max(padIn, (pageH - totalH) / 2);
 
-        // ── Meta line ──
-        let cursorY = nameBottomY;
+        // ── Meta line (color · condition) ABOVE the name ──
         if (metaParts) {
-          cursorY += lineGap;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(metaPt);
           doc.setTextColor(68, 68, 68);
           doc.text(metaParts, textX, cursorY, { baseline: 'top' });
-          cursorY += metaPt / 72;
+          cursorY += metaLineH + lineGap;
         }
 
-        // ── LOT id (just below meta, no big gap) ──
-        cursorY += lineGap;
+        // ── Item name ──
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(lotPt);
-        doc.setTextColor(26, 95, 26);
-        doc.text(`LOT:${lot.id}`, textX, cursorY, { baseline: 'top' });
-        cursorY += lotPt / 72;
+        doc.setFontSize(namePt);
+        doc.setTextColor(0, 0, 0);
+        doc.text(nameLines, textX, cursorY, { baseline: 'top' });
+        cursorY += nameBlockH;
 
-        // ── Remarks / description (private seller note preferred) ──
-        // Small italic line(s) at the bottom over a faint yellow highlight, so
-        // the worker can see "shelf wear", "missing antenna", etc. at a glance.
-        const noteText = (lot.remarks ?? lot.description ?? '').trim();
+        // ── Remarks / description (faint yellow highlight) ──
         if (noteText) {
-          const notePt = 7;
-          const noteLineH = (notePt / 72) * 1.25;
-          doc.setFont('helvetica', 'oblique');
-          doc.setFontSize(notePt);
-          // Wrap to up to 2 lines, then char-truncate the second with an ellipsis.
-          const wrapped = (doc.splitTextToSize(noteText, textW) as string[]).slice(0, 2);
-          const noteBlockH = wrapped.length * noteLineH;
-          const noteY = Math.min(cursorY + lineGap, pageH - padIn - noteBlockH);
-          // Faint yellow highlight, same idea as the picklist comment row.
+          cursorY += lineGap;
+          const noteY = Math.min(cursorY, pageH - padIn - noteBlockH - locLineH);
           doc.setFillColor(255, 245, 200);
           doc.rect(textX - 0.02, noteY - 0.01, textW + 0.04, noteBlockH + 0.02, 'F');
+          doc.setFont('helvetica', 'oblique');
+          doc.setFontSize(notePt);
           doc.setTextColor(60, 50, 0);
-          wrapped.forEach((line, idx) => {
+          noteWrapped.forEach((line, idx) => {
             doc.text(line, textX, noteY + idx * noteLineH, { baseline: 'top' });
           });
+          cursorY = noteY + noteBlockH;
+        }
+
+        // ── Optional location pill (only when not identity-only) ──
+        if (locText) {
+          const locY = cursorY + 0.04;
+          doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
+          doc.setFontSize(locPt);
+          const locTextW = doc.getTextWidth(locText);
+          if (isUnassigned) {
+            const pillPadX = 0.06;
+            const pillPadY = 0.025;
+            const pillH = (locPt / 72) + pillPadY * 2;
+            const pillW = locTextW + pillPadX * 2;
+            const pillX = textRight - pillW;
+            doc.setFillColor(250, 204, 21);
+            doc.roundedRect(pillX, locY, pillW, pillH, 0.03, 0.03, 'F');
+            doc.setTextColor(89, 65, 0);
+            doc.text(locText, pillX + pillPadX, locY + pillPadY, { baseline: 'top' });
+          } else {
+            doc.setTextColor(51, 51, 51);
+            doc.text(locText, textRight - locTextW, locY, { baseline: 'top' });
+          }
         }
       });
 
