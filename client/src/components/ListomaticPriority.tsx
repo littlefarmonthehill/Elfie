@@ -451,9 +451,6 @@ export default function ListomaticPriority() {
   // Cleared automatically when the print dialog closes.
   const [pendingPrintIds, setPendingPrintIds] = useState<Set<number> | null>(null);
   const [lotLabelSize, setLotLabelSize] = useState<LotLabelKey>('brotherDK1201');
-  // identityOnly = Smart Parts mode: no bin info on label, identity stays
-  // valid forever regardless of where the bag physically lives.
-  const [printIdentityOnly, setPrintIdentityOnly] = useState(false);
 
   // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -634,9 +631,7 @@ export default function ListomaticPriority() {
 
   const addToQueue = (lot: LotItem) => {
     if (lotQueue.some(l => l.id === lot.id)) return;
-    setLotQueue(prev => [...prev, lot]);
-    // Ready-to-File tab uses standard labels (with bin info), not identity labels.
-    setPrintIdentityOnly(false);
+    setLotQueue(prev => [...prev, { ...lot, locationLabel: null, binName: null }]);
   };
 
   const removeFromQueue = (id: number) => {
@@ -647,18 +642,16 @@ export default function ListomaticPriority() {
   // Follows the global print pattern: build a PDF blob with jsPDF, then hand
   // it to hiddenPrint() (PackingSlip.tsx) which renders an off-screen iframe
   // on desktop and the iOS share sheet on mobile.
-  // Add a list of items to the print queue, suppressing bin info if requested
-  // (Smart Parts identity labels never carry a location).
-  const enqueueForPrint = (items: LotItem[], opts?: { identityOnly?: boolean }) => {
-    const identity = !!opts?.identityOnly;
+  // Add a list of items to the print queue. Lot labels never carry a location:
+  // the bag's identity is permanent, where it physically lives is not.
+  const enqueueForPrint = (items: LotItem[]) => {
     setLotQueue(prev => {
       const existing = new Set(prev.map(l => l.id));
       const additions = items
         .filter(l => !existing.has(l.id))
-        .map(l => identity ? { ...l, locationLabel: null, binName: null } : l);
+        .map(l => ({ ...l, locationLabel: null, binName: null }));
       return [...prev, ...additions];
     });
-    setPrintIdentityOnly(identity);
     if (items.length > 0) {
       toast({ title: `Added ${items.length} lot${items.length !== 1 ? 's' : ''} to print queue` });
     }
@@ -673,7 +666,6 @@ export default function ListomaticPriority() {
       : lotQueue;
     if (itemsToPrint.length === 0) return;
     const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
-    const identityOnly = printIdentityOnly;
     setPrintDialogOpen(false);
     setPendingPrintIds(null);
 
@@ -787,15 +779,8 @@ export default function ListomaticPriority() {
         const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
         const textW = textRight - textX;
 
-        // Smart Parts identity mode: no bin info at all on the label.
-        const isUnassigned = !identityOnly && !lot.locationLabel;
-        const locText = identityOnly
-          ? ''
-          : (isUnassigned ? 'UNASSIGNED' : shortBin(lot.locationLabel));
-
         const namePt = 10;
         const metaPt = 7;
-        const locPt = isUnassigned ? 11 : 10;
         const lineGap = 0.04;
 
         doc.setFont('helvetica', 'bold');
@@ -803,7 +788,6 @@ export default function ListomaticPriority() {
         const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
         const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
         const metaLineH = metaParts ? (metaPt / 72) : 0;
-        const locLineH = locText ? (locPt / 72) + 0.04 : 0;
 
         const noteText = (lot.remarks ?? lot.description ?? '').trim();
         const notePt = 7;
@@ -820,8 +804,7 @@ export default function ListomaticPriority() {
         const totalH =
           (metaLineH ? metaLineH + lineGap : 0) +
           nameBlockH +
-          (noteBlockH ? lineGap + noteBlockH : 0) +
-          locLineH;
+          (noteBlockH ? lineGap + noteBlockH : 0);
         let cursorY = Math.max(padIn, (pageH - totalH) / 2);
 
         // ── Meta line (color · condition) ABOVE the name ──
@@ -843,7 +826,7 @@ export default function ListomaticPriority() {
         // ── Remarks / description (faint yellow highlight) ──
         if (noteText) {
           cursorY += lineGap;
-          const noteY = Math.min(cursorY, pageH - padIn - noteBlockH - locLineH);
+          const noteY = Math.min(cursorY, pageH - padIn - noteBlockH);
           doc.setFillColor(255, 245, 200);
           doc.rect(textX - 0.02, noteY - 0.01, textW + 0.04, noteBlockH + 0.02, 'F');
           doc.setFont('helvetica', 'oblique');
@@ -853,28 +836,6 @@ export default function ListomaticPriority() {
             doc.text(line, textX, noteY + idx * noteLineH, { baseline: 'top' });
           });
           cursorY = noteY + noteBlockH;
-        }
-
-        // ── Optional location pill (only when not identity-only) ──
-        if (locText) {
-          const locY = cursorY + 0.04;
-          doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
-          doc.setFontSize(locPt);
-          const locTextW = doc.getTextWidth(locText);
-          if (isUnassigned) {
-            const pillPadX = 0.06;
-            const pillPadY = 0.025;
-            const pillH = (locPt / 72) + pillPadY * 2;
-            const pillW = locTextW + pillPadX * 2;
-            const pillX = textRight - pillW;
-            doc.setFillColor(250, 204, 21);
-            doc.roundedRect(pillX, locY, pillW, pillH, 0.03, 0.03, 'F');
-            doc.setTextColor(89, 65, 0);
-            doc.text(locText, pillX + pillPadX, locY + pillPadY, { baseline: 'top' });
-          } else {
-            doc.setTextColor(51, 51, 51);
-            doc.text(locText, textRight - locTextW, locY, { baseline: 'top' });
-          }
         }
       });
 
@@ -1002,7 +963,7 @@ export default function ListomaticPriority() {
               onTo={setRangeTo}
               onCancel={() => setRangeMode(false)}
               onAddToQueue={(items) => {
-                enqueueForPrint(items, { identityOnly: true });
+                enqueueForPrint(items);
               }}
             />
           )}
@@ -1139,7 +1100,7 @@ export default function ListomaticPriority() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => enqueueForPrint(newItems.map(toLot), { identityOnly: true })}
+                            onClick={() => enqueueForPrint(newItems.map(toLot))}
                             disabled={newItems.length === 0}
                             className="gap-1.5 text-xs border-emerald-500/40 text-emerald-300 hover:text-emerald-200"
                             data-testid="button-batch-queue-new"
@@ -1150,7 +1111,7 @@ export default function ListomaticPriority() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => enqueueForPrint(updItems.map(toLot), { identityOnly: true })}
+                            onClick={() => enqueueForPrint(updItems.map(toLot))}
                             disabled={updItems.length === 0}
                             className="gap-1.5 text-xs border-blue-500/40 text-blue-300 hover:text-blue-200"
                             data-testid="button-batch-queue-updated"
@@ -1160,7 +1121,7 @@ export default function ListomaticPriority() {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => enqueueForPrint(batchDetail.items.map(toLot), { identityOnly: true })}
+                            onClick={() => enqueueForPrint(batchDetail.items.map(toLot))}
                             disabled={batchDetail.items.length === 0}
                             className="gap-1.5 text-xs"
                             data-testid="button-batch-add-all"
@@ -1239,7 +1200,7 @@ export default function ListomaticPriority() {
                               remarks: i.remarks,
                               description: i.description,
                               changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
-                            }], { identityOnly: true });
+                            }]);
                           }}
                           disabled={inQueue}
                           className={`w-full flex items-center gap-2 px-3 py-2 text-left ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
