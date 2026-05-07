@@ -566,7 +566,7 @@ router.post("/priceomatic/tier-reset", isApproved, asyncRoute(async (req, res) =
 
 router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const [categories, [unassignedRow], [filingQueueRow]] = await Promise.all([
+  const [categories, [unassignedRow], [filingQueueRow], [unfiledNoRtfRow], rtfRows] = await Promise.all([
     db.selectDistinct({
       id: blCategories.id,
       name: blCategories.name,
@@ -585,13 +585,46 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
       .from(inventoryLocations)
       .innerJoin(whBins, and(eq(whBins.id, inventoryLocations.binId), eq(whBins.isFilingQueue, true)))
       .where(eq(inventoryLocations.orgId, orgId)),
+
+    // "Unfiled & untagged" — lots that have neither a real bin nor an rtf
+    // pre-sort hint. These are brand-new lots the lister hasn't even
+    // printed labels for yet; nothing tells anyone where to find them.
+    db.select({ count: sql<number>`COUNT(*)` })
+      .from(blInventory)
+      .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+      .where(and(
+        eq(blInventory.orgId, orgId),
+        isNull(inventoryLocations.id),
+        isNull(blInventory.rtfBin),
+      )),
+
+    // Per-rtf bucket counts so the dashboard can render one bubble per
+    // tote that actually has bags in it (rtf 0, rtf 3, …).
+    db.select({ rtfBin: blInventory.rtfBin, count: sql<number>`COUNT(*)` })
+      .from(blInventory)
+      .where(and(eq(blInventory.orgId, orgId), isNotNull(blInventory.rtfBin)))
+      .groupBy(blInventory.rtfBin),
   ]);
 
   const unassignedLots = Number(unassignedRow?.count ?? 0);
   const filingQueueLots = Number(filingQueueRow?.count ?? 0);
   const fileLotCounts = { unassignedLots, filingQueueLots, total: unassignedLots + filingQueueLots };
 
-  res.json({ success: true, categories, fileLotCounts });
+  // Sort rtf buckets numerically when possible so "rtf 0, rtf 1, rtf 2, …"
+  // line up naturally; fall back to lexicographic for non-numeric tags.
+  const rtfLotCounts = {
+    unfiled: Number(unfiledNoRtfRow?.count ?? 0),
+    byRtf: (rtfRows ?? [])
+      .map(r => ({ rtfBin: String(r.rtfBin), count: Number(r.count) }))
+      .filter(r => r.count > 0)
+      .sort((a, b) => {
+        const an = Number(a.rtfBin), bn = Number(b.rtfBin);
+        if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+        return a.rtfBin.localeCompare(b.rtfBin);
+      }),
+  };
+
+  res.json({ success: true, categories, fileLotCounts, rtfLotCounts });
 }));
 
 router.patch("/listomatc/category-phase", isApproved, asyncRoute(async (req, res) => {
