@@ -730,7 +730,7 @@ export default function ListomaticPriority() {
         // ── Side stacks: QR + part# on left, image + LOT id on right ──────
         // Each side reserves one short caption line beneath the square so
         // the QR/image still fill most of the label height.
-        const sideCaptionPt = 7;
+        const sideCaptionPt = 6;
         const sideCaptionLineH = sideCaptionPt / 72;
         const sideGap = 0.03;
         const sideStackH = qrIn + sideGap + sideCaptionLineH;
@@ -781,7 +781,7 @@ export default function ListomaticPriority() {
         const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
         const textW = textRight - textX;
 
-        const namePt = 10;
+        const namePt = 9;
         const metaPt = 7;
         const lineGap = 0.04;
 
