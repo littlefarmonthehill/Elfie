@@ -788,7 +788,7 @@ export default function ListomaticPriority() {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(aislePt);
             doc.setTextColor(26, 95, 26);
-            doc.text(`pre file ${lot.aisleName}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
+            doc.text(`rtf ${lot.aisleName}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
           }
         } else {
           // No image — still print LOT id on the right side under nothing,
