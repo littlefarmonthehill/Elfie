@@ -1027,41 +1027,69 @@ export default function ListomaticPriority() {
                     </div>
                   )}
 
-                  {/* Item list */}
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-muted-foreground">
-                      {batchDetail.items.length} lot{batchDetail.items.length !== 1 ? 's' : ''}
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const items: LotItem[] = batchDetail.items.map(i => ({
-                          id: i.inventoryId,
-                          itemNo: i.itemNo,
-                          itemName: i.itemName,
-                          colorName: i.colorName,
-                          newOrUsed: i.newOrUsed,
-                          quantity: i.quantity,
-                          binName: null,
-                          locationLabel: null,
-                          assigned: i.currentBinId != null,
-                          isFilingQueue: false,
-                          itemType: i.itemType,
-                          colorId: i.colorId,
-                          imageUrl: i.thumbnailUrl,
-                          remarks: i.remarks,
-                          description: i.description,
-                        }));
-                        enqueueForPrint(items, { identityOnly: true });
-                      }}
-                      disabled={batchDetail.items.length === 0}
-                      className="gap-1.5 text-xs"
-                      data-testid="button-batch-add-all"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      Queue all labels
-                    </Button>
-                  </div>
+                  {/* Item list — separate queue buttons for NEW vs UPDATED groups */}
+                  {(() => {
+                    const toLot = (i: ListingBatchItem): LotItem => ({
+                      id: i.inventoryId,
+                      itemNo: i.itemNo,
+                      itemName: i.itemName,
+                      colorName: i.colorName,
+                      newOrUsed: i.newOrUsed,
+                      quantity: i.quantity,
+                      binName: null,
+                      locationLabel: null,
+                      assigned: i.currentBinId != null,
+                      isFilingQueue: false,
+                      itemType: i.itemType,
+                      colorId: i.colorId,
+                      imageUrl: i.thumbnailUrl,
+                      remarks: i.remarks,
+                      description: i.description,
+                    });
+                    const newItems = batchDetail.items.filter(i => i.changeType === 'new');
+                    const updItems = batchDetail.items.filter(i => i.changeType === 'qty_updated');
+                    return (
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="text-[10px] text-muted-foreground">
+                          {batchDetail.items.length} lot{batchDetail.items.length !== 1 ? 's' : ''}
+                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => enqueueForPrint(newItems.map(toLot), { identityOnly: true })}
+                            disabled={newItems.length === 0}
+                            className="gap-1.5 text-xs border-emerald-500/40 text-emerald-300 hover:text-emerald-200"
+                            data-testid="button-batch-queue-new"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                            Queue NEW ({newItems.length})
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => enqueueForPrint(updItems.map(toLot), { identityOnly: true })}
+                            disabled={updItems.length === 0}
+                            className="gap-1.5 text-xs border-blue-500/40 text-blue-300 hover:text-blue-200"
+                            data-testid="button-batch-queue-updated"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                            Queue UPDATED ({updItems.length})
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => enqueueForPrint(batchDetail.items.map(toLot), { identityOnly: true })}
+                            disabled={batchDetail.items.length === 0}
+                            className="gap-1.5 text-xs"
+                            data-testid="button-batch-add-all"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                            Queue all
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
                     {batchDetail.items.map(i => {
                       const cond = conditionLabel(i.newOrUsed);
@@ -1123,37 +1151,82 @@ export default function ListomaticPriority() {
                     })}
                   </div>
 
-                  {lotQueue.length > 0 && (
-                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-700/30 bg-emerald-950/10 px-3 py-2">
-                      <p className="text-xs text-emerald-200">
-                        {lotQueue.length} label{lotQueue.length !== 1 ? 's' : ''} queued
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setLotQueue([])}
-                          className="text-[10px] text-muted-foreground"
-                          data-testid="button-listing-clear-queue"
-                        >
-                          Clear
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setPrintDialogOpen(true)}
-                          className="gap-1.5 text-xs"
-                          data-testid="button-listing-print-labels"
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                          Print
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>
           )}
+
+          {/* ── Print Queue (always visible at the bottom of the Listing tab) ── */}
+          <div className="space-y-2 pt-3 border-t border-border/50">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold text-foreground">
+                Print Queue
+                {lotQueue.length > 0 && (
+                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                    ({lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </h4>
+              {lotQueue.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setLotQueue([])}
+                    className="text-[10px] text-muted-foreground"
+                    data-testid="button-listing-clear-queue"
+                  >
+                    Clear all
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setPrintDialogOpen(true)}
+                    className="gap-1.5 text-xs"
+                    data-testid="button-listing-print-labels"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Print Labels
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {lotQueue.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-muted/10 py-6 text-center">
+                <p className="text-xs text-muted-foreground">No labels queued.</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                  Open a batch above and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-64 overflow-y-auto">
+                {lotQueue.map((lot) => {
+                  const cond = conditionLabel(lot.newOrUsed);
+                  return (
+                    <div
+                      key={lot.id}
+                      className="flex items-center gap-2 px-3 py-2"
+                      data-testid={`queue-item-${lot.id}`}
+                    >
+                      <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
+                      <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                      {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
+                      {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                      {lot.binName && <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>}
+                      <button
+                        onClick={() => removeFromQueue(lot.id)}
+                        className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+                        data-testid={`remove-queue-${lot.id}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
@@ -1497,75 +1570,12 @@ export default function ListomaticPriority() {
             </div>
           )}
 
-          {/* Print queue */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="text-xs font-semibold text-foreground">
-                Print Queue
-                {lotQueue.length > 0 && (
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                    ({lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''})
-                  </span>
-                )}
-              </h4>
-              {lotQueue.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setLotQueue([])}
-                    className="text-[10px] text-muted-foreground"
-                    data-testid="button-clear-queue"
-                  >
-                    Clear all
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setPrintDialogOpen(true)}
-                    className="gap-1.5 text-xs"
-                    data-testid="button-print-lot-labels"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Print Labels
-                  </Button>
-                </div>
-              )}
+          {/* Hint: queued lots accumulate in the Listing tab's Print Queue. */}
+          {lotQueue.length > 0 && (
+            <div className="rounded-md border border-emerald-700/30 bg-emerald-950/10 px-3 py-2 text-[11px] text-emerald-200">
+              {lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''} queued for printing — switch to the <span className="font-semibold">Listing</span> tab to review and print.
             </div>
-
-            {lotQueue.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
-                <p className="text-xs text-muted-foreground">No lots queued.</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Search above and tap a result to add it.</p>
-              </div>
-            ) : (
-              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-64 overflow-y-auto">
-                {lotQueue.map((lot) => {
-                  const cond = conditionLabel(lot.newOrUsed);
-                  return (
-                    <div
-                      key={lot.id}
-                      className="flex items-center gap-2 px-3 py-2"
-                      data-testid={`queue-item-${lot.id}`}
-                    >
-                      <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
-                      <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                      {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
-                      {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                      {lot.binName && <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>}
-                      <button
-                        onClick={() => removeFromQueue(lot.id)}
-                        className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
-                        data-testid={`remove-queue-${lot.id}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
         </TabsContent>
       </Tabs>
 
