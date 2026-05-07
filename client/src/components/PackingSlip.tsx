@@ -266,9 +266,17 @@ export async function loadItemImageForPDF(opts: {
 function loadUrlToSquarePNG(url: string, grayscale: boolean): Promise<string | null> {
   return new Promise(resolve => {
     const img = new Image();
-    // Request CORS so cross-origin images that allow it (e.g. via our proxy)
-    // can be drawn to canvas without tainting. Same-origin URLs are unaffected.
-    img.crossOrigin = 'anonymous';
+    // Only request CORS for cross-origin URLs. For same-origin (e.g. our own
+    // /api/images/lot/:id endpoint) we deliberately leave crossOrigin unset so
+    // the browser sends session cookies — required by auth-gated routes.
+    // Same-origin draws never taint the canvas regardless of crossOrigin.
+    let isCrossOrigin = false;
+    try {
+      if (typeof window !== 'undefined' && /^https?:\/\//i.test(url)) {
+        isCrossOrigin = new URL(url).origin !== window.location.origin;
+      }
+    } catch { /* treat as same-origin */ }
+    if (isCrossOrigin) img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const w = img.naturalWidth  || img.width  || 0;

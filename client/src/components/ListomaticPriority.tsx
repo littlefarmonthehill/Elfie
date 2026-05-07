@@ -421,6 +421,7 @@ export default function ListomaticPriority() {
 
   // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [batchItemFilter, setBatchItemFilter] = useState<'all' | 'new' | 'updated'>('all');
   const [fastPathBinName, setFastPathBinName] = useState('');
   const [fastPathZoneId, setFastPathZoneId] = useState<number | null>(null);
   const [rangeFrom, setRangeFrom] = useState('');
@@ -1090,8 +1091,48 @@ export default function ListomaticPriority() {
                       </div>
                     );
                   })()}
+                  {/* Filter pills — narrow the item list by change type */}
+                  {(() => {
+                    const newCount = batchDetail.items.filter(i => i.changeType === 'new').length;
+                    const updCount = batchDetail.items.filter(i => i.changeType === 'qty_updated').length;
+                    const pills: [typeof batchItemFilter, string, number][] = [
+                      ['all', 'All', batchDetail.items.length],
+                      ['new', 'New', newCount],
+                      ['updated', 'Updated', updCount],
+                    ];
+                    return (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {pills.map(([key, label, count]) => (
+                          <button
+                            key={key}
+                            onClick={() => setBatchItemFilter(key)}
+                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                              batchItemFilter === key
+                                ? key === 'new'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : key === 'updated'
+                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                    : 'bg-foreground/10 text-foreground border-foreground/30'
+                                : 'text-muted-foreground hover:text-foreground border-border hover:border-foreground/40'
+                            }`}
+                            data-testid={`filter-batch-${key}`}
+                          >
+                            {label} <span className="opacity-60 tabular-nums">({count})</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
-                    {batchDetail.items.map(i => {
+                    {batchDetail.items
+                      .filter(i =>
+                        batchItemFilter === 'all'
+                          ? true
+                          : batchItemFilter === 'new'
+                            ? i.changeType === 'new'
+                            : i.changeType === 'qty_updated'
+                      )
+                      .map(i => {
                       const cond = conditionLabel(i.newOrUsed);
                       const inQueue = lotQueue.some(l => l.id === i.inventoryId);
                       const isNew = i.changeType === 'new';
