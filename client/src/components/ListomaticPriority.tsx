@@ -419,7 +419,7 @@ export default function ListomaticPriority() {
   // The print queue is persisted across page loads so a partially-built batch
   // survives an accidental refresh or a deploy. The version key is bumped
   // whenever the LotItem shape changes — older payloads are dropped on load.
-  const LOT_QUEUE_STORAGE_KEY = 'elfie.lotQueue.v2';
+  const LOT_QUEUE_STORAGE_KEY = 'elfie.lotQueue.v3';
   const [lotQueue, setLotQueue] = useState<LotItem[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -431,11 +431,13 @@ export default function ListomaticPriority() {
       return [];
     }
   });
-  // Drop legacy v1 payloads (no changeType) so filter pills work cleanly.
+  // Drop legacy payloads (older versions lacked changeType on date-range items
+  // so filter pills returned 0 results until users re-queued).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       window.localStorage.removeItem('elfie.lotQueue.v1');
+      window.localStorage.removeItem('elfie.lotQueue.v2');
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
