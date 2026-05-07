@@ -747,9 +747,17 @@ export default function ListomaticPriority() {
         const captionY = sideTopY + qrIn + sideGap;
         doc.text(partLabel, partTextX, captionY, { baseline: 'top' });
 
-        // RIGHT: image centered horizontally over its caption (LOT:id)
+        // RIGHT: image with LOT id caption ABOVE it (right-anchored so long
+        // ids can't push the "L" behind the yellow remarks box on the left).
         if (showImage) {
           const imgX = pageW - padIn - imgIn;
+          const lotLabel = `LOT:${lot.id}`;
+          const lotCaptionY = Math.max(padIn, sideTopY - sideGap - sideCaptionLineH);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(sideCaptionPt);
+          doc.setTextColor(26, 95, 26);
+          doc.text(lotLabel, imgX + imgIn, lotCaptionY, { baseline: 'top', align: 'right' });
+
           const imgData = partImages[i];
           if (imgData) {
             try { doc.addImage(imgData, 'PNG', imgX, sideTopY, imgIn, imgIn); } catch { /* skip */ }
@@ -758,13 +766,6 @@ export default function ListomaticPriority() {
             doc.setFillColor(248, 248, 248);
             doc.roundedRect(imgX, sideTopY, imgIn, imgIn, 0.03, 0.03, 'FD');
           }
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(sideCaptionPt);
-          doc.setTextColor(26, 95, 26);
-          const lotLabel = `LOT:${lot.id}`;
-          // Right-anchor the caption to the image's right edge so a long LOT
-          // id can't push the "L" behind the (yellow) remarks box on the left.
-          doc.text(lotLabel, imgX + imgIn, captionY, { baseline: 'top', align: 'right' });
         } else {
           // No image — still print LOT id on the right side under nothing,
           // anchored to the right edge so it doesn't collide with the name.
