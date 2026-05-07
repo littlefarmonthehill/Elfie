@@ -57,6 +57,7 @@ import userImagesRouter from "./routers/userImages";
 import ordersRouter from "./routers/orders";
 import platformAdminRouter from "./routers/platformAdmin";
 import warehouseRouter from "./routers/warehouse";
+import listingBatchesRouter from "./routers/listing-batches";
 import miscRouter from "./routers/misc";
 import aiRouter from "./routers/ai";
 import visionRouter from "./routers/vision";
@@ -246,6 +247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api', ordersRouter);
   app.use('/api', platformAdminRouter);
   app.use('/api', warehouseRouter);
+  app.use('/api', listingBatchesRouter);
   app.use('/api', miscRouter);
   app.use('/api', aiRouter);
   app.use('/api', visionRouter);

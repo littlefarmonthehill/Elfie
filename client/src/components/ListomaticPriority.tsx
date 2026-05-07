@@ -1,10 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X,
-  Search, Plus, Printer, Loader2, Package,
+  Search, Plus, Printer, Loader2, Package, Trash2, MapPin, Calendar, ChevronRight,
+  Sparkles, ArrowLeft,
 } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,6 +74,43 @@ interface LotItem {
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
+
+// ── Smart Parts (Listing tab) types ───────────────────────────────────────────
+interface ListingBatch {
+  id: string;
+  source: string;
+  newCount: number;
+  updatedCount: number;
+  note: string | null;
+  createdAt: string;
+}
+interface ListingBatchItem {
+  id: number;
+  inventoryId: number;
+  changeType: 'new' | 'qty_updated';
+  qtyDelta: number;
+  assignedBinId: number | null;
+  itemNo: string;
+  itemType: string;
+  colorId: number;
+  newOrUsed: string | null;
+  quantity: number;
+  itemName: string | null;
+  colorName: string | null;
+  thumbnailUrl: string | null;
+  currentBinId: number | null;
+  currentBinName: string | null;
+}
+interface ListingBatchDetail {
+  batch: ListingBatch & { orgId: string; deletedAt: string | null };
+  items: ListingBatchItem[];
+}
+interface WhZone { id: number; name: string; depth: number | null; }
+interface WorkerMemory {
+  listerZoneId: number | null;
+  filerZoneId: number | null;
+  filerLastBinId: number | null;
+}
 
 // ── Label templates ────────────────────────────────────────────────────────────
 type LotLabelKey =
@@ -184,6 +225,160 @@ function conditionLabel(newOrUsed: string | null) {
   return null;
 }
 
+// ── Date-range labels sub-view (Smart Parts) ──────────────────────────────────
+interface RangeRow {
+  id: number;
+  itemNo: string;
+  itemType: string;
+  colorId: number;
+  newOrUsed: string | null;
+  quantity: number;
+  itemName: string | null;
+  colorName: string | null;
+  thumbnailUrl: string | null;
+}
+
+function DateRangeLabels(props: {
+  from: string;
+  to: string;
+  onFrom: (s: string) => void;
+  onTo: (s: string) => void;
+  onCancel: () => void;
+  onAddToQueue: (items: LotItem[]) => void;
+}) {
+  const { from, to, onFrom, onTo, onCancel, onAddToQueue } = props;
+  const [submitted, setSubmitted] = useState(false);
+
+  const enabled = submitted && !!from && !!to;
+  const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
+    queryKey: ['/api/listing-batches/range/labels', from, to],
+    queryFn: async () => {
+      const fromIso = new Date(from + 'T00:00:00').toISOString();
+      const toIso = new Date(to + 'T23:59:59').toISOString();
+      const params = new URLSearchParams({ from: fromIso, to: toIso });
+      const res = await fetch(`/api/listing-batches/range/labels?${params}`);
+      if (!res.ok) throw new Error('Range query failed');
+      return res.json();
+    },
+    enabled,
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onCancel}
+          className="gap-1.5 text-xs"
+          data-testid="button-range-back"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> All batches
+        </Button>
+      </div>
+
+      <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
+        <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
+        <p className="text-[10px] text-muted-foreground">
+          Useful when you missed printing labels at sync time. Returns every lot whose
+          BrickLink sync timestamp falls in this window.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-[10px] text-muted-foreground">From</Label>
+            <Input
+              type="date"
+              value={from}
+              onChange={e => { onFrom(e.target.value); setSubmitted(false); }}
+              className="text-xs h-9"
+              data-testid="input-range-from"
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] text-muted-foreground">To</Label>
+            <Input
+              type="date"
+              value={to}
+              onChange={e => { onTo(e.target.value); setSubmitted(false); }}
+              className="text-xs h-9"
+              data-testid="input-range-to"
+            />
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => setSubmitted(true)}
+          disabled={!from || !to}
+          className="text-xs w-full"
+          data-testid="button-range-fetch"
+        >
+          <Search className="h-3.5 w-3.5 mr-1.5" /> Find lots
+        </Button>
+      </div>
+
+      {enabled && (
+        <>
+          {isFetching ? (
+            <div className="flex items-center justify-center py-6 text-gray-500 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Searching…
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-center text-xs text-muted-foreground py-6">No lots in this date range.</p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] text-muted-foreground">
+                  <span className="font-semibold text-foreground">{rows.length}</span> lot{rows.length !== 1 ? 's' : ''}
+                  {rows.length === 2000 && <span className="text-muted-foreground/60"> (capped at 2000)</span>}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const items: LotItem[] = rows.map(r => ({
+                      id: r.id,
+                      itemNo: r.itemNo,
+                      itemName: r.itemName,
+                      colorName: r.colorName,
+                      newOrUsed: r.newOrUsed,
+                      quantity: r.quantity,
+                      binName: null,
+                      locationLabel: null,
+                      assigned: false,
+                      isFilingQueue: false,
+                    }));
+                    onAddToQueue(items);
+                  }}
+                  className="gap-1.5 text-xs"
+                  data-testid="button-range-add-all"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Queue all labels
+                </Button>
+              </div>
+              <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
+                {rows.slice(0, 200).map(r => (
+                  <div key={r.id} className="flex items-center gap-2 px-3 py-1.5">
+                    {r.thumbnailUrl ? (
+                      <img src={r.thumbnailUrl} alt={r.itemNo} className="w-6 h-6 object-contain shrink-0 rounded bg-gray-800" />
+                    ) : (
+                      <div className="w-6 h-6 shrink-0 rounded bg-gray-800" />
+                    )}
+                    <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{r.itemNo}</span>
+                    <span className="text-xs text-muted-foreground truncate flex-1">{r.itemName || '—'}</span>
+                    {r.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{r.colorName}</span>}
+                  </div>
+                ))}
+                {rows.length > 200 && (
+                  <p className="text-center text-[10px] text-muted-foreground py-1">… preview shows first 200; queue gets all {rows.length}.</p>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ListomaticPriority() {
   const { toast } = useToast();
@@ -204,6 +399,17 @@ export default function ListomaticPriority() {
   const [lotQueue, setLotQueue] = useState<LotItem[]>([]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [lotLabelSize, setLotLabelSize] = useState<LotLabelKey>('brotherDK1201');
+  // identityOnly = Smart Parts mode: no bin info on label, identity stays
+  // valid forever regardless of where the bag physically lives.
+  const [printIdentityOnly, setPrintIdentityOnly] = useState(false);
+
+  // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [fastPathBinName, setFastPathBinName] = useState('');
+  const [fastPathZoneId, setFastPathZoneId] = useState<number | null>(null);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [rangeMode, setRangeMode] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -235,6 +441,32 @@ export default function ListomaticPriority() {
   });
 
   // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Listing tab queries ───────────────────────────────────────────────────
+  const { data: listingBatches = [], isLoading: batchesLoading } = useQuery<ListingBatch[]>({
+    queryKey: ['/api/listing-batches'],
+    staleTime: 10_000,
+  });
+  const { data: batchDetail, isLoading: batchDetailLoading } = useQuery<ListingBatchDetail>({
+    queryKey: ['/api/listing-batches', selectedBatchId],
+    enabled: !!selectedBatchId,
+    staleTime: 10_000,
+  });
+  const { data: whZones = [] } = useQuery<WhZone[]>({
+    queryKey: ['/api/warehouse/zones'],
+    staleTime: 60_000,
+  });
+  const { data: workerMemory } = useQuery<WorkerMemory>({
+    queryKey: ['/api/worker/memory-zone'],
+    staleTime: 60_000,
+  });
+
+  // Default fast-path zone to the lister's last-used zone
+  useEffect(() => {
+    if (fastPathZoneId == null && workerMemory?.listerZoneId != null) {
+      setFastPathZoneId(workerMemory.listerZoneId);
+    }
+  }, [workerMemory, fastPathZoneId]);
+
   const phaseScores = localPhaseScores ?? data?.phaseScores ?? { category: 25, subcategory: 50, finalsort: 75, listing: 100 };
 
   const saveScoresMutation = useMutation({
@@ -255,6 +487,36 @@ export default function ListomaticPriority() {
       apiRequest('PATCH', `/api/listomatc/categories/${categoryId}/flag`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/listomatc/priority'] }),
     onError: () => toast({ title: "Failed to toggle flag", variant: "destructive" }),
+  });
+
+  // ── Listing tab mutations ─────────────────────────────────────────────────
+  const deleteBatchMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest('DELETE', `/api/listing-batches/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/listing-batches'] });
+      setSelectedBatchId(null);
+      toast({ title: "Batch deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete batch", variant: "destructive" }),
+  });
+
+  const assignBinMutation = useMutation({
+    mutationFn: async (vars: { id: string; binName: string; zoneId: number }) =>
+      apiRequest('POST', `/api/listing-batches/${vars.id}/assign-bin`, {
+        binName: vars.binName,
+        zoneId: vars.zoneId,
+      }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/listing-batches', selectedBatchId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/worker/memory-zone'] });
+      toast({ title: `Assigned ${data?.assigned ?? 0} new lots to bin` });
+      setFastPathBinName('');
+    },
+    onError: (e: any) => toast({
+      title: "Bin assignment failed",
+      description: String(e?.message ?? e),
+      variant: "destructive",
+    }),
   });
 
   const phaseMutation = useMutation({
@@ -318,6 +580,8 @@ export default function ListomaticPriority() {
   const addToQueue = (lot: LotItem) => {
     if (lotQueue.some(l => l.id === lot.id)) return;
     setLotQueue(prev => [...prev, lot]);
+    // Ready-to-File tab uses standard labels (with bin info), not identity labels.
+    setPrintIdentityOnly(false);
   };
 
   const removeFromQueue = (id: number) => {
@@ -328,9 +592,27 @@ export default function ListomaticPriority() {
   // Follows the global print pattern: build a PDF blob with jsPDF, then hand
   // it to hiddenPrint() (PackingSlip.tsx) which renders an off-screen iframe
   // on desktop and the iOS share sheet on mobile.
+  // Add a list of items to the print queue, suppressing bin info if requested
+  // (Smart Parts identity labels never carry a location).
+  const enqueueForPrint = (items: LotItem[], opts?: { identityOnly?: boolean }) => {
+    const identity = !!opts?.identityOnly;
+    setLotQueue(prev => {
+      const existing = new Set(prev.map(l => l.id));
+      const additions = items
+        .filter(l => !existing.has(l.id))
+        .map(l => identity ? { ...l, locationLabel: null, binName: null } : l);
+      return [...prev, ...additions];
+    });
+    setPrintIdentityOnly(identity);
+    if (items.length > 0) {
+      toast({ title: `Added ${items.length} lot${items.length !== 1 ? 's' : ''} to print queue` });
+    }
+  };
+
   const handlePrintLotLabels = async () => {
     if (lotQueue.length === 0) return;
     const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
+    const identityOnly = printIdentityOnly;
     setPrintDialogOpen(false);
 
     try {
@@ -380,8 +662,11 @@ export default function ListomaticPriority() {
         const textW = textRight - textX;
 
         const partLabel = `#${lot.itemNo}`;
-        const isUnassigned = !lot.locationLabel;
-        const locText = isUnassigned ? 'UNASSIGNED' : shortBin(lot.locationLabel);
+        // Smart Parts identity mode: no bin info at all on the label.
+        const isUnassigned = !identityOnly && !lot.locationLabel;
+        const locText = identityOnly
+          ? ''
+          : (isUnassigned ? 'UNASSIGNED' : shortBin(lot.locationLabel));
 
         // ── Pre-measure the full text block so we can vertically center it ──
         const partPt = 8;
@@ -423,9 +708,11 @@ export default function ListomaticPriority() {
 
         doc.setFont('helvetica', isUnassigned ? 'bolditalic' : 'bold');
         doc.setFontSize(locPt);
-        const locTextW = doc.getTextWidth(locText);
+        const locTextW = identityOnly ? 0 : doc.getTextWidth(locText);
 
-        if (isUnassigned) {
+        if (identityOnly) {
+          // No location text — leave the right side of the header empty.
+        } else if (isUnassigned) {
           // Bold yellow pill stretching to match the part # — full attention
           const pillPadX = 0.06;
           const pillPadY = 0.025;
@@ -479,11 +766,311 @@ export default function ListomaticPriority() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="categories">
-        <TabsList className="w-full grid grid-cols-2 mb-2">
-          <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
+      <Tabs defaultValue="listing">
+        <TabsList className="w-full grid grid-cols-3 mb-2">
+          <TabsTrigger value="listing" data-testid="tab-listing">
+            <Sparkles className="w-3 h-3 mr-1" /> Listing
+          </TabsTrigger>
           <TabsTrigger value="lots" data-testid="tab-lots">Ready to File</TabsTrigger>
+          <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
         </TabsList>
+
+        {/* ── LISTING TAB (Smart Parts) ─────────────────────────────── */}
+        <TabsContent value="listing" className="space-y-3 mt-0">
+          {!selectedBatchId && !rangeMode && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-gray-100">Listing Batches</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRangeMode(true)}
+                  className="gap-1.5 text-xs"
+                  data-testid="button-range-labels"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  Print by date range
+                </Button>
+              </div>
+              <p className="text-[10px] text-gray-600">
+                Each batch is one BrickLink sync that brought in new or restocked lots.
+                Print identity labels for the bags, then file the bags later.
+              </p>
+
+              {batchesLoading ? (
+                <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading batches…
+                </div>
+              ) : listingBatches.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
+                  <p className="text-xs text-muted-foreground">No listing batches yet.</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                    Run a BrickLink sync that brings in new or restocked parts and a batch will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-96 overflow-y-auto">
+                  {listingBatches.map(b => {
+                    const total = b.newCount + b.updatedCount;
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => setSelectedBatchId(b.id)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover-elevate"
+                        data-testid={`batch-row-${b.id}`}
+                      >
+                        <Package className="h-4 w-4 shrink-0 text-emerald-400" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {new Date(b.createdAt).toLocaleString()}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {b.newCount} new · {b.updatedCount} restocked · <span className="text-muted-foreground/70">{b.source}</span>
+                          </p>
+                        </div>
+                        <span className="text-[10px] tabular-nums font-semibold text-emerald-300 shrink-0">{total}</span>
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Date range mode ─────────────────────────────────────── */}
+          {rangeMode && !selectedBatchId && (
+            <DateRangeLabels
+              from={rangeFrom}
+              to={rangeTo}
+              onFrom={setRangeFrom}
+              onTo={setRangeTo}
+              onCancel={() => setRangeMode(false)}
+              onAddToQueue={(items) => {
+                enqueueForPrint(items, { identityOnly: true });
+              }}
+            />
+          )}
+
+          {/* ── Batch detail view ───────────────────────────────────── */}
+          {selectedBatchId && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedBatchId(null)}
+                  className="gap-1.5 text-xs"
+                  data-testid="button-batch-back"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> All batches
+                </Button>
+                {batchDetail && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (window.confirm('Delete this batch? Lots remain in inventory; only this batch record is removed.')) {
+                        deleteBatchMutation.mutate(selectedBatchId);
+                      }
+                    }}
+                    disabled={deleteBatchMutation.isPending}
+                    className="gap-1.5 text-xs text-destructive"
+                    data-testid="button-batch-delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </Button>
+                )}
+              </div>
+
+              {batchDetailLoading || !batchDetail ? (
+                <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-md border border-border bg-muted/10 p-3">
+                    <p className="text-xs font-semibold text-foreground">
+                      {new Date(batchDetail.batch.createdAt).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {batchDetail.batch.newCount} new lot{batchDetail.batch.newCount !== 1 ? 's' : ''} ·{' '}
+                      {batchDetail.batch.updatedCount} restocked
+                    </p>
+                  </div>
+
+                  {/* Fast-path: assign all NEW lots to a freshly-scanned bin */}
+                  {batchDetail.items.some(i => i.changeType === 'new' && i.assignedBinId == null) && (
+                    <div className="rounded-md border border-emerald-700/30 bg-emerald-950/20 p-3 space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+                        <p className="text-xs font-semibold text-emerald-200">Pre-assign new lots to a bin</p>
+                      </div>
+                      <p className="text-[10px] text-emerald-200/70">
+                        Scan or type the bin's QR/name. All new lots in this batch will go into that bin.
+                        Updated lots keep their existing homes.
+                      </p>
+                      <div className="flex gap-1.5 items-center">
+                        <Input
+                          placeholder="Scan or type bin name…"
+                          value={fastPathBinName}
+                          onChange={e => setFastPathBinName(e.target.value)}
+                          className="text-xs flex-1"
+                          data-testid="input-fastpath-bin"
+                        />
+                        <div className="w-32 shrink-0">
+                          <Select
+                            value={fastPathZoneId != null ? String(fastPathZoneId) : ''}
+                            onValueChange={(v) => setFastPathZoneId(parseInt(v))}
+                          >
+                            <SelectTrigger className="text-xs h-9" data-testid="select-fastpath-zone">
+                              <SelectValue placeholder="Zone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {whZones.map(z => (
+                                <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          size="default"
+                          onClick={() => {
+                            if (!fastPathBinName.trim() || fastPathZoneId == null) return;
+                            assignBinMutation.mutate({
+                              id: selectedBatchId,
+                              binName: fastPathBinName.trim(),
+                              zoneId: fastPathZoneId,
+                            });
+                          }}
+                          disabled={!fastPathBinName.trim() || fastPathZoneId == null || assignBinMutation.isPending}
+                          className="text-xs"
+                          data-testid="button-fastpath-assign"
+                        >
+                          {assignBinMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Assign'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Item list */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      {batchDetail.items.length} lot{batchDetail.items.length !== 1 ? 's' : ''}
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const items: LotItem[] = batchDetail.items.map(i => ({
+                          id: i.inventoryId,
+                          itemNo: i.itemNo,
+                          itemName: i.itemName,
+                          colorName: i.colorName,
+                          newOrUsed: i.newOrUsed,
+                          quantity: i.quantity,
+                          binName: null,
+                          locationLabel: null,
+                          assigned: i.currentBinId != null,
+                          isFilingQueue: false,
+                        }));
+                        enqueueForPrint(items, { identityOnly: true });
+                      }}
+                      disabled={batchDetail.items.length === 0}
+                      className="gap-1.5 text-xs"
+                      data-testid="button-batch-add-all"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Queue all labels
+                    </Button>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
+                    {batchDetail.items.map(i => {
+                      const cond = conditionLabel(i.newOrUsed);
+                      const inQueue = lotQueue.some(l => l.id === i.inventoryId);
+                      const isNew = i.changeType === 'new';
+                      return (
+                        <button
+                          key={i.id}
+                          onClick={() => {
+                            if (inQueue) return;
+                            enqueueForPrint([{
+                              id: i.inventoryId,
+                              itemNo: i.itemNo,
+                              itemName: i.itemName,
+                              colorName: i.colorName,
+                              newOrUsed: i.newOrUsed,
+                              quantity: i.quantity,
+                              binName: null,
+                              locationLabel: null,
+                              assigned: i.currentBinId != null,
+                              isFilingQueue: false,
+                            }], { identityOnly: true });
+                          }}
+                          disabled={inQueue}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                          data-testid={`batch-item-${i.inventoryId}`}
+                        >
+                          {i.thumbnailUrl ? (
+                            <img src={i.thumbnailUrl} alt={i.itemNo} className="w-7 h-7 object-contain shrink-0 rounded bg-gray-800" />
+                          ) : (
+                            <div className="w-7 h-7 shrink-0 rounded bg-gray-800" />
+                          )}
+                          <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{i.itemNo}</span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">{i.itemName || '—'}</span>
+                          {i.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{i.colorName}</span>}
+                          {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                          <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
+                            isNew
+                              ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+                              : 'text-blue-300 bg-blue-500/10 border-blue-500/30'
+                          }`}>
+                            {isNew ? 'NEW' : `+${i.qtyDelta}`}
+                          </span>
+                          {i.currentBinName && (
+                            <span className="text-[10px] font-mono text-yellow-500 shrink-0">{i.currentBinName}</span>
+                          )}
+                          {inQueue ? (
+                            <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {lotQueue.length > 0 && (
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-700/30 bg-emerald-950/10 px-3 py-2">
+                      <p className="text-xs text-emerald-200">
+                        {lotQueue.length} label{lotQueue.length !== 1 ? 's' : ''} queued
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setLotQueue([])}
+                          className="text-[10px] text-muted-foreground"
+                          data-testid="button-listing-clear-queue"
+                        >
+                          Clear
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setPrintDialogOpen(true)}
+                          className="gap-1.5 text-xs"
+                          data-testid="button-listing-print-labels"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          Print
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
         <TabsContent value="categories" className="space-y-4 mt-0">

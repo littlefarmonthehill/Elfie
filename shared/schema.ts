@@ -2314,3 +2314,56 @@ export const insertMarketingOutreachSchema = createInsertSchema(marketingOutreac
 });
 export type InsertMarketingOutreach = z.infer<typeof insertMarketingOutreachSchema>;
 export type MarketingOutreach = typeof marketingOutreach.$inferSelect;
+
+// ─── Smart Parts: Listing Batches ─────────────────────────────────────────────
+// One row per inventory sync that produced ≥1 new or qty-updated lot. Never
+// merged. Manually deletable. Source ='bricklink' today; future: 'brickowl'.
+export const listingBatches = pgTable("listing_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull(),
+  source: text("source").notNull().default('bricklink'),
+  newCount: integer("new_count").notNull().default(0),
+  updatedCount: integer("updated_count").notNull().default(0),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => [
+  index("listing_batches_org_created_idx").on(t.orgId, t.createdAt),
+]);
+
+// Per-lot rows. assignedBinId is set by the Lister fast-path when they pre-
+// assign a batch's new lots to a freshly-scanned bin. inventory_locations
+// remains the source of truth for actual placement.
+export const listingBatchItems = pgTable("listing_batch_items", {
+  id: serial("id").primaryKey(),
+  batchId: varchar("batch_id").notNull().references(() => listingBatches.id, { onDelete: 'cascade' }),
+  inventoryId: integer("inventory_id").notNull(),
+  changeType: text("change_type").notNull(), // 'new' | 'qty_updated'
+  qtyDelta: integer("qty_delta").notNull().default(0),
+  assignedBinId: integer("assigned_bin_id"),
+}, (t) => [
+  index("listing_batch_items_batch_idx").on(t.batchId),
+  index("listing_batch_items_inv_idx").on(t.inventoryId),
+]);
+
+export const insertListingBatchSchema = createInsertSchema(listingBatches).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertListingBatch = z.infer<typeof insertListingBatchSchema>;
+export type ListingBatch = typeof listingBatches.$inferSelect;
+export type ListingBatchItem = typeof listingBatchItems.$inferSelect;
+
+// ─── Smart Parts: Worker Memory Zones ────────────────────────────────────────
+// Per-user sticky zone for Lister and Filer roles. listerZoneId defaults the
+// zone picker when assigning a freshly-scanned bin; filerZoneId narrows
+// suggested bins when no existing assignment is found.
+export const workerMemoryZones = pgTable("worker_memory_zones", {
+  userId: varchar("user_id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  listerZoneId: integer("lister_zone_id"),
+  filerZoneId: integer("filer_zone_id"),
+  filerLastBinId: integer("filer_last_bin_id"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type WorkerMemoryZone = typeof workerMemoryZones.$inferSelect;
