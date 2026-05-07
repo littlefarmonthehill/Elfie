@@ -738,10 +738,10 @@ export default function ListomaticPriority() {
         const qrY = (pageH - qrIn) / 2;
         doc.addImage(qrCanvases[i], 'PNG', qrX, qrY, qrIn, qrIn);
 
-        // Part image to the right of the QR (same size, vertically centered).
+        // Part image on the right side (same size as QR, vertically centered).
         // Falls back to a faint placeholder rectangle if no image was found.
         if (showImage) {
-          const imgX = qrX + qrIn + imgGap;
+          const imgX = pageW - padIn - imgIn;
           const imgY = (pageH - imgIn) / 2;
           const imgData = partImages[i];
           if (imgData) {
@@ -753,9 +753,9 @@ export default function ListomaticPriority() {
           }
         }
 
-        // Text column to the right of QR (and image, if present)
-        const textX = qrX + qrIn + (showImage ? imgGap + imgIn + 0.08 : 0.08);
-        const textRight = pageW - padIn;
+        // Text column sits between the QR (left) and the part image (right)
+        const textX = qrX + qrIn + 0.08;
+        const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
         const textW = textRight - textX;
 
         const partLabel = `#${lot.itemNo}`;
