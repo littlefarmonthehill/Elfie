@@ -216,6 +216,7 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       quantity: blInventory.quantity,
       remarks: blInventory.remarks,
       description: blInventory.description,
+      dateCreated: blInventory.dateCreated,
       itemName: sql<string | null>`COALESCE(${blCatalog.itemName}, NULL)`,
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
@@ -234,7 +235,19 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
     ))
     .limit(2000);
 
-  res.json(rows);
+  // Derive changeType from the lot's BrickLink creation date relative to the
+  // requested window. A lot whose dateCreated falls inside the range is "new"
+  // (was first listed in this window); anything older was already on the shelf
+  // and merely had its quantity touched, i.e. "qty_updated".
+  const fromMs = from.getTime();
+  const enriched = rows.map(r => ({
+    ...r,
+    changeType: r.dateCreated && r.dateCreated.getTime() >= fromMs
+      ? 'new' as const
+      : 'qty_updated' as const,
+  }));
+
+  res.json(enriched);
 }));
 
 // ── Worker memory zones ──────────────────────────────────────────────────────

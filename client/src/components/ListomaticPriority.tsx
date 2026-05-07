@@ -249,6 +249,7 @@ interface RangeRow {
   thumbnailUrl: string | null;
   remarks: string | null;
   description: string | null;
+  changeType: 'new' | 'qty_updated';
 }
 
 function DateRangeLabels(props: {
@@ -363,6 +364,7 @@ function DateRangeLabels(props: {
                       imageUrl: r.thumbnailUrl,
                       remarks: r.remarks,
                       description: r.description,
+                      changeType: r.changeType,
                     }));
                     onAddToQueue(items);
                   }}
