@@ -76,6 +76,8 @@ interface LotItem {
   itemType?: string | null;
   colorId?: number | null;
   imageUrl?: string | null;
+  remarks?: string | null;       // private seller note
+  description?: string | null;   // public buyer-facing comment
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
@@ -103,6 +105,8 @@ interface ListingBatchItem {
   itemName: string | null;
   colorName: string | null;
   thumbnailUrl: string | null;
+  remarks: string | null;
+  description: string | null;
   currentBinId: number | null;
   currentBinName: string | null;
 }
@@ -241,6 +245,8 @@ interface RangeRow {
   itemName: string | null;
   colorName: string | null;
   thumbnailUrl: string | null;
+  remarks: string | null;
+  description: string | null;
 }
 
 function DateRangeLabels(props: {
@@ -353,6 +359,8 @@ function DateRangeLabels(props: {
                       itemType: r.itemType,
                       colorId: r.colorId,
                       imageUrl: r.thumbnailUrl,
+                      remarks: r.remarks,
+                      description: r.description,
                     }));
                     onAddToQueue(items);
                   }}
@@ -798,6 +806,29 @@ export default function ListomaticPriority() {
         doc.setFontSize(lotPt);
         doc.setTextColor(26, 95, 26);
         doc.text(`LOT:${lot.id}`, textX, cursorY, { baseline: 'top' });
+        cursorY += lotPt / 72;
+
+        // ── Remarks / description (private seller note preferred) ──
+        // Small italic line(s) at the bottom over a faint yellow highlight, so
+        // the worker can see "shelf wear", "missing antenna", etc. at a glance.
+        const noteText = (lot.remarks ?? lot.description ?? '').trim();
+        if (noteText) {
+          const notePt = 7;
+          const noteLineH = (notePt / 72) * 1.25;
+          doc.setFont('helvetica', 'oblique');
+          doc.setFontSize(notePt);
+          // Wrap to up to 2 lines, then char-truncate the second with an ellipsis.
+          const wrapped = (doc.splitTextToSize(noteText, textW) as string[]).slice(0, 2);
+          const noteBlockH = wrapped.length * noteLineH;
+          const noteY = Math.min(cursorY + lineGap, pageH - padIn - noteBlockH);
+          // Faint yellow highlight, same idea as the picklist comment row.
+          doc.setFillColor(255, 245, 200);
+          doc.rect(textX - 0.02, noteY - 0.01, textW + 0.04, noteBlockH + 0.02, 'F');
+          doc.setTextColor(60, 50, 0);
+          wrapped.forEach((line, idx) => {
+            doc.text(line, textX, noteY + idx * noteLineH, { baseline: 'top' });
+          });
+        }
       });
 
       hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
@@ -1018,6 +1049,8 @@ export default function ListomaticPriority() {
                           itemType: i.itemType,
                           colorId: i.colorId,
                           imageUrl: i.thumbnailUrl,
+                          remarks: i.remarks,
+                          description: i.description,
                         }));
                         enqueueForPrint(items, { identityOnly: true });
                       }}
@@ -1053,6 +1086,8 @@ export default function ListomaticPriority() {
                               itemType: i.itemType,
                               colorId: i.colorId,
                               imageUrl: i.thumbnailUrl,
+                              remarks: i.remarks,
+                              description: i.description,
                             }], { identityOnly: true });
                           }}
                           disabled={inQueue}
