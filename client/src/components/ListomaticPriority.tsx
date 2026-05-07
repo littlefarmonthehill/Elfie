@@ -762,9 +762,9 @@ export default function ListomaticPriority() {
           doc.setFontSize(sideCaptionPt);
           doc.setTextColor(26, 95, 26);
           const lotLabel = `LOT:${lot.id}`;
-          const lotTextW = doc.getTextWidth(lotLabel);
-          const lotTextX = imgX + (imgIn - lotTextW) / 2;
-          doc.text(lotLabel, lotTextX, captionY, { baseline: 'top' });
+          // Right-anchor the caption to the image's right edge so a long LOT
+          // id can't push the "L" behind the (yellow) remarks box on the left.
+          doc.text(lotLabel, imgX + imgIn, captionY, { baseline: 'top', align: 'right' });
         } else {
           // No image — still print LOT id on the right side under nothing,
           // anchored to the right edge so it doesn't collide with the name.
@@ -791,7 +791,7 @@ export default function ListomaticPriority() {
         const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
         const metaLineH = metaParts ? (metaPt / 72) : 0;
 
-        const noteText = (lot.remarks ?? lot.description ?? '').trim();
+        const noteText = decodeHtml((lot.remarks ?? lot.description ?? '').trim());
         const notePt = 7;
         const noteLineH = (notePt / 72) * 1.25;
         let noteWrapped: string[] = [];
