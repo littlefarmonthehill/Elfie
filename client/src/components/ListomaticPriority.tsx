@@ -414,7 +414,38 @@ export default function ListomaticPriority() {
   const [lotSearch, setLotSearch] = useState('');
   const [lotSearchSubmitted, setLotSearchSubmitted] = useState('');
   const [lotFilter, setLotFilter] = useState<LotFilter>('all');
-  const [lotQueue, setLotQueue] = useState<LotItem[]>([]);
+  // The print queue is persisted across page loads so a partially-built batch
+  // survives an accidental refresh or a deploy. The version key is bumped
+  // whenever the LotItem shape changes — older payloads are dropped on load.
+  const LOT_QUEUE_STORAGE_KEY = 'elfie.lotQueue.v2';
+  const [lotQueue, setLotQueue] = useState<LotItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem(LOT_QUEUE_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed as LotItem[] : [];
+    } catch {
+      return [];
+    }
+  });
+  // Drop legacy v1 payloads (no changeType) so filter pills work cleanly.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.removeItem('elfie.lotQueue.v1');
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (lotQueue.length === 0) {
+        window.localStorage.removeItem(LOT_QUEUE_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(LOT_QUEUE_STORAGE_KEY, JSON.stringify(lotQueue));
+      }
+    } catch { /* quota exceeded — silently ignore */ }
+  }, [lotQueue]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   // When set, handlePrintLotLabels prints this subset instead of the full queue.
   // Cleared automatically when the print dialog closes.
@@ -1310,6 +1341,14 @@ export default function ListomaticPriority() {
                     </div>
                   )}
                 </div>
+
+                {lotQueue.length > 0 && queueFilter !== 'all' && shown.length === 0 && otherQ.length > 0 && (
+                  <div className="rounded-md border border-amber-700/30 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-200">
+                    These {otherQ.length} queued lot{otherQ.length !== 1 ? 's' : ''} weren't added from a Listing batch
+                    (e.g. via search or date range), so they have no NEW/UPDATED tag.
+                    Switch back to <span className="font-semibold">All</span> to print them, or clear and re-queue from a batch.
+                  </div>
+                )}
 
                 {lotQueue.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap">
