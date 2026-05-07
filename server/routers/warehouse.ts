@@ -1005,6 +1005,16 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
     .values({ inventoryId, binId, orgId })
     .returning();
 
+  // Clear the Ready-to-File pre-sort hint once the lot lands in a real bin —
+  // the bag has been physically filed, the rtf tote no longer holds it.
+  // Filing-queue bins are skipped: the rtf hint is meant to bridge the gap
+  // until the lot reaches its permanent home.
+  if (!targetIsFilingQueue) {
+    await db.update(blInventory)
+      .set({ rtfBin: null })
+      .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, inventoryId)));
+  }
+
   broadcast(orgId, 'warehouse.location_changed', { inventoryId, binId });
   res.json(location);
 }));

@@ -200,6 +200,37 @@ router.post("/listing-batches/:id/assign-bin", isApproved, asyncRoute(async (req
   res.json({ ok: true, assigned, binId: bin.id });
 }));
 
+// POST /api/listing-batches/mark-rtf — record an aisle-keyed Ready-to-File
+// hint on a set of lots after their labels have been printed during the
+// listing flow. The label PDF is the source of truth for which physical bag
+// went into which pre-file tote, so the client just echoes that back here.
+const markRtfSchema = z.object({
+  items: z.array(z.object({
+    inventoryId: z.number().int().positive(),
+    rtfBin: z.string().min(1).max(32),
+  })).min(1).max(2000),
+});
+router.post("/listing-batches/mark-rtf", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const parsed = markRtfSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body", details: parsed.error.format() });
+  // Group by rtfBin value so we can do one UPDATE per distinct tote.
+  const byBin = new Map<string, number[]>();
+  for (const it of parsed.data.items) {
+    const arr = byBin.get(it.rtfBin) ?? [];
+    arr.push(it.inventoryId);
+    byBin.set(it.rtfBin, arr);
+  }
+  let updated = 0;
+  for (const [rtfBin, ids] of byBin.entries()) {
+    const result = await db.update(blInventory)
+      .set({ rtfBin })
+      .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, ids)));
+    updated += (result as any)?.rowCount ?? ids.length;
+  }
+  res.json({ ok: true, updated });
+}));
+
 // GET /api/listing-batches/range/labels — returns lots in a date range for label print
 // Uses bl_inventory.synced_at by default (covers both new + qty-updated). Includes
 // already-filed lots (the lister prints labels for the new physical bags).

@@ -33,6 +33,11 @@ type BinPicklistItem = {
   remarks: string | null;
   comment: string | null;
   imageUrl: string | null;
+  // Ready-to-File pre-sort hint set when the lot's label was printed in the
+  // listing flow. Aisle name only — meaningless once the bag is filed for
+  // real. Surfaces as a small badge next to the bin so a picker can grab the
+  // bag from its rtf tote when an order arrives before re-filing happens.
+  rtfBin: string | null;
 };
 
 type BinPicklist = {
@@ -822,6 +827,15 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                           {item.condition && (
                             <span className={item.condition === 'N' ? 'cond-new' : 'cond-used'}>
                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                            </span>
+                          )}
+                          {item.rtfBin && (
+                            <span
+                              className="font-mono text-[10px] font-bold text-emerald-100 bg-emerald-900/60 border border-emerald-600/50 px-1.5 py-0.5 rounded tracking-wide"
+                              data-testid={`badge-rtf-${item.picklistItemId}`}
+                              title="Ready-to-File pre-sort tote — bag is in this aisle's rtf bin until it's officially filed"
+                            >
+                              rtf {item.rtfBin}
                             </span>
                           )}
                           <span className="font-mono inline-flex items-baseline gap-1">

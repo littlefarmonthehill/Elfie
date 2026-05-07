@@ -2006,7 +2006,7 @@ router.get("/picklist", isApproved, asyncRoute(async (req: any, res) => {
   const uniqueInvIds = Array.from(new Set(lookupIds));
   const inventoryData = uniqueInvIds.length > 0
     ? await db
-        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
+        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity, rtfBin: blInventory.rtfBin })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -2101,6 +2101,7 @@ router.get("/picklist", isApproved, asyncRoute(async (req: any, res) => {
         comment: inv?.description ?? null,
         imageUrl: inv?.imageUrl ?? null,
         inventoryQty: inv?.quantity ?? null,
+        rtfBin: inv?.rtfBin ?? null,
       };
     });
 
@@ -2534,7 +2535,7 @@ router.get("/api/picklist", isApproved, asyncRoute(async (req: any, res) => {
   const uniqueInvIds = Array.from(new Set(lookupIds));
   const inventoryData = uniqueInvIds.length > 0
     ? await db
-        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
+        .select({ id: blInventory.id, itemNo: blInventory.itemNo, itemType: blInventory.itemType, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity, rtfBin: blInventory.rtfBin })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -2653,6 +2654,7 @@ router.get("/api/picklist", isApproved, asyncRoute(async (req: any, res) => {
         comment: inv?.description ?? null,
         imageUrl: inv?.imageUrl ?? null,
         inventoryQty: inv?.quantity ?? null,
+        rtfBin: inv?.rtfBin ?? null,
       };
     });
 

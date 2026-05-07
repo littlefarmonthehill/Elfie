@@ -187,6 +187,12 @@ export const blInventory = pgTable("bl_inventory", {
   missingPieces: integer("missing_pieces"),
   missingLots: integer("missing_lots"),
   saleLocation: varchar("sale_location", { length: 5 }),
+  // Ready-to-File hint set when a lot label is printed during the listing
+  // process. Stores the aisle name the bag was pre-sorted into (e.g. "3").
+  // Surfaced on the picklist as a supplemental "rtf {n}" badge so a picker
+  // can find the bag in its pre-file tote before it's officially filed.
+  // Cleared automatically when the lot is moved into a non-filing-queue bin.
+  rtfBin: text("rtf_bin"),
 }, (table) => ({
   // Index for quantity-based filtering (general queries)
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),

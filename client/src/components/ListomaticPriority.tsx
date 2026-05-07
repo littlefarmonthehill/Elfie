@@ -867,6 +867,20 @@ export default function ListomaticPriority() {
       });
 
       hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
+
+      // Stamp a Ready-to-File hint on every lot we just printed that has an
+      // aisle — the printed label tells the filer which pre-file tote the bag
+      // goes into, and that same value should surface on the picklist so a
+      // picker can find the bag before it's officially refiled. New lots with
+      // no aisle yet are skipped (they'll get a real bin via assign-bin).
+      const rtfPayload = itemsToPrint
+        .filter(l => l.aisleName)
+        .map(l => ({ inventoryId: l.id, rtfBin: String(l.aisleName) }));
+      if (rtfPayload.length > 0) {
+        try {
+          await apiRequest('POST', '/api/listing-batches/mark-rtf', { items: rtfPayload });
+        } catch { /* non-fatal — the label still prints */ }
+      }
     } catch (err: any) {
       toast({ title: "Label print failed", description: String(err?.message ?? err), variant: "destructive" });
     }
