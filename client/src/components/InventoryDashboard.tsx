@@ -478,14 +478,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 onButtonClick={() => onDrawerChange('platformsync')}
                 testId="button-inv-listomatic"
                 statuses={[
-                  { key: 'lom-cat', label: 'Cat',  count: lomCount('category'),    lampColor: 'rgba(251,191,36,0.9)'  },
-                  { key: 'lom-sub', label: 'Sub',  count: lomCount('subcategory'), lampColor: 'rgba(96,165,250,0.9)'  },
-                  { key: 'lom-fin', label: 'Sort', count: lomCount('finalsort'),   lampColor: 'rgba(192,132,252,0.9)' },
-                  { key: 'lom-lst', label: 'List', count: lomCount('listing'),     lampColor: 'rgba(74,222,128,0.9)'  },
-                  // Filing section: a fixed "Unfiled" bubble (lots with no
-                  // bin and no rtf marker) followed by one bubble per
-                  // active rtf tote. Each tote is its own bubble so a
-                  // filer can see at a glance which totes have work.
+                  // Filing section only: a fixed "Unfiled" bubble (lots
+                  // with no bin and no rtf marker) followed by one bubble
+                  // per active rtf tote. Empty totes are dropped server-
+                  // side so the row only shows work that exists.
                   { key: 'lom-unf', label: 'Unfiled', count: unfiledCount, lampColor: 'rgba(248,113,113,0.9)' },
                   ...rtfBuckets.map((b, i) => ({
                     key: `lom-rtf-${b.rtfBin}`,
