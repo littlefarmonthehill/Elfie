@@ -271,9 +271,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
   }, [feed, unassignMutation, toast]);
 
-  // Auto-process a code passed in on mount (from global scanner)
+  // Auto-process a code passed in on mount (from global scanner).
+  // Mode is auto-detected from the first scan: BIN: → bin-first, LOT: → lot-first.
   useEffect(() => {
-    if (initialCode) processCode(initialCode);
+    if (initialCode) {
+      const upper = initialCode.toUpperCase();
+      if (upper.startsWith("LOT:")) setMode("lot-first");
+      else if (upper.startsWith("BIN:")) setMode("bin-first");
+      processCode(initialCode);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

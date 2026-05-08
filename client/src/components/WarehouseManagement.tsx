@@ -61,6 +61,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
+import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
+import { useScanSession } from "@/contexts/ScanSessionContext";
 
 interface WarehouseManagementProps {
   onItemClick?: (type: 'inventory', id: number) => void;
@@ -122,6 +124,27 @@ const FORMAT_LABELS: Record<LocationFormat, string> = {
 export default function WarehouseManagement({ onItemClick }: WarehouseManagementProps) {
   const { toast } = useToast();
   const [activeView, setActiveView] = useState<ViewType>('structure');
+  // ── File-tab scan session ──────────────────────────────────────────────────
+  // While the File tab is open we silently claim the hardware scanner.
+  // Nothing visible until a code resolves — then the scan panel pops up
+  // pre-seeded with that code (mode is auto-detected from the first scan).
+  const [scanInitialCode, setScanInitialCode] = useState<string | null>(null);
+  const { setActive: setScanSessionActive } = useScanSession();
+  useEffect(() => {
+    if (activeView === 'lots') {
+      setScanSessionActive(true);
+      return () => setScanSessionActive(false);
+    }
+  }, [activeView, setScanSessionActive]);
+  useHardwareScanner({
+    onScan: (code) => {
+      const upper = code.toUpperCase();
+      if (upper.startsWith('BIN:') || upper.startsWith('LOT:')) {
+        setScanInitialCode(code);
+      }
+    },
+    disabled: activeView !== 'lots' || scanInitialCode !== null,
+  });
   const [filter, setFilter] = useState<FilterType>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'aisle' | 'shelf' | 'bin'>('bin');
@@ -2119,11 +2142,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )
           ) : (
             <Fragment>
-          {/* Scan-driven filing session — embedded above the manual filing UI */}
-          <div className="mb-3">
-            <WarehouseScanPanel embedded />
-          </div>
-
           {/* Filter pills (Total / Assigned / Unassigned) — these drive the lots list */}
           <div className="flex items-center gap-1 mb-3 flex-wrap">
             {([
@@ -3785,6 +3803,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </DialogContent>
       </Dialog>
 
+      {/* Scan-driven filing session — opens only after a code is scanned */}
+      {scanInitialCode && (
+        <WarehouseScanPanel
+          initialCode={scanInitialCode}
+          onClose={() => setScanInitialCode(null)}
+        />
+      )}
     </div>
   );
 }
