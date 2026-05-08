@@ -9,6 +9,7 @@ import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import { useSSE } from "@/hooks/use-sse";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
+import { ScanSessionProvider, useScanSession } from "@/contexts/ScanSessionContext";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import { useToast } from "@/hooks/use-toast";
 import Home from "@/pages/home";
@@ -31,8 +32,17 @@ import NotFound from "@/pages/not-found";
 //   - LOT:<id>  → opens the Inventory Detail modal for that lot
 //   - BIN:<name> → opens the Bin Detail modal for that bin
 function AuthenticatedHome() {
+  return (
+    <ScanSessionProvider>
+      <AuthenticatedHomeInner />
+    </ScanSessionProvider>
+  );
+}
+
+function AuthenticatedHomeInner() {
   useSSE();
   const { toast } = useToast();
+  const { active: scanSessionActive } = useScanSession();
   const [scanDetail, setScanDetail] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -108,7 +118,7 @@ function AuthenticatedHome() {
     }
   }, [toast, openInventoryById]);
 
-  useHardwareScanner({ onScan: handleScan, disabled: scanDetail.open });
+  useHardwareScanner({ onScan: handleScan, disabled: scanDetail.open || scanSessionActive });
 
   return (
     <>

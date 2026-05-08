@@ -2119,6 +2119,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )
           ) : (
             <Fragment>
+          {/* Scan-driven filing session — embedded above the manual filing UI */}
+          <div className="mb-3">
+            <WarehouseScanPanel embedded />
+          </div>
+
           {/* Filter pills (Total / Assigned / Unassigned) — these drive the lots list */}
           <div className="flex items-center gap-1 mb-3 flex-wrap">
             {([

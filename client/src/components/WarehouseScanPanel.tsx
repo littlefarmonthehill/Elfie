@@ -3,12 +3,12 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   X, Camera, CameraOff, ScanLine, Package, Archive,
-  CheckCircle2, AlertCircle, ArrowRight, Loader2, RotateCcw,
+  CheckCircle2, AlertCircle, Loader2, RotateCcw, Undo2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useScanSession } from "@/contexts/ScanSessionContext";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ interface ResolvedLot {
   colorName: string | null;
   newOrUsed: string;
   quantity: number;
+  rtfBin: string | null;
   locations: Array<{
     id: number;
     binId: number;
@@ -41,27 +42,30 @@ interface ResolvedLot {
 
 type Resolved = ResolvedBin | ResolvedLot;
 
+interface UndoMeta {
+  locationId: number;
+  restoreRtfBin: string | null;
+}
+
 interface FeedEntry {
   id: string;
   code: string;
   ts: Date;
   status: "ok" | "err" | "busy";
   message: string;
+  undo?: UndoMeta;
+  undone?: boolean;
 }
 
 type ScanMode = "bin-first" | "lot-first";
 
 interface Props {
-  onClose: () => void;
+  onClose?: () => void;
   initialCode?: string;
+  embedded?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function binLabel(bin: ResolvedBin) {
-  const parts = [bin.aisleName, bin.shelfName, bin.name].filter(Boolean);
-  return parts.length > 1 ? bin.name : bin.name;
-}
 
 function binFullLabel(bin: ResolvedBin) {
   return [bin.aisleName, bin.shelfName, bin.name].filter(Boolean).join(" › ");
@@ -79,10 +83,22 @@ function lotSub(lot: ResolvedLot) {
   return parts.join(" · ");
 }
 
+// "Currently in" string for a resolved lot. Prefers real bin names; falls
+// back to the lot's actual rtf bin tag (could be any rtf number, not just 0).
+function lotLocationStr(lot: ResolvedLot): string {
+  if (lot.locations.length > 0) {
+    return lot.locations.map(l => l.binName ?? "?").join(", ");
+  }
+  return `rtf ${lot.rtfBin ?? "0"}`;
+}
+
+const UNDO_WINDOW_MS = 60_000;
+
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function WarehouseScanPanel({ onClose, initialCode }: Props) {
+export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: Props) {
   const { toast } = useToast();
+  const { setActive } = useScanSession();
   const [mode, setMode] = useState<ScanMode>("bin-first");
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
@@ -97,17 +113,20 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
   const rafRef = useRef<number | null>(null);
   const processingRef = useRef(false);
 
-  // Check BarcodeDetector support
+  // Suppress global hardware-scanner BIN/LOT modal while this session is mounted.
+  useEffect(() => {
+    setActive(true);
+    return () => setActive(false);
+  }, [setActive]);
+
   useEffect(() => {
     setCameraSupported("BarcodeDetector" in window);
   }, []);
 
-  // Focus input when camera is closed
   useEffect(() => {
     if (!cameraOpen) inputRef.current?.focus();
   }, [cameraOpen]);
 
-  // Camera cleanup on unmount
   useEffect(() => {
     return () => {
       stopCamera();
@@ -122,16 +141,29 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/warehouse/bins"] });
       queryClient.invalidateQueries({ queryKey: ["/api/warehouse/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+    },
+  });
+
+  const unassignMutation = useMutation({
+    mutationFn: (body: { locationId: number; restoreRtfBin: string | null }) =>
+      apiRequest("POST", "/api/warehouse/scan/unassign", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/bins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
     },
   });
 
   // ── Core scan logic ────────────────────────────────────────────────────────
 
-  const addFeed = useCallback((code: string, status: FeedEntry["status"], message: string) => {
+  const addFeed = useCallback((entry: Omit<FeedEntry, "id" | "ts">) => {
+    const id = `${Date.now()}-${Math.random()}`;
     setFeed(prev => [
-      { id: `${Date.now()}-${Math.random()}`, code, ts: new Date(), status, message },
+      { id, ts: new Date(), ...entry },
       ...prev.slice(0, 29),
     ]);
+    return id;
   }, []);
 
   const processCode = useCallback(async (raw: string) => {
@@ -139,20 +171,20 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
     if (!code || processingRef.current) return;
     processingRef.current = true;
 
-    addFeed(code, "busy", "Resolving…");
+    addFeed({ code, status: "busy", message: "Resolving…" });
 
     let resolved: Resolved;
     try {
       const res = await fetch(`/api/warehouse/scan/resolve?code=${encodeURIComponent(code)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        addFeed(code, "err", err.error ?? "Not found");
+        addFeed({ code, status: "err", message: err.error ?? "Not found" });
         processingRef.current = false;
         return;
       }
       resolved = await res.json();
     } catch {
-      addFeed(code, "err", "Network error");
+      addFeed({ code, status: "err", message: "Network error" });
       processingRef.current = false;
       return;
     }
@@ -161,18 +193,27 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
     if (resolved.type === "bin") {
       if (mode === "bin-first") {
         setActiveBin(resolved);
-        addFeed(code, "ok", `Active bin set to ${binFullLabel(resolved)}`);
+        addFeed({ code, status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
       } else {
-        // lot-first: assign active lot to this bin
         if (!activeLot) {
-          addFeed(code, "err", "Scan a lot first");
+          addFeed({ code, status: "err", message: "Scan a lot first" });
         } else {
+          const priorRtf = activeLot.rtfBin;
+          const priorLoc = lotLocationStr(activeLot);
           try {
-            await assignMutation.mutateAsync({ inventoryId: activeLot.id, binId: resolved.id });
-            addFeed(code, "ok", `${lotLabel(activeLot)} → ${binFullLabel(resolved)}`);
+            const result: any = await assignMutation.mutateAsync({ inventoryId: activeLot.id, binId: resolved.id });
+            const undoMeta: UndoMeta | undefined = result?.id
+              ? { locationId: result.id, restoreRtfBin: priorRtf }
+              : undefined;
+            addFeed({
+              code,
+              status: "ok",
+              message: `${lotLabel(activeLot)} — ${priorLoc} → ${binFullLabel(resolved)}`,
+              undo: undoMeta,
+            });
             setActiveLot(null);
           } catch {
-            addFeed(code, "err", "Assignment failed");
+            addFeed({ code, status: "err", message: "Assignment failed" });
           }
         }
       }
@@ -181,21 +222,30 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
     // ── LOT scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "lot") {
       if (mode === "lot-first") {
+        if (activeLot && activeLot.id !== resolved.id) {
+          addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
+        }
         setActiveLot(resolved);
-        const locStr = resolved.locations.length > 0
-          ? resolved.locations.map(l => l.binName ?? "?").join(", ")
-          : "unassigned";
-        addFeed(code, "ok", `${lotLabel(resolved)} — currently: ${locStr}`);
+        addFeed({ code, status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
       } else {
-        // bin-first: assign this lot to active bin
         if (!activeBin) {
-          addFeed(code, "err", "Scan a bin first");
+          addFeed({ code, status: "err", message: "Scan a bin first" });
         } else {
+          const priorRtf = resolved.rtfBin;
+          const priorLoc = lotLocationStr(resolved);
           try {
-            await assignMutation.mutateAsync({ inventoryId: resolved.id, binId: activeBin.id });
-            addFeed(code, "ok", `${lotLabel(resolved)} → ${binFullLabel(activeBin)}`);
+            const result: any = await assignMutation.mutateAsync({ inventoryId: resolved.id, binId: activeBin.id });
+            const undoMeta: UndoMeta | undefined = result?.id
+              ? { locationId: result.id, restoreRtfBin: priorRtf }
+              : undefined;
+            addFeed({
+              code,
+              status: "ok",
+              message: `${lotLabel(resolved)} — ${priorLoc} → ${binFullLabel(activeBin)}`,
+              undo: undoMeta,
+            });
           } catch {
-            addFeed(code, "err", "Assignment failed");
+            addFeed({ code, status: "err", message: "Assignment failed" });
           }
         }
       }
@@ -203,6 +253,23 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
 
     processingRef.current = false;
   }, [mode, activeBin, activeLot, addFeed, assignMutation]);
+
+  const undoEntry = useCallback(async (entryId: string) => {
+    setFeed(prev => prev.map(e => e.id === entryId && e.undo
+      ? { ...e, undone: true }
+      : e));
+    const entry = feed.find(e => e.id === entryId);
+    if (!entry?.undo) return;
+    try {
+      await unassignMutation.mutateAsync({
+        locationId: entry.undo.locationId,
+        restoreRtfBin: entry.undo.restoreRtfBin,
+      });
+    } catch {
+      toast({ title: "Undo failed", variant: "destructive" });
+      setFeed(prev => prev.map(e => e.id === entryId ? { ...e, undone: false } : e));
+    }
+  }, [feed, unassignMutation, toast]);
 
   // Auto-process a code passed in on mount (from global scanner)
   useEffect(() => {
@@ -234,7 +301,6 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
       streamRef.current = stream;
       setCameraOpen(true);
 
-      // Attach stream after state update renders the video element
       requestAnimationFrame(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -286,15 +352,21 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const containerClass = embedded
+    ? "rounded-md border border-border bg-card flex flex-col"
+    : "fixed inset-0 z-50 bg-background flex flex-col";
+
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col" data-testid="scan-panel">
+    <div className={containerClass} data-testid="scan-panel">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
         <ScanLine className="h-5 w-5 text-yellow-400 shrink-0" />
-        <span className="font-semibold text-sm flex-1">Scan Mode</span>
-        <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-scan-close">
-          <X className="h-4 w-4" />
-        </Button>
+        <span className="font-semibold text-sm flex-1">{embedded ? "Scan to file" : "Scan Mode"}</span>
+        {!embedded && onClose && (
+          <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-scan-close">
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Mode toggle */}
@@ -323,7 +395,6 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
         </button>
       </div>
 
-      {/* Mode description */}
       <p className="px-4 text-[11px] text-muted-foreground mb-3 shrink-0">
         {mode === "bin-first"
           ? "Scan a bin label to set it as active, then scan lots to file them into that bin."
@@ -333,7 +404,7 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
       {/* Active context card */}
       <div className="px-4 mb-3 shrink-0">
         {mode === "bin-first" ? (
-          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeBin ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`}>
+          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeBin ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`} data-testid="card-active-bin">
             <Archive className={`h-5 w-5 shrink-0 ${activeBin ? "text-yellow-400" : "text-muted-foreground/40"}`} />
             <div className="flex-1 min-w-0">
               {activeBin ? (
@@ -346,31 +417,29 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
               )}
             </div>
             {activeBin && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)} data-testid="button-clear-active-bin">
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
         ) : (
-          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeLot ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`}>
+          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeLot ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`} data-testid="card-active-lot">
             <Package className={`h-5 w-5 shrink-0 ${activeLot ? "text-yellow-400" : "text-muted-foreground/40"}`} />
             <div className="flex-1 min-w-0">
               {activeLot ? (
                 <>
                   <p className="text-sm font-semibold leading-none truncate">{lotLabel(activeLot)}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{lotSub(activeLot)}</p>
-                  {activeLot.locations.length > 0 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Currently in: {activeLot.locations.map(l => l.binName ?? "?").join(", ")}
-                    </p>
-                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Currently in: {lotLocationStr(activeLot)}
+                  </p>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">No active lot — scan a lot label</p>
               )}
             </div>
             {activeLot && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveLot(null)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveLot(null)} data-testid="button-clear-active-lot">
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -388,7 +457,6 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
               playsInline
               muted
             />
-            {/* Scan target overlay */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-48 h-48 border-2 border-yellow-400/70 rounded-md" />
             </div>
@@ -434,7 +502,7 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
                   <p className="text-xs font-medium text-muted-foreground">Camera scanning not available in this browser</p>
                 </div>
                 <p className="text-[11px] text-muted-foreground/70 leading-snug">
-                  QR scanning with your phone camera requires Chrome or Edge. Open this page in Chrome on your phone, or use a Bluetooth/USB barcode scanner and type codes will appear in the field above.
+                  QR scanning with your phone camera requires Chrome or Edge. Open this page in Chrome on your phone, or use a Bluetooth/USB barcode scanner and codes will appear in the field above.
                 </p>
               </div>
             )}
@@ -443,33 +511,53 @@ export function WarehouseScanPanel({ onClose, initialCode }: Props) {
       </div>
 
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1.5">
+      <div className={`${embedded ? "max-h-80" : "flex-1"} overflow-y-auto px-4 pb-4 space-y-1.5`}>
         {feed.length === 0 && (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground/50 text-sm gap-2">
             <ScanLine className="h-8 w-8" />
             <span>Scan history will appear here</span>
           </div>
         )}
-        {feed.map(entry => (
-          <div
-            key={entry.id}
-            className={`flex items-start gap-2.5 rounded-md px-3 py-2 text-sm border
-              ${entry.status === "ok" ? "border-green-500/20 bg-green-500/5" :
-                entry.status === "err" ? "border-destructive/20 bg-destructive/5" :
-                "border-border/60 bg-muted/20"}`}
-          >
-            {entry.status === "ok" && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
-            {entry.status === "err" && <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />}
-            {entry.status === "busy" && <Loader2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 animate-spin" />}
-            <div className="flex-1 min-w-0">
-              <p className="font-mono text-[11px] text-muted-foreground truncate">{entry.code}</p>
-              <p className={`text-xs ${entry.status === "err" ? "text-destructive" : ""}`}>{entry.message}</p>
+        {feed.map(entry => {
+          const undoExpired = entry.undo && (Date.now() - entry.ts.getTime() > UNDO_WINDOW_MS);
+          const showUndo = entry.undo && !entry.undone && !undoExpired;
+          return (
+            <div
+              key={entry.id}
+              data-testid={`feed-entry-${entry.id}`}
+              className={`flex items-start gap-2.5 rounded-md px-3 py-2 text-sm border
+                ${entry.undone ? "border-border/40 bg-muted/10 opacity-60" :
+                  entry.status === "ok" ? "border-green-500/20 bg-green-500/5" :
+                  entry.status === "err" ? "border-destructive/20 bg-destructive/5" :
+                  "border-border/60 bg-muted/20"}`}
+            >
+              {entry.status === "ok" && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
+              {entry.status === "err" && <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />}
+              {entry.status === "busy" && <Loader2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 animate-spin" />}
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-[11px] text-muted-foreground truncate">{entry.code}</p>
+                <p className={`text-xs ${entry.status === "err" ? "text-destructive" : ""} ${entry.undone ? "line-through" : ""}`}>
+                  {entry.message}
+                </p>
+                {entry.undone && <p className="text-[11px] text-muted-foreground italic">Undone</p>}
+              </div>
+              {showUndo && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs gap-1 shrink-0"
+                  onClick={() => undoEntry(entry.id)}
+                  data-testid={`button-undo-${entry.id}`}
+                >
+                  <Undo2 className="h-3 w-3" />Undo
+                </Button>
+              )}
+              <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5">
+                {entry.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
             </div>
-            <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5">
-              {entry.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -926,6 +926,7 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
         quantity:  blInventory.quantity,
         price:     blInventory.price,
         remarks:   blInventory.remarks,
+        rtfBin:    blInventory.rtfBin,
         itemName:  resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
       })
       .from(blInventory)
@@ -1017,6 +1018,32 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
 
   broadcast(orgId, 'warehouse.location_changed', { inventoryId, binId });
   res.json(location);
+}));
+
+// Reverse a single scan-assign: drop the inventory_locations row and
+// optionally restore the lot's prior rtf_bin (captured client-side at
+// assign time). Used by the scan-session Undo button.
+router.post("/warehouse/scan/unassign", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { locationId, restoreRtfBin } = req.body as { locationId: number; restoreRtfBin?: string | null };
+  if (!locationId) return res.status(400).json({ error: 'locationId required' });
+
+  const [loc] = await db.select({ inventoryId: inventoryLocations.inventoryId, binId: inventoryLocations.binId })
+    .from(inventoryLocations)
+    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.id, locationId)));
+  if (!loc) return res.status(404).json({ error: 'Location not found' });
+
+  await db.delete(inventoryLocations)
+    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.id, locationId)));
+
+  if (restoreRtfBin !== undefined) {
+    await db.update(blInventory)
+      .set({ rtfBin: restoreRtfBin ?? null })
+      .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, loc.inventoryId)));
+  }
+
+  broadcast(orgId, 'warehouse.location_changed', { inventoryId: loc.inventoryId, binId: loc.binId });
+  res.json({ success: true });
 }));
 
 // ── Labels ─────────────────────────────────────────────────────────────────────
