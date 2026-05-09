@@ -851,9 +851,16 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
   const allOrders = data?.orders || [];
   // Build collision-free 2-char shortcodes for all active orders (same algorithm as picklist/packing slip)
   const orderShortCodeMap = buildShortCodeMap(allOrders.map(o => o.orderNumber).filter(Boolean));
-  // Within a group: sort by reference shortcode (AA → ZZ) so on-screen order
-  // matches the printed picklist / packing slips.
+  // Within a group: priority-shipping orders (red badge) float to the top,
+  // then everything else, each band sorted by reference shortcode (AA → ZZ)
+  // so on-screen order matches the printed picklist / packing slips.
+  const tierRank = (o: Order) => {
+    const t = shippingTier(o.requestedShippingService);
+    return t === 'priority' ? 0 : 1;
+  };
   const sortWithinGroup = (a: Order, b: Order) => {
+    const tr = tierRank(a) - tierRank(b);
+    if (tr !== 0) return tr;
     const ca = (a.orderNumber && orderShortCodeMap.get(a.orderNumber)) || shortCode(a.orderNumber || a.id);
     const cb = (b.orderNumber && orderShortCodeMap.get(b.orderNumber)) || shortCode(b.orderNumber || b.id);
     return ca.localeCompare(cb);
