@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ } from "lucide-react";
+import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ, Warehouse, Layers, Box } from "lucide-react";
 import { printPicklist, shortCode } from "./PackingSlip";
 import PartImage from "./PartImage";
 
@@ -47,6 +47,56 @@ type BinPicklist = {
   items: BinPicklistItem[];
   pulled: boolean;
 };
+
+// ── Location chips ──────────────────────────────────────────────────────────
+// Picklist headers used to render the bin name as flat text like "1-A-19",
+// which made aisle/shelf/bin all blur together. We split it into colored,
+// icon-prefixed chips so each segment is instantly distinguishable.
+function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
+  if (!loc) {
+    return (
+      <span className="text-sm font-medium text-gray-400" data-testid="text-bin-unassigned">
+        Unassigned
+      </span>
+    );
+  }
+  // Three slots; each slot only renders if that level exists in the warehouse
+  // depth. Colors are consistent across the app so users learn the mapping:
+  // blue=aisle, amber=shelf, emerald=bin.
+  const slots: Array<{ icon: any; value: string; cls: string; testid: string }> = [];
+  if (loc.aisle?.name) slots.push({
+    icon: Warehouse, value: loc.aisle.name,
+    cls: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    testid: 'chip-aisle',
+  });
+  if (loc.shelf?.name) slots.push({
+    icon: Layers, value: loc.shelf.name,
+    cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    testid: 'chip-shelf',
+  });
+  if (loc.bin?.name) slots.push({
+    icon: Box, value: loc.bin.name,
+    cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    testid: 'chip-bin',
+  });
+  return (
+    <div className="flex items-center gap-1 flex-wrap min-w-0">
+      {slots.map((s, i) => {
+        const Icon = s.icon;
+        return (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-tight ${s.cls}`}
+            data-testid={s.testid}
+          >
+            <Icon className="h-3 w-3 shrink-0" />
+            {s.value}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 type ViewMode = 'by_part' | 'by_bin';
 type Filter = 'all' | 'to_pull';
@@ -731,7 +781,6 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
         // ── Shared bin card renderer ──────────────────────────────────────
         const renderBin = (bin: BinPicklist) => {
           const binKey = bin.binId ?? 'none';
-          const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
           const binDescription = bin.warehouseLocation?.bin.description;
           const isHighlighted = scannedBinId !== null && bin.binId === scannedBinId;
           return (
@@ -752,7 +801,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
                   className="shrink-0 touch-auto"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white truncate">{binName}</div>
+                  <LocationChips loc={bin.warehouseLocation} />
                   {binDescription && (
                     <div className="text-xs text-gray-400 mt-0.5">{binDescription}</div>
                   )}
