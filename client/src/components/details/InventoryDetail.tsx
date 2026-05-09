@@ -1,4 +1,6 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2, History, ArrowRight, ArrowLeftRight } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2, History, ArrowRight, ArrowLeftRight, Tag } from "lucide-react";
+import LotLabelPrintDialog from "@/components/LotLabelPrintDialog";
+import type { LotLabelItem } from "@/components/PackingSlip";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -503,6 +505,23 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
   const [showBinPicker, setShowBinPicker] = useState(false);
   const [binSearch, setBinSearch] = useState('');
+
+  // ── Print Lot Label (same infrastructure as List-o-Matic / Fulfillment) ────
+  const [lotLabelOpen, setLotLabelOpen] = useState(false);
+  const { data: orgBranding } = useQuery<any>({ queryKey: ['/api/org'] });
+  const lotLabelItem: LotLabelItem = {
+    partNumber: data.itemNo ?? null,
+    sku: data.itemNo ?? null,
+    itemName: data.itemName ?? null,
+    colorName: data.colorName ?? null,
+    colorId: data.colorId ?? null,
+    condition: data.newOrUsed ?? null,
+    quantity: data.quantity ?? 1,
+    inventoryId: data.id ?? null,
+    itemType: data.itemType ?? null,
+    comment: data.description ?? null,
+    remarks: data.remarks ?? null,
+  };
 
   const { data: allBins } = useQuery<any[]>({
     queryKey: ['/api/warehouse/bins'],
@@ -1631,15 +1650,27 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     </span>
                   )}
                 </div>
-                <button
-                  className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-                  onClick={() => { setShowBinPicker(v => !v); setBinSearch(''); }}
-                  data-testid="button-assign-bin-toggle"
-                  title="Assign to a bin"
-                >
-                  {showBinPicker ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                  {showBinPicker ? 'Cancel' : 'Assign'}
-                </button>
+                <div className="flex items-center gap-3 ml-auto">
+                  <button
+                    className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                    onClick={() => setLotLabelOpen(true)}
+                    disabled={!data.id || !data.itemNo}
+                    data-testid="button-print-lot-label"
+                    title="Print a label for this lot"
+                  >
+                    <Tag className="h-3 w-3" />
+                    Print Label
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                    onClick={() => { setShowBinPicker(v => !v); setBinSearch(''); }}
+                    data-testid="button-assign-bin-toggle"
+                    title="Assign to a bin"
+                  >
+                    {showBinPicker ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                    {showBinPicker ? 'Cancel' : 'Assign'}
+                  </button>
+                </div>
               </div>
 
               {/* Inline bin picker */}
@@ -2603,6 +2634,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           onOpenChange={setInsightsOpen}
         />
       )}
+
+      <LotLabelPrintDialog
+        open={lotLabelOpen}
+        onOpenChange={setLotLabelOpen}
+        items={[lotLabelItem]}
+        org={orgBranding ? { name: orgBranding.name, address: orgBranding.address, logoUrl: orgBranding.logoUrl } : undefined}
+      />
     </div>
   );
 }
