@@ -74,11 +74,17 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
     cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
     testid: 'chip-shelf',
   });
-  if (loc.bin?.name) slots.push({
-    icon: Box, value: loc.bin.name,
-    cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    testid: 'chip-bin',
-  });
+  if (loc.bin?.name) {
+    // Bin name often arrives as a composite "aisle-shelf-bin" (e.g. "1-A-10"),
+    // but aisle + shelf already render as their own chips just before this
+    // one — so trim down to just the final bin segment to avoid repetition.
+    const binOnly = loc.bin.name.split('-').pop() || loc.bin.name;
+    slots.push({
+      icon: Box, value: binOnly,
+      cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      testid: 'chip-bin',
+    });
+  }
   return (
     <div className="flex items-center gap-1 flex-wrap min-w-0">
       {slots.map((s, i) => {
