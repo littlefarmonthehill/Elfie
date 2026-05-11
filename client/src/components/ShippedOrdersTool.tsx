@@ -24,7 +24,7 @@ import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, 
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-import { printPackingSlips, printPicklist, type LotLabelItem } from "./PackingSlip";
+import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
@@ -287,6 +287,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   // Merge for legacy references (refresh-tracking, etc.)
   // deliveredOrders is already backend-filtered to delivered-only
   const shippedOrders = [...(notDeliveredOrders ?? []), ...(deliveredOrders ?? [])];
+  const orderShortCodeMap = buildShortCodeMap(shippedOrders.map(o => o.orderNumber).filter(Boolean));
 
   // Visible counts — these respect the hideNoTracking toggle so the "Showing X" line is accurate
   const noTrackingCount = (notDeliveredOrders ?? []).filter(o => !o.trackingNumber).length;
@@ -559,6 +560,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     <h3 className="text-sm font-mono font-bold text-white shrink-0">
                       <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
                     </h3>
+                    <span
+                      className="text-xs font-mono font-bold tracking-wider text-amber-400/80 shrink-0"
+                      data-testid={`text-shortcode-${order.orderNumber}`}
+                    >
+                      {orderShortCodeMap.get(order.orderNumber) ?? shortCode(order.orderNumber)}
+                    </span>
                     <TrackingStatusBadge
                       orderNumber={order.orderNumber}
                       status={order.trackingStatus}
