@@ -557,15 +557,15 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                 >
                   {/* Card content — grows to fill available width */}
                   <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <h3 className="text-sm font-mono font-bold text-white shrink-0">
-                      <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
-                    </h3>
                     <span
-                      className="text-xs font-mono font-bold tracking-wider text-amber-400/80 shrink-0"
+                      className="text-sm font-mono font-bold tracking-wider text-amber-400/80 shrink-0"
                       data-testid={`text-shortcode-${order.orderNumber}`}
                     >
                       {orderShortCodeMap.get(order.orderNumber) ?? shortCode(order.orderNumber)}
                     </span>
+                    <h3 className="text-sm font-mono font-bold text-white shrink-0">
+                      <span className="text-muted-foreground font-normal">{getMarketplacePrefix(order.marketplace)}</span>{order.orderNumber}
+                    </h3>
                     <TrackingStatusBadge
                       orderNumber={order.orderNumber}
                       status={order.trackingStatus}
