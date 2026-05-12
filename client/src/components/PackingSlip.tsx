@@ -574,18 +574,24 @@ export async function printLotLabels(
   const tiny    = preset.widthMm < 22;   // DK-1204 17-mm only
   const small   = preset.widthMm < 32;   // tiny + 29-mm DK tapes
   const LM      = 1;
-  const RM      = 1;
+  // QL-800 leaves ~1.5 mm unprintable on the leading/trailing edge — bump the
+  // right margin on the 29-mm tapes so the rightmost glyph isn't shaved off.
+  const RM      = tiny ? 1   : (small ? 2 : 1);
   // QL-800 has a ~1.5 mm unprintable top/bottom edge — keep margins ≥ 2 mm
   // so the first/last line never gets shaved.
   const TM      = tiny ? 2   : 3;
   const BM      = tiny ? 2   : 3;
-  const SC_W    = tiny ? 5   : (small ? 7 : 9);       // shortcode column (≈ 2-char width)
-  const SC_GAP  = tiny ? 0.5 : 1;
+  const SC_W    = tiny ? 5   : (small ? 6 : 9);       // shortcode column (≈ 2-char width)
+  const SC_GAP  = tiny ? 0.5 : (small ? 0.8 : 1);
   const LBL_CH  = LBL_H - TM - BM;
-  // Square thumbnail: at most 14 mm wide, leaving ≥3 mm vertical padding.
-  const IMG_W   = preset.showImage ? Math.max(8, Math.min(14, LBL_CH - 3)) : 0;
+  // Square thumbnail: smaller on the 29-mm tape so the text column has room
+  // for the part name + ×qty·color·condition without clipping.
+  const IMG_W   = preset.showImage
+    ? (small ? Math.max(8, Math.min(11, LBL_CH - 3))
+             : Math.max(8, Math.min(14, LBL_CH - 3)))
+    : 0;
   const IMG_H   = IMG_W;
-  const IMG_GAP = preset.showImage ? (small ? 1.5 : 2) : 0;
+  const IMG_GAP = preset.showImage ? (small ? 1.2 : 2) : 0;
   const TEXT_X  = LM + SC_W + SC_GAP + IMG_W + IMG_GAP;
   const TEXT_W  = LBL_W - RM - TEXT_X;
 
@@ -630,7 +636,7 @@ export async function printLotLabels(
     if (sc) {
       // Tiered down for narrow tapes so the shortcode doesn't dominate the
       // label height: 17-mm tape gets 8 pt, 29-mm gets 11 pt, ≥38-mm gets 14 pt.
-      const scPt = preset.widthMm < 22 ? 7 : preset.widthMm < 32 ? 9 : 11;
+      const scPt = preset.widthMm < 22 ? 7 : preset.widthMm < 32 ? 8 : 11;
       doc.setFontSize(scPt);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
@@ -680,15 +686,15 @@ export async function printLotLabels(
     //   L2: bold dark ×Qty · Color · Condition  +  dark-gray · OrderRef · Lot N
     //   L3: italic note over a yellow highlight rect
     // Font sizes are picklist's 12/9/11/8/9 scaled down a step on the 29-mm tape.
-    const partPt = tiny ? 8  : 12;
-    const namePt = tiny ? 6  : 9;
-    const qtyPt  = tiny ? 7  : 11;
-    const refPt  = tiny ? 6  : 8;
-    const notePt = tiny ? 6  : 9;
+    const partPt = tiny ? 8   : (small ? 10  : 12);
+    const namePt = tiny ? 6   : (small ? 7.5 : 9);
+    const qtyPt  = tiny ? 7   : (small ? 9   : 11);
+    const refPt  = tiny ? 6   : (small ? 7   : 8);
+    const notePt = tiny ? 6   : (small ? 7.5 : 9);
     // Picklist uses CMT_LINE_H = 5 mm for 9pt comments → 0.555 × pt
     const cmtScale = notePt / 9;
     const CMT_LINE_H = 5 * cmtScale;
-    const lineGap = tiny ? 0.9 : 2.0;
+    const lineGap = tiny ? 0.9 : (small ? 1.4 : 2.0);
 
     // ── Line 1: Part# (bold) + Name (gray, ellipsis-truncated) ───────────────
     let ty = TM + (tiny ? 2.0 : 3.5);
