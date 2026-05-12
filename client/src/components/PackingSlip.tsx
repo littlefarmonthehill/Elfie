@@ -863,12 +863,16 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.setFontSize(19);
     doc.setFont('helvetica', 'bold');
     doc.text(companyName, MX, y + 5);
+    const companyNameW = doc.getTextWidth(companyName);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 51, 51);
     let addrLineY = y + 12;
+    let maxAddrW  = 0;
     addressLines.forEach(line => {
       doc.text(line, MX, addrLineY);
+      const w = doc.getTextWidth(line);
+      if (w > maxAddrW) maxAddrW = w;
       addrLineY += 6;
     });
 
@@ -876,11 +880,10 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       doc.addImage(logo.dataUrl, 'PNG', MX + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
     }
 
-    // ── Shortcode stamp — centred in header, large + chunky ──────────────────
+    // ── Shortcode stamp — placed just to the right of the company name/address
     const sc          = slipCodeMap.get(order.orderNumber) ?? shortCode(order.orderNumber);
     const STAMP_PT    = 42;
     const STAMP_CAP   = STAMP_PT * 0.352 * 0.70;   // cap-height in mm
-    const stampCenterX = MX + CONTENT_W / 2;
     const sPad    = 4;                              // padding inside border
 
     doc.setFontSize(STAMP_PT);
@@ -888,7 +891,12 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const scTextW = doc.getTextWidth(sc);
     const boxW    = scTextW + sPad * 2;
     const boxH    = STAMP_CAP + sPad * 2;
-    const boxX    = stampCenterX - boxW / 2;
+    // Anchor to the right edge of the company-name/address block, with a small
+    // gap. Falls back gracefully if the logo would overlap.
+    const nameBlockW = Math.max(companyNameW, maxAddrW);
+    const logoLeftX  = (logo && logoW > 0) ? (MX + CONTENT_W - logoW) : (MX + CONTENT_W);
+    const desiredX   = MX + nameBlockW + 6;
+    const boxX       = Math.min(desiredX, logoLeftX - boxW - 4);
     const boxY    = headerTopY + 1;                // top-aligned in header
     const stampY  = boxY + sPad + STAMP_CAP;       // text baseline inside box
 
@@ -905,13 +913,13 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
 
     doc.setTextColor(15, 15, 15);
-    doc.text(sc, stampCenterX, stampY, { align: 'center' });
+    doc.text(sc, boxX + boxW / 2, stampY, { align: 'center' });
 
     // Small caption below stamp
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120, 120, 120);
-    doc.text('for internal use only', stampCenterX, boxY + boxH + 3.5, { align: 'center' });
+    doc.text('for internal use only', boxX + boxW / 2, boxY + boxH + 3.5, { align: 'center' });
 
     y += headerH + 3;
 
