@@ -8,10 +8,11 @@ import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Panel = null | "shop" | "studio" | "signin";
+type Panel = null | "shop" | "studio" | "webstudio" | "signin";
 type StudioChId = "home" | "ops" | "tools" | "services" | "live";
 type ShopChId   = "owl"  | "link";
-type ChId = StudioChId | ShopChId;
+type WebStudioChId = "intro" | "services" | "work" | "contact";
+type ChId = StudioChId | ShopChId | WebStudioChId;
 
 type LivePlan = { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; status: string };
 
@@ -34,6 +35,13 @@ const STUDIO_CHANNELS: { id: StudioChId; num: string; label: string; slides: num
 const SHOP_CHANNELS: { id: ShopChId; num: string; label: string; slides: number }[] = [
   { id: "owl",  num: "01", label: "BRICKOWL",  slides: 1 },
   { id: "link", num: "02", label: "BRICKLINK", slides: 1 },
+];
+
+const WEBSTUDIO_CHANNELS: { id: WebStudioChId; num: string; label: string; slides: number }[] = [
+  { id: "intro",    num: "01", label: "INTRO",    slides: 1 },
+  { id: "services", num: "02", label: "SERVICES", slides: 1 },
+  { id: "work",     num: "03", label: "WORK",     slides: 1 },
+  { id: "contact",  num: "04", label: "CONTACT",  slides: 1 },
 ];
 
 const TOOLS_SLIDES = [
@@ -397,7 +405,7 @@ function LiveScreen({ canPromptInstall, showInstallOption, isInstalled, isInstal
         <div style={{ fontSize: "clamp(8px,0.9vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.35em", marginBottom: "6px" }}>▸ ON AIR — STUDIO ACCESS</div>
         <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: "#FFF", margin: "0 0 6px" }}>Welcome back</h2>
         <p style={{ fontSize: "clamp(10px,1vw,13px)", color: "rgba(210,230,255,0.65)", margin: 0, lineHeight: 1.55 }}>
-          Sign in to your PlanetBrick Studio account
+          Sign in to your PlanetBrick account
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "240px" }}>
@@ -466,6 +474,112 @@ function ShopStoreScreen({ store }: { store: "owl" | "link" }) {
   );
 }
 
+// ─── Studio (Web & Tech Services) ─────────────────────────────────────────────
+//
+// This is a separate product brand from ELFIE — for non-LEGO businesses that
+// want a website, an internal tool, or technical help. Same mid-century /
+// sci-fi DNA, dialed toward an architectural/industrial-design register so a
+// small business owner shopping for a designer doesn't feel like they walked
+// into a LEGO store.
+
+const WEBSTUDIO_SERVICES = [
+  { Icon: Globe,     color: PURP,  rgb: "168,85,247", title: "Websites",         desc: "Marketing sites, storefronts, and product pages with a point of view." },
+  { Icon: Wrench,    color: TEAL,  rgb: "0,255,238",  title: "Internal Tools",   desc: "Custom dashboards, admin panels, and workflow software for ops teams." },
+  { Icon: Sparkles,  color: AMBER, rgb: "255,184,48", title: "AI & Automation",  desc: "Practical AI assistants and integrations that take real work off your plate." },
+  { Icon: BarChart2, color: MGNT,  rgb: "255,0,204",  title: "Tech Consulting",  desc: "Architecture, integrations, and a second pair of hands when you need them." },
+];
+
+function WebStudioScreen({ channel }: { channel: WebStudioChId }) {
+  if (channel === "intro") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.6vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: PURP, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 01 — INTRO</div>
+          <h2 style={{ fontSize: "clamp(20px,2.6vw,32px)", fontWeight: 900, color: PURP, margin: 0, textShadow: `0 0 24px ${PURP}55`, letterSpacing: "-0.01em" }}>Studio</h2>
+          <div style={{ fontSize: "clamp(9px,0.95vw,12px)", fontFamily: "monospace", color: `${PURP}AA`, marginTop: "3px", letterSpacing: "0.1em" }}>WEB · TOOLS · AI · TECH</div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "clamp(10px,1.5vw,16px)" }}>
+          <p style={{ fontSize: "clamp(13px,1.4vw,18px)", color: "rgba(225,235,255,0.92)", lineHeight: 1.55, margin: 0, fontWeight: 500 }}>
+            We design and build software for businesses that want it done right.
+          </p>
+          <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.65)", lineHeight: 1.65, margin: 0 }}>
+            Marketing sites, internal tools, AI integrations, and the occasional rescue mission. A small studio with serious craft, working directly with founders and operators — no agency middlemen.
+          </p>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+            {["Boutique", "Senior craft", "Direct line", "Fixed scope"].map(tag => (
+              <span key={tag} style={{ fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", color: PURP, background: `${PURP}14`, border: `1px solid ${PURP}44`, borderRadius: "100px", padding: "4px 10px", letterSpacing: "0.06em" }}>{tag}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (channel === "services") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,22px)", color: "#E8F4FF", gap: "clamp(8px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: PURP, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 02 — SERVICES</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: PURP, margin: 0 }}>What we build</h2>
+        </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "clamp(7px,1.1vw,12px)", minHeight: 0 }}>
+          {WEBSTUDIO_SERVICES.map(s => (
+            <div key={s.title} style={{ background: `rgba(${s.rgb},0.06)`, border: `1px solid rgba(${s.rgb},0.28)`, borderRadius: "10px", padding: "clamp(9px,1.3vw,14px)", display: "flex", flexDirection: "column", gap: "clamp(5px,0.8vw,8px)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: "clamp(26px,3vw,34px)", height: "clamp(26px,3vw,34px)", borderRadius: "8px", background: `rgba(${s.rgb},0.16)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 12px rgba(${s.rgb},0.25)` }}>
+                  <s.Icon size={16} color={s.color} />
+                </div>
+                <div style={{ fontSize: "clamp(11px,1.15vw,15px)", fontWeight: 800, color: s.color }}>{s.title}</div>
+              </div>
+              <div style={{ fontSize: "clamp(9px,0.95vw,12px)", color: "rgba(210,225,255,0.72)", lineHeight: 1.5 }}>{s.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (channel === "work") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+        <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: PURP, letterSpacing: "0.3em" }}>CH 03 — WORK</div>
+        <h2 style={{ fontSize: "clamp(18px,2.2vw,28px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Selected work</h2>
+        <p style={{ fontSize: "clamp(10px,1vw,13px)", color: "rgba(200,220,255,0.65)", margin: 0, maxWidth: "420px", lineHeight: 1.6 }}>
+          Case studies and a portfolio are in the works. In the meantime, we'd rather show you something that's relevant to <em>your</em> problem on a 20-minute call.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "clamp(6px,1vw,10px)", width: "100%", maxWidth: "420px", marginTop: "4px" }}>
+          {["SaaS dashboards", "DTC storefronts", "AI workflows"].map(t => (
+            <div key={t} style={{ background: `${PURP}10`, border: `1px solid ${PURP}33`, borderRadius: "8px", padding: "clamp(8px,1.2vw,12px) 6px", fontSize: "clamp(8px,0.85vw,11px)", color: `${PURP}DD`, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+              {t}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // contact
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: PURP, letterSpacing: "0.3em" }}>CH 04 — CONTACT</div>
+      <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Let's talk</h2>
+      <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.68)", margin: 0, maxWidth: "420px", lineHeight: 1.6 }}>
+        Tell us what you're trying to build. We'll reply within one business day with honest thoughts on whether we're the right fit.
+      </p>
+      <a
+        href="mailto:studio@planetbrick.com"
+        className="pb-store-a"
+        style={{ textDecoration: "none", marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "8px", background: `linear-gradient(135deg, ${PURP}DD, #6D28D9)`, border: "none", borderRadius: "100px", padding: "clamp(10px,1.3vw,14px) clamp(20px,2.4vw,28px)", color: "#FFF", fontWeight: 800, fontSize: "clamp(11px,1.15vw,14px)", boxShadow: `0 0 22px ${PURP}55`, letterSpacing: "0.04em" }}
+      >
+        studio@planetbrick.com <ExternalLink size={13} />
+      </a>
+      <div style={{ fontSize: "clamp(9px,0.9vw,11px)", color: `${PURP}88`, fontFamily: "monospace", marginTop: "4px", letterSpacing: "0.08em" }}>
+        ▸ TYPICAL REPLY · &lt; 1 BUSINESS DAY
+      </div>
+    </div>
+  );
+}
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function clampPx(min: number, vw: number, max: number): number {
@@ -487,27 +601,38 @@ function TvPanel({
   const isOpen = panel !== null;
 
   // Per-panel channel state
-  const [studioCh, setStudioCh]   = useState<StudioChId>("home");
-  const [shopCh,   setShopCh]     = useState<ShopChId>("owl");
-  const [slideIdx, setSlideIdx]   = useState(0);
-  const [flash,    setFlash]      = useState(false);
+  const [studioCh,    setStudioCh]    = useState<StudioChId>("home");
+  const [shopCh,      setShopCh]      = useState<ShopChId>("owl");
+  const [webStudioCh, setWebStudioCh] = useState<WebStudioChId>("intro");
+  const [slideIdx,    setSlideIdx]    = useState(0);
+  const [flash,       setFlash]       = useState(false);
   const touchX = useRef(0);
 
   // Snap to live channel when opened via signin hero card
   useEffect(() => {
-    if (panel === "signin") setStudioCh("live");
-    else if (panel === "studio") setStudioCh("home");
-    else if (panel === "shop")   setShopCh("owl");
+    if (panel === "signin")          setStudioCh("live");
+    else if (panel === "studio")     setStudioCh("home");
+    else if (panel === "shop")       setShopCh("owl");
+    else if (panel === "webstudio")  setWebStudioCh("intro");
     setSlideIdx(0);
     setFlash(false);
   }, [panel]);
 
-  const channels     = panel === "shop" ? SHOP_CHANNELS   : STUDIO_CHANNELS;
-  const activeCh     = panel === "shop" ? (SHOP_CHANNELS.find(c => c.id === shopCh) ?? SHOP_CHANNELS[0]) : (STUDIO_CHANNELS.find(c => c.id === studioCh) ?? STUDIO_CHANNELS[0]);
+  const channels =
+    panel === "shop"      ? SHOP_CHANNELS
+    : panel === "webstudio" ? WEBSTUDIO_CHANNELS
+    : STUDIO_CHANNELS;
+  const activeCh =
+    panel === "shop"      ? (SHOP_CHANNELS.find(c => c.id === shopCh) ?? SHOP_CHANNELS[0])
+    : panel === "webstudio" ? (WEBSTUDIO_CHANNELS.find(c => c.id === webStudioCh) ?? WEBSTUDIO_CHANNELS[0])
+    : (STUDIO_CHANNELS.find(c => c.id === studioCh) ?? STUDIO_CHANNELS[0]);
   const totalSlides  = activeCh.slides;
   const chNum        = activeCh.num;
   const chLabel      = activeCh.label;
-  const panelColor   = panel === "shop" ? AMBER : (studioCh === "live" ? MGNT : studioCh === "services" ? PURP : TEAL);
+  const panelColor =
+    panel === "shop"      ? AMBER
+    : panel === "webstudio" ? PURP
+    : (studioCh === "live" ? MGNT : studioCh === "services" ? PURP : TEAL);
 
   function tune(id: ChId) {
     if (flash) return;
@@ -515,6 +640,10 @@ function TvPanel({
       if (id === shopCh) return;
       setFlash(true); setSlideIdx(0);
       setTimeout(() => { setShopCh(id as ShopChId); setFlash(false); }, 180);
+    } else if (panel === "webstudio") {
+      if (id === webStudioCh) return;
+      setFlash(true); setSlideIdx(0);
+      setTimeout(() => { setWebStudioCh(id as WebStudioChId); setFlash(false); }, 180);
     } else {
       if (id === studioCh) return;
       setFlash(true); setSlideIdx(0);
@@ -624,6 +753,7 @@ function TvPanel({
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "tools"    && <ToolsScreen slideIndex={slideIdx} />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "services" && <ServicesScreen />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
+                  {!flash && panel === "webstudio" && <WebStudioScreen channel={webStudioCh} />}
                 </div>
                 {/* Slide dots */}
                 {totalSlides > 1 && !flash && (
@@ -657,7 +787,10 @@ function TvPanel({
             {/* Channel buttons */}
             <div style={{ display: "flex", gap: "clamp(4px,0.7vw,9px)", flex: 1, justifyContent: "center", minWidth: 0 }}>
               {(channels as { id: ChId; num: string; label: string }[]).map(c => {
-                const isActive = panel === "shop" ? c.id === shopCh : c.id === studioCh;
+                const isActive =
+                  panel === "shop"        ? c.id === shopCh
+                  : panel === "webstudio" ? c.id === webStudioCh
+                  : c.id === studioCh;
                 return (
                   <button key={c.id} onClick={() => tune(c.id)} className="pb-btn" style={{ background: isActive ? `${panelColor}18` : "rgba(255,255,255,0.04)", border: `1px solid ${isActive ? panelColor : "rgba(200,220,255,0.2)"}`, borderRadius: "8px", padding: "clamp(5px,0.7vw,9px) clamp(8px,1.2vw,16px)", cursor: "pointer", color: isActive ? panelColor : "rgba(215,230,255,0.82)", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.08em", animation: isActive ? "pb-chglow 2s ease-in-out infinite" : "none", transition: "all 0.15s", textAlign: "center", lineHeight: 1.3, textShadow: isActive ? `0 0 8px ${panelColor}` : "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "clamp(9px,1.1vw,14px)" }}>{c.num}</div>
@@ -700,9 +833,10 @@ function TvPanel({
 // ─── Hero Page ────────────────────────────────────────────────────────────────
 
 const HERO_CARDS_BASE = [
-  { id: "shop"   as Panel, label: "Shop",    sub: "LEGO parts stores",  color: AMBER, rgb: "255,184,48",  delay: "0s"    },
-  { id: "studio" as Panel, label: "Studio",  sub: "Seller platform",    color: TEAL,  rgb: "0,255,238",   delay: "0.07s" },
-  { id: "signin" as Panel, label: "Sign In", sub: "Studio access",      color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
+  { id: "shop"      as Panel, label: "Shop",    sub: "LEGO parts stores",      color: AMBER, rgb: "255,184,48",  delay: "0s"    },
+  { id: "studio"    as Panel, label: "ELFIE",   sub: "LEGO seller platform",   color: TEAL,  rgb: "0,255,238",   delay: "0.07s" },
+  { id: "webstudio" as Panel, label: "Studio",  sub: "Web & tech services",    color: PURP,  rgb: "168,85,247",  delay: "0.10s" },
+  { id: "signin"    as Panel, label: "Sign In", sub: "Account access",         color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
 ];
 
 type PublicBrandInfo = {
@@ -774,7 +908,7 @@ function Hero({ onSelect, brand }: { onSelect: (p: NonNullable<Panel>) => void; 
       </div>
 
       {/* Hero cards */}
-      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(8px,2vw,14px)" }}>
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "clamp(6px,1.5vw,12px)" }}>
         {HERO_CARDS_BASE.map(c => {
           const label = c.id === "shop" && brand?.shopName ? brand.shopName
                       : c.id === "studio" && brand?.studioName ? brand.studioName
