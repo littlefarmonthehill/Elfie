@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Zap, ScanLine, Globe, ExternalLink, Wrench, Users, BarChart2, Sparkles } from "lucide-react";
+import { Zap, ScanLine, Globe, ExternalLink, Wrench, Users, BarChart2, Sparkles, School, CalendarDays, Layers, MapPin, GraduationCap } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import logoUrl  from "@assets/PlanetBrick_dotcom_with_planet_1774203379040.png";
 import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
@@ -12,7 +12,7 @@ type Panel = null | "shop" | "studio" | "webstudio" | "workshops" | "signin";
 type StudioChId = "home" | "ops" | "tools" | "services" | "live";
 type ShopChId   = "owl"  | "link";
 type WebStudioChId = "intro" | "services" | "work" | "contact";
-type WorkshopsChId = "intro" | "programs" | "book";
+type WorkshopsChId = "intro" | "schools" | "sessions" | "themes" | "book";
 type ChId = StudioChId | ShopChId | WebStudioChId | WorkshopsChId;
 
 type LivePlan = { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; status: string };
@@ -48,15 +48,34 @@ const WEBSTUDIO_CHANNELS: { id: WebStudioChId; num: string; label: string; slide
 
 const WORKSHOPS_CHANNELS: { id: WorkshopsChId; num: string; label: string; slides: number }[] = [
   { id: "intro",    num: "01", label: "INTRO",    slides: 1 },
-  { id: "programs", num: "02", label: "PROGRAMS", slides: 1 },
-  { id: "book",     num: "03", label: "BOOK",     slides: 1 },
+  { id: "schools",  num: "02", label: "SCHOOLS",  slides: 1 },
+  { id: "sessions", num: "03", label: "SESSIONS", slides: 1 },
+  { id: "themes",   num: "04", label: "THEMES",   slides: 1 },
+  { id: "book",     num: "05", label: "BOOK",     slides: 1 },
 ];
 
-const WORKSHOPS_PROGRAMS = [
-  { Icon: Sparkles,  color: CORAL,  rgb: "255,107,107", title: "Build & Learn",     ages: "Grades K–2",  desc: "Hands-on guided builds that teach colors, counting, and following instructions." },
-  { Icon: Wrench,    color: AMBER,  rgb: "255,184,48",  title: "Engineering Lab",   ages: "Grades 3–5",  desc: "Simple machines, gears, and structures. Kids design, build, and stress-test their own creations." },
-  { Icon: Zap,       color: TEAL,   rgb: "0,255,238",   title: "Robotics & Coding", ages: "Grades 6–8",  desc: "Intro to programmable bricks, motors, and sensors. Build a robot, make it do something useful." },
-  { Icon: Users,     color: PURP,   rgb: "168,85,247",  title: "Custom Events",     ages: "All ages",    desc: "Birthday parties, after-school clubs, scout troops, library days. We bring everything." },
+const WORKSHOPS_SCHOOLS = [
+  { name: "Lanesboro", day: "Mondays" },
+  { name: "Chatfield", day: "Tuesdays" },
+  { name: "Preston",   day: "Wednesdays" },
+  { name: "Harmony",   day: "Thursdays" },
+];
+
+const WORKSHOPS_SESSIONS = [
+  { grades: "Grades 2–3", season: "Fall Session",   dates: "Sept – Nov",  focus: "Hands-on exploration & discovery",       color: AMBER, rgb: "255,184,48"  },
+  { grades: "Grades 4–5", season: "Winter Session", dates: "Jan – Feb",   focus: "Systems thinking & structured engineering", color: TEAL,  rgb: "0,255,238"   },
+  { grades: "Grades 6–8", season: "Spring Session", dates: "Feb – Apr",   focus: "Design optimization & engineering analysis", color: PURP, rgb: "168,85,247"  },
+];
+
+// 6 themes × 3 grade-bands. Each row is one engineering concept; each column is
+// the age-appropriate build that explores it. Pulled directly from the program flyer.
+const WORKSHOPS_THEMES = [
+  { n: "1", theme: "Structure & Stability",     g23: "Tall Towers",       g45: "Bridge Building",    g68: "Structural Analysis" },
+  { n: "2", theme: "Force & Motion",            g23: "Ramp Racers",       g45: "Motion Machines",    g68: "Speed & Forces" },
+  { n: "3", theme: "Systems & Connections",     g23: "Mini Cities",       g45: "Transport Networks", g68: "Infrastructure" },
+  { n: "4", theme: "Design & Iteration",        g23: "Fix It!",           g45: "Redesign Challenge", g68: "Engineering Cycle" },
+  { n: "5", theme: "Space & Planning",          g23: "My Town",           g45: "City Planning",      g68: "Urban Design" },
+  { n: "6", theme: "Resources & Constraints",   g23: "Less is More",      g45: "Constraint Design",  g68: "Resource Challenge" },
 ];
 
 const TOOLS_SLIDES = [
@@ -496,51 +515,46 @@ function ShopStoreScreen({ store }: { store: "owl" | "link" }) {
 // it reads as friendly/playful (not the sterile blue of the seller platform).
 
 function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
+  // ── CH 01 · INTRO ─────────────────────────────────────────────────────────
   if (channel === "intro") {
+    const stats = [
+      { n: "3", label: "SESSIONS / YEAR" },
+      { n: "6", label: "WEEKS / SESSION" },
+      { n: "4", label: "SCHOOLS SERVED" },
+    ];
+    const pillars = [
+      { Icon: Wrench,        title: "We Come to You",   desc: "Bricks, curriculum, and facilitation — all included. Teachers don't prep a thing." },
+      { Icon: CalendarDays,  title: "One Day a Week",   desc: "Your school's dedicated day, every week, for 6 weeks per session." },
+      { Icon: GraduationCap, title: "Every Grade Builds", desc: "Grades 2–8 each get their own age-appropriate engineering experience." },
+    ];
     return (
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.6vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,24px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
         <div>
           <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 01 — INTRO</div>
-          <h2 style={{ fontSize: "clamp(20px,2.6vw,32px)", fontWeight: 900, color: CORAL, margin: 0, textShadow: `0 0 24px ${CORAL}55`, letterSpacing: "-0.01em" }}>Workshops</h2>
-          <div style={{ fontSize: "clamp(9px,0.95vw,12px)", fontFamily: "monospace", color: `${CORAL}AA`, marginTop: "3px", letterSpacing: "0.1em" }}>SCHOOLS · LIBRARIES · PARTIES · CLUBS</div>
-        </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "clamp(10px,1.5vw,16px)" }}>
-          <p style={{ fontSize: "clamp(13px,1.4vw,18px)", color: "rgba(225,235,255,0.92)", lineHeight: 1.55, margin: 0, fontWeight: 500 }}>
-            Hands-on LEGO programs for kids, run by people who actually know LEGO.
-          </p>
-          <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.65)", lineHeight: 1.65, margin: 0 }}>
-            We bring the bricks, the curriculum, and the energy. From kindergarten classrooms to middle-school robotics — structured, engaging sessions that stay with kids long after the bricks go back in the bin.
-          </p>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
-            {["We bring everything", "Insured", "Background-checked", "Curriculum-aligned"].map(tag => (
-              <span key={tag} style={{ fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", color: CORAL, background: `${CORAL}14`, border: `1px solid ${CORAL}44`, borderRadius: "100px", padding: "4px 10px", letterSpacing: "0.06em" }}>{tag}</span>
-            ))}
+          <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: CORAL, margin: 0, textShadow: `0 0 24px ${CORAL}55`, letterSpacing: "-0.01em" }}>School Workshops</h2>
+          <div style={{ fontSize: "clamp(11px,1.15vw,14px)", color: "rgba(225,235,255,0.85)", marginTop: "6px", lineHeight: 1.5, fontWeight: 500 }}>
+            Hands-on STEM enrichment for Grades 2–8 · One day a week · All materials provided
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (channel === "programs") {
-    return (
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,22px)", color: "#E8F4FF", gap: "clamp(8px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
-        <div>
-          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 02 — PROGRAMS</div>
-          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>Pick a program</h2>
+        {/* Stat row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(6px,1vw,10px)" }}>
+          {stats.map(s => (
+            <div key={s.label} style={{ background: `${CORAL}10`, border: `1px solid ${CORAL}40`, borderRadius: "10px", padding: "clamp(8px,1.1vw,12px) clamp(6px,1vw,10px)", textAlign: "center" }}>
+              <div style={{ fontSize: "clamp(22px,3vw,38px)", fontWeight: 900, color: CORAL, lineHeight: 1, fontFamily: "monospace" }}>{s.n}</div>
+              <div style={{ fontSize: "clamp(7px,0.75vw,9px)", fontFamily: "monospace", color: `${CORAL}BB`, letterSpacing: "0.18em", marginTop: "4px" }}>{s.label}</div>
+            </div>
+          ))}
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "clamp(7px,1.1vw,12px)", minHeight: 0 }}>
-          {WORKSHOPS_PROGRAMS.map(p => (
-            <div key={p.title} style={{ background: `rgba(${p.rgb},0.06)`, border: `1px solid rgba(${p.rgb},0.28)`, borderRadius: "10px", padding: "clamp(9px,1.3vw,14px)", display: "flex", flexDirection: "column", gap: "clamp(5px,0.8vw,8px)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: "clamp(26px,3vw,34px)", height: "clamp(26px,3vw,34px)", borderRadius: "8px", background: `rgba(${p.rgb},0.16)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 12px rgba(${p.rgb},0.25)` }}>
-                  <p.Icon size={16} color={p.color} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: "clamp(11px,1.15vw,15px)", fontWeight: 800, color: p.color, lineHeight: 1.15 }}>{p.title}</div>
-                  <div style={{ fontSize: "clamp(8px,0.8vw,10px)", color: `rgba(${p.rgb},0.75)`, fontFamily: "monospace", marginTop: "2px", letterSpacing: "0.06em" }}>{p.ages}</div>
-                </div>
+        {/* Pillars */}
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(6px,1vw,10px)", minHeight: 0 }}>
+          {pillars.map((p, i) => (
+            <div key={p.title} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "clamp(9px,1.2vw,13px)", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div style={{ width: "clamp(22px,2.4vw,28px)", height: "clamp(22px,2.4vw,28px)", borderRadius: "100px", background: `${CORAL}22`, color: CORAL, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "clamp(10px,1vw,13px)", fontFamily: "monospace" }}>{i + 1}</div>
+                <p.Icon size={15} color={CORAL} />
               </div>
-              <div style={{ fontSize: "clamp(9px,0.95vw,12px)", color: "rgba(210,225,255,0.72)", lineHeight: 1.5 }}>{p.desc}</div>
+              <div style={{ fontSize: "clamp(11px,1.1vw,14px)", fontWeight: 800, color: "#FFF", lineHeight: 1.2 }}>{p.title}</div>
+              <div style={{ fontSize: "clamp(9px,0.9vw,11px)", color: "rgba(210,225,255,0.7)", lineHeight: 1.45 }}>{p.desc}</div>
             </div>
           ))}
         </div>
@@ -548,23 +562,126 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
     );
   }
 
-  // book
+  // ── CH 02 · SCHOOLS ───────────────────────────────────────────────────────
+  if (channel === "schools") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,24px)", color: "#E8F4FF", gap: "clamp(10px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 02 — SCHOOLS</div>
+          <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: CORAL, margin: 0 }}>Participating schools</h2>
+          <div style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(200,220,255,0.65)", marginTop: "4px" }}>Rural southeast Minnesota · One dedicated day per district</div>
+        </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "clamp(8px,1.2vw,12px)", minHeight: 0 }}>
+          {WORKSHOPS_SCHOOLS.map(s => (
+            <div key={s.name} style={{ background: `${CORAL}0E`, border: `1px solid ${CORAL}3A`, borderRadius: "10px", padding: "clamp(10px,1.4vw,16px)", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <School size={16} color={CORAL} />
+                <div style={{ fontSize: "clamp(14px,1.6vw,20px)", fontWeight: 900, color: "#FFF", lineHeight: 1.1 }}>{s.name}</div>
+              </div>
+              <div style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: "6px", background: `${CORAL}1F`, border: `1px solid ${CORAL}55`, borderRadius: "100px", padding: "3px 10px" }}>
+                <CalendarDays size={11} color={CORAL} />
+                <span style={{ fontSize: "clamp(9px,0.95vw,12px)", fontFamily: "monospace", color: CORAL, fontWeight: 700, letterSpacing: "0.06em" }}>{s.day}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: "clamp(9px,0.9vw,11px)", color: `${CORAL}AA`, fontFamily: "monospace", letterSpacing: "0.08em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <MapPin size={12} /> NEW DISTRICTS WELCOME — ASK ABOUT NEXT SESSION
+        </div>
+      </div>
+    );
+  }
+
+  // ── CH 03 · SESSIONS ──────────────────────────────────────────────────────
+  if (channel === "sessions") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,24px)", color: "#E8F4FF", gap: "clamp(10px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 03 — SESSIONS</div>
+          <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: CORAL, margin: 0 }}>Three sessions a year</h2>
+          <div style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(200,220,255,0.65)", marginTop: "4px" }}>Each grade band gets its own 6-week run, sized to its developmental stage</div>
+        </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(7px,1vw,12px)", minHeight: 0 }}>
+          {WORKSHOPS_SESSIONS.map(s => (
+            <div key={s.grades} style={{ background: `rgba(${s.rgb},0.06)`, border: `1px solid rgba(${s.rgb},0.4)`, borderRadius: "10px", padding: "clamp(10px,1.3vw,14px)", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ fontSize: "clamp(13px,1.5vw,18px)", fontWeight: 900, color: s.color, lineHeight: 1.1 }}>{s.grades}</div>
+              <div style={{ fontSize: "clamp(10px,1vw,12px)", fontFamily: "monospace", color: `rgba(${s.rgb},0.85)`, fontWeight: 700, letterSpacing: "0.06em" }}>{s.season}</div>
+              <div style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: "5px", background: `rgba(${s.rgb},0.15)`, border: `1px solid rgba(${s.rgb},0.4)`, borderRadius: "100px", padding: "2px 9px" }}>
+                <CalendarDays size={10} color={s.color} />
+                <span style={{ fontSize: "clamp(8px,0.85vw,10px)", fontFamily: "monospace", color: s.color, fontWeight: 700, letterSpacing: "0.05em" }}>{s.dates}</span>
+              </div>
+              <div style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(220,232,255,0.72)", lineHeight: 1.45, marginTop: "auto" }}>{s.focus}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── CH 04 · THEMES ────────────────────────────────────────────────────────
+  if (channel === "themes") {
+    const cols = [
+      { key: "g23" as const, label: "Grades 2–3", color: AMBER, rgb: "255,184,48" },
+      { key: "g45" as const, label: "Grades 4–5", color: TEAL,  rgb: "0,255,238" },
+      { key: "g68" as const, label: "Grades 6–8", color: PURP,  rgb: "168,85,247" },
+    ];
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(10px,1.8vw,20px)", color: "#E8F4FF", gap: "clamp(8px,1.1vw,12px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 04 — THEMES</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>Six engineering themes · age-appropriate builds</h2>
+        </div>
+        {/* Matrix */}
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px" }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: "clamp(9px,0.95vw,12px)" }}>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", top: 0, background: "rgba(20,16,30,0.95)", textAlign: "left", padding: "clamp(6px,0.9vw,10px)", fontFamily: "monospace", fontSize: "clamp(8px,0.8vw,10px)", letterSpacing: "0.12em", color: `${CORAL}CC`, fontWeight: 700, borderBottom: `1px solid ${CORAL}33` }}>THEME</th>
+                {cols.map(c => (
+                  <th key={c.key} style={{ position: "sticky", top: 0, background: "rgba(20,16,30,0.95)", textAlign: "left", padding: "clamp(6px,0.9vw,10px)", fontFamily: "monospace", fontSize: "clamp(8px,0.8vw,10px)", letterSpacing: "0.12em", color: c.color, fontWeight: 800, borderBottom: `1px solid rgba(${c.rgb},0.4)` }}>{c.label.toUpperCase()}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {WORKSHOPS_THEMES.map((row, i) => (
+                <tr key={row.theme} style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}>
+                  <td style={{ padding: "clamp(6px,0.9vw,10px)", borderBottom: "1px solid rgba(255,255,255,0.05)", verticalAlign: "top" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ width: "clamp(16px,1.8vw,22px)", height: "clamp(16px,1.8vw,22px)", borderRadius: "100px", background: `${CORAL}22`, color: CORAL, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", flexShrink: 0 }}>{row.n}</span>
+                      <span style={{ fontWeight: 700, color: "#FFF", lineHeight: 1.2 }}>{row.theme}</span>
+                    </div>
+                  </td>
+                  {cols.map(c => (
+                    <td key={c.key} style={{ padding: "clamp(6px,0.9vw,10px)", borderBottom: "1px solid rgba(255,255,255,0.05)", verticalAlign: "top", color: `rgba(${c.rgb},0.95)`, fontWeight: 600 }}>
+                      {row[c.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CH 05 · BOOK ──────────────────────────────────────────────────────────
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em" }}>CH 03 — BOOK</div>
-      <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Book a workshop</h2>
-      <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.68)", margin: 0, maxWidth: "440px", lineHeight: 1.6 }}>
-        Tell us your group, ages, and date. We'll send back program options, pricing, and a hold on the calendar within one business day.
+      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em" }}>CH 05 — BOOK</div>
+      <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Bring PlanetBrick to your school</h2>
+      <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.7)", margin: 0, maxWidth: "500px", lineHeight: 1.6 }}>
+        Tell us your district, the grades you'd like to enroll, and which day of the week works. We'll send back session options, pricing, and a hold on the calendar.
       </p>
       <a
-        href="mailto:workshops@planetbrick.com?subject=Workshop%20inquiry"
+        href="mailto:hello@planetbrick.com?subject=School%20Workshop%20inquiry"
         className="pb-store-a"
         style={{ textDecoration: "none", marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "8px", background: `linear-gradient(135deg, ${CORAL}EE, #E04848)`, border: "none", borderRadius: "100px", padding: "clamp(10px,1.3vw,14px) clamp(20px,2.4vw,28px)", color: "#FFF", fontWeight: 800, fontSize: "clamp(11px,1.15vw,14px)", boxShadow: `0 0 22px ${CORAL}55`, letterSpacing: "0.04em" }}
       >
-        workshops@planetbrick.com <ExternalLink size={13} />
+        hello@planetbrick.com <ExternalLink size={13} />
       </a>
       <div style={{ fontSize: "clamp(9px,0.9vw,11px)", color: `${CORAL}99`, fontFamily: "monospace", marginTop: "4px", letterSpacing: "0.08em" }}>
-        ▸ TYPICAL REPLY · &lt; 1 BUSINESS DAY
+        ▸ TYPICAL REPLY · &lt; 1 BUSINESS DAY · planetbrick.com
       </div>
     </div>
   );
