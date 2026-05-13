@@ -402,10 +402,10 @@ function LiveScreen({ canPromptInstall, showInstallOption, isInstalled, isInstal
         ))}
       </div>
       <div>
-        <div style={{ fontSize: "clamp(8px,0.9vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.35em", marginBottom: "6px" }}>▸ ON AIR — STUDIO ACCESS</div>
+        <div style={{ fontSize: "clamp(8px,0.9vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.35em", marginBottom: "6px" }}>▸ ON AIR — ELFIE ACCESS</div>
         <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: "#FFF", margin: "0 0 6px" }}>Welcome back</h2>
         <p style={{ fontSize: "clamp(10px,1vw,13px)", color: "rgba(210,230,255,0.65)", margin: 0, lineHeight: 1.55 }}>
-          Sign in to your PlanetBrick account
+          Sign in to your ELFIE account
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "240px" }}>
@@ -836,7 +836,7 @@ const HERO_CARDS_BASE = [
   { id: "shop"      as Panel, label: "Shop",    sub: "LEGO parts stores",      color: AMBER, rgb: "255,184,48",  delay: "0s"    },
   { id: "studio"    as Panel, label: "ELFIE",   sub: "LEGO seller platform",   color: TEAL,  rgb: "0,255,238",   delay: "0.07s" },
   { id: "webstudio" as Panel, label: "Studio",  sub: "Web & tech services",    color: PURP,  rgb: "168,85,247",  delay: "0.10s" },
-  { id: "signin"    as Panel, label: "Sign In", sub: "Account access",         color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
+  { id: "signin"    as Panel, label: "Sign In", sub: "ELFIE account access",   color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
 ];
 
 type PublicBrandInfo = {
