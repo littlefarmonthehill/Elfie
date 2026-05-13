@@ -48,10 +48,39 @@ type BinPicklist = {
   pulled: boolean;
 };
 
+// ── Per-section hue ─────────────────────────────────────────────────────────
+// Deterministic hash → hue so different aisle / shelf names get visually
+// distinct colors. Picker can spot "I just walked into a new aisle" without
+// having to read the chip text.
+function hashHue(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  // 12 evenly-spaced hue stops avoid muddy in-between values
+  return ((Math.abs(h) % 12) * 30 + 15) % 360;
+}
+function aisleStyle(name: string): React.CSSProperties {
+  const hue = hashHue('A:' + name);
+  return {
+    backgroundColor: `hsl(${hue} 80% 18% / 0.55)`,
+    borderColor: `hsl(${hue} 85% 55% / 0.55)`,
+    color: `hsl(${hue} 90% 78%)`,
+  };
+}
+function shelfStyle(name: string): React.CSSProperties {
+  const hue = hashHue('S:' + name);
+  return {
+    backgroundColor: `hsl(${hue} 75% 18% / 0.5)`,
+    borderColor: `hsl(${hue} 80% 55% / 0.5)`,
+    color: `hsl(${hue} 85% 78%)`,
+  };
+}
+
 // ── Location chips ──────────────────────────────────────────────────────────
 // Picklist headers used to render the bin name as flat text like "1-A-19",
 // which made aisle/shelf/bin all blur together. We split it into colored,
-// icon-prefixed chips so each segment is instantly distinguishable.
+// icon-prefixed chips so each segment is instantly distinguishable — and
+// the aisle / shelf chips are now color-keyed by name (see hashHue) so a
+// section change is obvious in peripheral vision.
 function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
   if (!loc) {
     return (
@@ -60,19 +89,15 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
       </span>
     );
   }
-  // Three slots; each slot only renders if that level exists in the warehouse
-  // depth. Colors are consistent across the app so users learn the mapping:
-  // blue=aisle, amber=shelf, emerald=bin.
-  const slots: Array<{ icon: any; value: string; cls: string; testid: string }> = [];
+  type Slot = { icon: any; value: string; testid: string; cls?: string; style?: React.CSSProperties };
+  const slots: Slot[] = [];
   if (loc.aisle?.name) slots.push({
-    icon: Warehouse, value: loc.aisle.name,
-    cls: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-    testid: 'chip-aisle',
+    icon: Warehouse, value: loc.aisle.name, testid: 'chip-aisle',
+    style: aisleStyle(loc.aisle.name),
   });
   if (loc.shelf?.name) slots.push({
-    icon: Layers, value: loc.shelf.name,
-    cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    testid: 'chip-shelf',
+    icon: Layers, value: loc.shelf.name, testid: 'chip-shelf',
+    style: shelfStyle(loc.shelf.name),
   });
   if (loc.bin?.name) {
     // Bin name often arrives as a composite "aisle-shelf-bin" (e.g. "1-A-10"),
@@ -80,9 +105,8 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
     // one — so trim down to just the final bin segment to avoid repetition.
     const binOnly = loc.bin.name.split('-').pop() || loc.bin.name;
     slots.push({
-      icon: Box, value: binOnly,
+      icon: Box, value: binOnly, testid: 'chip-bin',
       cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-      testid: 'chip-bin',
     });
   }
   return (
@@ -92,7 +116,8 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
         return (
           <span
             key={i}
-            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-tight ${s.cls}`}
+            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-tight ${s.cls ?? ''}`}
+            style={s.style}
             data-testid={s.testid}
           >
             <Icon className="h-3 w-3 shrink-0" />
@@ -100,6 +125,36 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
           </span>
         );
       })}
+    </div>
+  );
+}
+
+// ── Section headers ─────────────────────────────────────────────────────────
+// Bold, color-keyed dividers between aisles / shelves so the picker can see
+// at a glance when they've crossed into a new section while scrolling.
+function AisleHeader({ name }: { name: string }) {
+  return (
+    <div
+      className="sticky top-0 z-10 -mx-1 flex items-center gap-2 rounded border px-2 py-1 backdrop-blur-sm"
+      style={aisleStyle(name)}
+      data-testid={`header-aisle-${name}`}
+    >
+      <Warehouse className="h-3.5 w-3.5 shrink-0" />
+      <span className="text-[11px] font-bold uppercase tracking-wider opacity-80">Aisle</span>
+      <span className="text-sm font-bold tabular-nums">{name}</span>
+    </div>
+  );
+}
+function ShelfHeader({ name }: { name: string }) {
+  return (
+    <div
+      className="ml-2 inline-flex items-center gap-1.5 rounded border px-2 py-0.5"
+      style={shelfStyle(name)}
+      data-testid={`header-shelf-${name}`}
+    >
+      <Layers className="h-3 w-3 shrink-0" />
+      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Shelf</span>
+      <span className="text-xs font-bold tabular-nums">{name}</span>
     </div>
   );
 }
@@ -937,6 +992,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
             <div className="space-y-3" data-testid="picklist-by-bin">
               {sortedShelves.map((shelf) => (
                 <div key={shelf} className="space-y-2" data-testid={`shelf-group-${shelf}`}>
+                  <ShelfHeader name={shelf} />
                   <div className="space-y-2">
                     {shelfGroups[shelf].map(renderBin)}
                   </div>
@@ -953,9 +1009,11 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
               const shelvesByAisle = groupedBins[aisle];
               return (
                 <div key={aisle} className="space-y-2" data-testid={`aisle-group-${aisle}`}>
-                  <div className="space-y-2">
+                  <AisleHeader name={aisle} />
+                  <div className="space-y-3 pl-1">
                     {Object.entries(shelvesByAisle).map(([shelf, bins]) => (
                       <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
+                        <ShelfHeader name={shelf} />
                         <div className="space-y-2">
                           {bins.map(renderBin)}
                         </div>
