@@ -8,11 +8,12 @@ import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Panel = null | "shop" | "studio" | "webstudio" | "signin";
+type Panel = null | "shop" | "studio" | "webstudio" | "workshops" | "signin";
 type StudioChId = "home" | "ops" | "tools" | "services" | "live";
 type ShopChId   = "owl"  | "link";
 type WebStudioChId = "intro" | "services" | "work" | "contact";
-type ChId = StudioChId | ShopChId | WebStudioChId;
+type WorkshopsChId = "intro" | "programs" | "book";
+type ChId = StudioChId | ShopChId | WebStudioChId | WorkshopsChId;
 
 type LivePlan = { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; status: string };
 
@@ -22,6 +23,7 @@ const TEAL   = "#00FFEE";
 const MGNT   = "#FF00CC";
 const PURP   = "#A855F7";
 const AMBER  = "#FFB830";
+const CORAL  = "#FF6B6B";
 const SCR_BG = "#04060F";
 
 const STUDIO_CHANNELS: { id: StudioChId; num: string; label: string; slides: number }[] = [
@@ -42,6 +44,19 @@ const WEBSTUDIO_CHANNELS: { id: WebStudioChId; num: string; label: string; slide
   { id: "services", num: "02", label: "SERVICES", slides: 1 },
   { id: "work",     num: "03", label: "WORK",     slides: 1 },
   { id: "contact",  num: "04", label: "CONTACT",  slides: 1 },
+];
+
+const WORKSHOPS_CHANNELS: { id: WorkshopsChId; num: string; label: string; slides: number }[] = [
+  { id: "intro",    num: "01", label: "INTRO",    slides: 1 },
+  { id: "programs", num: "02", label: "PROGRAMS", slides: 1 },
+  { id: "book",     num: "03", label: "BOOK",     slides: 1 },
+];
+
+const WORKSHOPS_PROGRAMS = [
+  { Icon: Sparkles,  color: CORAL,  rgb: "255,107,107", title: "Build & Learn",     ages: "Grades K–2",  desc: "Hands-on guided builds that teach colors, counting, and following instructions." },
+  { Icon: Wrench,    color: AMBER,  rgb: "255,184,48",  title: "Engineering Lab",   ages: "Grades 3–5",  desc: "Simple machines, gears, and structures. Kids design, build, and stress-test their own creations." },
+  { Icon: Zap,       color: TEAL,   rgb: "0,255,238",   title: "Robotics & Coding", ages: "Grades 6–8",  desc: "Intro to programmable bricks, motors, and sensors. Build a robot, make it do something useful." },
+  { Icon: Users,     color: PURP,   rgb: "168,85,247",  title: "Custom Events",     ages: "All ages",    desc: "Birthday parties, after-school clubs, scout troops, library days. We bring everything." },
 ];
 
 const TOOLS_SLIDES = [
@@ -474,6 +489,87 @@ function ShopStoreScreen({ store }: { store: "owl" | "link" }) {
   );
 }
 
+// ─── Workshops (LEGO classes & events for schools) ────────────────────────────
+//
+// PlanetBrick goes on-site to schools, libraries, parties, and clubs to run
+// hands-on LEGO programs. Same retro-future TV register, warm coral palette so
+// it reads as friendly/playful (not the sterile blue of the seller platform).
+
+function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
+  if (channel === "intro") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.6vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 01 — INTRO</div>
+          <h2 style={{ fontSize: "clamp(20px,2.6vw,32px)", fontWeight: 900, color: CORAL, margin: 0, textShadow: `0 0 24px ${CORAL}55`, letterSpacing: "-0.01em" }}>Workshops</h2>
+          <div style={{ fontSize: "clamp(9px,0.95vw,12px)", fontFamily: "monospace", color: `${CORAL}AA`, marginTop: "3px", letterSpacing: "0.1em" }}>SCHOOLS · LIBRARIES · PARTIES · CLUBS</div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "clamp(10px,1.5vw,16px)" }}>
+          <p style={{ fontSize: "clamp(13px,1.4vw,18px)", color: "rgba(225,235,255,0.92)", lineHeight: 1.55, margin: 0, fontWeight: 500 }}>
+            Hands-on LEGO programs for kids, run by people who actually know LEGO.
+          </p>
+          <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.65)", lineHeight: 1.65, margin: 0 }}>
+            We bring the bricks, the curriculum, and the energy. From kindergarten classrooms to middle-school robotics — structured, engaging sessions that stay with kids long after the bricks go back in the bin.
+          </p>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+            {["We bring everything", "Insured", "Background-checked", "Curriculum-aligned"].map(tag => (
+              <span key={tag} style={{ fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", color: CORAL, background: `${CORAL}14`, border: `1px solid ${CORAL}44`, borderRadius: "100px", padding: "4px 10px", letterSpacing: "0.06em" }}>{tag}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (channel === "programs") {
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,22px)", color: "#E8F4FF", gap: "clamp(8px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
+        <div>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 02 — PROGRAMS</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>Pick a program</h2>
+        </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "clamp(7px,1.1vw,12px)", minHeight: 0 }}>
+          {WORKSHOPS_PROGRAMS.map(p => (
+            <div key={p.title} style={{ background: `rgba(${p.rgb},0.06)`, border: `1px solid rgba(${p.rgb},0.28)`, borderRadius: "10px", padding: "clamp(9px,1.3vw,14px)", display: "flex", flexDirection: "column", gap: "clamp(5px,0.8vw,8px)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: "clamp(26px,3vw,34px)", height: "clamp(26px,3vw,34px)", borderRadius: "8px", background: `rgba(${p.rgb},0.16)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 12px rgba(${p.rgb},0.25)` }}>
+                  <p.Icon size={16} color={p.color} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "clamp(11px,1.15vw,15px)", fontWeight: 800, color: p.color, lineHeight: 1.15 }}>{p.title}</div>
+                  <div style={{ fontSize: "clamp(8px,0.8vw,10px)", color: `rgba(${p.rgb},0.75)`, fontFamily: "monospace", marginTop: "2px", letterSpacing: "0.06em" }}>{p.ages}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: "clamp(9px,0.95vw,12px)", color: "rgba(210,225,255,0.72)", lineHeight: 1.5 }}>{p.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // book
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em" }}>CH 03 — BOOK</div>
+      <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Book a workshop</h2>
+      <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.68)", margin: 0, maxWidth: "440px", lineHeight: 1.6 }}>
+        Tell us your group, ages, and date. We'll send back program options, pricing, and a hold on the calendar within one business day.
+      </p>
+      <a
+        href="mailto:workshops@planetbrick.com?subject=Workshop%20inquiry"
+        className="pb-store-a"
+        style={{ textDecoration: "none", marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "8px", background: `linear-gradient(135deg, ${CORAL}EE, #E04848)`, border: "none", borderRadius: "100px", padding: "clamp(10px,1.3vw,14px) clamp(20px,2.4vw,28px)", color: "#FFF", fontWeight: 800, fontSize: "clamp(11px,1.15vw,14px)", boxShadow: `0 0 22px ${CORAL}55`, letterSpacing: "0.04em" }}
+      >
+        workshops@planetbrick.com <ExternalLink size={13} />
+      </a>
+      <div style={{ fontSize: "clamp(9px,0.9vw,11px)", color: `${CORAL}99`, fontFamily: "monospace", marginTop: "4px", letterSpacing: "0.08em" }}>
+        ▸ TYPICAL REPLY · &lt; 1 BUSINESS DAY
+      </div>
+    </div>
+  );
+}
+
 // ─── Studio (Web & Tech Services) ─────────────────────────────────────────────
 //
 // This is a separate product brand from ELFIE — for non-LEGO businesses that
@@ -604,6 +700,7 @@ function TvPanel({
   const [studioCh,    setStudioCh]    = useState<StudioChId>("home");
   const [shopCh,      setShopCh]      = useState<ShopChId>("owl");
   const [webStudioCh, setWebStudioCh] = useState<WebStudioChId>("intro");
+  const [workshopsCh, setWorkshopsCh] = useState<WorkshopsChId>("intro");
   const [slideIdx,    setSlideIdx]    = useState(0);
   const [flash,       setFlash]       = useState(false);
   const touchX = useRef(0);
@@ -614,24 +711,28 @@ function TvPanel({
     else if (panel === "studio")     setStudioCh("home");
     else if (panel === "shop")       setShopCh("owl");
     else if (panel === "webstudio")  setWebStudioCh("intro");
+    else if (panel === "workshops")  setWorkshopsCh("intro");
     setSlideIdx(0);
     setFlash(false);
   }, [panel]);
 
   const channels =
-    panel === "shop"      ? SHOP_CHANNELS
+    panel === "shop"        ? SHOP_CHANNELS
     : panel === "webstudio" ? WEBSTUDIO_CHANNELS
+    : panel === "workshops" ? WORKSHOPS_CHANNELS
     : STUDIO_CHANNELS;
   const activeCh =
-    panel === "shop"      ? (SHOP_CHANNELS.find(c => c.id === shopCh) ?? SHOP_CHANNELS[0])
+    panel === "shop"        ? (SHOP_CHANNELS.find(c => c.id === shopCh) ?? SHOP_CHANNELS[0])
     : panel === "webstudio" ? (WEBSTUDIO_CHANNELS.find(c => c.id === webStudioCh) ?? WEBSTUDIO_CHANNELS[0])
+    : panel === "workshops" ? (WORKSHOPS_CHANNELS.find(c => c.id === workshopsCh) ?? WORKSHOPS_CHANNELS[0])
     : (STUDIO_CHANNELS.find(c => c.id === studioCh) ?? STUDIO_CHANNELS[0]);
   const totalSlides  = activeCh.slides;
   const chNum        = activeCh.num;
   const chLabel      = activeCh.label;
   const panelColor =
-    panel === "shop"      ? AMBER
+    panel === "shop"        ? AMBER
     : panel === "webstudio" ? PURP
+    : panel === "workshops" ? CORAL
     : (studioCh === "live" ? MGNT : studioCh === "services" ? PURP : TEAL);
 
   function tune(id: ChId) {
@@ -644,6 +745,10 @@ function TvPanel({
       if (id === webStudioCh) return;
       setFlash(true); setSlideIdx(0);
       setTimeout(() => { setWebStudioCh(id as WebStudioChId); setFlash(false); }, 180);
+    } else if (panel === "workshops") {
+      if (id === workshopsCh) return;
+      setFlash(true); setSlideIdx(0);
+      setTimeout(() => { setWorkshopsCh(id as WorkshopsChId); setFlash(false); }, 180);
     } else {
       if (id === studioCh) return;
       setFlash(true); setSlideIdx(0);
@@ -753,6 +858,7 @@ function TvPanel({
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "tools"    && <ToolsScreen slideIndex={slideIdx} />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "services" && <ServicesScreen />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
+                  {!flash && panel === "workshops" && <WorkshopsScreen channel={workshopsCh} />}
                   {!flash && panel === "webstudio" && <WebStudioScreen channel={webStudioCh} />}
                 </div>
                 {/* Slide dots */}
@@ -790,6 +896,7 @@ function TvPanel({
                 const isActive =
                   panel === "shop"        ? c.id === shopCh
                   : panel === "webstudio" ? c.id === webStudioCh
+                  : panel === "workshops" ? c.id === workshopsCh
                   : c.id === studioCh;
                 return (
                   <button key={c.id} onClick={() => tune(c.id)} className="pb-btn" style={{ background: isActive ? `${panelColor}18` : "rgba(255,255,255,0.04)", border: `1px solid ${isActive ? panelColor : "rgba(200,220,255,0.2)"}`, borderRadius: "8px", padding: "clamp(5px,0.7vw,9px) clamp(8px,1.2vw,16px)", cursor: "pointer", color: isActive ? panelColor : "rgba(215,230,255,0.82)", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.08em", animation: isActive ? "pb-chglow 2s ease-in-out infinite" : "none", transition: "all 0.15s", textAlign: "center", lineHeight: 1.3, textShadow: isActive ? `0 0 8px ${panelColor}` : "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flex: 1, minWidth: 0 }}>
@@ -833,10 +940,11 @@ function TvPanel({
 // ─── Hero Page ────────────────────────────────────────────────────────────────
 
 const HERO_CARDS_BASE = [
-  { id: "shop"      as Panel, label: "Shop",    sub: "LEGO parts stores",      color: AMBER, rgb: "255,184,48",  delay: "0s"    },
-  { id: "studio"    as Panel, label: "ELFIE",   sub: "LEGO seller platform",   color: TEAL,  rgb: "0,255,238",   delay: "0.07s" },
-  { id: "webstudio" as Panel, label: "Studio",  sub: "Web & tech services",    color: PURP,  rgb: "168,85,247",  delay: "0.10s" },
-  { id: "signin"    as Panel, label: "Sign In", sub: "ELFIE account access",   color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
+  { id: "shop"      as Panel, label: "Shop",      sub: "LEGO parts stores",       color: AMBER, rgb: "255,184,48",  delay: "0s"    },
+  { id: "workshops" as Panel, label: "Workshops", sub: "LEGO classes & events",   color: CORAL, rgb: "255,107,107", delay: "0.05s" },
+  { id: "studio"    as Panel, label: "ELFIE",     sub: "LEGO seller platform",    color: TEAL,  rgb: "0,255,238",   delay: "0.10s" },
+  { id: "webstudio" as Panel, label: "Studio",    sub: "Web & tech services",     color: PURP,  rgb: "168,85,247",  delay: "0.14s" },
+  { id: "signin"    as Panel, label: "Sign In",   sub: "ELFIE account access",    color: MGNT,  rgb: "255,0,204",   delay: "0.18s" },
 ];
 
 type PublicBrandInfo = {
@@ -908,7 +1016,7 @@ function Hero({ onSelect, brand }: { onSelect: (p: NonNullable<Panel>) => void; 
       </div>
 
       {/* Hero cards */}
-      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "clamp(6px,1.5vw,12px)" }}>
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "clamp(5px,1.2vw,10px)" }}>
         {HERO_CARDS_BASE.map(c => {
           const label = c.id === "shop" && brand?.shopName ? brand.shopName
                       : c.id === "studio" && brand?.studioName ? brand.studioName
