@@ -747,23 +747,49 @@ export async function printLotLabels(
     }
     ty += partPt * 0.36 + lineGap;
 
-    // ── Line 2: ×Qty · Color · Condition  +  · OrderRef · Lot N ──────────────
-    const prominentParts = [
-      `\u00d7${item.quantity}`,
-      item.colorName,
-      condStr || null,
-    ].filter(Boolean).join('  \u00b7  ');
+    // ── Line 2: ×Qty · Color · Condition ─────────────────────────────────────
+    // Color and Condition are non-negotiable on a fulfillment label — picker
+    // needs both to grab the right lot. So instead of ellipsising (which used
+    // to chop the condition off entirely on long color names), we:
+    //   1. Try the natural font size.
+    //   2. If it overflows, shrink font down to ~70% to fit on one line.
+    //   3. If it still overflows, wrap onto a second line with the same style.
+    const qtyPart   = `\u00d7${item.quantity}`;
+    const colorPart = item.colorName || '';
+    const condPart  = condStr || '';
+    const SEP = '  \u00b7  ';
+    const prominentParts = [qtyPart, colorPart, condPart].filter(Boolean).join(SEP);
 
     if (prominentParts) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(qtyPt);
       doc.setTextColor(25, 25, 25);
-      let q = prominentParts;
-      while (doc.getTextWidth(q) > TEXT_W && q.length > 4) q = q.slice(0, -1);
-      if (q.length < prominentParts.length) q = q.slice(0, -1) + '\u2026';
-      doc.text(q, TEXT_X, ty);
+      // Step 1: try natural; step 2: shrink to a floor (don't go smaller than refPt)
+      let pt = qtyPt;
+      const minPt = Math.max(refPt, qtyPt * 0.7);
+      doc.setFontSize(pt);
+      while (doc.getTextWidth(prominentParts) > TEXT_W && pt > minPt) {
+        pt = Math.max(minPt, pt - 0.5);
+        doc.setFontSize(pt);
+      }
+      if (doc.getTextWidth(prominentParts) <= TEXT_W) {
+        doc.text(prominentParts, TEXT_X, ty);
+        ty += pt * 0.36 + lineGap;
+      } else {
+        // Step 3: split — keep ×Qty + Color together on row 1, Condition on row 2.
+        // (If color alone still overflows, fall back to PDF word-wrap so we
+        //  show as much as possible without ever dropping the condition.)
+        const row1 = [qtyPart, colorPart].filter(Boolean).join(SEP);
+        const wrapped = doc.splitTextToSize(row1, TEXT_W) as string[];
+        wrapped.forEach((ln, i) => doc.text(ln, TEXT_X, ty + i * (pt * 0.36 + lineGap)));
+        ty += wrapped.length * (pt * 0.36 + lineGap);
+        if (condPart) {
+          doc.text(condPart, TEXT_X, ty);
+          ty += pt * 0.36 + lineGap;
+        }
+      }
+    } else {
+      ty += qtyPt * 0.36 + lineGap;
     }
-    ty += qtyPt * 0.36 + lineGap;
 
     // ── Line 3: OrderRef · Lot N — own line, dark gray ───────────────────────
     const refTail = [
