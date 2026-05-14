@@ -666,17 +666,21 @@ export async function printLotLabels(
       // Warehouse location under the image (skip on the tiny 17-mm tape — no room).
       const locStr = (item.binLocation ?? '').trim();
       if (locStr && !tiny) {
-        const locPt = preset.widthMm < 32 ? 6 : 7;
-        doc.setFontSize(locPt);
+        // Bin location is the picker's primary anchor — bumped up so it's
+        // legible at arm's length. Auto-shrinks if a long bin name overflows.
+        let locPt = preset.widthMm < 32 ? 9 : 11;
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(60, 60, 60);
-        let l = locStr;
-        while (doc.getTextWidth(l) > IMG_W + 1 && l.length > 3) l = l.slice(0, -1);
-        if (l.length < locStr.length) l = l.slice(0, -1) + '\u2026';
-        const lw = doc.getTextWidth(l);
+        doc.setTextColor(40, 40, 40);
+        const maxW = IMG_W + 2;
+        doc.setFontSize(locPt);
+        while (doc.getTextWidth(locStr) > maxW && locPt > 6) {
+          locPt -= 0.5;
+          doc.setFontSize(locPt);
+        }
+        const lw = doc.getTextWidth(locStr);
         const lx = imgX + (IMG_W - lw) / 2;
-        const ly = Math.min(imgY + IMG_H + locPt * 0.42 + 0.6, TM + LBL_CH - 0.5);
-        doc.text(l, lx, ly);
+        const ly = Math.min(imgY + IMG_H + locPt * 0.42 + 0.8, TM + LBL_CH - 0.3);
+        doc.text(locStr, lx, ly);
       }
     }
 
