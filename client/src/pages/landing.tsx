@@ -12,7 +12,7 @@ type Panel = null | "shop" | "studio" | "webstudio" | "workshops" | "signin";
 type StudioChId = "home" | "ops" | "tools" | "services" | "live";
 type ShopChId   = "owl"  | "link";
 type WebStudioChId = "intro" | "services" | "work" | "contact";
-type WorkshopsChId = "intro" | "schools" | "sessions" | "themes" | "book";
+type WorkshopsChId = "intro" | "schools" | "sessions" | "ideas" | "themes" | "book";
 type ChId = StudioChId | ShopChId | WebStudioChId | WorkshopsChId;
 
 type LivePlan = { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; status: string };
@@ -50,8 +50,9 @@ const WORKSHOPS_CHANNELS: { id: WorkshopsChId; num: string; label: string; slide
   { id: "intro",    num: "01", label: "INTRO",    slides: 1 },
   { id: "schools",  num: "02", label: "SCHOOLS",  slides: 1 },
   { id: "sessions", num: "03", label: "SESSIONS", slides: 1 },
-  { id: "themes",   num: "04", label: "THEMES",   slides: 1 },
-  { id: "book",     num: "05", label: "BOOK",     slides: 1 },
+  { id: "ideas",    num: "04", label: "IDEAS",    slides: 1 },
+  { id: "themes",   num: "05", label: "THEMES",   slides: 1 },
+  { id: "book",     num: "06", label: "BOOK",     slides: 1 },
 ];
 
 const WORKSHOPS_SCHOOLS = [
@@ -62,20 +63,70 @@ const WORKSHOPS_SCHOOLS = [
 ];
 
 const WORKSHOPS_SESSIONS = [
-  { grades: "Grades 2–3", season: "Fall Session",   dates: "Sept – Nov",  focus: "Hands-on exploration & discovery",       color: AMBER, rgb: "255,184,48"  },
-  { grades: "Grades 4–5", season: "Winter Session", dates: "Jan – Feb",   focus: "Systems thinking & structured engineering", color: TEAL,  rgb: "0,255,238"   },
-  { grades: "Grades 6–8", season: "Spring Session", dates: "Feb – Apr",   focus: "Design optimization & engineering analysis", color: PURP, rgb: "168,85,247"  },
+  { grades: "Grades 2–3", season: "Fall Session",   dates: "Sept – Nov",  focus: "Hands-on exploration & discovery",            color: AMBER, rgb: "255,184,48"  },
+  { grades: "Grades 4–5", season: "Winter Session", dates: "Jan – Feb",   focus: "Systems thinking & structured engineering",   color: TEAL,  rgb: "0,255,238"   },
+  { grades: "Grades 6–7", season: "Spring Session", dates: "Feb – Apr",   focus: "Design optimization & engineering analysis",  color: PURP,  rgb: "168,85,247"  },
+  { grades: "Grade 8",    season: "Thesis Track",   dates: "Year-long",   focus: "Self-directed group thesis project · own agenda", color: CORAL, rgb: "255,107,107" },
 ];
 
 // 6 themes × 3 grade-bands. Each row is one engineering concept; each column is
 // the age-appropriate build that explores it. Pulled directly from the program flyer.
 const WORKSHOPS_THEMES = [
-  { n: "1", theme: "Structure & Stability",     g23: "Tall Towers",       g45: "Bridge Building",    g68: "Structural Analysis" },
-  { n: "2", theme: "Force & Motion",            g23: "Ramp Racers",       g45: "Motion Machines",    g68: "Speed & Forces" },
-  { n: "3", theme: "Systems & Connections",     g23: "Mini Cities",       g45: "Transport Networks", g68: "Infrastructure" },
-  { n: "4", theme: "Design & Iteration",        g23: "Fix It!",           g45: "Redesign Challenge", g68: "Engineering Cycle" },
-  { n: "5", theme: "Space & Planning",          g23: "My Town",           g45: "City Planning",      g68: "Urban Design" },
-  { n: "6", theme: "Resources & Constraints",   g23: "Less is More",      g45: "Constraint Design",  g68: "Resource Challenge" },
+  { n: "1", theme: "Structure & Stability",     g23: "Tall Towers",       g45: "Bridge Building",    g67: "Structural Analysis" },
+  { n: "2", theme: "Force & Motion",            g23: "Ramp Racers",       g45: "Motion Machines",    g67: "Speed & Forces" },
+  { n: "3", theme: "Systems & Connections",     g23: "Mini Cities",       g45: "Transport Networks", g67: "Infrastructure" },
+  { n: "4", theme: "Design & Iteration",        g23: "Fix It!",           g45: "Redesign Challenge", g67: "Engineering Cycle" },
+  { n: "5", theme: "Space & Planning",          g23: "My Town",           g45: "City Planning",      g67: "Urban Design" },
+  { n: "6", theme: "Resources & Constraints",   g23: "Less is More",      g45: "Constraint Design",  g67: "Resource Challenge" },
+];
+
+// Full superset of candidate workshop ideas, by concept (week) and grade band.
+// Used for season-planning to pick which themes to run this year. Combines the
+// existing flyer themes with newer challenge ideas. Grade 8 has its own thesis
+// track (see SESSIONS), so this matrix only covers 2–3, 4–5, and 6–7.
+const WORKSHOPS_IDEAS: { n: string; concept: string; themes: { name: string; g23: string; g45: string; g67: string }[] }[] = [
+  { n: "1", concept: "Structure & Stability", themes: [
+    { name: "Tower Building",        g23: "Free-build tallest tower",     g45: "Stand 30s + hold weight",    g67: "Tallest + max load, document failures" },
+    { name: "Bridge Building",       g23: "Span a gap any pieces",        g45: "Span set distance, hold weight", g67: "Optimize span + load capacity" },
+    { name: "Buoyancy",              g23: "Float discovery",              g45: "Float + carry small cargo",  g67: "Predict & maximize cargo limit" },
+    { name: "Earthquake Challenge",  g23: "Tower on shake table",         g45: "Survive bigger shakes",      g67: "Compare reinforcement strategies" },
+    { name: "Shelter Challenge",     g23: "Wind & rain shelter",          g45: "Multi-weather build",        g67: "Insulation & energy efficiency" },
+  ]},
+  { n: "2", concept: "Force & Motion", themes: [
+    { name: "Race Cars",             g23: "Downhill race",                g45: "Functional axle, test wheels", g67: "Gear ratios & aerodynamics" },
+    { name: "Marble Run",            g23: "Simple ramp",                  g45: "Multi-level + 2 turns",      g67: "Longest / most controlled run" },
+    { name: "Aircraft",              g23: "Glider distance test",         g45: "Hit a minimum distance",     g67: "Optimize distance + hang time" },
+    { name: "Catapult / Launcher",   g23: "Simple lever launcher",        g45: "Hit accuracy targets",       g67: "Adjustable tension & angle" },
+    { name: "Amusement Park Rides",  g23: "Ferris wheel or spinner",      g45: "Multiple moving parts",      g67: "Geared ride + safety design" },
+  ]},
+  { n: "3", concept: "Systems & Connections", themes: [
+    { name: "City of the Future",    g23: "Houses, roads, landmark",      g45: "Transport + 3 zones",        g67: "Full plan + sustainability feature" },
+    { name: "Collaboration Build",   g23: "Buildings combine to a street", g45: "Districts share roads & utilities", g67: "Negotiate shared resources at scale" },
+    { name: "Playground Design",     g23: "Dream playground free build",  g45: "3 connected features w/ motion", g67: "Designed for a specific audience" },
+    { name: "Disaster Response City", g23: "Build a fire truck or rescue",  g45: "Emergency routes & shelters", g67: "Redesign utilities & comms systems" },
+    { name: "Theme Park Design",     g23: "Favorite ride + entrance",     g45: "Park with pathways & food",  g67: "Crowd flow + service systems" },
+  ]},
+  { n: "4", concept: "Design & Iteration", themes: [
+    { name: "Rube Goldberg Machine", g23: "Two-step reaction",            g45: "Four-step planned sequence", g67: "6+ steps, multiple force types" },
+    { name: "Repair or Replace",     g23: "Repair simple structure",      g45: "Repair + improve function",  g67: "Diagnose, rebuild, justify" },
+    { name: "Tool Design",           g23: "Build something useful",       g45: "Use every piece, solve a problem", g67: "Pitch problem, function, demo" },
+    { name: "Invention Convention",  g23: "A machine that helps people",  g45: "Define a real problem first", g67: "Pitch: problem, user, prototype" },
+    { name: "Escape Room Mechanisms", g23: "Hidden door or trap",          g45: "Working trap mechanism",     g67: "Multi-stage puzzle systems" },
+  ]},
+  { n: "5", concept: "Space & Planning", themes: [
+    { name: "Board Game Design",     g23: "Simple path-based game",       g45: "Obstacles, scoring, pieces", g67: "Strategy game w/ rules & roles" },
+    { name: "Maze or Labyrinth",     g23: "Start-to-finish maze",         g45: "Timed difficulty maze",      g67: "Multi-level w/ traps & dead ends" },
+    { name: "Micro-Scale City",      g23: "Mini home or school",          g45: "Mini town: roads + 5 builds", g67: "Districts, infra, green space" },
+    { name: "Habitat Challenge",     g23: "Animal habitat",               g45: "Mars / Arctic / underwater base", g67: "Life-support, food, waste systems" },
+    { name: "Historical Reconstruction", g23: "Castle or village hut",        g45: "Ancient settlement",         g67: "Period architecture w/ research" },
+  ]},
+  { n: "6", concept: "Resources & Constraints", themes: [
+    { name: "Random Brick Challenge", g23: "Open creativity build",         g45: "Functional build, all pieces", g67: "Defined engineering problem + writeup" },
+    { name: "30 Pieces Challenge",   g23: "Most creative design",         g45: "Functional + structurally sound", g67: "Specific prompt: bridge, shelter, vehicle" },
+    { name: "2x2 Bricks Only",       g23: "Explore shapes & stacking",    g45: "Recognizable structures",    g67: "Strongest arch / tallest / widest span" },
+    { name: "Survival Challenge",    g23: "Shelter + simple tool",        g45: "Shelter + water + tools",    g67: "Full survival kit w/ constraints" },
+    { name: "Blind Build Comms",     g23: "Match a small model",          g45: "Verbal-only partner build",  g67: "Lead a team build sight-unseen" },
+  ]},
 ];
 
 const TOOLS_SLIDES = [
@@ -525,7 +576,7 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
     const pillars = [
       { Icon: Wrench,        title: "We Come to You",   desc: "Bricks, curriculum, and facilitation — all included. Teachers don't prep a thing." },
       { Icon: CalendarDays,  title: "One Day a Week",   desc: "Your school's dedicated day, every week, for 6 weeks per session." },
-      { Icon: GraduationCap, title: "Every Grade Builds", desc: "Grades 2–8 each get their own age-appropriate engineering experience." },
+      { Icon: GraduationCap, title: "Every Grade Builds", desc: "Grades 2–7 each get their own age-appropriate engineering experience. Grade 8 runs a year-long thesis project." },
     ];
     return (
       <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,24px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
@@ -533,7 +584,7 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
           <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 01 — INTRO</div>
           <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: CORAL, margin: 0, textShadow: `0 0 24px ${CORAL}55`, letterSpacing: "-0.01em" }}>School Workshops</h2>
           <div style={{ fontSize: "clamp(11px,1.15vw,14px)", color: "rgba(225,235,255,0.85)", marginTop: "6px", lineHeight: 1.5, fontWeight: 500 }}>
-            Hands-on STEM enrichment for Grades 2–8 · One day a week · All materials provided
+            Hands-on STEM enrichment for Grades 2–7 + Grade 8 thesis · One day a week · All materials provided
           </div>
         </div>
         {/* Stat row */}
@@ -598,10 +649,10 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
       <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,2.2vw,24px)", color: "#E8F4FF", gap: "clamp(10px,1.4vw,14px)", animation: "pb-slidein 0.25s ease-out" }}>
         <div>
           <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 03 — SESSIONS</div>
-          <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: CORAL, margin: 0 }}>Three sessions a year</h2>
-          <div style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(200,220,255,0.65)", marginTop: "4px" }}>Each grade band gets its own 6-week run, sized to its developmental stage</div>
+          <h2 style={{ fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, color: CORAL, margin: 0 }}>Three sessions + a thesis track</h2>
+          <div style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(200,220,255,0.65)", marginTop: "4px" }}>Each grade band gets its own 6-week run sized to its developmental stage. Grade 8 follows a separate, year-long thesis agenda.</div>
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(7px,1vw,12px)", minHeight: 0 }}>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "clamp(6px,0.9vw,10px)", minHeight: 0 }}>
           {WORKSHOPS_SESSIONS.map(s => (
             <div key={s.grades} style={{ background: `rgba(${s.rgb},0.06)`, border: `1px solid rgba(${s.rgb},0.4)`, borderRadius: "10px", padding: "clamp(10px,1.3vw,14px)", display: "flex", flexDirection: "column", gap: "8px" }}>
               <div style={{ fontSize: "clamp(13px,1.5vw,18px)", fontWeight: 900, color: s.color, lineHeight: 1.1 }}>{s.grades}</div>
@@ -618,18 +669,84 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
     );
   }
 
-  // ── CH 04 · THEMES ────────────────────────────────────────────────────────
+  // ── CH 04 · IDEAS ─────────────────────────────────────────────────────────
+  // Full superset of candidate workshop themes for season planning. Each
+  // concept (week) lists every theme we could run, with a quick blurb per
+  // grade band so it's easy to compare and pick what makes the cut.
+  if (channel === "ideas") {
+    const cols = [
+      { key: "g23" as const, label: "G2–3", color: AMBER, rgb: "255,184,48" },
+      { key: "g45" as const, label: "G4–5", color: TEAL,  rgb: "0,255,238" },
+      { key: "g67" as const, label: "G6–7", color: PURP,  rgb: "168,85,247" },
+    ];
+    const totalThemes = WORKSHOPS_IDEAS.reduce((sum, c) => sum + c.themes.length, 0);
+    return (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(10px,1.8vw,20px)", color: "#E8F4FF", gap: "clamp(8px,1.1vw,12px)", animation: "pb-slidein 0.25s ease-out", minHeight: 0 }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 04 — IDEAS</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>Workshop idea pool · pick this year's program</h2>
+          <div style={{ fontSize: "clamp(10px,0.95vw,12px)", color: "rgba(200,220,255,0.65)", marginTop: "4px" }}>
+            {totalThemes} candidate themes across 6 concepts · 3 grade bands (Grade 8 runs its own thesis track)
+          </div>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: "clamp(10px,1.4vw,14px)", paddingRight: "4px" }}>
+          {WORKSHOPS_IDEAS.map(group => (
+            <div key={group.n} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "clamp(7px,1vw,10px) clamp(8px,1.1vw,12px)", background: `${CORAL}10`, borderBottom: `1px solid ${CORAL}30` }}>
+                <span style={{ width: "clamp(18px,2vw,24px)", height: "clamp(18px,2vw,24px)", borderRadius: "100px", background: `${CORAL}30`, color: CORAL, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "clamp(10px,1vw,12px)", fontFamily: "monospace", flexShrink: 0 }}>{group.n}</span>
+                <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: `${CORAL}AA`, letterSpacing: "0.18em", fontWeight: 700 }}>WEEK {group.n}</div>
+                <div style={{ fontSize: "clamp(12px,1.3vw,16px)", fontWeight: 800, color: "#FFF", lineHeight: 1.1 }}>{group.concept}</div>
+                <div style={{ marginLeft: "auto", fontSize: "clamp(8px,0.8vw,10px)", fontFamily: "monospace", color: "rgba(220,232,255,0.5)", letterSpacing: "0.1em" }}>{group.themes.length} IDEAS</div>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: "clamp(9px,0.9vw,11px)", tableLayout: "fixed" }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: "22%", textAlign: "left", padding: "clamp(5px,0.8vw,8px) clamp(8px,1.1vw,12px)", fontFamily: "monospace", fontSize: "clamp(7px,0.7vw,9px)", letterSpacing: "0.14em", color: "rgba(220,232,255,0.55)", fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>THEME</th>
+                    {cols.map(c => (
+                      <th key={c.key} style={{ textAlign: "left", padding: "clamp(5px,0.8vw,8px) clamp(6px,0.9vw,10px)", fontFamily: "monospace", fontSize: "clamp(7px,0.7vw,9px)", letterSpacing: "0.14em", color: c.color, fontWeight: 800, borderBottom: `1px solid rgba(${c.rgb},0.3)` }}>{c.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.themes.map((row, i) => (
+                    <tr key={row.name} style={{ background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent" }}>
+                      <td style={{ padding: "clamp(6px,0.9vw,10px) clamp(8px,1.1vw,12px)", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "top", fontWeight: 700, color: "#FFF", lineHeight: 1.25 }}>{row.name}</td>
+                      {cols.map(c => (
+                        <td key={c.key} style={{ padding: "clamp(6px,0.9vw,10px) clamp(6px,0.9vw,10px)", borderBottom: "1px solid rgba(255,255,255,0.04)", verticalAlign: "top", color: `rgba(${c.rgb},0.92)`, fontWeight: 500, lineHeight: 1.4 }}>{row[c.key]}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          <div style={{ border: `1px dashed ${CORAL}55`, borderRadius: "10px", padding: "clamp(8px,1.2vw,12px) clamp(10px,1.4vw,14px)", background: `${CORAL}08`, display: "flex", alignItems: "flex-start", gap: "8px" }}>
+            <GraduationCap size={14} color={CORAL} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <div>
+              <div style={{ fontSize: "clamp(11px,1.1vw,13px)", fontWeight: 800, color: "#FFF", marginBottom: "2px" }}>Grade 8 · Thesis Track</div>
+              <div style={{ fontSize: "clamp(10px,0.95vw,12px)", color: "rgba(220,232,255,0.7)", lineHeight: 1.45 }}>
+                Grade 8 isn't picked from this matrix. They choose their own self-directed group thesis project and run on a separate year-long agenda.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CH 05 · THEMES ────────────────────────────────────────────────────────
   if (channel === "themes") {
     const cols = [
       { key: "g23" as const, label: "Grades 2–3", color: AMBER, rgb: "255,184,48" },
       { key: "g45" as const, label: "Grades 4–5", color: TEAL,  rgb: "0,255,238" },
-      { key: "g68" as const, label: "Grades 6–8", color: PURP,  rgb: "168,85,247" },
+      { key: "g67" as const, label: "Grades 6–7", color: PURP,  rgb: "168,85,247" },
     ];
     return (
       <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(10px,1.8vw,20px)", color: "#E8F4FF", gap: "clamp(8px,1.1vw,12px)", animation: "pb-slidein 0.25s ease-out" }}>
         <div>
-          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 04 — THEMES</div>
-          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>Six engineering themes · age-appropriate builds</h2>
+          <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 05 — THEMES</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,24px)", fontWeight: 900, color: CORAL, margin: 0 }}>This year's program · the chosen six</h2>
+          <div style={{ fontSize: "clamp(10px,0.95vw,12px)", color: "rgba(200,220,255,0.6)", marginTop: "3px" }}>One concept per week · age-appropriate build per grade band · see <span style={{ color: CORAL, fontFamily: "monospace" }}>CH 04 IDEAS</span> for the full candidate pool</div>
         </div>
         {/* Matrix */}
         <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px" }}>
@@ -668,7 +785,7 @@ function WorkshopsScreen({ channel }: { channel: WorkshopsChId }) {
   // ── CH 05 · BOOK ──────────────────────────────────────────────────────────
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2.5vw,26px)", color: "#E8F4FF", gap: "clamp(10px,1.5vw,16px)", animation: "pb-slidein 0.25s ease-out", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em" }}>CH 05 — BOOK</div>
+      <div style={{ fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace", color: CORAL, letterSpacing: "0.3em" }}>CH 06 — BOOK</div>
       <h2 style={{ fontSize: "clamp(20px,2.4vw,30px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Bring PlanetBrick to your school</h2>
       <p style={{ fontSize: "clamp(11px,1.1vw,14px)", color: "rgba(200,220,255,0.7)", margin: 0, maxWidth: "500px", lineHeight: 1.6 }}>
         Tell us your district, the grades you'd like to enroll, and which day of the week works. We'll send back session options, pricing, and a hold on the calendar.
