@@ -1117,12 +1117,21 @@ function Hero({ onSelect, brand }: { onSelect: (p: NonNullable<Panel>) => void; 
         </div>
 
         <div>
-          <div style={{ fontSize: "clamp(7px,1.8vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.4em", marginBottom: "clamp(6px,1.5vw,10px)", textTransform: "uppercase" }}>
-            ▸ Broadcasting from Orbit
+          {/* Mid-century atomic-age caption — small caps, hairline rules instead
+              of a monospace "transmission" stamp. */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "clamp(8px,2vw,14px)",
+            fontSize: "clamp(9px,1.9vw,12px)", color: `${TEAL}CC`,
+            letterSpacing: "0.22em", marginBottom: "clamp(8px,1.8vw,12px)",
+            textTransform: "uppercase", fontWeight: 600,
+          }}>
+            <span aria-hidden style={{ width: "clamp(20px,4vw,36px)", height: "1px", background: `${TEAL}66` }} />
+            PlanetBrick
+            <span aria-hidden style={{ width: "clamp(20px,4vw,36px)", height: "1px", background: `${TEAL}66` }} />
           </div>
-          <h1 style={{ fontSize: "clamp(22px,5.5vw,48px)", fontWeight: 900, lineHeight: 1.05, color: "#FFF", margin: 0, letterSpacing: "-0.01em" }}>
+          <h1 style={{ fontSize: "clamp(24px,5.8vw,52px)", fontWeight: 700, lineHeight: 1.05, color: "#FFF", margin: 0, letterSpacing: "-0.005em" }}>
             The LEGO universe,<br />
-            <span style={{ color: TEAL, textShadow: `0 0 32px ${TEAL}55` }}>engineered.</span>
+            <span style={{ color: TEAL, fontStyle: "italic" }}>engineered.</span>
           </h1>
           {(tagline || "Authentic bricks. AI-powered tools.\nOne brand, two worlds.").split("\n").map((line, i) => (
             <p key={i} style={{ fontSize: "clamp(11px,2.6vw,15px)", color: "rgba(200,220,255,0.6)", margin: i === 0 ? "clamp(6px,1.5vw,10px) auto 0" : "0 auto", maxWidth: "400px", lineHeight: 1.55 }}>
@@ -1159,12 +1168,14 @@ function Hero({ onSelect, brand }: { onSelect: (p: NonNullable<Panel>) => void; 
               WebkitTapHighlightColor: "transparent",
             }}
           >
-            <div style={{ width: "clamp(36px,9vw,50px)", height: "clamp(36px,9vw,50px)", borderRadius: "50%", background: `rgba(${c.rgb},0.12)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 16px rgba(${c.rgb},0.3)` }}>
-              <div style={{ width: "clamp(16px,4vw,22px)", height: "clamp(16px,4vw,22px)", borderRadius: "50%", background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
+            {/* Mid-century concentric dot — flat fill, thin outer ring,
+                no neon glow. Reads like a 1960s record label. */}
+            <div style={{ width: "clamp(36px,9vw,50px)", height: "clamp(36px,9vw,50px)", borderRadius: "50%", background: `rgba(${c.rgb},0.10)`, border: `1px solid rgba(${c.rgb},0.45)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: "clamp(16px,4vw,22px)", height: "clamp(16px,4vw,22px)", borderRadius: "50%", background: c.color }} />
             </div>
             <div>
-              <div style={{ fontSize: "clamp(11px,2.8vw,15px)", fontWeight: 800, color: "#FFF", lineHeight: 1.2 }}>{label}</div>
-              <div style={{ fontSize: "clamp(8px,1.8vw,10px)", color: `rgba(${c.rgb},0.7)`, fontFamily: "monospace", marginTop: "2px", lineHeight: 1.3 }}>{sub}</div>
+              <div style={{ fontSize: "clamp(12px,3vw,16px)", fontWeight: 700, color: "#FFF", lineHeight: 1.2, letterSpacing: "0.005em" }}>{label}</div>
+              <div style={{ fontSize: "clamp(9px,2vw,11px)", color: `rgba(${c.rgb},0.78)`, marginTop: "3px", lineHeight: 1.3, fontWeight: 500, letterSpacing: "0.01em" }}>{sub}</div>
             </div>
           </button>
           );
@@ -1187,7 +1198,7 @@ export default function LandingPage() {
   });
 
   return (
-    <div style={{ height: "100dvh", width: "100%", overflow: "hidden", background: "#05030F", backgroundImage: `radial-gradient(ellipse 900px 600px at 50% 50%, rgba(10,5,50,0.8) 0%, transparent 70%), radial-gradient(ellipse 500px 700px at 15% 60%, rgba(80,0,160,0.15) 0%, transparent 55%), radial-gradient(ellipse 400px 600px at 85% 40%, rgba(0,180,200,0.1) 0%, transparent 55%)`, position: "relative", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" }}>
+    <div style={{ height: "100dvh", width: "100%", overflow: "hidden", background: "#05030F", backgroundImage: `radial-gradient(ellipse 900px 600px at 50% 50%, rgba(10,5,50,0.8) 0%, transparent 70%), radial-gradient(ellipse 500px 700px at 15% 60%, rgba(80,0,160,0.15) 0%, transparent 55%), radial-gradient(ellipse 400px 600px at 85% 40%, rgba(0,180,200,0.1) 0%, transparent 55%)`, position: "relative", fontFamily: "'Futura', 'Futura PT', 'Avenir Next', 'Avenir', 'Trebuchet MS', -apple-system, BlinkMacSystemFont, sans-serif" }}>
       <style>{GLOBAL_CSS}</style>
 
       {/* Stars */}
