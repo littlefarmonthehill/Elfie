@@ -1,0 +1,520 @@
+LEGO Engineering & Design Program
+
+6-Week Progressive Challenge Series
+
+Ages 7–14 | Grades 2–8
+
+This program is designed to grow with students — starting with exploration and creativity in younger grades, then advancing into engineering, systems thinking, collaboration, and design iteration for older students.
+
+⸻
+
+Week 1 — Structure & Stability
+
+Core Concepts
+
+* Balance
+* Weight distribution
+* Structural integrity
+* Buoyancy
+
+⸻
+
+Tower Building
+
+Challenge: Build the tallest freestanding tower possible.
+
+Grades 2–3
+
+* Free build exploration
+* Discover how height affects stability
+* Focus on creativity and experimentation
+
+Grades 4–5
+
+* Tower must:
+    * Stand for 30 seconds
+    * Hold a small weight on top
+
+Grades 6–8
+
+* Build:
+    * Tallest tower
+    * Supporting the most weight
+* Students document:
+    * Why the design worked
+    * Failure points and improvements
+
+⸻
+
+Bridge Building
+
+Challenge: Build the longest bridge that supports a heavy book.
+
+Grades 2–3
+
+* Span a gap between two tables
+* Use any pieces desired
+
+Grades 4–5
+
+* Bridge must:
+    * Span a set distance
+    * Hold a specific weight
+
+Grades 6–8
+
+* Optimize for:
+    * Longest span
+    * Maximum load capacity
+* Analyze where structural failure occurs
+
+⸻
+
+Buoyancy
+
+Challenge: Build the largest LEGO creation that floats for 15 seconds.
+
+Grades 2–3
+
+* Free floating experiment
+* Discovery-focused testing
+
+Grades 4–5
+
+* Must:
+    * Float successfully
+    * Carry small cargo
+
+Grades 6–8
+
+* Maximize cargo capacity
+* Predict weight limits before testing
+
+⸻
+
+Week 2 — Force & Motion
+
+Core Concepts
+
+* Speed
+* Friction
+* Gravity
+* Aerodynamics
+* Motion systems
+
+⸻
+
+Race Cars
+
+Challenge: Build and race a LEGO car.
+
+Grades 2–3
+
+* Simple downhill race
+* Fastest car wins
+
+Grades 4–5
+
+* Must include:
+    * Functional axle system
+* Students test:
+    * Wheel size
+    * Weight placement
+
+Grades 6–8
+
+* Optimize using:
+    * Gear ratios
+    * Weight distribution
+    * Aerodynamics
+* Iterative redesign between races
+
+⸻
+
+Marble Run
+
+Challenge: Guide a marble from top to bottom.
+
+Grades 2–3
+
+* Simple ramp system
+
+Grades 4–5
+
+* Include:
+    * Multiple levels
+    * Two direction changes
+
+Grades 6–8
+
+* Longest or most controlled run
+* Students redesign for:
+    * Speed
+    * Slow-motion effects
+    * Reliability
+
+⸻
+
+Aircraft
+
+Challenge: Build something that moves through the air.
+
+Grades 2–3
+
+* Gliders or flying creatures
+* Test travel distance
+
+Grades 4–5
+
+* Must travel a minimum distance
+* Students adjust:
+    * Shape
+    * Weight
+
+Grades 6–8
+
+* Optimize for:
+    * Distance
+    * Hang time
+* Apply basic aerodynamics concepts
+
+⸻
+
+Week 3 — Systems & Connections
+
+Core Concepts
+
+* Urban planning
+* Collaboration
+* Infrastructure
+* Accessibility
+* Systems thinking
+
+⸻
+
+City of the Future
+
+Challenge: Design an ideal connected city.
+
+Grades 2–3
+
+* Build:
+    * Houses
+    * Roads
+    * One landmark
+
+Grades 4–5
+
+* Include:
+    * Transportation system
+    * Three connected zones
+
+Grades 6–8
+
+* Full city plan with:
+    * Infrastructure
+    * Sustainability feature
+    * Organized zoning
+* Students present design reasoning
+
+⸻
+
+Collaboration Challenge
+
+Challenge: Separate builds must connect into one system.
+
+Grades 2–3
+
+* Individual buildings combine into a street
+
+Grades 4–5
+
+* Team-built districts connect utilities and roads
+
+Grades 6–8
+
+* Large-scale city collaboration
+* Teams negotiate:
+    * Shared resources
+    * Connections
+    * Consistent design language
+
+⸻
+
+Playground Design
+
+Challenge: Build a functional playground.
+
+Grades 2–3
+
+* Dream playground free build
+
+Grades 4–5
+
+* Must include:
+    * Three connected features
+    * Moving/interacting components
+
+Grades 6–8
+
+* Design for a specific audience:
+    * Toddlers
+    * Accessibility needs
+    * Older children
+* Justify all design choices
+
+⸻
+
+Week 4 — Design & Iteration
+
+Core Concepts
+
+* Problem solving
+* Engineering redesign
+* Iteration
+* Chain reactions
+
+⸻
+
+Rube Goldberg Machine
+
+Challenge: Create a chain reaction machine.
+
+Grades 2–3
+
+* Two-step reaction
+
+Grades 4–5
+
+* Four-step sequence
+* Plan sequence before building
+
+Grades 6–8
+
+* Six+ steps using multiple force types
+* Students troubleshoot failures
+
+⸻
+
+Repair or Replace
+
+Challenge: Fix or redesign a broken build.
+
+Grades 2–3
+
+* Repair simple structure
+
+Grades 4–5
+
+* Repair and improve functionality
+
+Grades 6–8
+
+* Full redesign:
+    * Diagnose failures
+    * Rebuild from scratch
+    * Justify improvements
+
+⸻
+
+Tool Design
+
+Challenge: Build something useful.
+
+Grades 2–3
+
+* Create any useful object
+
+Grades 4–5
+
+* Must:
+    * Use every piece
+    * Solve a defined problem
+
+Grades 6–8
+
+* Present and pitch:
+    * Problem solved
+    * Functionality
+    * Demonstration
+
+⸻
+
+Week 5 — Space & Planning
+
+Core Concepts
+
+* Spatial reasoning
+* Strategy
+* Scale
+* Planning systems
+
+⸻
+
+Board Game Design
+
+Challenge: Build a playable LEGO board game.
+
+Grades 2–3
+
+* Simple path-based game
+
+Grades 4–5
+
+* Include:
+    * Obstacles
+    * Scoring system
+    * Custom pieces
+
+Grades 6–8
+
+* Full strategy game with:
+    * Unique rules
+    * Roles
+    * Competitive testing
+
+⸻
+
+Maze or Labyrinth
+
+Challenge: Build a navigable maze.
+
+Grades 2–3
+
+* Basic start-to-finish maze
+
+Grades 4–5
+
+* Timed challenge maze
+* Build for difficulty
+
+Grades 6–8
+
+* Multi-level maze with:
+    * Dead ends
+    * Traps
+    * Pre-planned layouts
+
+⸻
+
+Micro-Scale City
+
+Challenge: Build a tiny-scale world.
+
+Grades 2–3
+
+* Mini home or school
+
+Grades 4–5
+
+* Mini town with:
+    * Roads
+    * Five buildings
+
+Grades 6–8
+
+* Planned micro-city including:
+    * Districts
+    * Infrastructure
+    * Green spaces
+
+⸻
+
+Week 6 — Resources & Constraints
+
+Core Concepts
+
+* Resourcefulness
+* Efficiency
+* Creative limitations
+* Optimization
+
+⸻
+
+Random Brick Challenge
+
+Challenge: Solve a problem using random bricks.
+
+Grades 2–3
+
+* Open creativity challenge
+
+Grades 4–5
+
+* Functional build using all pieces
+
+Grades 6–8
+
+* Solve a defined engineering problem
+* Present solution before and after building
+
+⸻
+
+30 Pieces Challenge
+
+Challenge: Build using exactly 30 pieces.
+
+Grades 2–3
+
+* Most creative design possible
+
+Grades 4–5
+
+* Must:
+    * Be functional
+    * Be structurally sound
+
+Grades 6–8
+
+* Specific engineering prompt:
+    * Bridge
+    * Shelter
+    * Vehicle
+* Most effective solution wins
+
+⸻
+
+2x2 Bricks Only
+
+Challenge: Build using only 2x2 bricks.
+
+Grades 2–3
+
+* Explore shapes and stacking
+
+Grades 4–5
+
+* Build recognizable structures
+* Stability and height judged
+
+Grades 6–8
+
+* Engineering optimization challenge:
+    * Strongest arch
+    * Tallest tower
+    * Widest bridge
+* Students compare and explain outcomes
+
+⸻
+
+Program Outcomes
+
+By the end of the 6 weeks, students will have practiced:
+
+* Engineering thinking
+* Iterative design
+* Collaboration
+* Communication
+* Spatial reasoning
+* Problem-solving
+* Creativity under constraints
+* Real-world STEM applications
+
+The progression intentionally moves from:
+
+1. Building structures
+2. Understanding motion
+3. Creating systems
+4. Improving designs
+5. Planning environments
+6. Working within constraints
