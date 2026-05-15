@@ -627,6 +627,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     marketNewsFreshDays: number | null;
     businessIntelFreshDays: number | null;
     trackingErrors: number;
+    openaiHealth?: {
+      ok: boolean;
+      kind: 'quota' | 'auth' | 'rate_limit' | 'other' | null;
+      lastErrorAt: number | null;
+    };
   }>({
     queryKey: ['/api/bridge/signals'],
     refetchInterval: 60000,
@@ -950,6 +955,17 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (ieData !== undefined && ieData !== null && !strategyConfigured) {
     urgentAlerts.push({ id: 'no-strategy', icon: AlertTriangle, iconColor: 'text-yellow-400', label: 'Seller strategy not configured', severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ieStrategies') });
   }
+  const openaiHealth = bridgeSignals?.openaiHealth;
+  if (openaiHealth && !openaiHealth.ok) {
+    const label = openaiHealth.kind === 'quota'
+      ? 'AI features paused — OpenAI quota exceeded'
+      : openaiHealth.kind === 'auth'
+        ? 'AI features paused — OpenAI key invalid'
+        : openaiHealth.kind === 'rate_limit'
+          ? 'AI features throttled — OpenAI rate limit'
+          : 'AI features unavailable — OpenAI error';
+    urgentAlerts.push({ id: 'openai-quota', icon: AlertTriangle, iconColor: 'text-orange-400', label, severity: 'warn', kind: 'warn', onClick: () => onOpenSettings?.('ai') });
+  }
 
   const invEmbedPct = embedStats && embedStats.inventory.total > 0
     ? Math.round((embedStats.inventory.embedded / embedStats.inventory.total) * 100) : 0;
@@ -1060,7 +1076,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={TrendingUp}
           color="green"
           stat={formatCurrency(totalRevenue)}
-          alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down', 'market-stale', 'bi-stale', 'no-strategy'].includes(a.id))}
+          alerts={urgentAlerts.filter(a => ['pom-fail', 'overpriced', 'revenue-up', 'revenue-down', 'market-stale', 'bi-stale', 'no-strategy', 'openai-quota'].includes(a.id))}
           onClick={() => onNavigate?.('insights')}
           isActive={activeSection === 'insights'}
           channelNum="04"

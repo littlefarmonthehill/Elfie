@@ -4,6 +4,7 @@ import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmb
 import { eq, sql, inArray, and } from 'drizzle-orm';
 import { getPlatformOpenAIKey } from '../routes';
 import { trackUsage } from './ai-usage-tracker';
+import { recordOpenAIError, recordOpenAISuccess } from './openai-health';
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
@@ -27,12 +28,19 @@ async function getOpenAIClient(): Promise<OpenAI> {
 export async function generateEmbedding(text: string, orgId?: string | null, operation?: string): Promise<number[]> {
   const openai = await getOpenAIClient();
   const model = 'text-embedding-3-small';
-  
-  const response = await openai.embeddings.create({
-    model,
-    input: text,
-  });
-  
+
+  let response;
+  try {
+    response = await openai.embeddings.create({
+      model,
+      input: text,
+    });
+    recordOpenAISuccess();
+  } catch (err) {
+    recordOpenAIError(err);
+    throw err;
+  }
+
   if (response.usage) {
     trackUsage({
       service: 'openai',

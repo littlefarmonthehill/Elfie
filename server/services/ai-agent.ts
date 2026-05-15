@@ -6,6 +6,7 @@
 import OpenAI from 'openai';
 import { AI_TOOLS, executeToolCall } from './ai-tools';
 import { getPlatformOpenAIKey } from '../routes';
+import { recordOpenAIError, recordOpenAISuccess } from './openai-health';
 
 interface AgentLoopOptions {
   apiKey?: string;
@@ -82,6 +83,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         parallel_tool_calls: true,
       });
       console.log(`⏱️ OpenAI API call took ${Date.now() - iterStart}ms (iteration ${iterations})`);
+      recordOpenAISuccess();
       if (response.usage) {
         const { trackUsage } = await import('./ai-usage-tracker');
         trackUsage({
@@ -95,6 +97,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         });
       }
     } catch (error: any) {
+      recordOpenAIError(error);
       if (error.message?.includes('timeout')) {
         throw new Error('OpenAI API request timed out');
       }

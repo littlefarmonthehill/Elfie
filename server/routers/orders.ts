@@ -433,6 +433,7 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const msDays = (ms: number | null) => ms !== null ? Math.floor((nowMs - ms) / (1000 * 60 * 60 * 24)) : null;
   const marketNewsTime = marketNewsResult.rows[0]?.last_sync_time ? new Date(marketNewsResult.rows[0].last_sync_time as string).getTime() : null;
   const businessIntelTime = businessIntelResult.rows[0]?.last_sync_time ? new Date(businessIntelResult.rows[0].last_sync_time as string).getTime() : null;
+  const { getOpenAIHealthPublic } = await import('../services/openai-health');
   res.json({
     agingOrders: Number((agingResult.rows[0] as any)?.count ?? 0),
     repeatBuyers: Number((repeatResult.rows[0] as any)?.count ?? 0),
@@ -441,6 +442,7 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
     marketNewsFreshDays: msDays(marketNewsTime),
     businessIntelFreshDays: msDays(businessIntelTime),
     trackingErrors: Number((trackingErrorResult.rows[0] as any)?.count ?? 0),
+    openaiHealth: getOpenAIHealthPublic(),
   });
 }));
 
