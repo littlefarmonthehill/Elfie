@@ -48,27 +48,47 @@ type BinPicklist = {
   pulled: boolean;
 };
 
-// ── Per-aisle hue ───────────────────────────────────────────────────────────
-// Deterministic hash → hue. Used ONLY for the slim color rail on the left
-// edge of each bin row — gives the picker an instant peripheral-vision cue
-// when the aisle changes, without adding any chrome or labels.
-function aisleHue(name: string): number {
+// ── Per-name hues ───────────────────────────────────────────────────────────
+// Deterministic hash → hue. Used for the slim color rail on the left edge of
+// each bin row AND for the aisle/shelf chips — gives the picker an instant
+// peripheral-vision cue that distinguishes aisle from shelf even when both
+// are present, and lets the same aisle/shelf letter or number be recognized
+// across the whole list by color alone.
+//
+// Aisle and shelf use DIFFERENT hue offsets so aisle "A" and shelf "1" don't
+// collide on the same color. Within each family the colors are stable across
+// the whole app — users learn the mapping over time.
+function hashHue(name: string, offset: number): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  // 12 evenly-spaced hue stops avoid muddy in-between values
-  return ((Math.abs(h) % 12) * 30 + 15) % 360;
+  // 12 evenly-spaced hue stops avoid muddy in-between values.
+  return ((Math.abs(h) % 12) * 30 + offset) % 360;
 }
+function aisleHue(name: string): number { return hashHue(name, 15); }
+function shelfHue(name: string): number { return hashHue(name, 195); } // ~opposite side of color wheel
 function aisleRailColor(name: string | undefined | null): string {
   if (!name) return 'rgba(120,120,140,0.5)';
   return `hsl(${aisleHue(name)} 85% 60%)`;
+}
+
+// Build inline styles for a color-coded chip from a hue. We use inline styles
+// (instead of Tailwind classes) so every aisle/shelf gets a distinct color
+// without enumerating ~12 utility classes.
+function chipStyle(hue: number): React.CSSProperties {
+  return {
+    backgroundColor: `hsl(${hue} 70% 50% / 0.18)`,
+    color: `hsl(${hue} 85% 72%)`,
+    borderColor: `hsl(${hue} 70% 50% / 0.40)`,
+  };
 }
 
 // ── Location chips ──────────────────────────────────────────────────────────
 // Picklist headers used to render the bin name as flat text like "1-A-19",
 // which made aisle/shelf/bin all blur together. We split it into colored,
 // icon-prefixed chips so each segment is instantly distinguishable.
-// Colors are fixed and consistent across the app: blue=aisle, amber=shelf,
-// emerald=bin — users learn the mapping fast.
+// Aisle chip color is keyed off aisle name, shelf chip color is keyed off
+// shelf name — so aisle A is always one color, shelf 1 is always one color,
+// independent of one another. Bin keeps a fixed emerald to anchor the eye.
 function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
   if (!loc) {
     return (
@@ -77,15 +97,15 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
       </span>
     );
   }
-  const slots: Array<{ icon: any; value: string; cls: string; testid: string }> = [];
+  const slots: Array<{ icon: any; value: string; style?: React.CSSProperties; cls?: string; testid: string }> = [];
   if (loc.aisle?.name) slots.push({
     icon: Warehouse, value: loc.aisle.name,
-    cls: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    style: chipStyle(aisleHue(loc.aisle.name)),
     testid: 'chip-aisle',
   });
   if (loc.shelf?.name) slots.push({
     icon: Layers, value: loc.shelf.name,
-    cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    style: chipStyle(shelfHue(loc.shelf.name)),
     testid: 'chip-shelf',
   });
   if (loc.bin?.name) {
@@ -103,7 +123,8 @@ function LocationChips({ loc }: { loc: WarehouseLocation | null }) {
         return (
           <span
             key={i}
-            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-tight ${s.cls}`}
+            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-tight ${s.cls ?? ''}`}
+            style={s.style}
             data-testid={s.testid}
           >
             <Icon className="h-3 w-3 shrink-0" />
