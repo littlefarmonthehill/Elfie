@@ -421,15 +421,36 @@ export async function getOrderAnalytics(params?: {
     }
     
     const stats = await queryBuilder;
-    
-    return {
+    const totalOrders = Number(stats[0]?.totalOrders) || 0;
+
+    // Build a list of the user-supplied filters so we can give the model
+    // (and through it, the user) a meaningful "no rows matched" message
+    // instead of a silent zero. Without this, the model treats zero-results
+    // the same as "the data doesn't exist" and replies "I couldn't retrieve…".
+    const appliedFilters: string[] = [];
+    if (marketplace) appliedFilters.push(`marketplace="${marketplace}"`);
+    if (customerUsername) appliedFilters.push(`customerUsername~"${customerUsername}"`);
+    if (startDate) appliedFilters.push(`startDate=${startDate}`);
+    if (endDate) appliedFilters.push(`endDate=${endDate}`);
+
+    const result: any = {
       success: true,
       data: {
-        totalOrders: Number(stats[0]?.totalOrders) || 0,
+        totalOrders,
         totalRevenue: Number(stats[0]?.totalRevenue) || 0,
         avgOrderValue: Number(stats[0]?.avgOrderValue) || 0,
       },
     };
+
+    if (totalOrders === 0 && appliedFilters.length > 0) {
+      result.note =
+        `No orders match the applied filters (${appliedFilters.join(', ')}). ` +
+        `This does not mean the org has no orders — it means none match these specific filters. ` +
+        `Consider retrying with a wider date range, dropping the marketplace filter, or telling the user no orders match their criteria. ` +
+        `Valid marketplace values are: BrickLink, BrickOwl, eBay, Amazon.`;
+    }
+
+    return result;
   } catch (error: any) {
     return {
       success: false,
@@ -2049,7 +2070,8 @@ export const AI_TOOLS = [
         properties: {
           marketplace: {
             type: 'string',
-            description: 'Filter by marketplace/platform',
+            enum: ['BrickLink', 'BrickOwl', 'eBay', 'Amazon'],
+            description: 'Filter by marketplace/platform. MUST be one of the listed values exactly (case-sensitive). Omit this filter entirely to query across all channels — do NOT invent values like "international" or "online".',
           },
           customerUsername: {
             type: 'string',
