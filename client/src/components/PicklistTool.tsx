@@ -993,8 +993,46 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
           <div className="space-y-3" data-testid="picklist-by-bin">
             {sortedAisles.map((aisle) => {
               const shelvesByAisle = groupedBins[aisle];
+              const hue = aisleHue(aisle);
+              const isReal = aisle && aisle !== 'No Location';
               return (
                 <div key={aisle} className="space-y-2" data-testid={`aisle-group-${aisle}`}>
+                  {/* Aisle marker — shown ONCE per aisle as a big translucent
+                      watermark-style header so the picker can spot aisle changes
+                      at a glance without it repeating per row. */}
+                  {isReal && (
+                    <div
+                      className="relative overflow-hidden rounded-md border mt-4 first:mt-0"
+                      style={{
+                        borderColor: `hsl(${hue} 60% 35% / 0.4)`,
+                        background: `linear-gradient(90deg, hsl(${hue} 50% 12%) 0%, hsl(${hue} 40% 8%) 60%, transparent 100%)`,
+                      }}
+                      data-testid={`aisle-marker-${aisle}`}
+                    >
+                      <div
+                        aria-hidden="true"
+                        className="absolute -top-4 -left-2 font-black leading-none select-none pointer-events-none"
+                        style={{
+                          fontSize: '6rem',
+                          color: `hsl(${hue} 75% 55% / 0.18)`,
+                          letterSpacing: '-0.05em',
+                        }}
+                      >
+                        {aisle}
+                      </div>
+                      <div className="relative px-4 py-3 pl-28">
+                        <div
+                          className="text-[10px] font-bold tracking-[0.2em] uppercase"
+                          style={{ color: `hsl(${hue} 80% 65%)` }}
+                        >
+                          Aisle
+                        </div>
+                        <div className="text-xl font-semibold text-foreground">
+                          {aisle}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {Object.entries(shelvesByAisle).map(([shelf, bins]) => (
                       <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
