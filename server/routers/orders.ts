@@ -1822,23 +1822,12 @@ router.post("/orders/:orderId/feedback-left", isApproved, asyncRoute(async (req:
       warnings.push(`Feedback comment not posted to ${order.marketplace}: ${adapterErr.message ?? 'Unknown error'}`);
     }
   }
-  if (!skip && order.marketplace === 'BrickLink' && order.orderNumber) {
-    try {
-      const { getBricklinkCredentials } = await import('../services/bricklink.js');
-      const blCreds = await getBricklinkCredentials(orgId).catch(() => null);
-      if (blCreds) {
-        const { updateBrickLinkOrderToCompleted } = await import('../services/bricklink-orders.js');
-        await updateBrickLinkOrderToCompleted(order.orderNumber, blCreds.consumerKey, blCreds.consumerSecret, blCreds.tokenValue, blCreds.tokenSecret);
-      }
-    } catch (blErr: any) {
-      warnings.push(`Order not marked Completed on BrickLink: ${blErr.message ?? 'Unknown error'}`);
-    }
-    try {
-      await db.update(orders).set({ orderStatus: 'completed' }).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
-    } catch (dbErr: any) {
-      console.warn(`[Feedback] Local status update failed for order ${orderId}:`, dbErr.message);
-    }
-  }
+  // NOTE: We intentionally do NOT push BrickLink to COMPLETED here, and we do
+  // NOT transition the local order status to 'completed'. Per BrickLink seller
+  // policy, only the buyer should mark an order COMPLETED (buyer-confirmed
+  // receipt); sellers should leave the order at SHIPPED. The local 'completed'
+  // status remains valid for orders that BrickLink itself reports as COMPLETED
+  // (via inbound sync) — it's only seller-initiated completion that's removed.
   const [updated] = await db.update(orders).set({ feedbackLeftAt: new Date() }).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).returning({ id: orders.id, feedbackLeftAt: orders.feedbackLeftAt });
   if (!updated) return res.status(404).json({ error: "Order not found" });
   res.json({ ...updated, warnings });
