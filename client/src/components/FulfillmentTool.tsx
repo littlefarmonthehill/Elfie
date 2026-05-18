@@ -1464,7 +1464,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
 
                                 {/* Inline customer note */}
                                 {openNoteId === order.id && order.customerNotes && (
-                                  <div className="ml-5 mb-1 px-2 py-1.5 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
+                                  <div className="ml-5 mb-1 px-2 py-1.5 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed print:border-transparent print:bg-transparent print:text-black print:px-0 print:py-0">
                                     {order.customerNotes}
                                   </div>
                                 )}
@@ -1519,10 +1519,10 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           return (
             <div className="mb-1 space-y-1">
               {noteOrders.map(o => (
-                <div key={o.id} className="flex items-start gap-1.5 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-snug">
-                  <MessageCircle className="w-3 h-3 shrink-0 mt-px text-amber-400 fill-current" />
+                <div key={o.id} className="flex items-start gap-1.5 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-snug print:border-transparent print:bg-transparent print:text-black print:px-0 print:py-0">
+                  <MessageCircle className="w-3 h-3 shrink-0 mt-px text-amber-400 fill-current print:text-black" />
                   <div className="min-w-0 flex-1">
-                    <span className="font-mono text-amber-400/70 mr-1">
+                    <span className="font-mono text-amber-400/70 mr-1 print:text-black">
                       {orderShortCodeMap.get(o.orderNumber) ?? shortCode(o.orderNumber)}
                     </span>
                     <span className="line-clamp-2 break-words">{o.customerNotes}</span>
