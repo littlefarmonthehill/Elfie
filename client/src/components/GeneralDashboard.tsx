@@ -627,6 +627,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     marketNewsFreshDays: number | null;
     businessIntelFreshDays: number | null;
     trackingErrors: number;
+    orderSyncIssues: number;
     openaiHealth?: {
       ok: boolean;
       kind: 'quota' | 'auth' | 'rate_limit' | 'other' | null;
@@ -918,6 +919,10 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const trackingErrors = bridgeSignals?.trackingErrors ?? 0;
   if (trackingErrors > 0) {
     urgentAlerts.push({ id: 'tracking-errors', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${trackingErrors} shipment${trackingErrors !== 1 ? 's' : ''} with stale tracking`, severity: 'warn', kind: 'warn', onClick: () => onNavigate?.('sales') });
+  }
+  const orderSyncIssues = bridgeSignals?.orderSyncIssues ?? 0;
+  if (orderSyncIssues > 0) {
+    urgentAlerts.push({ id: 'order-sync-issues', icon: AlertTriangle, iconColor: 'text-red-400', label: `${orderSyncIssues} order${orderSyncIssues !== 1 ? 's' : ''} with sync issue${orderSyncIssues !== 1 ? 's' : ''} — needs attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('sales', 'uplink') });
   }
   if (highValuePendingOrder) {
     const hvTotal = Number(highValuePendingOrder.orderTotal ?? 0).toFixed(2);

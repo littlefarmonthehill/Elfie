@@ -406,7 +406,7 @@ router.get("/orders/dashboard", isApproved, asyncRoute(async (req: any, res) => 
 
 router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult] = await Promise.all([
+  const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult, orderSyncIssueResult] = await Promise.all([
     db.execute(sql`SELECT COUNT(*) AS count FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status IN ('awaiting_payment','awaiting_shipment') AND order_date < NOW() - INTERVAL '24 hours'`),
     db.execute(sql`SELECT COUNT(*) AS count FROM (SELECT customer_username FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled') GROUP BY customer_username HAVING COUNT(*) >= 2) t`),
     db.execute(sql`SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','returned') AND order_date >= DATE_TRUNC('week', NOW())`),
@@ -428,6 +428,17 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
         AND (s.tracking_updated_at IS NULL OR s.tracking_updated_at < NOW() - INTERVAL '4 hours')
         AND o.is_test = false
     `),
+    // Open order-sync issues raised by the reconciliation safety net
+    // (missing line items, total mismatches, etc.). Surfaced on the Bridge
+    // so problems don't go unnoticed until a buyer complains.
+    db.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM sync_issues
+      WHERE org_id = ${orgId}
+        AND sync_type = 'order_sync'
+        AND status = 'open'
+        AND severity IN ('critical', 'high')
+    `),
   ]);
   const nowMs = Date.now();
   const msDays = (ms: number | null) => ms !== null ? Math.floor((nowMs - ms) / (1000 * 60 * 60 * 24)) : null;
@@ -442,6 +453,7 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
     marketNewsFreshDays: msDays(marketNewsTime),
     businessIntelFreshDays: msDays(businessIntelTime),
     trackingErrors: Number((trackingErrorResult.rows[0] as any)?.count ?? 0),
+    orderSyncIssues: Number((orderSyncIssueResult.rows[0] as any)?.count ?? 0),
     openaiHealth: getOpenAIHealthPublic(),
   });
 }));

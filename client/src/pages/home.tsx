@@ -56,6 +56,7 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
   const { data: bridgeSignals } = useQuery<{
     agingOrders: number; repeatBuyers: number;
     thisWeekRevenue: number; lastWeekRevenue: number;
+    orderSyncIssues?: number;
   }>({ queryKey: ['/api/bridge/signals'], refetchInterval: 60000, staleTime: 30000 });
   const { data: globalSyncStatuses } = useQuery<any>({ queryKey: ['/api/sync/statuses'], refetchInterval: 15000 });
   const { data: syncStatus } = useQuery<any>({ queryKey: ['/api/platform-sync/status'], refetchInterval: 30000 });
@@ -90,10 +91,12 @@ function BridgeQuadPanel({ onTune }: { onTune: (ch: DashboardType) => void }) {
   if (channelSyncFailed) invAlerts.push({ text: 'Channel sync failed',    color: '#f87171' });
   if (!invSyncFailed && !channelSyncFailed) invAlerts.push({ text: 'All syncs nominal', color: '#4ade80' });
 
+  const orderSyncIssues = bridgeSignals?.orderSyncIssues ?? 0;
   const orderAlerts: Alert[] = [];
   if (orderSyncFailed) orderAlerts.push({ text: 'Order sync failed',    color: '#f87171' });
+  if (orderSyncIssues > 0) orderAlerts.push({ text: `${orderSyncIssues} sync issue${orderSyncIssues !== 1 ? 's' : ''} need attention`, color: '#f87171' });
   if (agingOrders > 0) orderAlerts.push({ text: `${agingOrders} aging >24h`, color: '#fb923c' });
-  if (!orderSyncFailed && agingOrders === 0) orderAlerts.push({ text: 'Fulfillment on track', color: '#4ade80' });
+  if (!orderSyncFailed && orderSyncIssues === 0 && agingOrders === 0) orderAlerts.push({ text: 'Fulfillment on track', color: '#4ade80' });
 
   const mktAlerts: Alert[] = [];
   if (channelCount > 0)  mktAlerts.push({ text: `${channelCount} channel${channelCount !== 1 ? 's' : ''} active`, color: '#a3e635' });
