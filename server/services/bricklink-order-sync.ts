@@ -510,14 +510,43 @@ async function processBrickLinkOrder(
     isNewOrder = !upserted?.inventoryDeducted;
   }
 
-  // Fetch and process order line items
-  const blOrderItems = await getBrickLinkOrderItems(
-    blOrder.order_id,
-    consumerKey,
-    consumerSecret,
-    tokenValue,
-    tokenSecret
-  );
+  // Fetch and process order line items.
+  // BrickLink's /orders/{id}/items endpoint occasionally returns a truncated/
+  // partial response (e.g. returns one of two batches), with no error. That's
+  // what caused order bl-31642438 to be inserted with 1 of 2 line items even
+  // though both lots were already in local inventory.
+  // Defense: compare the sum of items × unit_price against the cost breakdown
+  // we already have from getBrickLinkOrderDetail (grand_total − shipping − tax
+  // − insurance). If they don't match within 5¢, retry up to 2x with backoff.
+  const expectedItemsSubtotal = (() => {
+    const total = cost?.grand_total ? Number(cost.grand_total) : 0;
+    const ship  = cost?.shipping ? Number(cost.shipping) : 0;
+    const tax   = cost?.salesTax_collected_by_bl ? Number(cost.salesTax_collected_by_bl)
+                : cost?.vat_amount ? Number(cost.vat_amount) : 0;
+    const ins   = cost?.insurance ? Number(cost.insurance) : 0;
+    return total > 0 ? +(total - ship - tax - ins).toFixed(2) : null;
+  })();
+
+  let blOrderItems: any[] = [];
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    blOrderItems = await getBrickLinkOrderItems(
+      blOrder.order_id, consumerKey, consumerSecret, tokenValue, tokenSecret
+    );
+    if (expectedItemsSubtotal == null) break; // No header to compare against
+    const fetchedSubtotal = blOrderItems.reduce((s, it) => {
+      const qty = Number(it.quantity) || 0;
+      const price = Number(it.unit_price) || 0;
+      return s + qty * price;
+    }, 0);
+    const gap = Math.abs(expectedItemsSubtotal - fetchedSubtotal);
+    if (gap <= 0.05) break;
+    if (attempt < 3) {
+      console.warn(`⚠️ Order ${orderId}: items API returned ${blOrderItems.length} item(s) summing to $${fetchedSubtotal.toFixed(2)}, expected $${expectedItemsSubtotal.toFixed(2)} (gap $${gap.toFixed(2)}). Retrying in ${attempt}s (attempt ${attempt + 1}/3)…`);
+      await new Promise(r => setTimeout(r, attempt * 1000));
+    } else {
+      console.error(`🚨 Order ${orderId}: items API still returns mismatched subtotal after 3 attempts ($${fetchedSubtotal.toFixed(2)} vs expected $${expectedItemsSubtotal.toFixed(2)}). Proceeding with partial data — reconciliation safety net will raise a sync_issue.`);
+    }
+  }
 
   console.log(`📦 Order ${orderId}: Fetched ${blOrderItems.length} items`);
 
