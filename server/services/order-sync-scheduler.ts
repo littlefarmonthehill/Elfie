@@ -189,6 +189,24 @@ async function runScheduledChannelSync(
         console.warn(`⚠️ Tracking refresh error (non-fatal): ${trackErr.message}`);
       }
     })();
+
+    // In-progress order health audit — fire and forget. Pure SQL reconciliation that
+    // compares each active BL order's locally-stored items subtotal against its
+    // locally-stored order header (orderTotal − shipping − tax − insurance). Any
+    // mismatch (> $0.05) is flagged as a critical sync_issue AND auto-healed via a
+    // targeted single-order re-sync. Catches partial BL /items responses that the
+    // incremental scheduler would otherwise leave broken until the order ships.
+    // Only runs for BrickLink channels — other channels have their own sync paths.
+    if (channelKey === 'bricklink') {
+      (async () => {
+        try {
+          const { auditAndHealActiveBrickLinkOrders } = await import('./order-health-check');
+          await auditAndHealActiveBrickLinkOrders(orgId);
+        } catch (auditErr: any) {
+          console.warn(`⚠️ Order health audit error (non-fatal): ${auditErr.message}`);
+        }
+      })();
+    }
   } catch (error: any) {
     retry.count++;
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;

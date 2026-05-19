@@ -87,7 +87,7 @@ export interface BrickLinkOrderSyncResult {
  */
 export async function syncBrickLinkOrders(
   orgId: string,
-  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {},
+  options: { limit?: number; fullSync?: boolean; sinceDate?: string; forceOrderIds?: Set<string>; skipMetadata?: boolean } = {},
   onProgress?: (processed: number, total: number) => void
 ): Promise<BrickLinkOrderSyncResult> {
   const result: BrickLinkOrderSyncResult = {
@@ -125,7 +125,21 @@ export async function syncBrickLinkOrders(
     }
 
     let allOrders = fetchedOrders;
-    if (options.sinceDate) {
+
+    // Targeted heal: when forceOrderIds is supplied (e.g. by the order health
+    // audit), restrict the fetched list to ONLY those orders. This guarantees
+    // BrickLink is touched only for orders that actually need re-processing —
+    // no incidental detail/items/messages calls for unrelated orders that
+    // would otherwise pass the normal incremental filter.
+    if (options.forceOrderIds && options.forceOrderIds.size > 0) {
+      allOrders = fetchedOrders.filter((o: any) => options.forceOrderIds!.has(`bl-${o.order_id}`));
+      console.log(`🎯 Targeted heal: processing ${allOrders.length} of ${fetchedOrders.length} fetched order(s) (${options.forceOrderIds.size} requested)`);
+      // When forceOrderIds is supplied, `limit` is intentionally ignored — heal
+      // must process every requested order, never drop some on the floor.
+      if (options.limit && options.limit < options.forceOrderIds.size) {
+        console.warn(`⚠️ Ignoring options.limit=${options.limit} because forceOrderIds (${options.forceOrderIds.size}) was supplied — targeted heal processes all requested orders.`);
+      }
+    } else if (options.sinceDate) {
       // Date-scoped sync: process all orders placed or updated on/after the given date.
       const sinceMs = new Date(options.sinceDate).getTime();
       allOrders = fetchedOrders.filter((order: any) => {
@@ -227,11 +241,13 @@ export async function syncBrickLinkOrders(
       });
     }
 
-    await upsertSyncMetadata(SYNC_ID, orgId, {
-      status: 'success',
-      recordsAdded: result.ordersAdded,
-      recordsUpdated: result.ordersUpdated,
-    });
+    if (!options.skipMetadata) {
+      await upsertSyncMetadata(SYNC_ID, orgId, {
+        status: 'success',
+        recordsAdded: result.ordersAdded,
+        recordsUpdated: result.ordersUpdated,
+      });
+    }
 
     console.log(`✓ BrickLink order sync complete:`, {
       ordersAdded: result.ordersAdded,
@@ -244,7 +260,9 @@ export async function syncBrickLinkOrders(
 
   } catch (error: any) {
     console.error('✗ BrickLink order sync failed:', error);
-    await upsertSyncMetadata(SYNC_ID, orgId, { status: 'error', errorMessage: error.message });
+    if (!options.skipMetadata) {
+      await upsertSyncMetadata(SYNC_ID, orgId, { status: 'error', errorMessage: error.message });
+    }
     throw error;
   }
 }
