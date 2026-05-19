@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, orderAdjustments, blInventory, blCatalog } from "@shared/schema";
+import { orders, orderDetails, orderAdjustments, blInventory, blCatalog, syncIssues } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, getBrickLinkOrderMessages, mapBrickLinkCondition } from "./bricklink-orders";
 import { bricklinkRequest, getBricklinkCredentials } from "./bricklink";
@@ -561,16 +561,23 @@ async function processBrickLinkOrder(
 
       // If this lot doesn't exist locally, fetch it now so inventory adjustment
       // can deduct stock correctly (handles lots listed since the last inventory sync).
+      // Wrapped in its OWN try so a transient BrickLink API error here can NEVER
+      // skip the insert below — that was the root cause of order bl-31642438
+      // coming in with 1 of 2 line items.
       if (item.inventory_id) {
-        const [existingLot] = await db
-          .select({ id: blInventory.id })
-          .from(blInventory)
-          .where(eq(blInventory.id, item.inventory_id))
-          .limit(1);
+        try {
+          const [existingLot] = await db
+            .select({ id: blInventory.id })
+            .from(blInventory)
+            .where(eq(blInventory.id, item.inventory_id))
+            .limit(1);
 
-        if (!existingLot) {
-          console.log(`🔍 Lot ${item.inventory_id} (${item.item?.no}) not in local DB — fetching from BrickLink...`);
-          await fetchAndCacheMissingLot(item.inventory_id, orgId);
+          if (!existingLot) {
+            console.log(`🔍 Lot ${item.inventory_id} (${item.item?.no}) not in local DB — fetching from BrickLink...`);
+            await fetchAndCacheMissingLot(item.inventory_id, orgId);
+          }
+        } catch (lotErr: any) {
+          console.warn(`⚠️ Lot backfill failed for ${item.inventory_id} on order ${orderId} — line item will still be inserted: ${lotErr.message}`);
         }
       }
 
@@ -604,6 +611,99 @@ async function processBrickLinkOrder(
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
     }
+  }
+
+  // ── Reconciliation safety net ────────────────────────────────────────────
+  // Verify what we actually persisted matches what BrickLink told us.
+  // Catches BOTH cases:
+  //   1) An item insert was silently skipped by the per-item try/catch above
+  //   2) BrickLink itself returned partial data on this call
+  // Either way, raise a critical sync_issue so the user sees it instead of
+  // discovering it months later via a buyer complaint (as happened with
+  // order bl-31642438).
+  try {
+    const [{ persistedCount = 0, persistedSubtotal = 0 } = {} as any] = await db
+      .select({
+        persistedCount: sql<number>`COUNT(*)::int`,
+        persistedSubtotal: sql<number>`COALESCE(SUM(CAST(${orderDetails.unitPrice} AS DECIMAL) * ${orderDetails.quantity}), 0)`,
+      })
+      .from(orderDetails)
+      .where(eq(orderDetails.orderId, orderId));
+
+    const [orderRow] = await db
+      .select({
+        total: orders.orderTotal,
+        shipping: orders.shippingAmount,
+        tax: orders.taxAmount,
+        insurance: orders.insuranceAmount,
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    const expectedCount = blOrderItems.length;
+    const actualCount = Number(persistedCount) || 0;
+    const actualSubtotal = Number(persistedSubtotal) || 0;
+    const orderTotal = orderRow ? parseFloat(orderRow.total as any) : 0;
+    const shipping = orderRow?.shipping ? parseFloat(orderRow.shipping as any) : 0;
+    const tax = orderRow?.tax ? parseFloat(orderRow.tax as any) : 0;
+    const insurance = orderRow?.insurance ? parseFloat(orderRow.insurance as any) : 0;
+    const expectedSubtotal = orderTotal - shipping - tax - insurance;
+    const subtotalGap = Math.abs(expectedSubtotal - actualSubtotal);
+
+    const countMismatch = actualCount !== expectedCount;
+    // Only flag a money gap if it's > 5 cents AND we have a believable order_total
+    const moneyMismatch = orderTotal > 0 && subtotalGap > 0.05;
+
+    if (countMismatch || moneyMismatch) {
+      const description = countMismatch
+        ? `Order ${orderId}: BrickLink returned ${expectedCount} line item(s) but ${actualCount} are persisted locally. Order total $${orderTotal.toFixed(2)} vs items $${actualSubtotal.toFixed(2)} + shipping $${shipping.toFixed(2)} + tax $${tax.toFixed(2)} (gap $${subtotalGap.toFixed(2)}). Run a full sync to pull the missing line item(s).`
+        : `Order ${orderId}: line item totals don't reconcile. Order total $${orderTotal.toFixed(2)} but items+shipping+tax = $${(actualSubtotal + shipping + tax + insurance).toFixed(2)} (gap $${subtotalGap.toFixed(2)}). A line item may be missing or mispriced — run a full sync.`;
+
+      console.error(`🚨 ${description}`);
+      const issueType = countMismatch ? 'line_item_missing' : 'total_mismatch';
+      const metadata = JSON.stringify({
+        orderNumber: blOrder.order_id,
+        expectedCount, actualCount,
+        orderTotal, expectedSubtotal, actualSubtotal,
+        shipping, tax, insurance, subtotalGap,
+      });
+
+      // Dedupe: if there's already an open issue for this order+type, refresh
+      // it instead of inserting a duplicate every nightly sync.
+      const [existingIssue] = await db
+        .select({ id: syncIssues.id })
+        .from(syncIssues)
+        .where(and(
+          eq(syncIssues.platform, 'bricklink'),
+          eq(syncIssues.itemId, orderId),
+          eq(syncIssues.issueType, issueType),
+          eq(syncIssues.status, 'open'),
+          eq(syncIssues.orgId, orgId),
+        ))
+        .limit(1);
+
+      if (existingIssue) {
+        await db.update(syncIssues)
+          .set({ issueDescription: description, metadata, severity: 'critical' })
+          .where(eq(syncIssues.id, existingIssue.id));
+      } else {
+        await db.insert(syncIssues).values({
+          syncType: 'order_sync',
+          platform: 'bricklink',
+          itemId: orderId,
+          issueType,
+          issueDescription: description,
+          severity: 'critical',
+          status: 'open',
+          metadata,
+          orgId,
+        });
+      }
+      result.errors.push(description);
+    }
+  } catch (reconErr: any) {
+    console.warn(`⚠️ Order ${orderId}: reconciliation check failed (non-fatal): ${reconErr.message}`);
   }
 
   // Write computed total weight if no weight is already saved
