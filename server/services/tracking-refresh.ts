@@ -8,7 +8,10 @@ import { db } from "../db";
 import { shipments } from "@shared/schema";
 import { eq, and, isNotNull, isNull, ne, or, inArray } from "drizzle-orm";
 
-const STALE_AFTER_MS = 2 * 60 * 60 * 1000; // 2 hours — keeps transit status fresh without hammering EasyPost
+// 30 minutes — keeps transit status fresh without hammering EasyPost.
+// Real-time updates also arrive via the EasyPost webhook (see
+// server/routers/easypost-webhook.ts); this poll is the safety net.
+const STALE_AFTER_MS = 30 * 60 * 1000;
 
 export async function refreshActiveTrackingForOrg(orgId: string): Promise<void> {
   // Find all active (non-delivered) shipments that have a tracking number and are stale

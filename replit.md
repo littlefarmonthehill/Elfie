@@ -17,6 +17,7 @@ E.L.F.I.E. is a business operations and analytics SaaS platform for LEGO reselle
     - `BRICKLINK_TOKEN_SECRET`
     - `BRICKOWL_API_KEY`
     - `EASYPOST_API_KEY`
+    - `EASYPOST_WEBHOOK_SECRET` (for real-time tracking updates via `/api/easypost/webhook`; must match the secret configured in EasyPost dashboard → Webhooks)
     - `OPENAI_API_KEY`
     - `STRIPE_SECRET_KEY`
     - `PAYPAL_CLIENT_ID`

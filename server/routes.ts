@@ -50,6 +50,7 @@ import OpenAI from "openai";
 import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, checkSeatLimit, checkAutomationLimit } from "./services/tierEnforcement";
 import { stripeClient, createCheckoutSession, createCheckoutSessionByPlan, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
 import billingRouter from "./routers/billing";
+import easypostWebhookRouter from "./routers/easypost-webhook";
 import conversationsRouter from "./routers/conversations";
 import bulkLotsRouter from "./routers/bulkLots";
 import ebayRouter from "./routers/ebay";
@@ -240,6 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ── Domain sub-routers ────────────────────────────────────────────────────
   app.use('/api/billing', billingRouter);
+  app.use('/api', easypostWebhookRouter);
   app.use('/api', conversationsRouter);
   app.use('/api/bulk-lots', bulkLotsRouter);
   app.use('/api/ebay', ebayRouter);
