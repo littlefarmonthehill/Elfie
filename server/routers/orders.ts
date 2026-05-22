@@ -406,8 +406,11 @@ router.get("/orders/dashboard", isApproved, asyncRoute(async (req: any, res) => 
 
 router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const [agingResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult, orderSyncIssueResult] = await Promise.all([
+  const [agingResult, openOrdersResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult, orderSyncIssueResult] = await Promise.all([
     db.execute(sql`SELECT COUNT(*) AS count FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status IN ('awaiting_payment','awaiting_shipment') AND order_date < NOW() - INTERVAL '24 hours'`),
+    // Total count + dollar total across ALL open (unshipped) orders, regardless of age.
+    // Used by the Bridge Sales card to show "total amount of open orders".
+    db.execute(sql`SELECT COUNT(*) AS count, COALESCE(SUM(order_total::numeric), 0) AS total FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status IN ('awaiting_payment','awaiting_shipment')`),
     db.execute(sql`SELECT COUNT(*) AS count FROM (SELECT customer_username FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled') GROUP BY customer_username HAVING COUNT(*) >= 2) t`),
     db.execute(sql`SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','returned') AND order_date >= DATE_TRUNC('week', NOW())`),
     db.execute(sql`SELECT COALESCE(SUM(order_total::numeric), 0) AS revenue FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status NOT IN ('cancelled','Cancelled','returned') AND order_date >= DATE_TRUNC('week', NOW()) - INTERVAL '7 days' AND order_date < DATE_TRUNC('week', NOW())`),
@@ -447,6 +450,8 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const { getOpenAIHealthPublic } = await import('../services/openai-health');
   res.json({
     agingOrders: Number((agingResult.rows[0] as any)?.count ?? 0),
+    openOrdersCount: Number((openOrdersResult.rows[0] as any)?.count ?? 0),
+    openOrdersTotal: Number((openOrdersResult.rows[0] as any)?.total ?? 0),
     repeatBuyers: Number((repeatResult.rows[0] as any)?.count ?? 0),
     thisWeekRevenue: Number((thisWeekResult.rows[0] as any)?.revenue ?? 0),
     lastWeekRevenue: Number((lastWeekResult.rows[0] as any)?.revenue ?? 0),

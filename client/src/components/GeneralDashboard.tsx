@@ -621,6 +621,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   const { data: bridgeSignals } = useQuery<{
     agingOrders: number;
+    openOrdersCount: number;
+    openOrdersTotal: number;
     repeatBuyers: number;
     thisWeekRevenue: number;
     lastWeekRevenue: number;
@@ -793,7 +795,16 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (orgData !== undefined && !orgData?.warehouseDepth && !dismissedItems.has('warehouse')) setupItems.push({ id: 'warehouse', label: 'Set up warehouse layout', section: 'warehouse' });
   if (!dismissedItems.has('notifications')) setupItems.push({ id: 'notifications', label: 'Set up notifications', section: 'notifications' });
 
-  const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
+  // Bridge Sales card derives all order counts from /api/bridge/signals so that
+  // openOrdersCount, agingOrders, and openOrdersTotal all describe the SAME
+  // universe (awaiting_payment + awaiting_shipment, non-test). Mixing in
+  // fulfillmentStats.unfulfilled (different status filter) or
+  // dashboardOrders.pending (capped at 5 rows) makes the subtraction below
+  // produce nonsense numbers.
+  const pendingOrders = bridgeSignals?.openOrdersCount ?? 0;
+  // "Orders to fulfill" excludes orders already past the 24h fulfillment window —
+  // those are surfaced separately as the "aging past 24h" critical alert and
+  // would otherwise be double-counted on the Bridge Sales card.
   const totalLots = stats?.totalInventoryItems ?? 0;
   const totalPcs = stats?.totalInventoryQuantity ?? 0;
   const totalRevenue = stats?.totalSales ?? 0;
@@ -868,8 +879,10 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   const urgentAlerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; severity: 'warn' | 'error' | 'info'; kind: 'critical' | 'warn' | 'opportunity'; onClick?: () => void }> = [];
 
-  if (pendingOrders > 0) {
-    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} to fulfill`, severity: 'warn', kind: 'warn', onClick: onOpenFulfillment });
+  const agingOrdersCount = bridgeSignals?.agingOrders ?? 0;
+  const ordersToFulfill = Math.max(0, pendingOrders - agingOrdersCount);
+  if (ordersToFulfill > 0) {
+    urgentAlerts.push({ id: 'pending', icon: ShoppingCart, iconColor: 'text-orange-400', label: `${ordersToFulfill} order${ordersToFulfill > 1 ? 's' : ''} to fulfill`, severity: 'warn', kind: 'warn', onClick: onOpenFulfillment });
   }
   if (isScanComplete && (latestScan?.totalPieces ?? 0) > 0) {
     urgentAlerts.push({ id: 'scan', icon: Zap, iconColor: 'text-teal-400', label: 'Scan results ready to view', severity: 'info', kind: 'opportunity', onClick: onOpenBrickanalyzer });
@@ -912,7 +925,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }
 
   // ── Orders signals ──────────────────────────────────────────────────────────
-  const agingOrders = bridgeSignals?.agingOrders ?? 0;
+  const agingOrders = agingOrdersCount;
   if (agingOrders > 0) {
     urgentAlerts.push({ id: 'aging-orders', icon: Clock, iconColor: 'text-red-400', label: `${agingOrders} order${agingOrders !== 1 ? 's' : ''} aging past 24h`, severity: 'error', kind: 'critical', onClick: onOpenFulfillment });
   }
@@ -924,9 +937,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (orderSyncIssues > 0) {
     urgentAlerts.push({ id: 'order-sync-issues', icon: AlertTriangle, iconColor: 'text-red-400', label: `${orderSyncIssues} order${orderSyncIssues !== 1 ? 's' : ''} with sync issue${orderSyncIssues !== 1 ? 's' : ''} — needs attention`, severity: 'error', kind: 'critical', onClick: () => onNavigate?.('sales', 'uplink') });
   }
-  if (highValuePendingOrder) {
-    const hvTotal = Number(highValuePendingOrder.orderTotal ?? 0).toFixed(2);
-    urgentAlerts.push({ id: 'high-value-pending', icon: Star, iconColor: 'text-yellow-300', label: `$${hvTotal} order ready to ship`, severity: 'info', kind: 'opportunity', onClick: onOpenFulfillment });
+  // Replaces the older "$X order ready to ship" tile with the total dollar value
+  // across every open (awaiting_payment + awaiting_shipment) order — gives the
+  // operator a single revenue-at-risk number for unshipped work.
+  const openOrdersTotal = bridgeSignals?.openOrdersTotal ?? 0;
+  if (openOrdersTotal > 0) {
+    urgentAlerts.push({ id: 'open-orders-total', icon: Star, iconColor: 'text-yellow-300', label: `${formatCurrency(openOrdersTotal)} total amount of open orders`, severity: 'info', kind: 'opportunity', onClick: onOpenFulfillment });
   }
 
   // ── Marketing signals ───────────────────────────────────────────────────────
@@ -1033,11 +1049,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
 
         <OpAreaCard
-          label="Orders"
+          label="Sales"
           Icon={ShoppingCart}
           color="orange"
-          stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
-          alerts={urgentAlerts.filter(a => ['pending', 'order-fail', 'qty-sync-fail', 'aging-orders', 'high-value-pending'].includes(a.id))}
+          stat={ordersToFulfill > 0 ? `${ordersToFulfill} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
+          alerts={urgentAlerts.filter(a => ['pending', 'order-fail', 'qty-sync-fail', 'aging-orders', 'open-orders-total'].includes(a.id))}
           onClick={() => onNavigate?.('sales')}
           isActive={activeSection === 'sales'}
           channelNum="02"
