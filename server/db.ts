@@ -2359,6 +2359,14 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS part_rel_parent_idx ON part_relationships (parent_part_num, rel_type)`);
     console.log('[Migration] Phase-116 (part_relationships table) complete.');
 
+    // Phase-117: index inventory_locations.bin_id.
+    // /warehouse/bins runs a correlated COUNT(*) WHERE bin_id = ? per bin row,
+    // and /warehouse/lots filters by bin_id inside several subqueries. Without
+    // this index, every read sequentially scans inventory_locations — which gets
+    // worse the more lots are filed.
+    await client.query(`CREATE INDEX IF NOT EXISTS inv_locations_bin_idx ON inventory_locations (bin_id)`);
+    console.log('[Migration] Phase-117 (inventory_locations.bin_id index) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

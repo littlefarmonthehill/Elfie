@@ -1428,6 +1428,7 @@ export const inventoryLocations = pgTable("inventory_locations", {
 }, (table) => ({
   orgIdIdx: index("inv_locations_org_id_idx").on(table.orgId),
   inventoryIdx: index("inv_locations_inventory_idx").on(table.inventoryId),
+  binIdx: index("inv_locations_bin_idx").on(table.binId),
 }));
 
 export const insertInventoryLocationSchema = createInsertSchema(inventoryLocations).omit({

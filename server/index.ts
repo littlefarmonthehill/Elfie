@@ -503,6 +503,20 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-16: zone_id heal (non-fatal):', fix16Err.message);
     }
 
+    // 4a-fix-17. Index inventory_locations.bin_id.
+    // /warehouse/bins and /warehouse/lots filter by bin_id; without this index
+    // every read sequentially scans inventory_locations, which causes 20-30s
+    // latency on warehouse pages while filing is active. Lives here (and not
+    // in the Phase-117 migration chain) because the chain aborts early in prod
+    // on the pre-existing "column openai_api_key does not exist" error, so a
+    // migration-chain entry would never actually run.
+    try {
+      await pool.query(`CREATE INDEX IF NOT EXISTS inv_locations_bin_idx ON inventory_locations (bin_id)`);
+      console.log('[Startup] fix-17: inventory_locations.bin_id index ensured.');
+    } catch (fix17Err: any) {
+      console.error('[Startup] fix-17: inv_locations_bin_idx (non-fatal):', fix17Err.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

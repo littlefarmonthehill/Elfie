@@ -215,6 +215,10 @@ router.get("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
     ? and(eq(whBins.orgId, orgId), eq(whBins.zoneId, zoneId))
     : eq(whBins.orgId, orgId);
 
+  // Use a single LEFT JOIN + GROUP BY instead of a correlated COUNT(*) subquery
+  // per bin row. With N bins, the old shape executed N separate index lookups
+  // against inventory_locations (and a seq scan before the bin_id index existed),
+  // which is why this endpoint had 20-30s latency while filing was active.
   const binsWithDetails = await db
     .select({
       id: whBins.id,
@@ -229,12 +233,14 @@ router.get("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
       isFilingQueue: whBins.isFilingQueue,
       createdAt: whBins.createdAt,
       updatedAt: whBins.updatedAt,
-      itemCount: sql<number>`(SELECT COUNT(*) FROM ${inventoryLocations} WHERE ${inventoryLocations.binId} = ${whBins.id})`,
+      itemCount: sql<number>`COUNT(${inventoryLocations.id})`,
     })
     .from(whBins)
     .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
     .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+    .leftJoin(inventoryLocations, eq(inventoryLocations.binId, whBins.id))
     .where(whereClause)
+    .groupBy(whBins.id, whShelves.name, whAisles.id, whAisles.name)
     .orderBy(whBins.shelfId, whBins.position);
   res.json(binsWithDetails);
 }));
