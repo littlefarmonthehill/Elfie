@@ -1,6 +1,5 @@
 import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus, CheckCircle2, History, ArrowRight, ArrowLeftRight, Tag } from "lucide-react";
-import LotLabelPrintDialog from "@/components/LotLabelPrintDialog";
-import type { LotLabelItem } from "@/components/PackingSlip";
+import LotLabelTemplatePrintDialog, { type LotLabelPrintItem } from "@/components/LotLabelTemplatePrint";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -508,20 +507,23 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
   // ── Print Lot Label (same infrastructure as List-o-Matic / Fulfillment) ────
   const [lotLabelOpen, setLotLabelOpen] = useState(false);
-  const { data: orgBranding } = useQuery<any>({ queryKey: ['/api/org'] });
-  const lotLabelItem: LotLabelItem = {
-    partNumber: data.itemNo ?? null,
-    sku: data.itemNo ?? null,
-    itemName: data.itemName ?? null,
-    colorName: data.colorName ?? null,
-    colorId: data.colorId ?? null,
-    condition: data.newOrUsed ?? null,
-    quantity: data.quantity ?? 1,
-    inventoryId: data.id ?? null,
-    itemType: data.itemType ?? null,
-    comment: data.description ?? null,
-    remarks: data.remarks ?? null,
-  };
+  const lotLabelItem: LotLabelPrintItem | null = data.id
+    ? {
+        id: data.id,
+        itemNo: data.itemNo ?? '',
+        itemName: data.itemName ?? null,
+        colorName: data.colorName ?? null,
+        newOrUsed: data.newOrUsed ?? null,
+        quantity: data.quantity ?? 1,
+        itemType: data.itemType ?? null,
+        colorId: data.colorId ?? null,
+        imageUrl: (data as any).thumbnailUrl ?? (data as any).imageUrl ?? null,
+        remarks: data.remarks ?? null,
+        description: data.description ?? null,
+        aisleName: (warehouseLocation && warehouseLocation[0]?.aisleName) ?? null,
+        locationLabel: (warehouseLocation && warehouseLocation[0]?.binName) ?? null,
+      }
+    : null;
 
   const { data: allBins } = useQuery<any[]>({
     queryKey: ['/api/warehouse/bins'],
@@ -2635,12 +2637,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
         />
       )}
 
-      <LotLabelPrintDialog
-        open={lotLabelOpen}
-        onOpenChange={setLotLabelOpen}
-        items={[lotLabelItem]}
-        org={orgBranding ? { name: orgBranding.name, address: orgBranding.address, logoUrl: orgBranding.logoUrl } : undefined}
-      />
+      {lotLabelItem && (
+        <LotLabelTemplatePrintDialog
+          open={lotLabelOpen}
+          onOpenChange={setLotLabelOpen}
+          items={[lotLabelItem]}
+          markRtf={false}
+        />
+      )}
     </div>
   );
 }
