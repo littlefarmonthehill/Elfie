@@ -242,6 +242,22 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
     return res.status(400).json({ error: "from and to are required ISO dates" });
   }
 
+  // One row per lot — pull the aisle hint via a scalar subquery so multi-bin
+  // lots (and any stray duplicate inventory_locations rows) don't fan out into
+  // multiple labels. Sort by aisle then item_no so the printed run is in a
+  // predictable physical order for the filer.
+  const aisleSub = sql<string | null>`(
+    SELECT ${whAisles.name}
+    FROM ${inventoryLocations}
+    LEFT JOIN ${whBins} ON ${whBins.id} = ${inventoryLocations.binId}
+    LEFT JOIN ${whShelves} ON ${whShelves.id} = ${whBins.shelfId}
+    LEFT JOIN ${whAisles} ON ${whAisles.id} = ${whShelves.aisleId}
+    WHERE ${inventoryLocations.inventoryId} = ${blInventory.id}
+      AND ${whAisles.name} IS NOT NULL
+    ORDER BY ${whAisles.name} ASC
+    LIMIT 1
+  )`;
+
   const rows = await db
     .select({
       id: blInventory.id,
@@ -257,7 +273,7 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
       // Aisle of the lot's current bin (if any) — for pre-sort label hints.
-      aisleName: whAisles.name,
+      aisleName: aisleSub.as('aisle_name'),
     })
     .from(blInventory)
     .leftJoin(blCatalog, and(
@@ -265,16 +281,13 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       eq(blCatalog.itemType, blInventory.itemType),
       eq(blCatalog.colorId, blInventory.colorId),
     ))
-    .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
-    .leftJoin(whBins, eq(whBins.id, inventoryLocations.binId))
-    .leftJoin(whShelves, eq(whShelves.id, whBins.shelfId))
-    .leftJoin(whAisles, eq(whAisles.id, whShelves.aisleId))
     .where(and(
       eq(blInventory.orgId, orgId),
       isNull(blInventory.deletedAt),
       gte(blInventory.syncedAt, from),
       lte(blInventory.syncedAt, to),
     ))
+    .orderBy(sql`aisle_name NULLS LAST`, blInventory.itemNo, blInventory.colorId)
     .limit(2000);
 
   // Derive changeType from the lot's BrickLink creation date relative to the
