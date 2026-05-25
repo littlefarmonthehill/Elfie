@@ -930,13 +930,13 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
         colorName: blColors.name,
         newOrUsed: blInventory.newOrUsed,
         quantity:  blInventory.quantity,
-        price:     blInventory.price,
+        price:     blInventory.unitPrice,
         remarks:   blInventory.remarks,
         rtfBin:    blInventory.rtfBin,
         itemName:  resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
       })
       .from(blInventory)
-      .leftJoin(blColors, eq(blInventory.colorId, blColors.colorId))
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, lotId)));
     if (!lot) return res.status(404).json({ error: `Lot ${lotId} not found` });
 

@@ -996,7 +996,7 @@ router.get("/search", isApproved, asyncRoute(async (req: any, res) => {
       END`,
       asc(blInventory.itemNo)
     )
-    .limit(15);
+    .limit(500);
 
   const ordWhere = and(
     eq(orders.orgId, orgId),
@@ -1023,7 +1023,7 @@ router.get("/search", isApproved, asyncRoute(async (req: any, res) => {
     .from(orders)
     .where(ordWhere)
     .orderBy(desc(orders.orderDate))
-    .limit(6);
+    .limit(500);
 
   res.json({ inventory: inventoryResults, orders: orderResults });
 }));
