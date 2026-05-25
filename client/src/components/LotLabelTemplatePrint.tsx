@@ -9,7 +9,8 @@ import { QRCodeSVG } from "qrcode.react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import { apiRequest } from "@/lib/queryClient";
-import { hiddenPrint, loadItemImageForPDF } from "./PackingSlip";
+import { hiddenPrint } from "./PackingSlip";
+import { partImageSources } from "@/lib/part-image";
 
 // ── Lot label item shape (superset used by both List-o-Matic and InventoryDetail) ──
 export interface LotLabelPrintItem {
@@ -101,6 +102,64 @@ export function saveLotLabelSize(key: LotLabelKey) {
   try { window.localStorage.setItem(LOT_LABEL_SIZE_KEY, key); } catch { /* ignore */ }
 }
 
+// Label-optimized image loader: small white-background JPEG suitable for
+// jsPDF embedding. Much smaller and faster than padded PNG dataURLs, which
+// matters when generating 100+ labels in a single PDF.
+function loadLabelThumbJPEG(url: string, targetPx: number): Promise<string | null> {
+  return new Promise(resolve => {
+    const img = new Image();
+    let isCrossOrigin = false;
+    try {
+      if (typeof window !== 'undefined' && /^https?:\/\//i.test(url)) {
+        isCrossOrigin = new URL(url).origin !== window.location.origin;
+      }
+    } catch { /* same-origin */ }
+    if (isCrossOrigin) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth || img.width || 0;
+        const h = img.naturalHeight || img.height || 0;
+        if (!w || !h) { resolve(null); return; }
+        const sz = targetPx;
+        const scale = Math.min(sz / w, sz / h);
+        const dw = Math.max(1, Math.round(w * scale));
+        const dh = Math.max(1, Math.round(h * scale));
+        const dx = Math.floor((sz - dw) / 2);
+        const dy = Math.floor((sz - dh) / 2);
+        const canvas = document.createElement('canvas');
+        canvas.width = sz;
+        canvas.height = sz;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sz, sz);
+        ctx.drawImage(img, dx, dy, dw, dh);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+async function loadLabelImageDeduped(opts: {
+  partNumber?: string | null;
+  colorId?: number | null;
+  imageUrl?: string | null;
+  itemType?: string | null;
+  targetPx: number;
+}): Promise<string | null> {
+  // Intentionally omit lotId — labels are canonical per SKU+color, so we want
+  // the catalog/CDN image, not a lot-scoped override. This keeps the dedupe
+  // key (itemNo+colorId+itemType+imageUrl) sound: two lots of the same
+  // SKU/color always resolve to the same thumbnail.
+  const urls = partImageSources(opts.imageUrl, opts.partNumber, opts.colorId, opts.itemType, null);
+  for (const url of urls) {
+    const data = await loadLabelThumbJPEG(url, opts.targetPx);
+    if (data) return data;
+  }
+  return null;
+}
+
 function decodeHtml(str: string): string {
   if (typeof document === 'undefined') return str;
   const txt = document.createElement('textarea');
@@ -132,6 +191,7 @@ export async function printLotLabelsWithTemplate(
   const imgIn = showImage ? qrIn : 0;
   const imgGap = showImage ? 0.06 : 0;
 
+  // QR codes are unique per lot (LOT:<id>), so each must be generated.
   const qrCanvases = await Promise.all(items.map(async (lot) => {
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, `LOT:${lot.id}`, {
@@ -142,16 +202,34 @@ export async function printLotLabelsWithTemplate(
     return canvas;
   }));
 
-  const partImages = showImage
-    ? await Promise.all(items.map(lot => loadItemImageForPDF({
-        partNumber: lot.itemNo,
-        colorId: lot.colorId ?? null,
-        imageUrl: lot.imageUrl ?? null,
-        itemType: lot.itemType ?? null,
-        lotId: lot.id,
-        grayscale: false,
-      })))
-    : items.map(() => null);
+  // Part thumbnails repeat across labels for the same SKU+color — dedupe so
+  // we only fetch + encode each unique image once. Major speedup when a print
+  // batch contains many lots of the same part. Downscaled JPEG keeps the
+  // final PDF small and fast for the browser to render in the print dialog.
+  let partImages: (string | null)[];
+  if (showImage) {
+    const targetPx = Math.max(96, Math.round(tmpl.qrPx * 2));
+    const cache = new Map<string, Promise<string | null>>();
+    const keyFor = (lot: LotLabelPrintItem) =>
+      `${lot.itemNo}|${lot.colorId ?? ''}|${lot.itemType ?? ''}|${lot.imageUrl ?? ''}`;
+    partImages = await Promise.all(items.map(lot => {
+      const k = keyFor(lot);
+      let p = cache.get(k);
+      if (!p) {
+        p = loadLabelImageDeduped({
+          partNumber: lot.itemNo,
+          colorId: lot.colorId ?? null,
+          imageUrl: lot.imageUrl ?? null,
+          itemType: lot.itemType ?? null,
+          targetPx,
+        });
+        cache.set(k, p);
+      }
+      return p;
+    }));
+  } else {
+    partImages = items.map(() => null);
+  }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
@@ -189,7 +267,7 @@ export async function printLotLabelsWithTemplate(
 
       const imgData = partImages[i];
       if (imgData) {
-        try { doc.addImage(imgData, 'PNG', imgX, sideTopY, imgIn, imgIn); } catch { /* skip */ }
+        try { doc.addImage(imgData, 'JPEG', imgX, sideTopY, imgIn, imgIn); } catch { /* skip */ }
       } else {
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(248, 248, 248);
