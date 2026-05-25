@@ -20,6 +20,7 @@ import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import { hiddenPrint, loadItemImageForPDF } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
+import { useScanSession } from "@/contexts/ScanSessionContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PriorityCategory {
@@ -410,6 +411,14 @@ function DateRangeLabels(props: {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ListomaticPriority() {
   const { toast } = useToast();
+  const { setInventoryInitialTab } = useScanSession();
+
+  // While this view is mounted, route inventory-QR scans into the
+  // "My Inventory" (details) tab of the inventory detail modal.
+  useEffect(() => {
+    setInventoryInitialTab("details");
+    return () => setInventoryInitialTab(null);
+  }, [setInventoryInitialTab]);
 
   // ── Categories tab ────────────────────────────────────────────────────────
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' });

@@ -42,7 +42,7 @@ function AuthenticatedHome() {
 function AuthenticatedHomeInner() {
   useSSE();
   const { toast } = useToast();
-  const { active: scanSessionActive } = useScanSession();
+  const { active: scanSessionActive, inventoryInitialTab } = useScanSession();
   const [scanDetail, setScanDetail] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -51,9 +51,10 @@ function AuthenticatedHomeInner() {
   const closeScanDetail = useCallback(() => setScanDetail({ open: false, data: null }), []);
 
   const openInventoryById = useCallback(async (id: number | string) => {
+    const initialTab = inventoryInitialTab ?? undefined;
     setScanDetail({
       open: true,
-      data: { type: "inventory", data: { id, loading: true } as any },
+      data: { type: "inventory", data: { id, loading: true } as any, initialTab },
     });
     try {
       const invRes = await fetch(`/api/inventory/${id}`);
@@ -61,7 +62,7 @@ function AuthenticatedHomeInner() {
       const inventoryData = await invRes.json();
       setScanDetail({
         open: true,
-        data: { type: "inventory", data: { ...inventoryData, loadingPriceOMagic: true } },
+        data: { type: "inventory", data: { ...inventoryData, loadingPriceOMagic: true }, initialTab },
       });
       const params = new URLSearchParams();
       if (inventoryData.colorId) params.append("color_id", String(inventoryData.colorId));
@@ -71,10 +72,10 @@ function AuthenticatedHomeInner() {
       const priceOMagic = priceRes.ok ? await priceRes.json() : null;
       setScanDetail({
         open: true,
-        data: { type: "inventory", data: { ...inventoryData, priceOMagic, loadingPriceOMagic: false } },
+        data: { type: "inventory", data: { ...inventoryData, priceOMagic, loadingPriceOMagic: false }, initialTab },
       });
     } catch { /* keep current state */ }
-  }, []);
+  }, [inventoryInitialTab]);
 
   const handleScanItemClick = useCallback((type: 'order' | 'inventory', id: number | string) => {
     if (type === 'inventory') openInventoryById(id);
