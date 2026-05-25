@@ -262,8 +262,6 @@ export async function printLotLabelsWithTemplate(
     if (noteText) {
       cursorY += lineGap;
       const noteY = Math.min(cursorY, pageH - padIn - noteBlockH);
-      doc.setFillColor(255, 245, 200);
-      doc.rect(textX - 0.02, noteY - 0.01, textW + 0.04, noteBlockH + 0.02, 'F');
       doc.setFont('helvetica', 'oblique');
       doc.setFontSize(notePt);
       doc.setTextColor(60, 50, 0);
