@@ -162,7 +162,7 @@ export async function printLotLabelsWithTemplate(
     const cond = conditionLabel(lot.newOrUsed);
     const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
 
-    const sideCaptionPt = 8;
+    const sideCaptionPt = 10;
     const sideCaptionLineH = sideCaptionPt / 72;
     const sideGap = 0.03;
     const sideStackH = qrIn + sideGap + sideCaptionLineH;
@@ -197,7 +197,7 @@ export async function printLotLabelsWithTemplate(
       }
 
       {
-        const aislePt = 10;
+        const aislePt = 12;
         const aisleY = sideTopY + imgIn + sideGap;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(aislePt);
@@ -217,8 +217,8 @@ export async function printLotLabelsWithTemplate(
     const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
     const textW = textRight - textX;
 
-    const namePt = 9;
-    const metaPt = 7;
+    const namePt = 11;
+    const metaPt = 9;
     const lineGap = 0.04;
 
     doc.setFont('helvetica', 'bold');
@@ -228,12 +228,12 @@ export async function printLotLabelsWithTemplate(
     const metaLineH = metaParts ? (metaPt / 72) : 0;
 
     const noteText = decodeHtml((lot.remarks ?? lot.description ?? '').trim());
-    const notePt = 7;
+    const notePt = 9;
     const noteLineH = (notePt / 72) * 1.25;
     let noteWrapped: string[] = [];
     let noteBlockH = 0;
     if (noteText) {
-      doc.setFont('helvetica', 'oblique');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(notePt);
       noteWrapped = (doc.splitTextToSize(noteText, textW) as string[]).slice(0, 2);
       noteBlockH = noteWrapped.length * noteLineH;
@@ -246,9 +246,9 @@ export async function printLotLabelsWithTemplate(
     let cursorY = Math.max(padIn, (pageH - totalH) / 2);
 
     if (metaParts) {
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(metaPt);
-      doc.setTextColor(68, 68, 68);
+      doc.setTextColor(0, 0, 0);
       doc.text(metaParts, textX, cursorY, { baseline: 'top' });
       cursorY += metaLineH + lineGap;
     }
@@ -262,7 +262,7 @@ export async function printLotLabelsWithTemplate(
     if (noteText) {
       cursorY += lineGap;
       const noteY = Math.min(cursorY, pageH - padIn - noteBlockH);
-      doc.setFont('helvetica', 'oblique');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(notePt);
       doc.setTextColor(60, 50, 0);
       noteWrapped.forEach((line, idx) => {
