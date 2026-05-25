@@ -15,12 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QRCodeSVG } from "qrcode.react";
-import QRCode from "qrcode";
-import jsPDF from "jspdf";
-import { hiddenPrint, loadItemImageForPDF } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { useScanSession } from "@/contexts/ScanSessionContext";
+import LotLabelTemplatePrintDialog, { LotLabelPrintItem } from "./LotLabelTemplatePrint";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PriorityCategory {
@@ -129,70 +126,6 @@ interface WorkerMemory {
   filerZoneId: number | null;
   filerLastBinId: number | null;
 }
-
-// ── Label templates ────────────────────────────────────────────────────────────
-type LotLabelKey =
-  | 'avery5160' | 'avery5163' | 'avery5164'
-  | 'brotherDK1201' | 'brotherDK2210' | 'brotherDK1209';
-
-interface LotLabelTemplate {
-  name: string;
-  desc: string;
-  w: string; h: string;
-  perSheet: number; cols: number;
-  pageMarginV: string; pageMarginH: string;
-  colGap: string; rowGap: string;
-  qrPx: number;
-  previewH: string; previewQr: number;
-  mode: 'sheet' | 'brother';
-  group: string;
-}
-
-const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
-  // ── Sheet labels (Avery) ────────────────────────────────────────────────────
-  avery5160: {
-    name: 'Avery 5160 / 8160', desc: '1" × 2⅝" · 30 per sheet',
-    w: '2.625in', h: '1in', cols: 3, perSheet: 30,
-    pageMarginV: '0.5in', pageMarginH: '0.1875in', colGap: '0.125in', rowGap: '0in',
-    qrPx: 48, previewH: 'h-10', previewQr: 32, mode: 'sheet', group: 'Sheet labels (Avery)',
-  },
-  avery5163: {
-    name: 'Avery 5163 / 8163', desc: '2" × 4" · 10 per sheet',
-    w: '4in', h: '2in', cols: 2, perSheet: 10,
-    pageMarginV: '0.5in', pageMarginH: '0.15625in', colGap: '0.1875in', rowGap: '0in',
-    qrPx: 88, previewH: 'h-16', previewQr: 52, mode: 'sheet', group: 'Sheet labels (Avery)',
-  },
-  avery5164: {
-    name: 'Avery 5164 / 8164', desc: '3⅓" × 4" · 6 per sheet',
-    w: '4in', h: '3.333in', cols: 2, perSheet: 6,
-    pageMarginV: '0.5in', pageMarginH: '0.15625in', colGap: '0.1875in', rowGap: '0in',
-    qrPx: 140, previewH: 'h-24', previewQr: 72, mode: 'sheet', group: 'Sheet labels (Avery)',
-  },
-  // ── Brother QL-810W ─────────────────────────────────────────────────────────
-  brotherDK1201: {
-    name: 'Brother DK-1201', desc: '1⅛" × 3½" standard address',
-    w: '3.5in', h: '1.125in', cols: 1, perSheet: 1,
-    pageMarginV: '0.06in', pageMarginH: '0.06in', colGap: '0in', rowGap: '0in',
-    qrPx: 64, previewH: 'h-10', previewQr: 42, mode: 'brother', group: 'Brother QL-810W',
-  },
-  brotherDK2210: {
-    name: 'Brother DK-2210', desc: '1⅛" wide continuous tape',
-    w: '4in', h: '1.125in', cols: 1, perSheet: 1,
-    pageMarginV: '0.06in', pageMarginH: '0.06in', colGap: '0in', rowGap: '0in',
-    qrPx: 64, previewH: 'h-10', previewQr: 42, mode: 'brother', group: 'Brother QL-810W',
-  },
-  brotherDK1209: {
-    name: 'Brother DK-1209', desc: '⅞" × 1⅝" small address',
-    w: '1.625in', h: '0.875in', cols: 1, perSheet: 1,
-    pageMarginV: '0.04in', pageMarginH: '0.04in', colGap: '0in', rowGap: '0in',
-    qrPx: 44, previewH: 'h-9', previewQr: 28, mode: 'brother', group: 'Brother QL-810W',
-  },
-};
-
-const LOT_LABEL_GROUPS: { groupName: string; keys: LotLabelKey[] }[] = [
-  { groupName: 'Sheet labels (Avery)',  keys: ['avery5160', 'avery5163', 'avery5164'] },
-  { groupName: 'Brother QL-810W',       keys: ['brotherDK1201', 'brotherDK2210', 'brotherDK1209'] },
-];
 
 // ── Categories tab config ──────────────────────────────────────────────────────
 const PHASES = ['category', 'subcategory', 'finalsort', 'listing', 'file'] as const;
@@ -469,10 +402,9 @@ export default function ListomaticPriority() {
     } catch { /* quota exceeded — silently ignore */ }
   }, [lotQueue]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  // When set, handlePrintLotLabels prints this subset instead of the full queue.
+  // When set, the print dialog prints this subset instead of the full queue.
   // Cleared automatically when the print dialog closes.
   const [pendingPrintIds, setPendingPrintIds] = useState<Set<number> | null>(null);
-  const [lotLabelSize, setLotLabelSize] = useState<LotLabelKey>('brotherDK1201');
 
   // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -660,10 +592,10 @@ export default function ListomaticPriority() {
     setLotQueue(prev => prev.filter(l => l.id !== id));
   };
 
-  // ── Lot label print ───────────────────────────────────────────────────────
-  // Follows the global print pattern: build a PDF blob with jsPDF, then hand
-  // it to hiddenPrint() (PackingSlip.tsx) which renders an off-screen iframe
-  // on desktop and the iOS share sheet on mobile.
+  // ── Lot label print queue ─────────────────────────────────────────────────
+  // The actual PDF rendering lives in LotLabelTemplatePrint.tsx so any font /
+  // layout change applies to BOTH this bulk queue and InventoryDetail's
+  // single-lot print. Don't fork the template — edit the shared file.
   // Add a list of items to the print queue. Lot labels never carry a location:
   // the bag's identity is permanent, where it physically lives is not.
   const enqueueForPrint = (items: LotItem[]) => {
@@ -679,222 +611,12 @@ export default function ListomaticPriority() {
     }
   };
 
-  const handlePrintLotLabels = async () => {
-    // Honour an in-flight subset selection from the queue's filter pills so
-    // the user can print just NEW (or just UPDATED) without disturbing the
-    // rest of the queue.
-    const itemsToPrint = pendingPrintIds
-      ? lotQueue.filter(l => pendingPrintIds.has(l.id))
-      : lotQueue;
-    if (itemsToPrint.length === 0) return;
-    const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
-    setPrintDialogOpen(false);
-    setPendingPrintIds(null);
-
-    try {
-      const parseIn = (s: string) => parseFloat(s);
-      const pageW = parseIn(tmpl.w);
-      const pageH = parseIn(tmpl.h);
-      const padIn = 0.05;
-      const qrIn = tmpl.qrPx / 96;
-      // Skip the part image on the tiny DK-1209 template — there's not enough
-      // horizontal room for QR + image + readable text. Every other template
-      // shows a square thumbnail the same size as the QR.
-      const showImage = lotLabelSize !== 'brotherDK1209';
-      const imgIn = showImage ? qrIn : 0;
-      const imgGap = showImage ? 0.06 : 0;
-
-      // Pre-render each lot's QR to a canvas (jsPDF accepts canvas natively).
-      const qrCanvases = await Promise.all(itemsToPrint.map(async (lot) => {
-        const canvas = document.createElement('canvas');
-        await QRCode.toCanvas(canvas, `LOT:${lot.id}`, {
-          width: tmpl.qrPx * 2,
-          margin: 0,
-          color: { dark: '#000000', light: '#ffffff' },
-        });
-        return canvas;
-      }));
-
-      // Pre-load the part image for each lot via the same global resolver
-      // used for picklists & order detail (lot id → user image → catalog →
-      // BL CDN). Failures are non-fatal — the cell is left blank.
-      const partImages = showImage
-        ? await Promise.all(itemsToPrint.map(lot => loadItemImageForPDF({
-            partNumber: lot.itemNo,
-            colorId: lot.colorId ?? null,
-            imageUrl: lot.imageUrl ?? null,
-            itemType: lot.itemType ?? null,
-            lotId: lot.id,
-            grayscale: false,
-          })))
-        : itemsToPrint.map(() => null);
-
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
-
-      // Strip an "AISLE-SHELF-" prefix from a bin label so it shows just the
-      // bin segment (e.g. "BIN-07" or "9-Z-11" → "07" / "11"), matching the
-      // inventory detail modal where aisle/shelf are shown separately.
-      const shortBin = (raw: string | null | undefined): string => {
-        if (!raw) return '';
-        const parts = String(raw).split('-');
-        return parts.length > 1 ? parts[parts.length - 1] : raw;
-      };
-
-      itemsToPrint.forEach((lot, i) => {
-        if (i > 0) doc.addPage([pageW, pageH], 'landscape');
-
-        const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
-        const cond = conditionLabel(lot.newOrUsed);
-        const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
-
-        // ── Side stacks: QR + part# on left, image + LOT id on right ──────
-        // Each side reserves one short caption line beneath the square so
-        // the QR/image still fill most of the label height.
-        const sideCaptionPt = 6;
-        const sideCaptionLineH = sideCaptionPt / 72;
-        const sideGap = 0.03;
-        const sideStackH = qrIn + sideGap + sideCaptionLineH;
-        const sideTopY = Math.max(padIn, (pageH - sideStackH) / 2);
-
-        // LEFT: QR centered horizontally over its caption (#partNo)
-        const partLabel = `#${lot.itemNo}`;
-        doc.addImage(qrCanvases[i], 'PNG', padIn, sideTopY, qrIn, qrIn);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(sideCaptionPt);
-        doc.setTextColor(102, 102, 102);
-        const partTextW = doc.getTextWidth(partLabel);
-        const partTextX = padIn + (qrIn - partTextW) / 2;
-        const captionY = sideTopY + qrIn + sideGap;
-        doc.text(partLabel, partTextX, captionY, { baseline: 'top' });
-
-        // RIGHT: image with LOT id caption ABOVE it (right-anchored so long
-        // ids can't push the "L" behind the yellow remarks box on the left).
-        if (showImage) {
-          const imgX = pageW - padIn - imgIn;
-          const lotLabel = `LOT:${lot.id}`;
-          const lotCaptionY = Math.max(padIn, sideTopY - sideGap - sideCaptionLineH);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(sideCaptionPt);
-          doc.setTextColor(26, 95, 26);
-          doc.text(lotLabel, imgX + imgIn, lotCaptionY, { baseline: 'top', align: 'right' });
-
-          const imgData = partImages[i];
-          if (imgData) {
-            try { doc.addImage(imgData, 'PNG', imgX, sideTopY, imgIn, imgIn); } catch { /* skip */ }
-          } else {
-            doc.setDrawColor(220, 220, 220);
-            doc.setFillColor(248, 248, 248);
-            doc.roundedRect(imgX, sideTopY, imgIn, imgIn, 0.03, 0.03, 'FD');
-          }
-
-          // Pre-file tote hint UNDER the image. Lots with a known aisle land
-          // in that aisle's tote ("rtf {n}"); brand-new lots without an aisle
-          // land in the universal "rtf 0" tote, where the filer drains them
-          // by assigning each bag a real bin. The label stays identity-only
-          // — the rtf value is meaningless once the bag is officially filed.
-          {
-            const aislePt = 8;
-            const aisleY = sideTopY + imgIn + sideGap;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(aislePt);
-            doc.setTextColor(26, 95, 26);
-            doc.text(`rtf ${lot.aisleName ?? 0}`, imgX + imgIn, aisleY, { baseline: 'top', align: 'right' });
-          }
-        } else {
-          // No image — still print LOT id on the right side under nothing,
-          // anchored to the right edge so it doesn't collide with the name.
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(sideCaptionPt);
-          doc.setTextColor(26, 95, 26);
-          const lotLabel = `LOT:${lot.id}`;
-          const lotTextW = doc.getTextWidth(lotLabel);
-          doc.text(lotLabel, pageW - padIn - lotTextW, captionY, { baseline: 'top' });
-        }
-
-        // ── Middle text column between the QR and the image ───────────────
-        const textX = padIn + qrIn + 0.08;
-        const textRight = showImage ? (pageW - padIn - imgIn - imgGap) : (pageW - padIn);
-        const textW = textRight - textX;
-
-        const namePt = 9;
-        const metaPt = 7;
-        const lineGap = 0.04;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(namePt);
-        const nameLines = doc.splitTextToSize(name, textW).slice(0, 2);
-        const nameBlockH = nameLines.length * (namePt / 72) * 1.2;
-        const metaLineH = metaParts ? (metaPt / 72) : 0;
-
-        const noteText = decodeHtml((lot.remarks ?? lot.description ?? '').trim());
-        const notePt = 7;
-        const noteLineH = (notePt / 72) * 1.25;
-        let noteWrapped: string[] = [];
-        let noteBlockH = 0;
-        if (noteText) {
-          doc.setFont('helvetica', 'oblique');
-          doc.setFontSize(notePt);
-          noteWrapped = (doc.splitTextToSize(noteText, textW) as string[]).slice(0, 2);
-          noteBlockH = noteWrapped.length * noteLineH;
-        }
-
-        const totalH =
-          (metaLineH ? metaLineH + lineGap : 0) +
-          nameBlockH +
-          (noteBlockH ? lineGap + noteBlockH : 0);
-        let cursorY = Math.max(padIn, (pageH - totalH) / 2);
-
-        // ── Meta line (color · condition) ABOVE the name ──
-        if (metaParts) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(metaPt);
-          doc.setTextColor(68, 68, 68);
-          doc.text(metaParts, textX, cursorY, { baseline: 'top' });
-          cursorY += metaLineH + lineGap;
-        }
-
-        // ── Item name ──
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(namePt);
-        doc.setTextColor(0, 0, 0);
-        doc.text(nameLines, textX, cursorY, { baseline: 'top' });
-        cursorY += nameBlockH;
-
-        // ── Remarks / description (faint yellow highlight) ──
-        if (noteText) {
-          cursorY += lineGap;
-          const noteY = Math.min(cursorY, pageH - padIn - noteBlockH);
-          doc.setFillColor(255, 245, 200);
-          doc.rect(textX - 0.02, noteY - 0.01, textW + 0.04, noteBlockH + 0.02, 'F');
-          doc.setFont('helvetica', 'oblique');
-          doc.setFontSize(notePt);
-          doc.setTextColor(60, 50, 0);
-          noteWrapped.forEach((line, idx) => {
-            doc.text(line, textX, noteY + idx * noteLineH, { baseline: 'top' });
-          });
-          cursorY = noteY + noteBlockH;
-        }
-      });
-
-      hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
-
-      // Stamp a Ready-to-File hint on every lot we just printed. Lots with a
-      // known aisle land in that aisle's pre-file tote ("rtf {n}"); brand-new
-      // lots without an aisle yet land in the universal "rtf 0" tote, which
-      // the filer drains by assigning each bag a real bin. Either way the
-      // hint surfaces on the picklist so an order can be pulled before the
-      // bag is officially filed.
-      const rtfPayload = itemsToPrint
-        .map(l => ({ inventoryId: l.id, rtfBin: l.aisleName ? String(l.aisleName) : "0" }));
-      if (rtfPayload.length > 0) {
-        try {
-          await apiRequest('POST', '/api/listing-batches/mark-rtf', { items: rtfPayload });
-        } catch { /* non-fatal — the label still prints */ }
-      }
-    } catch (err: any) {
-      toast({ title: "Label print failed", description: String(err?.message ?? err), variant: "destructive" });
-    }
-  };
+  // Items the print dialog should print: honour an in-flight subset selection
+  // from the queue's filter pills so the user can print just NEW (or just
+  // UPDATED) without disturbing the rest of the queue.
+  const itemsToPrint: LotLabelPrintItem[] = pendingPrintIds
+    ? lotQueue.filter(l => pendingPrintIds.has(l.id))
+    : lotQueue;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1894,113 +1616,13 @@ export default function ListomaticPriority() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Lot label print dialog ────────────────────────────────────── */}
-      <Dialog open={printDialogOpen} onOpenChange={(open) => { setPrintDialogOpen(open); if (!open) setPendingPrintIds(null); }}>
-        <DialogContent className="max-w-lg z-[9999]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-4 w-4 text-muted-foreground" />
-              Print Lot Labels
-            </DialogTitle>
-            <DialogDescription>
-              {lotQueue.length} lot label{lotQueue.length !== 1 ? 's' : ''}. Each label includes a QR code (LOT:id), part number, name, color, and condition.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Template selector */}
-            <div>
-              <Label className="text-xs mb-2 block">Label template</Label>
-              <div className="flex flex-col gap-1.5">
-                {LOT_LABEL_GROUPS.map(({ groupName, keys }) => (
-                  <div key={groupName}>
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">{groupName}</p>
-                    {keys.map(key => {
-                      const t = LOT_LABEL_TEMPLATES[key];
-                      const active = lotLabelSize === key;
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => setLotLabelSize(key)}
-                          className={`w-full rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 mb-1 ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
-                          data-testid={`button-lot-label-size-${key}`}
-                        >
-                          <div>
-                            <div className="font-semibold">{t.name}</div>
-                            <div className={`mt-0.5 ${active ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc}</div>
-                          </div>
-                          <div className={`text-[10px] font-mono shrink-0 ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div>
-              <Label className="text-xs mb-2 block text-muted-foreground">
-                Preview (first {Math.min(3, lotQueue.length)})
-              </Label>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {lotQueue.slice(0, 3).map(lot => {
-                  const tmpl = LOT_LABEL_TEMPLATES[lotLabelSize];
-                  const qrData = `LOT:${lot.id}`;
-                  const cond = conditionLabel(lot.newOrUsed);
-                  const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
-                  const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
-                  return (
-                    <div
-                      key={lot.id}
-                      className={`flex items-center gap-2 border border-border rounded-md bg-white dark:bg-zinc-900 p-2 ${tmpl.previewH} overflow-hidden`}
-                    >
-                      <QRCodeSVG
-                        value={qrData}
-                        size={tmpl.previewQr}
-                        bgColor="transparent"
-                        fgColor="currentColor"
-                        className="shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1 overflow-hidden">
-                          <p className="text-[9px] font-mono text-muted-foreground shrink-1 truncate">#{lot.itemNo}</p>
-                          {lot.locationLabel
-                            ? <p className="text-[9px] font-mono font-bold text-foreground shrink-0">{lot.locationLabel}</p>
-                            : <p className="text-[9px] font-mono italic text-muted-foreground/50 shrink-0">unassigned</p>}
-                        </div>
-                        <p className="font-bold text-foreground truncate text-xs leading-tight">{name}</p>
-                        {metaParts && <p className="text-[9px] text-muted-foreground truncate">{metaParts}</p>}
-                        <p className="text-[9px] font-mono text-green-600 dark:text-green-400">LOT:{lot.id}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {lotQueue.length > 3 && (
-                  <p className="text-center text-xs text-muted-foreground py-1">
-                    +{lotQueue.length - 3} more label{lotQueue.length - 3 !== 1 ? 's' : ''} will be printed
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                className="flex-1 gap-2"
-                onClick={handlePrintLotLabels}
-                disabled={lotQueue.length === 0}
-                data-testid="button-print-confirm"
-              >
-                <Printer className="h-4 w-4" />
-                Print {lotQueue.length} Label{lotQueue.length !== 1 ? 's' : ''}
-              </Button>
-              <Button variant="ghost" onClick={() => setPrintDialogOpen(false)} data-testid="button-print-cancel">
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* ── Lot label print dialog (shared template w/ InventoryDetail) ── */}
+      <LotLabelTemplatePrintDialog
+        open={printDialogOpen}
+        onOpenChange={(open) => { setPrintDialogOpen(open); if (!open) setPendingPrintIds(null); }}
+        items={itemsToPrint}
+        markRtf
+      />
     </div>
   );
 }

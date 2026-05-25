@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Printer } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -380,6 +381,7 @@ export default function LotLabelTemplatePrintDialog({
 }: DialogProps) {
   const [size, setSize] = useState<LotLabelKey>(() => loadSavedLotLabelSize());
   const [printing, setPrinting] = useState(false);
+  const { toast } = useToast();
 
   const handleSize = (k: LotLabelKey) => { setSize(k); saveLotLabelSize(k); };
 
@@ -389,6 +391,12 @@ export default function LotLabelTemplatePrintDialog({
     try {
       await printLotLabelsWithTemplate(items, size, { markRtf });
       onOpenChange(false);
+    } catch (err: any) {
+      toast({
+        title: "Label print failed",
+        description: String(err?.message ?? err),
+        variant: "destructive",
+      });
     } finally {
       setPrinting(false);
     }
