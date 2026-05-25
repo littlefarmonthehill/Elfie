@@ -162,7 +162,7 @@ export async function printLotLabelsWithTemplate(
     const cond = conditionLabel(lot.newOrUsed);
     const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
 
-    const sideCaptionPt = 6;
+    const sideCaptionPt = 8;
     const sideCaptionLineH = sideCaptionPt / 72;
     const sideGap = 0.03;
     const sideStackH = qrIn + sideGap + sideCaptionLineH;
@@ -197,7 +197,7 @@ export async function printLotLabelsWithTemplate(
       }
 
       {
-        const aislePt = 8;
+        const aislePt = 10;
         const aisleY = sideTopY + imgIn + sideGap;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(aislePt);
