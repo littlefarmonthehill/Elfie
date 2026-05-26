@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /$
+Disallow: /api/
+Disallow: /admin/
+Disallow: /settings
+Disallow: /fulfillment
+Disallow: /inventory
+Disallow: /orders
+Disallow: /warehouse
+Disallow: /picklist
+Disallow: /brickanalyzer
+Disallow: /price-o-matic
+Disallow: /agents
+Disallow: /support
