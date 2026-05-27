@@ -5,6 +5,7 @@ import { conversations, conversationThreads, supportTickets, organizations } fro
 import { isAuthenticated, isSuperAdmin } from '../auth';
 import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
 import { getPlatformSettings } from '../routes';
+import { trackUsage } from '../services/ai-usage-tracker';
 import { count } from 'drizzle-orm';
 
 const router = Router();
@@ -169,6 +170,7 @@ router.post('/conversations/threads/:sessionId/generate-title', isAuthenticated,
         max_tokens: 20,
         temperature: 0.5,
       });
+      if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'thread-title', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
       const title = completion.choices[0]?.message?.content?.trim() || snippet.slice(0, 40);
       await db.update(conversationThreads)
         .set({ title, updatedAt: new Date() })

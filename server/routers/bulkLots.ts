@@ -6,6 +6,7 @@ import { bulkLots } from '@shared/schema';
 import { isApproved } from '../auth';
 import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
 import { getPlatformOpenAIKey } from '../routes';
+import { trackUsage } from '../services/ai-usage-tracker';
 
 const router = Router();
 router.use(isApproved);
@@ -65,6 +66,7 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
     max_tokens: 1200,
     temperature: 0.7,
   });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'bulk-lot-suggestions', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
   const text = completion.choices[0]?.message?.content?.trim() ?? '[]';
   let suggestions: any[] = [];
   try { suggestions = JSON.parse(text); } catch { suggestions = []; }

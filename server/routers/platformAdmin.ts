@@ -10,6 +10,7 @@ import { getRecentLogs, clearLogs } from "../services/server-log-buffer";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { getOrgWithLimits, checkSeatLimit, checkAutomationLimit, checkBrickspotterLimit } from "../services/tierEnforcement";
 import { stripeClient } from "../services/stripe";
+import { trackUsage } from "../services/ai-usage-tracker";
 import { storage } from "../storage";
 import {
   organizations, users, appSettings, platformSettings as platformSettingsTable,
@@ -1113,6 +1114,7 @@ router.post("/platform-admin/product/vision/generate", isSuperAdmin, asyncRoute(
   if (!apiKey) return res.status(400).json({ message: 'OpenAI API key not configured.' });
   const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', temperature: 0.7, max_tokens: 300, messages: [{ role: 'system', content: "You are a product strategist. Write a concise, inspiring product vision statement (2-4 sentences). Do not use bullet points or headers — just the statement." }, { role: 'user', content: `If we are successful, what changes?\n${whatChanges}\n\nIf we are successful, how do I feel?\n${howIFeel}\n\nIf we are successful, what are people saying?\n${whatPeopleSay}` }] });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'product-vision-generate', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0 });
   res.json({ visionStatement: completion.choices[0]?.message?.content?.trim() || '' });
 }));
 
@@ -1271,6 +1273,7 @@ router.post("/feature-request/rephrase", isAuthenticated, asyncRoute(async (_req
   if (!apiKey) return res.status(503).json({ message: 'AI service not configured.' });
   const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: "You are a product manager for E.L.F.I.E., a LEGO/BrickLink inventory management SaaS. Rephrase the user's feature request into a clear, concise, well-written product feature description (1-2 sentences max). Return ONLY the rephrased feature text." }, { role: 'user', content: description }], max_tokens: 200, temperature: 0.3 });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'feature-request-rephrase', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0 });
   res.json({ rephrased: completion.choices[0]?.message?.content?.trim() || description });
 }));
 
@@ -1287,6 +1290,7 @@ router.post("/feature-request/submit", isAuthenticated, asyncRoute(async (req: a
       const openai = new OpenAI({ apiKey });
       const l2List = l2Caps.map(c => `ID:${c.id} "${c.title}"`).join(', ');
       const completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: `Classify into a product capability category. Available L2 categories: ${l2List}. Return ONLY the numeric ID of the best-matching category. If none fit well, return 0.` }, { role: 'user', content: feature }], max_tokens: 10, temperature: 0 });
+      if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'feature-request-classify', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0 });
       const idStr = completion.choices[0]?.message?.content?.trim() || '0';
       const idMatch = idStr.match(/\d+/);
       const parsedId = idMatch ? parseInt(idMatch[0], 10) : 0;

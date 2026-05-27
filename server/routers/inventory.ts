@@ -23,6 +23,7 @@ import {
   bricklinkCatalogRequest, calculateSuggestedPriceWithSupply 
 } from '../services/bricklink';
 import { checkAutomationLimit } from '../services/tierEnforcement';
+import { trackUsage } from '../services/ai-usage-tracker';
 
 const router = Router();
 
@@ -2113,6 +2114,7 @@ Return ONLY a JSON array, no markdown, no explanation.`;
     temperature: 0.3,
     max_tokens: 2000,
   });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'item-insights', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
 
   const responseText = completion.choices[0]?.message?.content || '';
   let insights: any[] = [];
@@ -2287,6 +2289,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     temperature: 0.3,
     max_tokens: 2000,
   });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'catalog-item-insights', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
 
   const responseText = completion.choices[0]?.message?.content || '';
   let insights: any[] = [];

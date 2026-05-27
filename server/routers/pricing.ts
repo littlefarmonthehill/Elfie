@@ -11,6 +11,7 @@ import { getPlatformOpenAIKey, getPlatformSettings } from '../routes';
 import { syncBricklinkData, fetchPriceOMagicData, calculateSuggestedPriceWithSupply, bricklinkCatalogRequest, requestPomSyncStop, syncPriceOMagicCache } from '../services/bricklink';
 import { getPomIsRunning, setPomIsRunning } from '../services/pom-scheduler';
 import { checkAutomationLimit } from '../services/tierEnforcement';
+import { trackUsage } from '../services/ai-usage-tracker';
 
 const router = Router();
 
@@ -354,6 +355,7 @@ Respond ONLY as JSON: {"wCeiling": 0.00, "wVelocity": 0.00, "wScarcity": 0.00, "
     max_tokens: 80,
     response_format: { type: 'json_object' },
   });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'pom-weights', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
 
   const raw = completion.choices[0]?.message?.content || '{}';
   const parsed = JSON.parse(raw);
@@ -491,6 +493,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     max_tokens: 120,
     response_format: { type: 'json_object' },
   });
+  if (completion.usage) trackUsage({ service: 'openai', model: 'gpt-4o-mini', operation: 'pom-ai-suggest', inputTokens: completion.usage.prompt_tokens || 0, outputTokens: completion.usage.completion_tokens || 0, totalTokens: completion.usage.total_tokens || 0, orgId });
 
   const raw = completion.choices[0]?.message?.content || '{}';
   const parsed = JSON.parse(raw);
