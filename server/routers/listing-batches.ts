@@ -6,10 +6,46 @@ import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
 import {
   listingBatches, listingBatchItems, blInventory, blCatalog,
-  whBins, whZones, whShelves, whAisles, inventoryLocations, workerMemoryZones,
+  whBins, whZones, inventoryLocations, workerMemoryZones,
 } from "@shared/schema";
 
 const router = Router();
+
+// Resolve the aisle hint ("rtf N") for a lot using a hierarchical fallback so
+// brand-new lots inherit the tote of the bins that already hold their siblings.
+// Filing rules: a part may live in one bin (part only), split into new/used
+// (part+condition), or further split by color (part+condition+color). A new
+// lot with no bin of its own should still pre-file into the bag that already
+// holds its closest sibling.
+//
+// Priority (highest first):
+//   0. this lot's own bin (exact part+color+condition)
+//   1. sibling lot with same part+color+condition
+//   2. sibling lot with same part+condition (any color)
+//   3. sibling lot with same part (any condition, any color)
+const lotAisleHintSql = sql<string | null>`(
+  SELECT wa.name
+  FROM bl_inventory sib
+  JOIN inventory_locations il ON il.inventory_id = sib.id
+  JOIN wh_bins wb ON wb.id = il.bin_id
+  JOIN wh_shelves ws ON ws.id = wb.shelf_id
+  JOIN wh_aisles wa ON wa.id = ws.aisle_id
+  WHERE sib.org_id = ${blInventory.orgId}
+    AND sib.item_no = ${blInventory.itemNo}
+    AND sib.item_type = ${blInventory.itemType}
+    AND sib.deleted_at IS NULL
+    AND wa.name IS NOT NULL
+  ORDER BY
+    CASE
+      WHEN sib.id = ${blInventory.id} THEN 0
+      WHEN sib.color_id IS NOT DISTINCT FROM ${blInventory.colorId}
+        AND sib.new_or_used = ${blInventory.newOrUsed} THEN 1
+      WHEN sib.new_or_used = ${blInventory.newOrUsed} THEN 2
+      ELSE 3
+    END,
+    wa.name ASC
+  LIMIT 1
+)`;
 
 // ── Listing Batches ──────────────────────────────────────────────────────────
 
@@ -65,7 +101,9 @@ router.get("/listing-batches/:id", isApproved, asyncRoute(async (req: any, res) 
       currentBinName: whBins.name,
       // Aisle name is shown on the printed label as a pre-sort hint so the
       // filer can grab one tote per aisle and walk the warehouse only once.
-      aisleName: whAisles.name,
+      // Falls back through part+condition then part-only siblings so a brand-
+      // new color/condition lands in the tote that already holds its part.
+      aisleName: lotAisleHintSql.as('aisle_name'),
     })
     .from(listingBatchItems)
     .innerJoin(blInventory, eq(blInventory.id, listingBatchItems.inventoryId))
@@ -76,8 +114,6 @@ router.get("/listing-batches/:id", isApproved, asyncRoute(async (req: any, res) 
     ))
     .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
     .leftJoin(whBins, eq(whBins.id, inventoryLocations.binId))
-    .leftJoin(whShelves, eq(whShelves.id, whBins.shelfId))
-    .leftJoin(whAisles, eq(whAisles.id, whShelves.aisleId))
     .where(eq(listingBatchItems.batchId, id));
 
   res.json({ batch, items });
@@ -242,22 +278,11 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
     return res.status(400).json({ error: "from and to are required ISO dates" });
   }
 
-  // One row per lot — pull the aisle hint via a scalar subquery so multi-bin
-  // lots (and any stray duplicate inventory_locations rows) don't fan out into
-  // multiple labels. Sort by aisle then item_no so the printed run is in a
+  // One row per lot — pull the aisle hint via a hierarchical scalar subquery
+  // so a brand-new color/condition lot inherits the tote of its closest
+  // sibling (part+condition first, then part-only) instead of falling through
+  // to "rtf 0". Sort by aisle then item_no so the printed run is in a
   // predictable physical order for the filer.
-  const aisleSub = sql<string | null>`(
-    SELECT ${whAisles.name}
-    FROM ${inventoryLocations}
-    LEFT JOIN ${whBins} ON ${whBins.id} = ${inventoryLocations.binId}
-    LEFT JOIN ${whShelves} ON ${whShelves.id} = ${whBins.shelfId}
-    LEFT JOIN ${whAisles} ON ${whAisles.id} = ${whShelves.aisleId}
-    WHERE ${inventoryLocations.inventoryId} = ${blInventory.id}
-      AND ${whAisles.name} IS NOT NULL
-    ORDER BY ${whAisles.name} ASC
-    LIMIT 1
-  )`;
-
   const rows = await db
     .select({
       id: blInventory.id,
@@ -272,8 +297,9 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       itemName: sql<string | null>`COALESCE(${blCatalog.itemName}, NULL)`,
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
-      // Aisle of the lot's current bin (if any) — for pre-sort label hints.
-      aisleName: aisleSub.as('aisle_name'),
+      // Aisle hint for pre-sort labels, falling back to part+condition then
+      // part-only siblings so new colors land with their existing bins.
+      aisleName: lotAisleHintSql.as('aisle_name'),
     })
     .from(blInventory)
     .leftJoin(blCatalog, and(
