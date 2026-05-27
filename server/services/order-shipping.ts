@@ -473,13 +473,20 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     }, 0);
     const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
     // BrickOwl bakes the marketplace-collected VAT (IOSS / UK VAT) into each
-    // line's base_price for foreign buyers, while order.taxAmount captures that
-    // tax separately. EU customs requires the declared *intrinsic value* of
-    // the goods — i.e., excluding VAT — otherwise the buyer can be charged
-    // VAT a second time on delivery. Subtract the order-level tax to get back
-    // to the pre-tax subtotal shown on the BO order page.
+    // line's base_price for foreign buyers, while order.taxAmount captures
+    // that same tax separately. EU customs requires the *intrinsic value* of
+    // the goods (i.e., excluding VAT) or the buyer gets charged VAT a second
+    // time on delivery. Subtract the order-level tax to recover the pre-tax
+    // subtotal shown on the BO order page.
+    //
+    // BrickLink already stores pre-tax unit_price (the bricklink-order-sync
+    // defense check validates sum(qty * unit_price) == grand_total - shipping
+    // - tax - insurance), so its grossSubtotal is already correct. Subtracting
+    // tax there would under-declare the shipment.
     const orderTax = parseFloat(order.taxAmount?.toString() || '0');
-    const itemSubtotal = Math.max(0, grossSubtotal - orderTax);
+    const itemSubtotal = order.marketplace === 'BrickOwl'
+      ? Math.max(0, grossSubtotal - orderTax)
+      : grossSubtotal;
     // Use parcel weight as the authoritative weight (already computed by caller)
     const totalWeightOz = request.parcel.weight;
 
