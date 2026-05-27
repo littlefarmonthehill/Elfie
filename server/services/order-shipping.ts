@@ -472,21 +472,30 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       return sum + (i.quantity ?? 0) * parseFloat(i.unitPrice?.toString() || '0');
     }, 0);
     const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
-    // BrickOwl bakes the marketplace-collected VAT (IOSS / UK VAT) into each
-    // line's base_price for foreign buyers, while order.taxAmount captures
-    // that same tax separately. EU customs requires the *intrinsic value* of
-    // the goods (i.e., excluding VAT) or the buyer gets charged VAT a second
-    // time on delivery. Subtract the order-level tax to recover the pre-tax
-    // subtotal shown on the BO order page.
+    // BrickOwl bakes the marketplace-collected VAT (IOSS / UK VAT) into BOTH
+    // each line's base_price AND the shipping_amount for foreign buyers,
+    // while order.taxAmount captures the *combined* VAT separately. EU
+    // customs requires the intrinsic value of the goods (i.e., excluding
+    // VAT) or the buyer gets charged VAT a second time on delivery.
+    //
+    // We can't simply subtract taxAmount from grossSubtotal — that would
+    // also strip out the VAT collected on shipping. Instead we derive the
+    // implied VAT rate from the order header and divide gross items by
+    // (1 + rate). For order bo-2309388 (FI 25.5%): items 94.51 / 1.255 =
+    // 75.27, which matches BrickOwl's "Subtotal Excl. tax (customs value)".
     //
     // BrickLink already stores pre-tax unit_price (the bricklink-order-sync
     // defense check validates sum(qty * unit_price) == grand_total - shipping
-    // - tax - insurance), so its grossSubtotal is already correct. Subtracting
-    // tax there would under-declare the shipment.
+    // - tax - insurance), so its grossSubtotal is already correct.
     const orderTax = parseFloat(order.taxAmount?.toString() || '0');
-    const itemSubtotal = order.marketplace === 'BrickOwl'
-      ? Math.max(0, grossSubtotal - orderTax)
-      : grossSubtotal;
+    const orderShipping = parseFloat(order.shippingAmount?.toString() || '0');
+    const orderTotal = parseFloat(order.orderTotal?.toString() || '0');
+    let itemSubtotal = grossSubtotal;
+    if (order.marketplace === 'BrickOwl' && orderTax > 0 && orderTotal > orderTax) {
+      const vatRate = orderTax / (orderTotal - orderTax);
+      itemSubtotal = Math.max(0, grossSubtotal / (1 + vatRate));
+      console.log(`[customs] BrickOwl VAT-exclusive value: gross=$${grossSubtotal.toFixed(2)}, vatRate=${(vatRate * 100).toFixed(2)}%, declared=$${itemSubtotal.toFixed(2)} (tax=$${orderTax.toFixed(2)}, ship=$${orderShipping.toFixed(2)}, total=$${orderTotal.toFixed(2)})`);
+    }
     // Use parcel weight as the authoritative weight (already computed by caller)
     const totalWeightOz = request.parcel.weight;
 
