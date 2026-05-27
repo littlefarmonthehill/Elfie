@@ -105,7 +105,10 @@ async function buildInternationalShipping(
   if (EU_COUNTRIES.has(country)) {
     const iossNumber = isBrickLink ? settings?.blIossNumber : settings?.boIossNumber;
     if (iossNumber) {
-      taxIdentifiers.push({ issuingCountry: 'EU', taxIdType: 'IOSS', taxId: iossNumber });
+      // EasyPost requires a valid ISO 3166-1 alpha-2 country code, not 'EU'.
+      // IOSS is EU-wide, so the destination country (already an EU member) is
+      // a valid issuing country for the payload.
+      taxIdentifiers.push({ issuingCountry: country, taxIdType: 'IOSS', taxId: iossNumber });
     }
   } else if (country === 'GB') {
     const ukVat = isBrickLink ? settings?.blUkVatNumber : settings?.boUkVatNumber;
