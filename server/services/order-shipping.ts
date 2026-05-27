@@ -479,10 +479,14 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     // VAT) or the buyer gets charged VAT a second time on delivery.
     //
     // We can't simply subtract taxAmount from grossSubtotal — that would
-    // also strip out the VAT collected on shipping. Instead we derive the
-    // implied VAT rate from the order header and divide gross items by
-    // (1 + rate). For order bo-2309388 (FI 25.5%): items 94.51 / 1.255 =
-    // 75.27, which matches BrickOwl's "Subtotal Excl. tax (customs value)".
+    // also strip out the VAT collected on shipping. We also can't divide the
+    // summed line totals by (1 + rate), because per-line unit_price rounding
+    // accumulates a few cents of drift vs. the order header (bo-2309388:
+    // sum=$94.51 but header subtotal_incl_tax=$94.47).
+    //
+    // BrickOwl's own "Subtotal Excl. tax (customs value)" =
+    //   (order_total - shipping_incl_tax) / (1 + vatRate)
+    // where vatRate = tax / (order_total - tax). We mirror that exactly.
     //
     // BrickLink already stores pre-tax unit_price (the bricklink-order-sync
     // defense check validates sum(qty * unit_price) == grand_total - shipping
@@ -493,8 +497,9 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     let itemSubtotal = grossSubtotal;
     if (order.marketplace === 'BrickOwl' && orderTax > 0 && orderTotal > orderTax) {
       const vatRate = orderTax / (orderTotal - orderTax);
-      itemSubtotal = Math.max(0, grossSubtotal / (1 + vatRate));
-      console.log(`[customs] BrickOwl VAT-exclusive value: gross=$${grossSubtotal.toFixed(2)}, vatRate=${(vatRate * 100).toFixed(2)}%, declared=$${itemSubtotal.toFixed(2)} (tax=$${orderTax.toFixed(2)}, ship=$${orderShipping.toFixed(2)}, total=$${orderTotal.toFixed(2)})`);
+      const inclTaxItemSubtotal = Math.max(0, orderTotal - orderShipping);
+      itemSubtotal = Math.max(0, inclTaxItemSubtotal / (1 + vatRate));
+      console.log(`[customs] BrickOwl VAT-exclusive value: gross=$${grossSubtotal.toFixed(2)}, inclTaxSubtotal=$${inclTaxItemSubtotal.toFixed(2)}, vatRate=${(vatRate * 100).toFixed(2)}%, declared=$${itemSubtotal.toFixed(2)} (tax=$${orderTax.toFixed(2)}, ship=$${orderShipping.toFixed(2)}, total=$${orderTotal.toFixed(2)})`);
     }
     // Use parcel weight as the authoritative weight (already computed by caller)
     const totalWeightOz = request.parcel.weight;
