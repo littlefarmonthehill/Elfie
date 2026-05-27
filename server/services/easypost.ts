@@ -318,6 +318,7 @@ export class EasyPostShippingVendor implements IShippingVendor {
         // Tax identifiers (IOSS, UK VAT, etc.) for marketplace-collected taxes
         ...(request.taxIdentifiers && request.taxIdentifiers.length > 0 ? {
           tax_identifiers: request.taxIdentifiers.map(ti => ({
+            entity: ti.entity ?? 'SENDER',
             issuing_country: ti.issuingCountry,
             tax_id_type: ti.taxIdType,
             tax_id: ti.taxId,

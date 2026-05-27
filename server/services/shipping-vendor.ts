@@ -75,6 +75,10 @@ export interface TaxIdentifier {
   issuingCountry: string;  // ISO 2-letter country code or "EU"
   taxIdType: string;       // "IOSS", "VAT", etc.
   taxId: string;
+  // EasyPost requires this: who the tax id belongs to. For marketplace-
+  // collected VAT (IOSS via BrickLink/BrickOwl, UK VAT under their scheme)
+  // the tax id is acting on behalf of the SENDER side of the shipment.
+  entity?: 'SENDER' | 'RECEIVER' | 'THIRD_PARTY';
 }
 
 export interface CreateShipmentRequest {
