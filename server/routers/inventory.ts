@@ -24,6 +24,7 @@ import {
 } from '../services/bricklink';
 import { checkAutomationLimit } from '../services/tierEnforcement';
 import { trackUsage } from '../services/ai-usage-tracker';
+import { resolveBlColorFromBoColor } from '../services/brickowl';
 
 const router = Router();
 
@@ -34,6 +35,21 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
     (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
     (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
   )`;
+
+/**
+ * Pulls candidate BrickLink/LEGO design IDs out of a BrickOwl item name.
+ * BrickOwl names append the design IDs in a trailing parenthetical, e.g.
+ *   "LEGO Black Plate 2 x 2 with Pin Hole (2444 / 10247)"  → ["2444", "10247"]
+ *   "LEGO Pearl Gold Trophy (Small) (10172 / 31922)"       → ["10172", "31922"]
+ * We take the LAST parenthetical group (part names may contain their own parens)
+ * and split it on slash/comma/whitespace.
+ */
+function extractBlCandidates(name: string): string[] {
+  const groups = name.match(/\(([^()]*)\)/g);
+  if (!groups || groups.length === 0) return [];
+  const last = groups[groups.length - 1].replace(/[()]/g, "");
+  return last.split(/[\/,\s]+/).map(s => s.trim()).filter(Boolean);
+}
 
 /**
  * Returns BrickLink item numbers that are Rebrickable 'A' (Alternate) matches
@@ -2335,15 +2351,58 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const { items } = req.body as {
-    items: { itemNo: string; colorId: number; colorName?: string; condition: string; quantity: number; price?: number }[];
+    items: { itemNo: string; colorId: number; colorName?: string; condition: string; quantity: number; price?: number; boid?: string; itemName?: string }[];
   };
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "No items provided" });
   }
 
+  // ── BrickOwl resolution ─────────────────────────────────────────────────────
+  // BrickOwl exports carry a boid (e.g. "272330-74") and a name with the BrickLink
+  // design IDs in a trailing parenthetical (e.g. "...Pretzel (10170 / 34094)").
+  // Resolve those to a BrickLink itemNo + colorId so the rest of the flow — which is
+  // keyed entirely on BL identifiers — works unchanged.
+  const boItems = items.filter(i => i.boid && !i.itemNo);
+  if (boItems.length > 0) {
+    const candidatesByItem = new Map<typeof items[number], string[]>();
+    const allCandidates = new Set<string>();
+    for (const it of boItems) {
+      const cands = extractBlCandidates(it.itemName || "");
+      candidatesByItem.set(it, cands);
+      cands.forEach(c => allCandidates.add(c));
+    }
+    let validSet = new Set<string>();
+    if (allCandidates.size > 0) {
+      const rows = await db.select({ itemNo: blCatalog.itemNo })
+        .from(blCatalog)
+        .where(inArray(blCatalog.itemNo, Array.from(allCandidates)));
+      validSet = new Set(rows.map(r => r.itemNo));
+    }
+    // Resolve BO color IDs in one pass (color map loads once, then cached).
+    for (const it of boItems) {
+      const cands = candidatesByItem.get(it) || [];
+      const chosen = cands.find(c => validSet.has(c)) || cands[0];
+      if (chosen) it.itemNo = chosen;
+      const dash = it.boid!.lastIndexOf('-');
+      if (dash > 0) {
+        const boColor = parseInt(it.boid!.slice(dash + 1), 10);
+        if (!isNaN(boColor)) {
+          const blColor = await resolveBlColorFromBoColor(boColor, orgId);
+          if (blColor != null) it.colorId = blColor;
+        }
+      }
+    }
+  }
+
+  // Drop any items we still couldn't tie to a BrickLink catalog number.
+  const usableItems = items.filter(i => i.itemNo);
+  if (usableItems.length === 0) {
+    return res.status(422).json({ error: "Could not match any items to BrickLink catalog numbers. For BrickOwl files, make sure the export includes item names." });
+  }
+
   type SellerItem = { itemNo: string; colorId: number; colorName?: string; condition: string; quantity: number; price?: number; _pricedQty?: number };
   const consolidatedMap = new Map<string, SellerItem>();
-  for (const item of items) {
+  for (const item of usableItems) {
     const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
     const ex = consolidatedMap.get(key);
     if (ex) {

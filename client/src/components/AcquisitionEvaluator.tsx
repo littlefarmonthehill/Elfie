@@ -22,6 +22,8 @@ export interface AcqItem {
   condition: string;
   quantity: number;
   price?: number;
+  boid?: string;
+  itemName?: string;
 }
 
 interface AcqCommonItem {
@@ -109,12 +111,39 @@ function parseBLXML(content: string): AcqItem[] {
   return items;
 }
 
-function detectXMLFormat(content: string): 'bsx' | 'blxml' | null {
+function parseBrickOwlXML(content: string): AcqItem[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(content, "text/xml");
+  const items: AcqItem[] = [];
+  doc.querySelectorAll("lot").forEach(el => {
+    const boid = el.querySelector("boid")?.textContent?.trim() || "";
+    const name = el.querySelector("name")?.textContent?.trim() || "";
+    const qty = parseInt(el.querySelector("quantity")?.textContent?.trim() || "0", 10);
+    const price = parseFloat(el.querySelector("base_price")?.textContent?.trim() || "0");
+    const condRaw = (el.querySelector("condition")?.textContent?.trim() || "new").toLowerCase();
+    const condition = condRaw.startsWith("u") ? "U" : "N";
+    if (boid && qty > 0) {
+      // itemNo/colorId resolved server-side from the boid + name parenthetical.
+      items.push({ itemNo: "", colorId: 0, condition, quantity: qty, price: isNaN(price) ? undefined : price, boid, itemName: name });
+    }
+  });
+  return items;
+}
+
+function detectXMLFormat(content: string): 'bsx' | 'blxml' | 'brickowl' | null {
   const upper = content.slice(0, 500).toLowerCase();
   if (upper.includes("brickstockxml") || upper.includes("brickstore")) return 'bsx';
+  if (upper.includes("<boid>") || upper.includes("<brickowl_item_id>") || upper.includes("<lot_id>")) return 'brickowl';
   if (upper.includes("<inventory>") || upper.includes("<item>")) return 'blxml';
   if (upper.includes("<itemid>") || upper.includes("<colorid>")) return 'bsx';
   return null;
+}
+
+function parseXMLByFormat(text: string): AcqItem[] {
+  const fmt = detectXMLFormat(text);
+  if (fmt === 'bsx') return parseBSX(text);
+  if (fmt === 'brickowl') return parseBrickOwlXML(text);
+  return parseBLXML(text);
 }
 
 function normalizeHeader(h: string): string {
@@ -236,7 +265,9 @@ function consolidate(items: AcqItem[]): { items: AcqItem[]; rawRows: number } {
   for (const item of items) {
     // Include price in key: same part/color/condition at different prices = separate lots.
     const priceKey = item.price != null ? item.price.toFixed(4) : 'null';
-    const key = `${item.itemNo}|${item.colorId}|${item.condition}|${priceKey}`;
+    // BrickOwl rows have no itemNo yet (resolved server-side) — key them by boid.
+    const idKey = item.boid ? `bo:${item.boid}` : `${item.itemNo}|${item.colorId}`;
+    const key = `${idKey}|${item.condition}|${priceKey}`;
     const ex = map.get(key);
     if (ex) {
       if (item.price != null && ex.price != null) {
@@ -263,9 +294,7 @@ async function parseFile(file: File): Promise<{ items: AcqItem[]; rawRows: numbe
   if (name.endsWith(".bsx") || name.endsWith(".brickstore")) {
     raw = parseBSX(await file.text());
   } else if (name.endsWith(".xml")) {
-    const text = await file.text();
-    const fmt = detectXMLFormat(text);
-    raw = fmt === 'bsx' ? parseBSX(text) : parseBLXML(text);
+    raw = parseXMLByFormat(await file.text());
   } else if (name.endsWith(".csv")) {
     raw = parseCSV(await file.text());
   } else if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".ods")) {
@@ -273,8 +302,7 @@ async function parseFile(file: File): Promise<{ items: AcqItem[]; rawRows: numbe
   } else {
     const text = await file.text();
     if (text.trim().startsWith("<")) {
-      const fmt = detectXMLFormat(text);
-      raw = fmt === 'bsx' ? parseBSX(text) : parseBLXML(text);
+      raw = parseXMLByFormat(text);
     } else {
       raw = parseCSV(text);
     }

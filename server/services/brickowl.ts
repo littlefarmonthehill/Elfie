@@ -492,6 +492,7 @@ const boidCache = new Map<string, string | null>();
 const boColorCache = new Map<number, number | null>(); // BL color ID → BO color ID
 const boColorNameCache = new Map<number, string>();    // BO color ID → BO color name
 const blColorNameCache = new Map<number, string>();    // BL color ID → BL color name
+const blColorByBoCache = new Map<number, number>();    // BO color ID → BL color ID (reverse)
 
 // Look up a BO color name by BO color ID (populated after first color map load).
 export function getBoColorName(boColorId: number): string {
@@ -620,6 +621,7 @@ async function loadBoColorMap(orgId?: string): Promise<void> {
           const blId = typeof blRaw === 'string' ? parseInt(blRaw) : blRaw;
           if (isNaN(blId)) continue;
           boColorCache.set(blId, boId);
+          if (!blColorByBoCache.has(boId)) blColorByBoCache.set(boId, blId);
           if (blNames[idx]) blColorNameCache.set(blId, blNames[idx]);
           mapped++;
         }
@@ -652,6 +654,15 @@ async function resolveBoColorId(blColorId: number | null | undefined, orgId?: st
 // Map BrickLink color ID to BrickOwl color ID (exported for diagnostics/testing)
 export async function mapColorId(bricklinkColorId: number, orgId?: string): Promise<number | null> {
   return resolveBoColorId(bricklinkColorId, orgId);
+}
+
+// Resolve a BrickOwl color ID to its BrickLink color ID (reverse of resolveBoColorId).
+// Used when ingesting BrickOwl-native data (e.g. inventory exports) whose boids carry
+// a "-{boColorId}" suffix. Returns null when the color cannot be mapped.
+export async function resolveBlColorFromBoColor(boColorId: number | null | undefined, orgId?: string): Promise<number | null> {
+  if (boColorId == null) return null;
+  await loadBoColorMap(orgId);
+  return blColorByBoCache.get(boColorId) ?? null;
 }
 
 /**

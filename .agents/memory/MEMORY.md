@@ -1,0 +1,1 @@
+- [BrickOwl formats](brickowl-formats.md) — BO inventory XML uses `<lot>` not `ITEM`; boid is `{owlId}-{boColorId}`, name's last parenthetical holds `(BL-id / LEGO-id)`; resolve to BL ids before any BL-keyed lookup.
