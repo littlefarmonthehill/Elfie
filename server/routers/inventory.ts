@@ -2443,7 +2443,7 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       unitPrice: blInventory.unitPrice,
     })
     .from(blInventory)
-    .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)));
+    .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)));
 
   const orgMap = new Map<string, { quantity: number; unitPrice: string | null }>();
   for (const lot of orgInv) {
