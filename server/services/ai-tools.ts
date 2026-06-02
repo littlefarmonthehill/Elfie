@@ -201,12 +201,15 @@ export async function searchLocalInventory(params: {
       conditions.push(sql`CAST(${blInventory.unitPrice} AS DECIMAL) <= ${maxPrice}`);
     }
     
-    // General text search
+    // General text search — also matches the BrickLink category/theme name
+    // (e.g. "Bionicle", "Technic"), since those words live on the category, not
+    // the part name, so a plain query string would otherwise miss whole themes.
     if (query && !itemNo) {
       conditions.push(
         or(
           like(blInventory.itemNo, `%${query}%`),
           like(blCatalog.itemName, `%${query}%`),
+          like(blCategories.name, `%${query}%`),
           like(blInventory.description, `%${query}%`),
           like(blInventory.remarks, `%${query}%`)
         )
