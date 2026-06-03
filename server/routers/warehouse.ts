@@ -493,6 +493,7 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
       itemType: blInventory.itemType,
       itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
       colorName: blColors.name,
+      colorRgb: blColors.rgb,
       newOrUsed: blInventory.newOrUsed,
       quantity: blInventory.quantity,
       assigned: assignedExpr,

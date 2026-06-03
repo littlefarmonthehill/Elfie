@@ -61,6 +61,7 @@ interface LotItem {
   itemNo: string;
   itemName: string | null;
   colorName: string | null;
+  colorRgb: string | null;
   newOrUsed: string | null;
   quantity: number | null;
   binName: string | null;
@@ -252,6 +253,7 @@ function DateRangeLabels(props: {
                       itemNo: r.itemNo,
                       itemName: r.itemName,
                       colorName: r.colorName,
+                      colorRgb: null,
                       newOrUsed: r.newOrUsed,
                       quantity: r.quantity,
                       binName: null,
@@ -730,8 +732,17 @@ export default function ListomaticPriority() {
                                     <span className="text-xs text-muted-foreground break-words">{lot.itemName || '—'}</span>
                                   </div>
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    {lot.colorName && <span className="text-[10px] text-muted-foreground/70 break-words">{lot.colorName}</span>}
-                                    {cond && <span className="text-[10px] text-muted-foreground">{cond}</span>}
+                                    {lot.colorName && (
+                                      <span className="flex items-center gap-1">
+                                        {lot.colorRgb && (
+                                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground/70 break-words">{lot.colorName}</span>
+                                      </span>
+                                    )}
+                                    {cond && (
+                                      <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white' : 'bg-black text-white'}`}>{cond}</span>
+                                    )}
                                     {lot.isFilingQueue && (
                                       <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
                                     )}
@@ -938,8 +949,17 @@ export default function ListomaticPriority() {
                           <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
                           <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                          {lot.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{lot.colorName}</span>}
-                          {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                          {lot.colorName && (
+                            <span className="flex items-center gap-1 shrink-0">
+                              {lot.colorRgb && (
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                              )}
+                              <span className="text-[10px] text-muted-foreground">{lot.colorName}</span>
+                            </span>
+                          )}
+                          {cond && (
+                            <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 shrink-0 ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white' : 'bg-black text-white'}`}>{cond}</span>
+                          )}
                           {(isNew || isUpd) && (
                             <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
                               isNew
