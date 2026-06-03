@@ -555,13 +555,13 @@ export default function ListomaticPriority() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="listing">
+      <Tabs defaultValue="categories">
         <TabsList className="w-full grid grid-cols-3 mb-2">
+          <TabsTrigger value="categories" data-testid="tab-categories">Sort</TabsTrigger>
           <TabsTrigger value="listing" data-testid="tab-listing">
-            <Sparkles className="w-3 h-3 mr-1" /> Listing
+            <Sparkles className="w-3 h-3 mr-1" /> List
           </TabsTrigger>
-          <TabsTrigger value="lots" data-testid="tab-lots">Ready to File</TabsTrigger>
-          <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
+          <TabsTrigger value="lots" data-testid="tab-lots">File</TabsTrigger>
         </TabsList>
 
         {/* ── LISTING TAB (Smart Parts) ─────────────────────────────── */}
