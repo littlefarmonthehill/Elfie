@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X,
-  Search, Plus, Printer, Loader2, Package, Trash2, MapPin, Calendar, ChevronRight,
+  Search, Plus, Printer, Loader2, Package, Trash2, MapPin, Calendar, ChevronRight, RefreshCw,
   Sparkles, ArrowLeft,
 } from "lucide-react";
 import {
@@ -405,6 +405,9 @@ export default function ListomaticPriority() {
   // When set, the print dialog prints this subset instead of the full queue.
   // Cleared automatically when the print dialog closes.
   const [pendingPrintIds, setPendingPrintIds] = useState<Set<number> | null>(null);
+  // When set, the print dialog prints this exact list (a single lot's "print
+  // now" from the search results) instead of the queue. Cleared on dialog close.
+  const [quickPrintItems, setQuickPrintItems] = useState<LotLabelPrintItem[] | null>(null);
 
   // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -592,6 +595,37 @@ export default function ListomaticPriority() {
     setLotQueue(prev => prev.filter(l => l.id !== id));
   };
 
+  // Print a single lot's label immediately from the search results, without
+  // touching the print queue. Used by the per-row "Print" button.
+  const quickPrint = (lot: LotItem) => {
+    setQuickPrintItems([lot]);
+    setPrintDialogOpen(true);
+  };
+
+  // "Pull from BrickLink" — runs the incremental inventory sync (downloads BL
+  // inventory, upserts new/changed lots), then refetches the lot search so a
+  // newly-added lot (or new color of an existing part) shows up ready to print.
+  const pullFromBricklinkMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
+    onSuccess: (data: any) => {
+      const added = data?.data?.inventoryAdded ?? 0;
+      const updated = data?.data?.inventoryUpdated ?? 0;
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/lots'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      toast({
+        title: 'BrickLink sync complete',
+        description: added > 0 || updated > 0
+          ? `${added} lot${added !== 1 ? 's' : ''} added, ${updated} updated — searching again…`
+          : 'No new lots found on BrickLink. Double-check the part was added there first.',
+      });
+    },
+    onError: (err: any) => toast({
+      title: 'Pull failed',
+      description: err?.message || 'Could not pull from BrickLink.',
+      variant: 'destructive',
+    }),
+  });
+
   // ── Lot label print queue ─────────────────────────────────────────────────
   // The actual PDF rendering lives in LotLabelTemplatePrint.tsx so any font /
   // layout change applies to BOTH this bulk queue and InventoryDetail's
@@ -614,9 +648,11 @@ export default function ListomaticPriority() {
   // Items the print dialog should print: honour an in-flight subset selection
   // from the queue's filter pills so the user can print just NEW (or just
   // UPDATED) without disturbing the rest of the queue.
-  const itemsToPrint: LotLabelPrintItem[] = pendingPrintIds
-    ? lotQueue.filter(l => pendingPrintIds.has(l.id))
-    : lotQueue;
+  const itemsToPrint: LotLabelPrintItem[] = quickPrintItems
+    ? quickPrintItems
+    : pendingPrintIds
+      ? lotQueue.filter(l => pendingPrintIds.has(l.id))
+      : lotQueue;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1472,50 +1508,106 @@ export default function ListomaticPriority() {
                   <span className="text-xs">Loading…</span>
                 </div>
               ) : lotResults.length === 0 ? (
-                <p className="text-center text-xs text-muted-foreground py-6">
-                  {lotSearchSubmitted
-                    ? <>No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.</>
-                    : 'No lots in this filter.'}
-                </p>
+                <div className="text-center py-6 space-y-3" data-testid="lots-empty-state">
+                  <p className="text-xs text-muted-foreground">
+                    {lotSearchSubmitted
+                      ? <>No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.</>
+                      : 'No lots in this filter.'}
+                  </p>
+                  {lotSearchSubmitted && (
+                    <div className="space-y-1.5">
+                      <Button
+                        size="sm"
+                        onClick={() => pullFromBricklinkMutation.mutate()}
+                        disabled={pullFromBricklinkMutation.isPending}
+                        data-testid="button-pull-bricklink"
+                      >
+                        {pullFromBricklinkMutation.isPending ? (
+                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Pulling from BrickLink…</>
+                        ) : (
+                          <><RefreshCw className="h-3.5 w-3.5" /> Pull from BrickLink</>
+                        )}
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground/70 max-w-xs mx-auto">
+                        Syncs the lots you just added to BrickLink, then shows them here to print.
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <p className="text-[10px] text-muted-foreground mb-1">
                     <span className="font-semibold text-foreground">{lotResults.length}</span> lot{lotResults.length !== 1 ? 's' : ''}
                     {lotResults.length === 200 && <span className="text-muted-foreground/60"> (showing first 200)</span>}
-                    {' '}— tap to add to print queue
+                    {' '}— tap a row to queue, or use the printer icon to print now
                   </p>
                   <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-52 overflow-y-auto">
                     {lotResults.map((lot) => {
                       const inQueue = lotQueue.some(l => l.id === lot.id);
                       const cond = conditionLabel(lot.newOrUsed);
                       return (
-                        <button
+                        <div
                           key={lot.id}
-                          onClick={() => addToQueue(lot)}
-                          disabled={inQueue}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                          className="w-full flex items-center"
                           data-testid={`lot-result-${lot.id}`}
                         >
-                          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{lot.itemNo}</span>
-                          <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                          {lot.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{lot.colorName}</span>}
-                          {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                          {lot.isFilingQueue && (
-                            <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 shrink-0">Queue</span>
-                          )}
-                          {!lot.assigned && !lot.isFilingQueue && (
-                            <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1 shrink-0">Unassigned</span>
-                          )}
-                          {inQueue ? (
-                            <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                        </button>
+                          <button
+                            onClick={() => addToQueue(lot)}
+                            disabled={inQueue}
+                            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                            data-testid={`button-queue-lot-${lot.id}`}
+                          >
+                            <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{lot.itemNo}</span>
+                            <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                            {lot.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{lot.colorName}</span>}
+                            {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                            {lot.isFilingQueue && (
+                              <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 shrink-0">Queue</span>
+                            )}
+                            {!lot.assigned && !lot.isFilingQueue && (
+                              <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1 shrink-0">Unassigned</span>
+                            )}
+                            {inQueue ? (
+                              <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                            ) : (
+                              <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            )}
+                          </button>
+                          <div className="pr-1.5 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => quickPrint(lot)}
+                              data-testid={`button-print-lot-${lot.id}`}
+                              aria-label={`Print label for lot ${lot.itemNo}`}
+                              title="Print this lot label now"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
+                  {lotSearchSubmitted && (
+                    <div className="flex justify-center pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-[11px] text-muted-foreground"
+                        onClick={() => pullFromBricklinkMutation.mutate()}
+                        disabled={pullFromBricklinkMutation.isPending}
+                        data-testid="button-pull-bricklink-inline"
+                      >
+                        {pullFromBricklinkMutation.isPending ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /> Pulling from BrickLink…</>
+                        ) : (
+                          <><RefreshCw className="h-3 w-3" /> Don&rsquo;t see it? Pull from BrickLink</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1619,7 +1711,7 @@ export default function ListomaticPriority() {
       {/* ── Lot label print dialog (shared template w/ InventoryDetail) ── */}
       <LotLabelTemplatePrintDialog
         open={printDialogOpen}
-        onOpenChange={(open) => { setPrintDialogOpen(open); if (!open) setPendingPrintIds(null); }}
+        onOpenChange={(open) => { setPrintDialogOpen(open); if (!open) { setPendingPrintIds(null); setQuickPrintItems(null); } }}
         items={itemsToPrint}
         markRtf
       />
