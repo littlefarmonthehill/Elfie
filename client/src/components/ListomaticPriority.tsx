@@ -741,7 +741,7 @@ export default function ListomaticPriority() {
                                       </span>
                                     )}
                                     {cond && (
-                                      <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white' : 'bg-black text-white'}`}>{cond}</span>
+                                      <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
                                     )}
                                     {lot.isFilingQueue && (
                                       <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
@@ -958,7 +958,7 @@ export default function ListomaticPriority() {
                             </span>
                           )}
                           {cond && (
-                            <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 shrink-0 ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white' : 'bg-black text-white'}`}>{cond}</span>
+                            <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 shrink-0 border ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
                           )}
                           {(isNew || isUpd) && (
                             <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
