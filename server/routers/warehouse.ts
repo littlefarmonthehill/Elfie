@@ -956,7 +956,48 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
       .leftJoin(whAisles,  eq(whShelves.aisleId,          whAisles.id))
       .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, lotId)));
 
-    return res.json({ type: 'lot', ...lot, locations });
+    // For a lot with no permanent home yet, suggest the bin where its closest
+    // sibling already lives, using the same part → part+condition → part+condition+color
+    // cascade as the listing-flow aisle hint. The worker can scan a bin to
+    // confirm this suggestion or override it by scanning a different bin.
+    let suggestedBin: {
+      id: number; name: string; shelfName: string | null;
+      aisleName: string | null; matchLevel: number;
+    } | null = null;
+    if (locations.length === 0) {
+      const hint = await db.execute(sql`
+        SELECT wb.id AS id, wb.name AS name, ws.name AS shelf_name, wa.name AS aisle_name,
+          CASE
+            WHEN sib.color_id IS NOT DISTINCT FROM ${lot.colorId} AND sib.new_or_used = ${lot.newOrUsed} THEN 1
+            WHEN sib.new_or_used = ${lot.newOrUsed} THEN 2
+            ELSE 3
+          END AS match_level
+        FROM bl_inventory sib
+        JOIN inventory_locations il ON il.inventory_id = sib.id AND il.org_id = ${orgId}
+        JOIN wh_bins wb ON wb.id = il.bin_id AND wb.org_id = ${orgId}
+        LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id AND ws.org_id = ${orgId}
+        LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id AND wa.org_id = ${orgId}
+        WHERE sib.org_id = ${orgId}
+          AND sib.item_no = ${lot.itemNo}
+          AND sib.item_type = ${lot.itemType}
+          AND sib.id <> ${lot.id}
+          AND sib.deleted_at IS NULL
+        ORDER BY match_level ASC, wb.name ASC
+        LIMIT 1
+      `);
+      const r = (hint as any).rows?.[0];
+      if (r) {
+        suggestedBin = {
+          id: Number(r.id),
+          name: String(r.name),
+          shelfName: r.shelf_name ?? null,
+          aisleName: r.aisle_name ?? null,
+          matchLevel: Number(r.match_level),
+        };
+      }
+    }
+
+    return res.json({ type: 'lot', ...lot, locations, suggestedBin });
   }
 
   return res.status(400).json({ error: `Unrecognized code format` });

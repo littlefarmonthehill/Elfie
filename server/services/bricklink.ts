@@ -678,11 +678,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       totalItems: items.length 
     });
     
-    // Smart Parts: collected across new-insert and update phases for the
-    // listing batch persisted at end of sync.
-    let smartPartsNewIds: number[] = [];
-    const qtyUpChanges: { id: number; delta: number }[] = [];
-
     // Batch insert new items (PostgreSQL supports large batch inserts)
     let added = 0;
     if (newItems.length > 0) {
@@ -757,9 +752,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         added += batch.length;
         console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${added}/${newItems.length} new items`);
       }
-
-      // Smart Parts: capture inventory IDs of newly-added lots for the listing batch
-      smartPartsNewIds = newItems.map(item => Number(item.inventory_id));
 
       // Fire-and-forget: fetch Rebrickable color-accurate images for new PART items in background
       const newPartItems = newItems
@@ -960,13 +952,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
               updatedAt: new Date() 
             })
             .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, Number(item.inventory_id))));
-
-          if (existing && item.quantity > existing.quantity) {
-            qtyUpChanges.push({
-              id: Number(item.inventory_id),
-              delta: item.quantity - existing.quantity,
-            });
-          }
 
           if (existing) {
             const existingForHistory = {
@@ -1172,41 +1157,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         restored = toRestore.length;
         console.log(`[BLSync] Restored ${restored} items that reappeared in BL inventory`);
       }
-    }
-
-    // Smart Parts: persist a listing_batches row when this sync produced
-    // ≥1 physical-arrival change (new lots OR quantity-up updates). Never
-    // merged with prior batches; the lister can manually delete from the UI.
-    try {
-      const { listingBatches: lbTable, listingBatchItems: lbiTable } =
-        await import("@shared/schema");
-      const newCount = smartPartsNewIds.length;
-      const updCount = qtyUpChanges.length;
-      if (newCount + updCount > 0) {
-        const [batch] = await db.insert(lbTable).values({
-          orgId,
-          source: 'bricklink',
-          newCount,
-          updatedCount: updCount,
-        }).returning({ id: lbTable.id });
-
-        const rows: any[] = [];
-        for (const id of smartPartsNewIds) {
-          rows.push({ batchId: batch.id, inventoryId: id, changeType: 'new', qtyDelta: 0 });
-        }
-        for (const c of qtyUpChanges) {
-          rows.push({ batchId: batch.id, inventoryId: c.id, changeType: 'qty_updated', qtyDelta: c.delta });
-        }
-        if (rows.length > 0) {
-          const ROW_BATCH = 500;
-          for (let i = 0; i < rows.length; i += ROW_BATCH) {
-            await db.insert(lbiTable).values(rows.slice(i, i + ROW_BATCH));
-          }
-        }
-        console.log(`[Smart Parts] Created listing batch ${batch.id}: ${newCount} new, ${updCount} qty-updated`);
-      }
-    } catch (e) {
-      console.warn('[Smart Parts] Failed to create listing batch (non-fatal):', e);
     }
 
     console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${softDeleted} soft-deleted, ${restored} restored`);

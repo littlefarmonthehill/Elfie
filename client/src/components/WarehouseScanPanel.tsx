@@ -38,6 +38,16 @@ interface ResolvedLot {
     aisleName: string | null;
     bagLabel: string | null;
   }>;
+  // Present only for a never-filed lot (no permanent home). Points at the bin
+  // where the lot's closest sibling already lives, so the worker has a starting
+  // suggestion to confirm or override by scanning a bin.
+  suggestedBin?: {
+    id: number;
+    name: string;
+    shelfName: string | null;
+    aisleName: string | null;
+    matchLevel: number;
+  } | null;
 }
 
 type Resolved = ResolvedBin | ResolvedLot;
@@ -90,6 +100,17 @@ function lotLocationStr(lot: ResolvedLot): string {
     return lot.locations.map(l => l.binName ?? "?").join(", ");
   }
   return `rtf ${lot.rtfBin ?? "0"}`;
+}
+
+// Why a bin was suggested — how closely the sibling lot matched.
+function suggestMatchLabel(level: number): string {
+  if (level === 1) return "same part, colour & condition";
+  if (level === 2) return "same part & condition";
+  return "same part";
+}
+
+function suggestBinLabel(s: NonNullable<ResolvedLot["suggestedBin"]>): string {
+  return [s.aisleName, s.shelfName, s.name].filter(Boolean).join(" › ");
 }
 
 const UNDO_WINDOW_MS = 60_000;
@@ -439,6 +460,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                   <p className="text-[11px] text-muted-foreground">
                     Currently in: {lotLocationStr(activeLot)}
                   </p>
+                  {activeLot.locations.length === 0 && activeLot.suggestedBin && (
+                    <p className="text-[11px] text-emerald-400 mt-0.5" data-testid="text-suggested-bin">
+                      Suggested bin:{" "}
+                      <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>{" "}
+                      <span className="text-emerald-400/60">
+                        ({suggestMatchLabel(activeLot.suggestedBin.matchLevel)} — scan a bin to confirm or override)
+                      </span>
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">No active lot — scan a lot label</p>

@@ -3,12 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X,
-  Search, Plus, Printer, Loader2, Package, Trash2, MapPin, Calendar, ChevronRight, RefreshCw,
+  Search, Plus, Printer, Loader2, Package, Calendar, RefreshCw,
   Sparkles, ArrowLeft,
 } from "lucide-react";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import LotLabelTemplatePrintDialog, { LotLabelPrintItem } from "./LotLabelTemplatePrint";
+import { WarehouseScanPanel } from "./WarehouseScanPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface PriorityCategory {
@@ -86,46 +84,6 @@ interface LotItem {
 }
 
 type LotFilter = 'all' | 'assigned' | 'unassigned' | 'filing-queue';
-
-// ── Smart Parts (Listing tab) types ───────────────────────────────────────────
-interface ListingBatch {
-  id: string;
-  source: string;
-  newCount: number;
-  updatedCount: number;
-  note: string | null;
-  createdAt: string;
-}
-interface ListingBatchItem {
-  id: number;
-  inventoryId: number;
-  changeType: 'new' | 'qty_updated';
-  qtyDelta: number;
-  assignedBinId: number | null;
-  itemNo: string;
-  itemType: string;
-  colorId: number;
-  newOrUsed: string | null;
-  quantity: number;
-  itemName: string | null;
-  colorName: string | null;
-  thumbnailUrl: string | null;
-  remarks: string | null;
-  description: string | null;
-  currentBinId: number | null;
-  currentBinName: string | null;
-  aisleName: string | null;
-}
-interface ListingBatchDetail {
-  batch: ListingBatch & { orgId: string; deletedAt: string | null };
-  items: ListingBatchItem[];
-}
-interface WhZone { id: number; name: string; depth: number | null; }
-interface WorkerMemory {
-  listerZoneId: number | null;
-  filerZoneId: number | null;
-  filerLastBinId: number | null;
-}
 
 // ── Categories tab config ──────────────────────────────────────────────────────
 const PHASES = ['category', 'subcategory', 'finalsort', 'listing', 'file'] as const;
@@ -409,13 +367,9 @@ export default function ListomaticPriority() {
   // now" from the search results) instead of the queue. Cleared on dialog close.
   const [quickPrintItems, setQuickPrintItems] = useState<LotLabelPrintItem[] | null>(null);
 
-  // ── Listing tab (Smart Parts) ─────────────────────────────────────────────
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
-  const [batchItemFilter, setBatchItemFilter] = useState<'all' | 'new' | 'updated'>('all');
+  // ── Listing tab ───────────────────────────────────────────────────────────
   const [listingView, setListingView] = useState<'select' | 'print'>('select');
   const [queueFilter, setQueueFilter] = useState<'all' | 'new' | 'updated'>('all');
-  const [fastPathBinName, setFastPathBinName] = useState('');
-  const [fastPathZoneId, setFastPathZoneId] = useState<number | null>(null);
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [rangeMode, setRangeMode] = useState(false);
@@ -450,32 +404,6 @@ export default function ListomaticPriority() {
   });
 
   // ── Mutations ─────────────────────────────────────────────────────────────
-  // ── Listing tab queries ───────────────────────────────────────────────────
-  const { data: listingBatches = [], isLoading: batchesLoading } = useQuery<ListingBatch[]>({
-    queryKey: ['/api/listing-batches'],
-    staleTime: 10_000,
-  });
-  const { data: batchDetail, isLoading: batchDetailLoading } = useQuery<ListingBatchDetail>({
-    queryKey: ['/api/listing-batches', selectedBatchId],
-    enabled: !!selectedBatchId,
-    staleTime: 10_000,
-  });
-  const { data: whZones = [] } = useQuery<WhZone[]>({
-    queryKey: ['/api/warehouse/zones'],
-    staleTime: 60_000,
-  });
-  const { data: workerMemory } = useQuery<WorkerMemory>({
-    queryKey: ['/api/worker/memory-zone'],
-    staleTime: 60_000,
-  });
-
-  // Default fast-path zone to the lister's last-used zone
-  useEffect(() => {
-    if (fastPathZoneId == null && workerMemory?.listerZoneId != null) {
-      setFastPathZoneId(workerMemory.listerZoneId);
-    }
-  }, [workerMemory, fastPathZoneId]);
-
   const phaseScores = localPhaseScores ?? data?.phaseScores ?? { category: 25, subcategory: 50, finalsort: 75, listing: 100 };
 
   const saveScoresMutation = useMutation({
@@ -496,36 +424,6 @@ export default function ListomaticPriority() {
       apiRequest('PATCH', `/api/listomatc/categories/${categoryId}/flag`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/listomatc/priority'] }),
     onError: () => toast({ title: "Failed to toggle flag", variant: "destructive" }),
-  });
-
-  // ── Listing tab mutations ─────────────────────────────────────────────────
-  const deleteBatchMutation = useMutation({
-    mutationFn: async (id: string) => apiRequest('DELETE', `/api/listing-batches/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/listing-batches'] });
-      setSelectedBatchId(null);
-      toast({ title: "Batch deleted" });
-    },
-    onError: () => toast({ title: "Failed to delete batch", variant: "destructive" }),
-  });
-
-  const assignBinMutation = useMutation({
-    mutationFn: async (vars: { id: string; binName: string; zoneId: number }) =>
-      apiRequest('POST', `/api/listing-batches/${vars.id}/assign-bin`, {
-        binName: vars.binName,
-        zoneId: vars.zoneId,
-      }),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/listing-batches', selectedBatchId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/worker/memory-zone'] });
-      toast({ title: `Assigned ${data?.assigned ?? 0} new lots to bin` });
-      setFastPathBinName('');
-    },
-    onError: (e: any) => toast({
-      title: "Bin assignment failed",
-      description: String(e?.message ?? e),
-      variant: "destructive",
-    }),
   });
 
   const phaseMutation = useMutation({
@@ -702,10 +600,18 @@ export default function ListomaticPriority() {
             </button>
           </div>
 
-          {listingView === 'select' && !selectedBatchId && !rangeMode && (
+
+          {/* ── Select view: search a part, print its label ──────────── */}
+          {listingView === 'select' && !rangeMode && (
             <>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-gray-100">Listing Batches</h3>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">Find lots to label</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Search a part you added or restocked on BrickLink, print its label,
+                    stick it on the bag, then drop the bag in its Ready-to-File bin.
+                  </p>
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
@@ -717,54 +623,176 @@ export default function ListomaticPriority() {
                   Print by date range
                 </Button>
               </div>
-              <p className="text-[10px] text-gray-600">
-                Each batch is one BrickLink sync that brought in new or restocked lots.
-                Print identity labels for the bags, then file the bags later.
-              </p>
 
-              {batchesLoading ? (
-                <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading batches…
+              {/* Filter pills */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {([
+                  ['all',          'All'],
+                  ['assigned',     'Assigned'],
+                  ['unassigned',   'Unassigned'],
+                  ['filing-queue', 'Filing Queue'],
+                ] as [LotFilter, string][]).map(([f, label]) => (
+                  <button
+                    key={f}
+                    onClick={() => handleLotFilterChange(f)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                      lotFilter === f
+                        ? f === 'filing-queue'
+                          ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'text-gray-500 hover:text-gray-300 border-gray-700 hover:border-gray-600'
+                    }`}
+                    data-testid={`filter-lots-${f}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search */}
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder={lotFilter === 'all' ? 'Part number or name…' : 'Narrow by part number or name…'}
+                    value={lotSearch}
+                    onChange={e => setLotSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitLotSearch(); }}
+                    className="pr-8 text-xs"
+                    data-testid="input-lot-search"
+                  />
+                  {lotSearchLoading && (
+                    <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  )}
                 </div>
-              ) : listingBatches.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
-                  <p className="text-xs text-muted-foreground">No listing batches yet.</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                    Run a BrickLink sync that brings in new or restocked parts and a batch will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-96 overflow-y-auto">
-                  {listingBatches.map(b => {
-                    const total = b.newCount + b.updatedCount;
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => setSelectedBatchId(b.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover-elevate"
-                        data-testid={`batch-row-${b.id}`}
-                      >
-                        <Package className="h-4 w-4 shrink-0 text-emerald-400" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-foreground truncate">
-                            {new Date(b.createdAt).toLocaleString()}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {b.newCount} new · {b.updatedCount} restocked · <span className="text-muted-foreground/70">{b.source}</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={submitLotSearch}
+                  disabled={(!lotSearch.trim() && lotFilter === 'all') || lotSearchLoading}
+                  data-testid="button-lot-search-submit"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Results */}
+              {lotsQueryEnabled && (
+                <div className="space-y-1">
+                  {lotSearchLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs">Loading…</span>
+                    </div>
+                  ) : lotResults.length === 0 ? (
+                    <div className="text-center py-6 space-y-3" data-testid="lots-empty-state">
+                      <p className="text-xs text-muted-foreground">
+                        {lotSearchSubmitted
+                          ? <>No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.</>
+                          : 'No lots in this filter.'}
+                      </p>
+                      {lotSearchSubmitted && (
+                        <div className="space-y-1.5">
+                          <Button
+                            size="sm"
+                            onClick={() => pullFromBricklinkMutation.mutate()}
+                            disabled={pullFromBricklinkMutation.isPending}
+                            data-testid="button-pull-bricklink"
+                          >
+                            {pullFromBricklinkMutation.isPending ? (
+                              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Pulling from BrickLink…</>
+                            ) : (
+                              <><RefreshCw className="h-3.5 w-3.5" /> Pull from BrickLink</>
+                            )}
+                          </Button>
+                          <p className="text-[10px] text-muted-foreground/70 max-w-xs mx-auto">
+                            Syncs the lots you just added to BrickLink, then shows them here to print.
                           </p>
                         </div>
-                        <span className="text-[10px] tabular-nums font-semibold text-emerald-300 shrink-0">{total}</span>
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      </button>
-                    );
-                  })}
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-muted-foreground mb-1">
+                        <span className="font-semibold text-foreground">{lotResults.length}</span> lot{lotResults.length !== 1 ? 's' : ''}
+                        {lotResults.length === 200 && <span className="text-muted-foreground/60"> (showing first 200)</span>}
+                        {' '}— tap a row to queue, or use the printer icon to print now
+                      </p>
+                      <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-52 overflow-y-auto">
+                        {lotResults.map((lot) => {
+                          const inQueue = lotQueue.some(l => l.id === lot.id);
+                          const cond = conditionLabel(lot.newOrUsed);
+                          return (
+                            <div
+                              key={lot.id}
+                              className="w-full flex items-center"
+                              data-testid={`lot-result-${lot.id}`}
+                            >
+                              <button
+                                onClick={() => addToQueue(lot)}
+                                disabled={inQueue}
+                                className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                                data-testid={`button-queue-lot-${lot.id}`}
+                              >
+                                <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{lot.itemNo}</span>
+                                <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
+                                {lot.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{lot.colorName}</span>}
+                                {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
+                                {lot.isFilingQueue && (
+                                  <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 shrink-0">Queue</span>
+                                )}
+                                {!lot.assigned && !lot.isFilingQueue && (
+                                  <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1 shrink-0">Unassigned</span>
+                                )}
+                                {inQueue ? (
+                                  <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                                ) : (
+                                  <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                )}
+                              </button>
+                              <div className="pr-1.5 shrink-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => quickPrint(lot)}
+                                  data-testid={`button-print-lot-${lot.id}`}
+                                  aria-label={`Print label for lot ${lot.itemNo}`}
+                                  title="Print this lot label now"
+                                >
+                                  <Printer className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {lotSearchSubmitted && (
+                        <div className="flex justify-center pt-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-[11px] text-muted-foreground"
+                            onClick={() => pullFromBricklinkMutation.mutate()}
+                            disabled={pullFromBricklinkMutation.isPending}
+                            data-testid="button-pull-bricklink-inline"
+                          >
+                            {pullFromBricklinkMutation.isPending ? (
+                              <><Loader2 className="h-3 w-3 animate-spin" /> Pulling from BrickLink…</>
+                            ) : (
+                              <><RefreshCw className="h-3 w-3" /> Don&rsquo;t see it? Pull from BrickLink</>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </>
           )}
 
           {/* ── Date range mode ─────────────────────────────────────── */}
-          {listingView === 'select' && rangeMode && !selectedBatchId && (
+          {listingView === 'select' && rangeMode && (
             <DateRangeLabels
               from={rangeFrom}
               to={rangeTo}
@@ -777,279 +805,6 @@ export default function ListomaticPriority() {
             />
           )}
 
-          {/* ── Batch detail view ───────────────────────────────────── */}
-          {listingView === 'select' && selectedBatchId && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSelectedBatchId(null)}
-                  className="gap-1.5 text-xs"
-                  data-testid="button-batch-back"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> All batches
-                </Button>
-                {batchDetail && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (window.confirm('Delete this batch? Lots remain in inventory; only this batch record is removed.')) {
-                        deleteBatchMutation.mutate(selectedBatchId);
-                      }
-                    }}
-                    disabled={deleteBatchMutation.isPending}
-                    className="gap-1.5 text-xs text-destructive"
-                    data-testid="button-batch-delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Delete
-                  </Button>
-                )}
-              </div>
-
-              {batchDetailLoading || !batchDetail ? (
-                <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
-                </div>
-              ) : (
-                <>
-                  <div className="rounded-md border border-border bg-muted/10 p-3">
-                    <p className="text-xs font-semibold text-foreground">
-                      {new Date(batchDetail.batch.createdAt).toLocaleString()}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {batchDetail.batch.newCount} new lot{batchDetail.batch.newCount !== 1 ? 's' : ''} ·{' '}
-                      {batchDetail.batch.updatedCount} restocked
-                    </p>
-                  </div>
-
-                  {/* Fast-path: assign all NEW lots to a freshly-scanned bin */}
-                  {batchDetail.items.some(i => i.changeType === 'new' && i.assignedBinId == null) && (
-                    <div className="rounded-md border border-emerald-700/30 bg-emerald-950/20 p-3 space-y-2">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-                        <p className="text-xs font-semibold text-emerald-200">Pre-assign new lots to a bin</p>
-                      </div>
-                      <p className="text-[10px] text-emerald-200/70">
-                        Scan or type the bin's QR/name. All new lots in this batch will go into that bin.
-                        Updated lots keep their existing homes.
-                      </p>
-                      <div className="flex gap-1.5 items-center">
-                        <Input
-                          placeholder="Scan or type bin name…"
-                          value={fastPathBinName}
-                          onChange={e => setFastPathBinName(e.target.value)}
-                          className="text-xs flex-1"
-                          data-testid="input-fastpath-bin"
-                        />
-                        <div className="w-32 shrink-0">
-                          <Select
-                            value={fastPathZoneId != null ? String(fastPathZoneId) : ''}
-                            onValueChange={(v) => setFastPathZoneId(parseInt(v))}
-                          >
-                            <SelectTrigger className="text-xs h-9" data-testid="select-fastpath-zone">
-                              <SelectValue placeholder="Zone" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {whZones.map(z => (
-                                <SelectItem key={z.id} value={String(z.id)}>{z.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          size="default"
-                          onClick={() => {
-                            if (!fastPathBinName.trim() || fastPathZoneId == null) return;
-                            assignBinMutation.mutate({
-                              id: selectedBatchId,
-                              binName: fastPathBinName.trim(),
-                              zoneId: fastPathZoneId,
-                            });
-                          }}
-                          disabled={!fastPathBinName.trim() || fastPathZoneId == null || assignBinMutation.isPending}
-                          className="text-xs"
-                          data-testid="button-fastpath-assign"
-                        >
-                          {assignBinMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Assign'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Item list — separate queue buttons for NEW vs UPDATED groups */}
-                  {(() => {
-                    const toLot = (i: ListingBatchItem): LotItem => ({
-                      id: i.inventoryId,
-                      itemNo: i.itemNo,
-                      itemName: i.itemName,
-                      colorName: i.colorName,
-                      newOrUsed: i.newOrUsed,
-                      quantity: i.quantity,
-                      binName: null,
-                      locationLabel: null,
-                      assigned: i.currentBinId != null,
-                      isFilingQueue: false,
-                      itemType: i.itemType,
-                      colorId: i.colorId,
-                      imageUrl: i.thumbnailUrl,
-                      remarks: i.remarks,
-                      description: i.description,
-                      changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
-                      aisleName: i.aisleName,
-                    });
-                    const newItems = batchDetail.items.filter(i => i.changeType === 'new');
-                    const updItems = batchDetail.items.filter(i => i.changeType === 'qty_updated');
-                    return (
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <p className="text-[10px] text-muted-foreground">
-                          {batchDetail.items.length} lot{batchDetail.items.length !== 1 ? 's' : ''}
-                        </p>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => enqueueForPrint(newItems.map(toLot))}
-                            disabled={newItems.length === 0}
-                            className="gap-1.5 text-xs border-emerald-500/40 text-emerald-300 hover:text-emerald-200"
-                            data-testid="button-batch-queue-new"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                            Queue NEW ({newItems.length})
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => enqueueForPrint(updItems.map(toLot))}
-                            disabled={updItems.length === 0}
-                            className="gap-1.5 text-xs border-blue-500/40 text-blue-300 hover:text-blue-200"
-                            data-testid="button-batch-queue-updated"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                            Queue UPDATED ({updItems.length})
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => enqueueForPrint(batchDetail.items.map(toLot))}
-                            disabled={batchDetail.items.length === 0}
-                            className="gap-1.5 text-xs"
-                            data-testid="button-batch-add-all"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                            Queue all
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {/* Filter pills — narrow the item list by change type */}
-                  {(() => {
-                    const newCount = batchDetail.items.filter(i => i.changeType === 'new').length;
-                    const updCount = batchDetail.items.filter(i => i.changeType === 'qty_updated').length;
-                    const pills: [typeof batchItemFilter, string, number][] = [
-                      ['all', 'All', batchDetail.items.length],
-                      ['new', 'New', newCount],
-                      ['updated', 'Updated', updCount],
-                    ];
-                    return (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {pills.map(([key, label, count]) => (
-                          <button
-                            key={key}
-                            onClick={() => setBatchItemFilter(key)}
-                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                              batchItemFilter === key
-                                ? key === 'new'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : key === 'updated'
-                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                                    : 'bg-foreground/10 text-foreground border-foreground/30'
-                                : 'text-muted-foreground hover:text-foreground border-border hover:border-foreground/40'
-                            }`}
-                            data-testid={`filter-batch-${key}`}
-                          >
-                            {label} <span className="opacity-60 tabular-nums">({count})</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
-                    {batchDetail.items
-                      .filter(i =>
-                        batchItemFilter === 'all'
-                          ? true
-                          : batchItemFilter === 'new'
-                            ? i.changeType === 'new'
-                            : i.changeType === 'qty_updated'
-                      )
-                      .map(i => {
-                      const cond = conditionLabel(i.newOrUsed);
-                      const inQueue = lotQueue.some(l => l.id === i.inventoryId);
-                      const isNew = i.changeType === 'new';
-                      return (
-                        <button
-                          key={i.id}
-                          onClick={() => {
-                            if (inQueue) return;
-                            enqueueForPrint([{
-                              id: i.inventoryId,
-                              itemNo: i.itemNo,
-                              itemName: i.itemName,
-                              colorName: i.colorName,
-                              newOrUsed: i.newOrUsed,
-                              quantity: i.quantity,
-                              binName: null,
-                              locationLabel: null,
-                              assigned: i.currentBinId != null,
-                              isFilingQueue: false,
-                              itemType: i.itemType,
-                              colorId: i.colorId,
-                              imageUrl: i.thumbnailUrl,
-                              remarks: i.remarks,
-                              description: i.description,
-                              changeType: i.changeType === 'new' ? 'new' : i.changeType === 'qty_updated' ? 'qty_updated' : null,
-                              aisleName: i.aisleName,
-                            }]);
-                          }}
-                          disabled={inQueue}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-left ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
-                          data-testid={`batch-item-${i.inventoryId}`}
-                        >
-                          {i.thumbnailUrl ? (
-                            <img src={i.thumbnailUrl} alt={i.itemNo} className="w-7 h-7 object-contain shrink-0 rounded bg-gray-800" />
-                          ) : (
-                            <div className="w-7 h-7 shrink-0 rounded bg-gray-800" />
-                          )}
-                          <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{i.itemNo}</span>
-                          <span className="text-xs text-muted-foreground truncate flex-1">{i.itemName || '—'}</span>
-                          {i.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{i.colorName}</span>}
-                          {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                          <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
-                            isNew
-                              ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
-                              : 'text-blue-300 bg-blue-500/10 border-blue-500/30'
-                          }`}>
-                            {isNew ? 'NEW' : `+${i.qtyDelta}`}
-                          </span>
-                          {i.currentBinName && (
-                            <span className="text-[10px] font-mono text-yellow-500 shrink-0">{i.currentBinName}</span>
-                          )}
-                          {inQueue ? (
-                            <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                </>
-              )}
-            </div>
-          )}
 
           {/* ── Print Queue view ─────────────────────────────────────── */}
           {listingView === 'print' && (() => {
@@ -1156,7 +911,7 @@ export default function ListomaticPriority() {
                     <Package className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
                     <p className="text-xs text-muted-foreground">No labels queued.</p>
                     <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                      Switch to <span className="font-medium">Select Lots</span> and tap <span className="font-medium">Queue NEW</span>, <span className="font-medium">Queue UPDATED</span>, or individual rows.
+                      Switch to <span className="font-medium">Select Lots</span>, search a part, then tap a row to queue its label.
                     </p>
                     <Button
                       size="sm"
@@ -1447,178 +1202,7 @@ export default function ListomaticPriority() {
 
         {/* ── LOTS TAB ─────────────────────────────────────────────────── */}
         <TabsContent value="lots" className="space-y-3 mt-0">
-
-          {/* Filter pills */}
-          <div className="flex items-center gap-1 flex-wrap">
-            {([
-              ['all',          'All'],
-              ['assigned',     'Assigned'],
-              ['unassigned',   'Unassigned'],
-              ['filing-queue', 'Filing Queue'],
-            ] as [LotFilter, string][]).map(([f, label]) => (
-              <button
-                key={f}
-                onClick={() => handleLotFilterChange(f)}
-                className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                  lotFilter === f
-                    ? f === 'filing-queue'
-                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                    : 'text-gray-500 hover:text-gray-300 border-gray-700 hover:border-gray-600'
-                }`}
-                data-testid={`filter-lots-${f}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Search */}
-          <div className="flex gap-1.5">
-            <div className="relative flex-1">
-              <Input
-                placeholder={lotFilter === 'all' ? 'Part number or name…' : 'Narrow by part number or name…'}
-                value={lotSearch}
-                onChange={e => setLotSearch(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitLotSearch(); }}
-                className="pr-8 text-xs"
-                data-testid="input-lot-search"
-              />
-              {lotSearchLoading && (
-                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={submitLotSearch}
-              disabled={(!lotSearch.trim() && lotFilter === 'all') || lotSearchLoading}
-              data-testid="button-lot-search-submit"
-            >
-              <Search className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {/* Results */}
-          {lotsQueryEnabled && (
-            <div className="space-y-1">
-              {lotSearchLoading ? (
-                <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs">Loading…</span>
-                </div>
-              ) : lotResults.length === 0 ? (
-                <div className="text-center py-6 space-y-3" data-testid="lots-empty-state">
-                  <p className="text-xs text-muted-foreground">
-                    {lotSearchSubmitted
-                      ? <>No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.</>
-                      : 'No lots in this filter.'}
-                  </p>
-                  {lotSearchSubmitted && (
-                    <div className="space-y-1.5">
-                      <Button
-                        size="sm"
-                        onClick={() => pullFromBricklinkMutation.mutate()}
-                        disabled={pullFromBricklinkMutation.isPending}
-                        data-testid="button-pull-bricklink"
-                      >
-                        {pullFromBricklinkMutation.isPending ? (
-                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Pulling from BrickLink…</>
-                        ) : (
-                          <><RefreshCw className="h-3.5 w-3.5" /> Pull from BrickLink</>
-                        )}
-                      </Button>
-                      <p className="text-[10px] text-muted-foreground/70 max-w-xs mx-auto">
-                        Syncs the lots you just added to BrickLink, then shows them here to print.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <p className="text-[10px] text-muted-foreground mb-1">
-                    <span className="font-semibold text-foreground">{lotResults.length}</span> lot{lotResults.length !== 1 ? 's' : ''}
-                    {lotResults.length === 200 && <span className="text-muted-foreground/60"> (showing first 200)</span>}
-                    {' '}— tap a row to queue, or use the printer icon to print now
-                  </p>
-                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-52 overflow-y-auto">
-                    {lotResults.map((lot) => {
-                      const inQueue = lotQueue.some(l => l.id === lot.id);
-                      const cond = conditionLabel(lot.newOrUsed);
-                      return (
-                        <div
-                          key={lot.id}
-                          className="w-full flex items-center"
-                          data-testid={`lot-result-${lot.id}`}
-                        >
-                          <button
-                            onClick={() => addToQueue(lot)}
-                            disabled={inQueue}
-                            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
-                            data-testid={`button-queue-lot-${lot.id}`}
-                          >
-                            <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{lot.itemNo}</span>
-                            <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                            {lot.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{lot.colorName}</span>}
-                            {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                            {lot.isFilingQueue && (
-                              <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 shrink-0">Queue</span>
-                            )}
-                            {!lot.assigned && !lot.isFilingQueue && (
-                              <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1 shrink-0">Unassigned</span>
-                            )}
-                            {inQueue ? (
-                              <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                            ) : (
-                              <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            )}
-                          </button>
-                          <div className="pr-1.5 shrink-0">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => quickPrint(lot)}
-                              data-testid={`button-print-lot-${lot.id}`}
-                              aria-label={`Print label for lot ${lot.itemNo}`}
-                              title="Print this lot label now"
-                            >
-                              <Printer className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {lotSearchSubmitted && (
-                    <div className="flex justify-center pt-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-[11px] text-muted-foreground"
-                        onClick={() => pullFromBricklinkMutation.mutate()}
-                        disabled={pullFromBricklinkMutation.isPending}
-                        data-testid="button-pull-bricklink-inline"
-                      >
-                        {pullFromBricklinkMutation.isPending ? (
-                          <><Loader2 className="h-3 w-3 animate-spin" /> Pulling from BrickLink…</>
-                        ) : (
-                          <><RefreshCw className="h-3 w-3" /> Don&rsquo;t see it? Pull from BrickLink</>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Hint: queued lots accumulate in the Listing tab's Print Queue. */}
-          {lotQueue.length > 0 && (
-            <div className="rounded-md border border-emerald-700/30 bg-emerald-950/10 px-3 py-2 text-[11px] text-emerald-200">
-              {lotQueue.length} lot{lotQueue.length !== 1 ? 's' : ''} queued for printing — switch to the <span className="font-semibold">Listing</span> tab to review and print.
-            </div>
-          )}
+          <WarehouseScanPanel embedded />
         </TabsContent>
       </Tabs>
 
