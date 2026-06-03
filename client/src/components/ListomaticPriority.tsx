@@ -473,11 +473,12 @@ export default function ListomaticPriority() {
   };
 
   // ── Lots tab helpers ──────────────────────────────────────────────────────
-  const submitLotSearch = () => {
-    const q = lotSearch.trim();
-    if (!q && lotFilter === 'all') return;
-    setLotSearchSubmitted(q);
-  };
+  // Live search: debounce the typed query so results appear on the fly without
+  // needing to click a search button.
+  useEffect(() => {
+    const t = setTimeout(() => setLotSearchSubmitted(lotSearch.trim()), 250);
+    return () => clearTimeout(t);
+  }, [lotSearch]);
 
   const handleLotFilterChange = (f: LotFilter) => {
     setLotFilter(f);
@@ -650,29 +651,18 @@ export default function ListomaticPriority() {
               </div>
 
               {/* Search */}
-              <div className="flex gap-1.5">
-                <div className="relative flex-1">
-                  <Input
-                    placeholder={lotFilter === 'all' ? 'Part number or name…' : 'Narrow by part number or name…'}
-                    value={lotSearch}
-                    onChange={e => setLotSearch(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') submitLotSearch(); }}
-                    className="pr-8 text-xs"
-                    data-testid="input-lot-search"
-                  />
-                  {lotSearchLoading && (
-                    <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={submitLotSearch}
-                  disabled={(!lotSearch.trim() && lotFilter === 'all') || lotSearchLoading}
-                  data-testid="button-lot-search-submit"
-                >
-                  <Search className="h-3.5 w-3.5" />
-                </Button>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder={lotFilter === 'all' ? 'Part number or name…' : 'Narrow by part number or name…'}
+                  value={lotSearch}
+                  onChange={e => setLotSearch(e.target.value)}
+                  className="pl-8 pr-8 text-xs"
+                  data-testid="input-lot-search"
+                />
+                {lotSearchLoading && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                )}
               </div>
 
               {/* Results */}
@@ -730,24 +720,30 @@ export default function ListomaticPriority() {
                               <button
                                 onClick={() => addToQueue(lot)}
                                 disabled={inQueue}
-                                className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                                className={`flex-1 min-w-0 flex items-start gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
                                 data-testid={`button-queue-lot-${lot.id}`}
                               >
-                                <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{lot.itemNo}</span>
-                                <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                                {lot.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{lot.colorName}</span>}
-                                {cond && <span className="text-[10px] text-muted-foreground shrink-0">{cond}</span>}
-                                {lot.isFilingQueue && (
-                                  <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 shrink-0">Queue</span>
-                                )}
-                                {!lot.assigned && !lot.isFilingQueue && (
-                                  <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1 shrink-0">Unassigned</span>
-                                )}
+                                <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                                <div className="flex-1 min-w-0 space-y-0.5">
+                                  <div className="flex items-baseline gap-2 flex-wrap">
+                                    <span className="font-mono text-xs font-semibold text-foreground">{lot.itemNo}</span>
+                                    <span className="text-xs text-muted-foreground break-words">{lot.itemName || '—'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {lot.colorName && <span className="text-[10px] text-muted-foreground/70 break-words">{lot.colorName}</span>}
+                                    {cond && <span className="text-[10px] text-muted-foreground">{cond}</span>}
+                                    {lot.isFilingQueue && (
+                                      <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
+                                    )}
+                                    {!lot.assigned && !lot.isFilingQueue && (
+                                      <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1">Unassigned</span>
+                                    )}
+                                  </div>
+                                </div>
                                 {inQueue ? (
-                                  <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                                  <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-500" />
                                 ) : (
-                                  <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <Plus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
                                 )}
                               </button>
                               <div className="pr-1.5 shrink-0">
