@@ -124,6 +124,9 @@ type OrderShippingSummary = {
   weightEstimateGrams: number;
   weightEstimateOz: number;
   suggestedWeightOz?: number;
+  orderTotal: number;
+  shippingAmount: number;
+  insuranceAmount: number | null;
   address: ShipAddress;
 };
 
@@ -144,6 +147,7 @@ export type ShippingReadyState = {
   weight: string;
   weightUnits: string;
   selectedRate: Rate;
+  insurance?: number;
 };
 
 export type PurchasedLabelResult = {
@@ -251,6 +255,7 @@ export default function InlineShippingCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
   const [printLabelPending, setPrintLabelPending] = useState(false);
+  const [insurance, setInsurance] = useState<string>("");
   const [showPrintSetup, setShowPrintSetup] = useState(false);
   const hasUserChangedWeight = useRef(false);
   const hasUserChangedPackage = useRef(false);
@@ -298,11 +303,15 @@ export default function InlineShippingCard({
   useEffect(() => {
     const selectedRate = rates.find(r => r.id === selectedRateId);
     if (shipmentId && selectedRateId && selectedRate && weight !== "") {
-      onReadyChange(orderId, { shipmentId, rateId: selectedRateId, weight, weightUnits, selectedRate });
+      const insuranceValue = insurance !== "" ? Number(insurance) : undefined;
+      onReadyChange(orderId, {
+        shipmentId, rateId: selectedRateId, weight, weightUnits, selectedRate,
+        insurance: insuranceValue && insuranceValue > 0 ? insuranceValue : undefined,
+      });
     } else {
       onReadyChange(orderId, null);
     }
-  }, [shipmentId, selectedRateId, weight, weightUnits, rates]);
+  }, [shipmentId, selectedRateId, weight, weightUnits, rates, insurance]);
 
   useEffect(() => { loadSummary(); }, [orderId]);
 
@@ -316,6 +325,14 @@ export default function InlineShippingCard({
       setSummary(data);
       setCurrentAddress(data.address);
       setEditAddress(data.address);
+      // Prefill insured value only when the buyer paid for insurance on the order.
+      // Insured value = order total minus shipping (the value of the goods shipped).
+      if (data.insuranceAmount != null && data.insuranceAmount > 0) {
+        const insured = Math.max(0, (data.orderTotal || 0) - (data.shippingAmount || 0));
+        setInsurance(insured > 0 ? insured.toFixed(2) : "");
+      } else {
+        setInsurance("");
+      }
       const estimatedOz = data.suggestedWeightOz ?? data.weightEstimateOz;
       const w = data.savedWeight != null ? String(data.savedWeight)
         : estimatedOz > 0 ? String(estimatedOz) : "";
@@ -953,6 +970,33 @@ export default function InlineShippingCard({
             </div>
           ) : null;
         })()}
+
+        {/* ── Insurance (insured value for EasyPost) ── */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">Insure</span>
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="text-xs text-gray-500 shrink-0">$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={insurance}
+              onChange={e => {
+                const v = e.target.value;
+                if (v === '' || /^\d*\.?\d*$/.test(v)) setInsurance(v);
+              }}
+              onFocus={e => e.target.select()}
+              placeholder="0.00 (none)"
+              className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 h-7 text-xs text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-blue-500/60 min-w-0"
+              style={{ fontSize: '16px' }}
+              data-testid={`input-insurance-${orderId}`}
+            />
+          </div>
+        </div>
+        {summary?.insuranceAmount != null && summary.insuranceAmount > 0 && (
+          <p className="text-[11px] text-emerald-400/80" data-testid={`text-insurance-note-${orderId}`}>
+            Buyer paid for insurance — value pre-filled (excludes shipping). Adjust or clear if needed.
+          </p>
+        )}
 
         {/* ── Contents description (international + military overseas) ── */}
         {((currentAddress?.country || 'US').toUpperCase() !== 'US' || isMilitaryAddress(currentAddress?.country, currentAddress?.state)) && (

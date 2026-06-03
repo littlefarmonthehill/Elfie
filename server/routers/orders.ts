@@ -1524,7 +1524,7 @@ router.put("/fulfillment/item/:itemId/fulfill", isApproved, asyncRoute(async (re
 router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async (req: any, res) => {
   const { orderId } = req.params;
   const orgId = reqOrgId(req);
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
   const [weightRows, [settings]] = await Promise.all([
     db.select({
@@ -1570,6 +1570,9 @@ router.get("/fulfillment/order-shipping/:orderId", isApproved, asyncRoute(async 
     savedPackageHeight: order.packageHeight ? Number(order.packageHeight) : null,
     weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10, weightEstimateOz: totalWeightOz,
     suggestedWeightOz,
+    orderTotal: order.orderTotal ? Number(order.orderTotal) : 0,
+    shippingAmount: order.shippingAmount ? Number(order.shippingAmount) : 0,
+    insuranceAmount: order.insuranceAmount ? Number(order.insuranceAmount) : null,
     address: { name: shipToData.name || "", company: shipToData.company || "", street1: shipToData.street1 || shipToData.address1 || "", street2: shipToData.street2 || shipToData.address2 || "", city: shipToData.city || "", state: shipToData.state || "", zip: shipToData.postalCode || "", country: shipToData.country || "US", phone: shipToData.phone || "" },
   });
 }));
@@ -1673,10 +1676,18 @@ router.post("/shipments/create", isApproved, asyncRoute(async (req, res) => {
 router.post("/shipments/purchase", isApproved, asyncRoute(async (req: any, res) => {
   const { orderId, shipmentId, rateId, insurance } = req.body;
   if (!orderId || !shipmentId || !rateId) return res.status(400).json({ error: "orderId, shipmentId, and rateId are required" });
+  // Validate insured value: must be a finite, non-negative number. Anything else
+  // (missing, 0, malformed) is treated as "no insurance" and never sent to EasyPost.
+  let insuranceValue: number | undefined;
+  if (insurance != null && insurance !== "") {
+    const n = Number(insurance);
+    if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: "Insurance must be a non-negative number" });
+    insuranceValue = n > 0 ? n : undefined;
+  }
   const orgId = reqOrgId(req);
   const { purchaseLabel } = await import('../services/order-shipping');
   try {
-    const result = await purchaseLabel(orderId, shipmentId, rateId, orgId, insurance);
+    const result = await purchaseLabel(orderId, shipmentId, rateId, orgId, insuranceValue);
     res.json(result);
   } catch (err: any) {
     const errorMessage = err.message || 'Unknown error purchasing label';

@@ -1031,6 +1031,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             orderId,
             shipmentId: ready.shipmentId,
             rateId: ready.rateId,
+            insurance: ready.insurance,
           });
           const label: PurchasedLabelResult = {
             trackingNumber: result.shipment?.trackingNumber || result.trackingNumber || "",

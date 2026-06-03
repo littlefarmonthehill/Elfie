@@ -1,1 +1,2 @@
 - [BrickOwl formats](brickowl-formats.md) — BO inventory XML uses `<lot>` not `ITEM`; boid is `{owlId}-{boColorId}`, name's last parenthetical holds `(BL-id / LEGO-id)`; resolve to BL ids before any BL-keyed lookup.
+- [Multi-tenant scoping](multi-tenant-scoping.md) — GET-by-id routes must scope by orgId (real IDOR existed on order-shipping); `isApproved` is not tenant isolation; validate numeric body params before vendor APIs.
