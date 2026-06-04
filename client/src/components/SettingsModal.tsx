@@ -50,7 +50,7 @@ interface SettingsModalProps {
   forcePlatformAdmin?: boolean;
 }
 
-type ActiveSection = 'general' | 'team' | 'platforms' | 'printing' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
+type ActiveSection = 'general' | 'team' | 'platforms' | 'printing' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | 'shipping' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;

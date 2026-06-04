@@ -1174,6 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/marketing/outreach', isAuthenticated, isApproved, async (req: any, res) => {
     try {
       const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
       const records = await storage.getMarketingOutreach(orgId);
       res.json(records);
     } catch (err: any) {

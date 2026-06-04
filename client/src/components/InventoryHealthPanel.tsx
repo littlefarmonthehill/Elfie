@@ -574,7 +574,7 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
 
 // ─── History ────────────────────────────────────────────────────────────────
 
-type HistoryThemeId = 'all' | 'pricing' | 'sales' | 'listings' | 'sync';
+type HistoryThemeId = 'all' | 'pricing' | 'sales' | 'listings' | 'sync' | 'rebrickable';
 
 interface HistoryThemeDef {
   id: HistoryThemeId;
