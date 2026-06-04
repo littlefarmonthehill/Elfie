@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 import { cleanItemName, shippingTier } from "@/lib/item-utils";
 import { partImageSources } from "@/lib/part-image";
+import { formatDate, DEFAULT_ORG_TIMEZONE } from "@/lib/utils";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
 export interface OrgBranding {
@@ -843,7 +844,7 @@ export async function printLotLabels(
 
 // ─── Packing slips ────────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, tz: string = DEFAULT_ORG_TIMEZONE): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
@@ -996,7 +997,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
-    const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
+    const dateStr = order.orderDate ? formatDate(order.orderDate, tz) : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
     const serviceDisplay = (() => {
       // Prefer the clean EasyPost carrier + service fields written when a label is purchased

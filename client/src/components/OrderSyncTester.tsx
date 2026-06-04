@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin, CheckCircle2, XCircle, FlaskConical } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface OrderSyncTesterProps {
   open: boolean;
@@ -15,6 +17,7 @@ interface OrderSyncTesterProps {
 }
 
 export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterProps) {
+  const tz = useOrgTimezone();
   const [platform, setPlatform] = useState<string>("both");
   const [limit, setLimit] = useState<number>(5);
   const [testResults, setTestResults] = useState<any>(null);
@@ -206,8 +209,8 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                   </tr>
                                   <tr>
                                     <td className="py-2">Order Date</td>
-                                    <td className="py-2">{result.localOrder?.orderDate ? new Date(result.localOrder.orderDate).toLocaleDateString() : '-'}</td>
-                                    <td className="py-2">{result.platformOrder?.orderDate ? new Date(result.platformOrder.orderDate).toLocaleDateString() : '-'}</td>
+                                    <td className="py-2">{result.localOrder?.orderDate ? formatDate(result.localOrder.orderDate, tz) : '-'}</td>
+                                    <td className="py-2">{result.platformOrder?.orderDate ? formatDate(result.platformOrder.orderDate, tz) : '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Status</td>

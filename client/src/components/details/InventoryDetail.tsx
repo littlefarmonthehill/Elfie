@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface ItemInsight {
   category: string;
@@ -345,6 +347,7 @@ function ItemBusinessInsightsDialog(props: ItemInsightsDialogProps) {
 }
 
 export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings, onItemClick, initialTab }: InventoryDetailProps) {
+  const tz = useOrgTimezone();
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -2008,10 +2011,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                             const isCurrent = v.id === data.id;
                             const stockroom = v.is_stock_room ? (v.stock_room_id || 'SR') : '—';
                             const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
-                            const createdDate = v.date_created ? (() => {
-                              const d = new Date(v.date_created);
-                              return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-                            })() : '—';
+                            const createdDate = v.date_created ? formatDate(v.date_created, tz, { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
                             const isZeroQty = v.quantity === 0;
                             return (
                               <div
@@ -2253,7 +2253,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
         <div className="flex items-center gap-1.5">
           <Calendar className="h-3.5 w-3.5 text-gray-400" />
           <span className="text-[10px] md:text-sm text-gray-400">
-            Updated <span className="font-bold text-white">{data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'N/A'}</span>
+            Updated <span className="font-bold text-white">{data.updatedAt ? formatDate(data.updatedAt, tz) : 'N/A'}</span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -2455,7 +2455,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                         </div>
                         {/* Timestamp */}
                         <span className="text-[9px] text-gray-600 flex-shrink-0 mt-0.5 font-mono">
-                          {new Date(row.changed_at).toLocaleDateString()}
+                          {formatDate(row.changed_at, tz)}
                         </span>
                       </div>
                     ))}

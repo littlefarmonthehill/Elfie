@@ -4,6 +4,8 @@ import { AlertTriangle, ChevronRight, Copy, Check, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 
 interface SyncIssue {
   id: string;
@@ -54,7 +56,7 @@ const GROUPS: DashboardGroup[] = [
   },
 ];
 
-function formatForAgent(issue: SyncIssue): string {
+function formatForAgent(issue: SyncIssue, tz: string): string {
   const group = GROUPS.find(g => g.syncTypes.includes(issue.syncType));
   let text = `E.L.F.I.E. Issue Report\n`;
   text += `Dashboard: ${group?.label ?? "Unknown"}\n`;
@@ -65,7 +67,7 @@ function formatForAgent(issue: SyncIssue): string {
   if (issue.itemId && issue.itemId !== issue.itemNo) text += `ID: ${issue.itemId}\n`;
   text += `Severity: ${issue.severity}\n`;
   text += `Description: ${issue.issueDescription}\n`;
-  text += `Time: ${new Date(issue.createdAt).toLocaleString()}\n`;
+  text += `Time: ${formatDateTime(issue.createdAt, tz)}\n`;
   if (issue.metadata) {
     try {
       const parsed = JSON.parse(issue.metadata);
@@ -100,6 +102,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function IssueRow({ issue }: { issue: SyncIssue }) {
+  const tz = useOrgTimezone();
   const severityColor: Record<string, string> = {
     critical: "text-red-400",
     high: "text-orange-400",
@@ -137,11 +140,11 @@ function IssueRow({ issue }: { issue: SyncIssue }) {
         </div>
         <p className="text-xs leading-relaxed">{issue.issueDescription}</p>
         <p className="text-[10px] text-muted-foreground mt-1">
-          {new Date(issue.createdAt).toLocaleString()}
+          {formatDateTime(issue.createdAt, tz)}
         </p>
       </div>
       <div className="flex items-center shrink-0">
-        <CopyButton text={formatForAgent(issue)} />
+        <CopyButton text={formatForAgent(issue, tz)} />
         <Button
           size="icon"
           variant="ghost"

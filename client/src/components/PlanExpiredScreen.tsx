@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Lock, BadgeCheck, TrendingUp, LogOut } from "lucide-react";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
@@ -27,6 +29,7 @@ interface PlanExpiredScreenProps {
 
 export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset', isBrickspotterOnly = false }: PlanExpiredScreenProps) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 
   const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Plan[]>({
@@ -61,7 +64,7 @@ export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset
   const selectedPlanData = availablePlans.find(p => p.id === selectedPlan) ?? null;
   const selectedIsDefault = selectedPlanData?.isDefault ?? false;
 
-  const expiredDate = new Date(sunsetAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const expiredDate = formatDate(sunsetAt, tz, { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col items-center justify-center p-6">

@@ -8,6 +8,8 @@ import {
   CheckCircle2, AlertCircle, Loader2, RotateCcw, Undo2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatTime } from "@/lib/utils";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -119,6 +121,7 @@ const UNDO_WINDOW_MS = 60_000;
 
 export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: Props) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const { setActive } = useScanSession();
   const [mode, setMode] = useState<ScanMode>("bin-first");
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
@@ -589,7 +592,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 </Button>
               )}
               <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5">
-                {entry.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {formatTime(entry.ts, tz, { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" })}
               </span>
             </div>
           );

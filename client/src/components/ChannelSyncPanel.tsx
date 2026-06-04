@@ -51,7 +51,8 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { fmtChangeVal } from "@/lib/utils";
+import { fmtChangeVal, formatDateTime } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 
 const FIELD_LABELS: Record<string, string> = {
   quantity: 'Qty',
@@ -866,6 +867,7 @@ type ColorMismatch = {
 
 function ColorRepairDetail() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [mismatches, setMismatches] = useState<ColorMismatch[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fixingLots, setFixingLots] = useState<Set<string>>(new Set());
@@ -965,7 +967,7 @@ function ColorRepairDetail() {
         tr:last-child td { border-bottom: none; }
       </style></head><body>
       <h1>Color Repair Report</h1>
-      <p>Generated ${new Date().toLocaleString()} &mdash; ${mismatches.length} lot${mismatches.length !== 1 ? 's' : ''} with wrong colors</p>
+      <p>Generated ${formatDateTime(new Date(), tz)} &mdash; ${mismatches.length} lot${mismatches.length !== 1 ? 's' : ''} with wrong colors</p>
       <table>
         <thead><tr><th>BO Lot ID</th><th>Item No</th><th>BL Item ID</th><th>Current Color</th><th>Expected Color</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -2031,6 +2033,7 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
   totalDiscrepancies: number;
   lastSyncTime?: string | null;
 }) {
+  const tz = useOrgTimezone();
   const activeTypes = discrepancyAreas.map(a => a.type);
 
   const q = {
@@ -2065,8 +2068,8 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
   }
 
   function buildPrintHtml() {
-    const date = new Date().toLocaleString();
-    const syncDate = lastSyncTime ? new Date(lastSyncTime).toLocaleString() : 'unknown';
+    const date = formatDateTime(new Date(), tz);
+    const syncDate = lastSyncTime ? formatDateTime(lastSyncTime, tz) : 'unknown';
 
     const sectionHtml = allSections.map(section => {
       const rowsHtml = section.items.map((item: any) => {

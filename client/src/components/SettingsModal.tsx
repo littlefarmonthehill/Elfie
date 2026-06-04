@@ -33,6 +33,8 @@ import { MappingSection } from "@/components/MappingSection";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { Link } from "wouter";
 import { getTierConfig } from "@shared/tierConfig";
 
@@ -1515,6 +1517,7 @@ function ProductBacklogPanel() {
 }
 
 function SupportQueuePanel() {
+  const tz = useOrgTimezone();
   const { data: openTickets, isLoading: ticketsLoading } = useQuery<SupportTicketRow[]>({
     queryKey: ['/api/platform-admin/support-queue'],
     refetchInterval: 10000,
@@ -1569,7 +1572,7 @@ function SupportQueuePanel() {
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
+    return formatDate(date, tz);
   };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1970,6 +1973,7 @@ function PlansAndPricingPanel() {
     orgCount: number;
   };
 
+  const tz = useOrgTimezone();
   const queryClient = useQueryClient();
   const { data: plans, isLoading } = useQuery<PlanRow[]>({ queryKey: ['/api/platform-admin/plans'] });
 
@@ -2107,7 +2111,7 @@ function PlansAndPricingPanel() {
                         <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
                         {plan.sunsetAt && (
                           <span className="text-[9px] bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded px-1 py-0.5">
-                            ends {new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            ends {formatDate(plan.sunsetAt, tz, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         )}
                       </>
@@ -5834,7 +5838,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </div>
                             <div>
                               <p className="text-[10px] text-gray-500">Last Synced</p>
-                              <p className="text-[10px] text-gray-400">{platformSyncData?.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                              <p className="text-[10px] text-gray-400">{platformSyncData?.source.stats.lastSyncedAt ? formatDateTime(platformSyncData.source.stats.lastSyncedAt, timezone) : 'Never'}</p>
                             </div>
                           </div>
                         )}
@@ -6296,7 +6300,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                           <div>
                             <p className="text-[10px] text-gray-500">Last Synced</p>
-                            <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                            <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? formatDateTime(platformSyncData.source.stats.lastSyncedAt, timezone) : 'Never'}</p>
                           </div>
                         </div>
                       )}
@@ -8502,14 +8506,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         ) : (
                           backupsData.backups.map((backup, idx) => {
-                            const date = new Date(backup.timestamp);
-                            const formattedDate = date.toLocaleString('en-US', {
+                            const formattedDate = formatDateTime(backup.timestamp, timezone, {
                               year: 'numeric',
                               month: '2-digit',
                               day: '2-digit',
                               hour: '2-digit',
                               minute: '2-digit',
-                              hour12: false
+                              hour12: false,
+                              timeZoneName: 'short'
                             });
                             const sizeInMB = (backup.size / (1024 * 1024)).toFixed(2);
                             
@@ -8963,7 +8967,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     uncollectible: 'text-red-400 bg-red-500/10',
                                     draft: 'text-gray-500 bg-gray-700/50',
                                   };
-                                  const date = new Date(pmt.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                  const date = formatDate(pmt.created * 1000, timezone, { month: 'short', day: 'numeric', year: 'numeric' });
                                   return (
                                     <div key={pmt.id} className="grid grid-cols-[1fr_72px_64px_32px] gap-2 items-center px-4 py-2.5">
                                       <div className="min-w-0">
@@ -9160,7 +9164,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     brickowl_orders: 'Orders (BO)',
                     channel_sync: 'Channel Sync',
                   };
-                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                  const fmtTime = (t: string | null) => t ? formatDateTime(t, timezone, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'Never';
                   const statusIcon = (s: string | null, size = 'h-3 w-3') => {
                     if (s === 'in_progress') return <Loader2 className={`${size} text-yellow-400 animate-spin shrink-0`} />;
                     if (s === 'failed' || s === 'error') return <AlertTriangle className={`${size} text-red-400 shrink-0`} />;
@@ -9487,7 +9491,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const clip = systemHealth.clipCatalogStatus;
                   const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
                   const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
-                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                  const fmtTime = (t: string | null) => t ? formatDateTime(t, timezone, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'Never';
 
                   type OverviewJob = {
                     key: string; label: string;

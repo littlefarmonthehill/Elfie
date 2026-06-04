@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bug, Zap, Star, Copy, Check, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { AppFeedback } from "@shared/schema";
 
@@ -24,7 +26,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> =
   feature: { label: "New Feature", icon: Star, color: "text-purple-400" },
 };
 
-function copyFeedbackText(item: AppFeedback): string {
+function copyFeedbackText(item: AppFeedback, tz: string): string {
   const typeLbl = TYPE_CONFIG[item.type]?.label ?? item.type;
   const statusLbl = STATUS_CONFIG[item.status]?.label ?? item.status;
   const criteria = (item.acceptanceCriteria ?? "")
@@ -44,12 +46,13 @@ function copyFeedbackText(item: AppFeedback): string {
     `Acceptance Criteria:`,
     criteria,
     ``,
-    `Submitted: ${new Date(item.createdAt).toLocaleDateString()}`,
+    `Submitted: ${formatDate(item.createdAt, tz)}`,
   ].filter((l) => l !== null).join("\n");
 }
 
 function FeedbackCard({ item }: { item: AppFeedback }) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -72,7 +75,7 @@ function FeedbackCard({ item }: { item: AppFeedback }) {
   });
 
   function handleCopy() {
-    navigator.clipboard.writeText(copyFeedbackText(item));
+    navigator.clipboard.writeText(copyFeedbackText(item, tz));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -89,7 +92,7 @@ function FeedbackCard({ item }: { item: AppFeedback }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-100 leading-snug">{item.title}</p>
           <p className="text-[10px] text-gray-500 mt-0.5">
-            {typeInfo.label} · {new Date(item.createdAt).toLocaleDateString()}
+            {typeInfo.label} · {formatDate(item.createdAt, tz)}
             {item.sourcePage && (
               <span className="ml-1.5 text-gray-600">· from <span className="font-mono text-gray-500">{item.sourcePage}</span></span>
             )}

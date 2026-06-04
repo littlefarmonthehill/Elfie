@@ -26,6 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 function getMarketplacePrefix(marketplace: string | null): string {
   const m = (marketplace ?? '').toLowerCase();
@@ -254,10 +256,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   // Org-configured IANA timezone (from Settings). Ship dates are stored in UTC,
   // so they must be rendered in the org's timezone — otherwise evening shipments
   // (Central) roll past midnight UTC and display as the next day.
-  const { data: appSettings } = useQuery<{ timezone?: string }>({
-    queryKey: ['/api/settings'],
-  });
-  const orgTimezone = appSettings?.timezone || 'America/Chicago';
+  const tz = useOrgTimezone();
 
   // Not-delivered panel: no date range, backend excludes delivered orders
   const { data: notDeliveredOrders, isLoading: isLoadingNotDelivered, isFetching: isFetchingNotDelivered } = useQuery<ShippedOrder[]>({
@@ -339,7 +338,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         body: JSON.stringify({ orderIds: [orderId] }),
       });
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz);
     } catch (error) {
       toast({ title: "Error", description: "Failed to generate packing slip", variant: "destructive" });
     }
@@ -599,7 +598,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     <span className="text-gray-600 shrink-0">·</span>
                     <span className="text-xs text-gray-400 shrink-0">${order.orderTotal}</span>
                     <span className="text-gray-600 shrink-0">·</span>
-                    <span className="text-xs text-gray-400 shrink-0">{order.shipDate ? new Date(order.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: orgTimezone }) : '—'}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{formatDate(order.shipDate, tz, { month: 'short', day: 'numeric' })}</span>
                     {order.carrier && (
                       <>
                         <span className="text-gray-600 shrink-0">·</span>

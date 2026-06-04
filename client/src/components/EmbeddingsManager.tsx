@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateTime } from '@/lib/utils';
+import { useOrgTimezone } from '@/hooks/use-org-timezone';
 
 export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean } = {}) {
   const { toast } = useToast();
@@ -317,6 +319,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 // ── Universal CLIP Catalog ─────────────────────────────────────────────────────
 export function UniversalCatalogSection() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
 
   const { data: status } = useQuery({
     queryKey: ['/api/brickspotter/universal-catalog/status'],
@@ -529,12 +532,12 @@ export function UniversalCatalogSection() {
             </div>
             <div className="text-[10px] text-gray-600 space-y-0.5">
               {lastScheduledRun ? (
-                <p>Last auto-run: {new Date(lastScheduledRun).toLocaleDateString()} {new Date(lastScheduledRun).toLocaleTimeString()}
+                <p>Last auto-run: {formatDateTime(lastScheduledRun, tz)}
                   {lastScheduleStatus === 'error' && <span className="text-red-400 ml-1">(failed)</span>}
                   {lastScheduleStatus === 'success' && <span className="text-emerald-400 ml-1">(success)</span>}
                 </p>
               ) : <p>No auto-run yet</p>}
-              {nextScheduledRun && <p>Next run: {new Date(nextScheduledRun).toLocaleDateString()} {new Date(nextScheduledRun).toLocaleTimeString()}</p>}
+              {nextScheduledRun && <p>Next run: {formatDateTime(nextScheduledRun, tz)}</p>}
             </div>
           </div>
         )}

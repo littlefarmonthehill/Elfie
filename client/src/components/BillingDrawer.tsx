@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import {
   CreditCard, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Printer,
@@ -58,27 +59,28 @@ function salesLabel(cents_: number) {
 
 // ─── Current billing card ─────────────────────────────────────────────────────
 
-function planDateLabel(plan: PlanInfo, period: { start: string; end: string }): { title: string; sub: string } {
+function planDateLabel(plan: PlanInfo, period: { start: string; end: string }, tz: string): { title: string; sub: string } {
   if (plan.isDefault) {
     if (plan.sunsetAt) {
-      const end = new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const end = formatDate(plan.sunsetAt, tz, { month: 'long', day: 'numeric', year: 'numeric' });
       return { title: plan.name, sub: `Ends ${end}` };
     }
     return { title: plan.name, sub: 'No expiry date set' };
   }
-  const start = new Date(period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const end   = new Date(period.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const monthLabel = new Date(period.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const start = formatDate(period.start, tz, { month: 'short', day: 'numeric' });
+  const end   = formatDate(period.end, tz, { month: 'short', day: 'numeric', year: 'numeric' });
+  const monthLabel = formatDate(period.start, tz, { month: 'long', year: 'numeric' });
   return { title: monthLabel, sub: `${start} – ${end}` };
 }
 
 function SalesBillCard({ usage }: { usage: OrgUsageData }) {
+  const tz = useOrgTimezone();
   const { plan, monthlySalesCents, billing, period } = usage;
   const salesOverThreshold = Math.max(0, monthlySalesCents - plan.freeSalesThreshold);
   const aboveThreshold = monthlySalesCents > plan.freeSalesThreshold;
   const hasSalesFee = billing.salesFee > 0;
 
-  const { title, sub } = planDateLabel(plan, period);
+  const { title, sub } = planDateLabel(plan, period, tz);
 
   return (
     <div className="rounded-md border border-white/8 bg-gray-800/40">
@@ -192,6 +194,7 @@ function SunsetCallout({ plan }: { plan: PlanInfo }) {
 // ─── Trial callout ────────────────────────────────────────────────────────────
 
 function TrialCallout({ status, billingStartDate }: { status?: string; billingStartDate?: string | null }) {
+  const tz = useOrgTimezone();
   if (status !== 'trial') return null;
   const now = new Date();
   const startsAt = billingStartDate ? new Date(billingStartDate) : null;
@@ -204,7 +207,7 @@ function TrialCallout({ status, billingStartDate }: { status?: string; billingSt
         <div className="space-y-0.5">
           <p className="text-xs font-medium text-blue-200/80">
             {isFuture
-              ? `You're on a free trial — billing starts ${startsAt!.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+              ? `You're on a free trial — billing starts ${formatDate(startsAt, tz, { month: 'long', day: 'numeric', year: 'numeric' })}`
               : "You're on a free trial"}
           </p>
           <p className="text-xs text-gray-500 leading-relaxed">
@@ -218,11 +221,11 @@ function TrialCallout({ status, billingStartDate }: { status?: string; billingSt
 
 // ─── Print helper ─────────────────────────────────────────────────────────────
 
-function printInvoice(month: MonthRecord) {
+function printInvoice(month: MonthRecord, tz: string) {
   const win = window.open('', '_blank');
   if (!win) return;
-  const start = new Date(month.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const end   = new Date(month.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const start = formatDate(month.periodStart, tz, { month: 'short', day: 'numeric' });
+  const end   = formatDate(month.periodEnd, tz, { month: 'short', day: 'numeric', year: 'numeric' });
   const salesDollars = (month.monthlySalesCents / 100).toFixed(2);
   const baseDollars  = (month.billing.baseFee  / 100).toFixed(2);
   const feeDollars   = (month.billing.salesFee / 100).toFixed(2);
@@ -247,6 +250,7 @@ function printInvoice(month: MonthRecord) {
 // ─── Invoice row (history) ────────────────────────────────────────────────────
 
 function InvoiceRow({ month }: { month: MonthRecord }) {
+  const tz = useOrgTimezone();
   const [expanded, setExpanded] = useState(false);
   const { billing, monthlySalesCents } = month;
   const hasSalesFee = billing.salesFee > 0;
@@ -262,9 +266,9 @@ function InvoiceRow({ month }: { month: MonthRecord }) {
         <div className="flex-1 min-w-0">
           <div className="text-sm text-gray-200 font-medium">{month.label}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {new Date(month.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {formatDate(month.periodStart, tz, { month: 'short', day: 'numeric' })}
             {' – '}
-            {new Date(month.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {formatDate(month.periodEnd, tz, { month: 'short', day: 'numeric', year: 'numeric' })}
             {' · '}
             {salesLabel(monthlySalesCents)} in sales
           </div>
@@ -276,7 +280,7 @@ function InvoiceRow({ month }: { month: MonthRecord }) {
           size="icon"
           variant="ghost"
           className="shrink-0"
-          onClick={(e) => { e.stopPropagation(); printInvoice(month); }}
+          onClick={(e) => { e.stopPropagation(); printInvoice(month, tz); }}
           data-testid={`button-print-invoice-${month.periodStart}`}
           title="Print invoice"
         >

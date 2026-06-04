@@ -6,6 +6,8 @@ import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { MarketNewsGroup } from "@/components/MarketNewsGroup";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate, formatTime } from "@/lib/utils";
 import { CAPABILITY_STATUS_STYLES } from "@/lib/constants";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
@@ -1022,6 +1024,7 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, marketIntel, onSupportNotification }: ChatInterfaceProps) {
+  const tz = useOrgTimezone();
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -1764,9 +1767,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     <div className="min-w-0 flex-1">
                       <div className="text-sm text-gray-200 truncate">{thread.title || 'New conversation'}</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">
-                        {new Date(thread.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {formatDate(thread.updatedAt, tz, { month: 'short', day: 'numeric' })}
                         {' '}
-                        {new Date(thread.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(thread.updatedAt, tz, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
                       </div>
                     </div>
                     <button

@@ -1,4 +1,6 @@
 import { Package } from "lucide-react";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface Order {
   id: string;
@@ -16,11 +18,11 @@ interface OrderGroupProps {
 }
 
 export function OrderGroup({ orders, onOrderClick }: OrderGroupProps) {
+  const tz = useOrgTimezone();
   return (
     <div className="space-y-1">
       {orders.map((order) => {
-        const orderDate = new Date(order.orderDate);
-        const formattedDate = orderDate.toLocaleDateString('en-US', { 
+        const formattedDate = formatDate(order.orderDate, tz, { 
           month: 'short', 
           day: 'numeric',
           year: 'numeric' 

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDate, formatTime } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import {
   Drawer,
   DrawerClose,
@@ -660,7 +662,7 @@ function formatHistoryValue(field: string, value: string | null) {
   return <span className="truncate max-w-[80px]">{value}</span>;
 }
 
-function relativeTime(iso: string) {
+function relativeTime(iso: string, tz?: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1)  return 'just now';
@@ -669,7 +671,7 @@ function relativeTime(iso: string) {
   if (hrs < 24)  return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7)  return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatDate(iso, tz);
 }
 
 function dateGroupLabel(iso: string, timezone?: string): string {
@@ -682,13 +684,13 @@ function dateGroupLabel(iso: string, timezone?: string): string {
   if (rowStr === todayStr) return 'Today';
   if (rowStr === yesterdayStr) return 'Yesterday';
   const sameYear = rowStr.slice(0, 4) === todayStr.slice(0, 4);
-  return new Date(iso).toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  return formatDate(iso, tz, { month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
-function groupHistoryByDate(rows: HistoryRow[]): { label: string; rows: HistoryRow[] }[] {
+function groupHistoryByDate(rows: HistoryRow[], timezone?: string): { label: string; rows: HistoryRow[] }[] {
   const groups: { label: string; rows: HistoryRow[] }[] = [];
   for (const row of rows) {
-    const label = dateGroupLabel(row.changed_at);
+    const label = dateGroupLabel(row.changed_at, timezone);
     const last = groups[groups.length - 1];
     if (last && last.label === label) {
       last.rows.push(row);
@@ -743,7 +745,7 @@ function SyncJobGroupView({ job, defaultExpanded, timezone }: { job: SyncJobEntr
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
 
   const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const jobTime = new Date(job.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+  const jobTime = formatTime(job.time, tz);
   const changeCount = job.rows.length;
   const jobSource = job.rows[0]?.source;
 
@@ -821,11 +823,7 @@ function HistoryView() {
   const [page, setPage] = useState(0);
   const [themeId, setThemeId] = useState<HistoryThemeId>('all');
 
-  const { data: appSettings } = useQuery<{ timezone?: string }>({
-    queryKey: ['/api/settings'],
-    staleTime: 60_000,
-  });
-  const timezone = appSettings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = useOrgTimezone();
 
   const theme = HISTORY_THEMES.find(t => t.id === themeId)!;
   const url = buildHistoryUrl(theme, page);
@@ -902,7 +900,7 @@ function HistoryView() {
         ) : (
           /* ── Default flat view: Date → Items ── */
           <div>
-            {groupHistoryByDate(rows).map((group) => (
+            {groupHistoryByDate(rows, timezone).map((group) => (
               <div key={group.label}>
                 <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-background/95 backdrop-blur-sm">
                   <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
@@ -954,7 +952,7 @@ function HistoryView() {
                       )}
                     </div>
                     <div className="flex-shrink-0 text-[10px] text-muted-foreground/50 mt-0.5">
-                      {relativeTime(row.changed_at)}
+                      {relativeTime(row.changed_at, timezone)}
                     </div>
                   </div>
                 ))}

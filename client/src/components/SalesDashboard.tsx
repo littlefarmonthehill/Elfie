@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
@@ -77,6 +78,7 @@ function getOpArea(category: string): OpArea {
 function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending }: {
   insight: BusinessInsight; isExpanded: boolean; onToggle: () => void; onDismiss: () => void; dismissPending: boolean;
 }) {
+  const tz = useOrgTimezone();
   const catCfg = CATEGORY_CONFIG[insight.category] || CATEGORY_CONFIG.trend;
   const urgCfg = URGENCY_CONFIG[insight.urgency] || URGENCY_CONFIG.medium;
   const CatIcon = catCfg.icon;
@@ -159,7 +161,7 @@ function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending 
           <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-gray-700/30">
             <div className="flex items-center gap-2">
               <span className={cn("text-[11px] capitalize", catCfg.color)}>{catCfg.label}</span>
-              <span className="text-[11px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
+              <span className="text-[11px] text-gray-600">{formatDate(insight.createdAt, tz)}</span>
             </div>
             <Button
               size="sm"

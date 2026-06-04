@@ -30,6 +30,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 export type OrderSyncPlatform = 'bricklink' | 'brickowl' | 'ebay';
 
@@ -165,11 +167,14 @@ function presetToDate(days: number | null): string | undefined {
 }
 
 function formatDisplayDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  // `iso` is a date-only label (YYYY-MM-DD), not an instant — render the calendar
+  // date exactly as stored (UTC) so it never shifts a day across timezones.
+  return formatDate(iso + 'T12:00:00Z', 'UTC', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPanelProps) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<number | null | 'custom'>(30); // days or null (all time) or 'custom'
@@ -407,7 +412,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
                         <div className="text-right shrink-0">
                           <p className="text-[10px] font-mono font-semibold text-white">${parseFloat(order.orderTotal).toFixed(2)}</p>
                           <p className="text-[9px] text-gray-500">
-                            {new Date(changeDetail === 'updated' ? (order.updatedAt ?? order.syncedAt) : order.syncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            {formatDate(changeDetail === 'updated' ? (order.updatedAt ?? order.syncedAt) : order.syncedAt, tz, { month: 'short', day: 'numeric' })}
                           </p>
                         </div>
                       </div>

@@ -1,6 +1,8 @@
 import { TrendingUp, Users, MousePointerClick, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface MarketingDetailProps {
   data: {
@@ -18,6 +20,7 @@ interface MarketingDetailProps {
 }
 
 export default function MarketingDetail({ data }: MarketingDetailProps) {
+  const tz = useOrgTimezone();
   const ctr = ((data.clicks / data.impressions) * 100).toFixed(2);
   const conversionRate = ((data.conversions / data.clicks) * 100).toFixed(2);
   const roi = (((data.revenue - data.spent) / data.spent) * 100).toFixed(1);
@@ -128,8 +131,8 @@ export default function MarketingDetail({ data }: MarketingDetailProps) {
 
       {/* Campaign Period */}
       <div className="text-xs text-gray-400">
-        <p>Started: {new Date(data.startDate).toLocaleDateString()}</p>
-        {data.endDate && <p>Ended: {new Date(data.endDate).toLocaleDateString()}</p>}
+        <p>Started: {formatDate(data.startDate, tz)}</p>
+        {data.endDate && <p>Ended: {formatDate(data.endDate, tz)}</p>}
       </div>
     </div>
   );

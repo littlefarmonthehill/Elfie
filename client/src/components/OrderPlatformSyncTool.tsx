@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDateTime } from "@/lib/utils";
 
 type PlatformStats = {
   totalOrders: number;
@@ -37,6 +39,7 @@ type OrderSyncStatus = {
 
 export default function OrderPlatformSyncTool() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
   const [brickowlFullSync, setBrickowlFullSync] = useState(false);
 
@@ -320,7 +323,7 @@ export default function OrderPlatformSyncTool() {
                 {/* Last Synced Info */}
                 {platform.enabled && platform.stats.lastSyncedAt && (
                   <p className="text-[10px] md:text-sm text-gray-400 mb-2">
-                    Last synced: {new Date(platform.stats.lastSyncedAt).toLocaleString()}
+                    Last synced: {formatDateTime(platform.stats.lastSyncedAt, tz)}
                   </p>
                 )}
 

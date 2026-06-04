@@ -8,7 +8,8 @@ import {
   ChevronDown, ChevronUp, X,
   Globe, Megaphone, Star, MessageSquare, Newspaper,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
@@ -299,6 +300,7 @@ interface OrgUsageData {
 }
 
 function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onOpenSettings?: (section: any) => void; onOpenBilling?: () => void }) {
+  const tz = useOrgTimezone();
   const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
 
   if (isLoading || !usage) return null;
@@ -312,7 +314,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
   const periodRange = (() => {
     if (usage.plan.isDefault) {
       if (usage.plan.sunsetAt) {
-        const end = new Date(usage.plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const end = formatDate(usage.plan.sunsetAt, tz, { month: 'short', day: 'numeric', year: 'numeric' });
         return `Ends ${end}`;
       }
       return '';
@@ -321,7 +323,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
     const s = new Date(usage.period.start);
     const e = new Date(usage.period.end);
     const fmt = (d: Date, includeYear: boolean) =>
-      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(includeYear ? { year: 'numeric' } : {}) });
+      formatDate(d, tz, { month: 'short', day: 'numeric', ...(includeYear ? { year: 'numeric' } : {}) });
     const sameYear = s.getFullYear() === e.getFullYear();
     return `${fmt(s, false)} – ${fmt(e, sameYear)}`;
   })();
@@ -458,6 +460,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   onDismissSetupItem?: (id: string) => void;
   children?: React.ReactNode;
 }) {
+  const tz = useOrgTimezone();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('systemPulseCollapsed') === 'true'; } catch { return false; }
   });
@@ -510,7 +513,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     const daysUntilSunset = sunsetDate ? Math.max(0, Math.ceil((sunsetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
     const sunsetSeverity: 'error' | 'warn' | 'info' = daysUntilSunset !== null && daysUntilSunset <= 14 ? 'error' : daysUntilSunset !== null && daysUntilSunset <= 30 ? 'warn' : 'info';
     const sunsetLabel = sunsetDate
-      ? (daysUntilSunset === 0 ? 'Your plan ends today' : `Your plan ends ${sunsetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`)
+      ? (daysUntilSunset === 0 ? 'Your plan ends today' : `Your plan ends ${formatDate(sunsetDate, tz, { month: 'short', day: 'numeric', year: 'numeric' })}`)
       : 'Your current plan is being retired';
     alerts.push({ id: 'plan-sunset', icon: CreditCard, iconColor: sunsetSeverity === 'error' ? 'text-red-400' : sunsetSeverity === 'warn' ? 'text-orange-400' : 'text-yellow-400', label: sunsetLabel, sub: 'Choose a new plan to keep access', severity: sunsetSeverity, onClick: () => onOpenBilling?.() });
   }

@@ -38,6 +38,8 @@ import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Organization } from "@shared/schema";
+import { formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -277,6 +279,7 @@ function DuplicateOrderCleanup() {
 
 
 export default function PlatformAdmin() {
+  const tz = useOrgTimezone();
   const { data: orgs, isLoading: orgsLoading } = useQuery<OrgWithUsage[]>({
     queryKey: ["/api/platform-admin/orgs"],
   });
@@ -410,7 +413,7 @@ export default function PlatformAdmin() {
                     {org.stripeCustomerId ?? '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {new Date(org.createdAt).toLocaleDateString()}
+                    {formatDate(org.createdAt, tz)}
                   </TableCell>
                   <TableCell className="text-right">
                     <EditOverridesDialog org={org} />

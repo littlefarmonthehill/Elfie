@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 import PicklistTool from "./PicklistTool";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 /** Convert an ISO 3166-1 alpha-2 country code to a flag emoji. */
 function countryFlag(code: string | null | undefined): string {
@@ -260,6 +262,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 
 export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrderDetail?: (orderId: string) => void; onItemClick?: (type: 'order' | 'inventory', id: number | string) => void } = {}) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping' | 'feedback'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -923,7 +926,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         body: JSON.stringify({ orderIds }),
       });
       const slipData = await response.json();
-      await printPackingSlips(slipData, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      await printPackingSlips(slipData, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz);
 
       // Promote any printed orders that are still "new" → "processing"
       const newOrderIds = orderIds.filter(id =>
@@ -1333,7 +1336,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                             const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
                             const tier = shippingTier(order.requestedShippingService);
                             const formattedDate = order.orderDate
-                              ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              ? formatDate(order.orderDate, tz, { month: 'short', day: 'numeric' })
                               : null;
                             const isPickComplete = !!picklistOrderStatus[order.id];
                             const shipToParsed = (() => {
@@ -1828,7 +1831,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                     {/* Order rows */}
                     <div className="divide-y divide-white/5">
                       {orders.map(o => {
-                        const shipped = o.shipDate ? new Date(o.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+                        const shipped = o.shipDate ? formatDate(o.shipDate, tz, { month: 'short', day: 'numeric' }) : '—';
                         const total = o.orderTotal ? `$${parseFloat(o.orderTotal).toFixed(2)}` : '—';
                         const isSubmitting = markFeedbackMutation.isPending && markFeedbackMutation.variables?.orderId === o.id;
                         const isSkipping = skipFeedbackMutation.isPending && skipFeedbackMutation.variables === o.id;

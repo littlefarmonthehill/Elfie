@@ -1,5 +1,7 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { X, Package, ShoppingCart } from "lucide-react";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface Order {
   id: string;
@@ -28,6 +30,7 @@ export default function PlatformOrdersDrawer({
   onOrderClick,
   productLine
 }: PlatformOrdersDrawerProps) {
+  const tz = useOrgTimezone();
   return (
     <Drawer open={open} onOpenChange={onClose}>
       <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
@@ -82,7 +85,7 @@ export default function PlatformOrdersDrawer({
                       <div className="flex items-center gap-2 text-[10px] md:text-sm text-gray-400">
                         <span>{order.customerUsername}</span>
                         <span className="text-gray-600">•</span>
-                        <span>{new Date(order.orderDate).toLocaleDateString()}</span>
+                        <span>{formatDate(order.orderDate, tz)}</span>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">

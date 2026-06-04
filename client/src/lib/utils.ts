@@ -69,6 +69,78 @@ export function truncate(str: string, maxLength: number): string {
   return str.slice(0, maxLength - 1) + '…';
 }
 
+// ─── Shared date/time formatters (org-timezone aware) ──────────────────────────
+// Times are stored in UTC. Render them in the org's IANA timezone (from Settings)
+// so the whole team sees the same wall-clock time regardless of their device.
+// Always show the zone abbreviation on times (e.g. "CDT") to avoid ambiguity.
+// Get the tz in components via the useOrgTimezone() hook, then pass it in here.
+
+export const DEFAULT_ORG_TIMEZONE = 'America/Chicago';
+
+type DateInput = string | number | Date | null | undefined;
+
+function _toDate(value: DateInput): Date | null {
+  if (value == null || value === '') return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const _dtfCache = new Map<string, Intl.DateTimeFormat>();
+function _dtf(tz: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = tz + JSON.stringify(options);
+  let fmt = _dtfCache.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, ...options });
+    _dtfCache.set(key, fmt);
+  }
+  return fmt;
+}
+
+/**
+ * Format a date-only value in the org timezone. e.g. "Jun 2, 2026".
+ * Returns "—" for null/empty/invalid. Pass Intl options to customize.
+ */
+export function formatDate(
+  value: DateInput,
+  tz: string = DEFAULT_ORG_TIMEZONE,
+  options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' },
+): string {
+  const d = _toDate(value);
+  if (!d) return '—';
+  return _dtf(tz || DEFAULT_ORG_TIMEZONE, options).format(d);
+}
+
+/**
+ * Format a time-of-day in the org timezone, with zone abbreviation. e.g. "7:19 PM CDT".
+ * Returns "—" for null/empty/invalid.
+ */
+export function formatTime(
+  value: DateInput,
+  tz: string = DEFAULT_ORG_TIMEZONE,
+  options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' },
+): string {
+  const d = _toDate(value);
+  if (!d) return '—';
+  return _dtf(tz || DEFAULT_ORG_TIMEZONE, options).format(d);
+}
+
+/**
+ * Format a date + time in the org timezone, with zone abbreviation.
+ * e.g. "Jun 2, 2026, 7:19 PM CDT". Returns "—" for null/empty/invalid.
+ */
+export function formatDateTime(
+  value: DateInput,
+  tz: string = DEFAULT_ORG_TIMEZONE,
+  options: Intl.DateTimeFormatOptions = {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  },
+): string {
+  const d = _toDate(value);
+  if (!d) return '—';
+  return _dtf(tz || DEFAULT_ORG_TIMEZONE, options).format(d);
+}
+
 /**
  * Format a sync change-log value for display.
  * Handles currency fields, booleans, null/empty, and long strings.

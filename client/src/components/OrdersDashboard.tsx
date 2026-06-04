@@ -6,7 +6,8 @@ import {
   Loader2, RefreshCw, X, ArrowRight, Crosshair,
 } from "lucide-react";
 import { StationTool } from "./StationTool";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -80,6 +81,7 @@ interface SyncQueueResponse {
 
 function QtySyncQueuePanel() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [open, setOpen] = useState(false);
   const isCompact = false;
 
@@ -120,8 +122,7 @@ function QtySyncQueuePanel() {
 
   const fmtTime = (ts: string | null) => {
     if (!ts) return null;
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTime(ts, tz);
   };
 
   return (

@@ -5,7 +5,8 @@ import {
   Users, Sparkles, Crosshair, RotateCw, Crown, Activity, Tag,
   BookOpen, Share2, ArrowRight, Heart, Zap, Send, CheckCircle, Clock, Package,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import { StationTool } from "./StationTool";
 import MetricCard from "./MetricCard";
@@ -135,10 +136,9 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
-function fmtDate(dateStr: string) {
+function fmtDate(dateStr: string, tz: string) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDate(dateStr, tz, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function fmtDaysSince(dateStr: string): string {
@@ -756,7 +756,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   'other':      'bg-gray-800 text-gray-400 border-gray-700',
 };
 
-function timeAgo(dateStr: string) {
+function timeAgo(dateStr: string, tz: string) {
   const d = new Date(dateStr);
   const now = Date.now();
   const diff = Math.floor((now - d.getTime()) / 1000);
@@ -764,7 +764,7 @@ function timeAgo(dateStr: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDate(dateStr, tz, { month: 'short', day: 'numeric' });
 }
 
 function dayBucket(dateStr: string): 'today' | 'week' | 'older' {
@@ -777,6 +777,7 @@ function dayBucket(dateStr: string): 'today' | 'week' | 'older' {
 }
 
 function CampaignLogDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const tz = useOrgTimezone();
   const { data: records = [], isLoading } = useQuery<MarketingOutreachRecord[]>({
     queryKey: ['/api/marketing/outreach'],
     enabled: open,
@@ -813,7 +814,7 @@ function CampaignLogDrawer({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           {r.notes && <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{r.notes}</p>}
           <p className="text-[10px] text-gray-600 mt-0.5 flex items-center gap-1">
-            <Clock className="w-2.5 h-2.5" />{timeAgo(r.loggedAt)}
+            <Clock className="w-2.5 h-2.5" />{timeAgo(r.loggedAt, tz)}
           </p>
         </div>
       </div>
@@ -1079,6 +1080,7 @@ export default function MarketingDashboard({
   tvSplit,
   compact,
 }: MarketingDashboardProps) {
+  const tz = useOrgTimezone();
   const isCompact = !!(tvSplit || compact);
   const [panelTab, setPanelTab] = useState<'station' | 'segments'>('station');
   const [outreachModal, setOutreachModal] = useState<{ customer: CustomerData; signal: string } | null>(null);
@@ -1232,7 +1234,7 @@ export default function MarketingDashboard({
           icon={UserPlus}
           accentColor="text-cyan-400"
           customers={newCustomers}
-          renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate)} · ${fmtCurrency(c.totalRevenue)}`}
+          renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate, tz)} · ${fmtCurrency(c.totalRevenue)}`}
           renderBadge={c => {
             const d = daysSince(c.lastOrderDate);
             return d <= 7 ? 'This week' : d <= 30 ? 'This month' : undefined;
@@ -1252,7 +1254,7 @@ export default function MarketingDashboard({
           icon={RefreshCcw}
           accentColor="text-blue-400"
           customers={repeatCustomers}
-          renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate)}`}
+          renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate, tz)}`}
           renderBadge={c => c.orderCount >= 5 ? `${c.orderCount}x buyer` : undefined}
           searchQuery={repeatSearch}
           onSearchChange={setRepeatSearch}
@@ -1269,7 +1271,7 @@ export default function MarketingDashboard({
           icon={Crown}
           accentColor="text-amber-400"
           customers={topSpenders}
-          renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`}
+          renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate, tz)}`}
           renderBadge={c => c.totalRevenue >= 500 ? 'VIP' : undefined}
           showRank
           searchQuery={topSearch}
@@ -1289,7 +1291,7 @@ export default function MarketingDashboard({
           customers={stockMatchCustomers}
           renderSubtitle={c => {
             const n = stockMatchMap[c.customerUsername] ?? 0;
-            return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`;
+            return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate, tz)}`;
           }}
           renderBadge={c => {
             const n = stockMatchMap[c.customerUsername] ?? 0;
@@ -1628,7 +1630,7 @@ export default function MarketingDashboard({
         icon={UserPlus}
         accentColor="text-cyan-400"
         customers={newCustomers}
-        renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate)} · ${fmtCurrency(c.totalRevenue)}`}
+        renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate, tz)} · ${fmtCurrency(c.totalRevenue)}`}
         renderBadge={c => {
           const d = daysSince(c.lastOrderDate);
           return d <= 7 ? 'This week' : d <= 30 ? 'This month' : undefined;
@@ -1648,7 +1650,7 @@ export default function MarketingDashboard({
         icon={RefreshCcw}
         accentColor="text-blue-400"
         customers={repeatCustomers}
-        renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate)}`}
+        renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate, tz)}`}
         renderBadge={c => c.orderCount >= 5 ? `${c.orderCount}x buyer` : undefined}
         searchQuery={repeatSearch}
         onSearchChange={setRepeatSearch}
@@ -1665,7 +1667,7 @@ export default function MarketingDashboard({
         icon={Crown}
         accentColor="text-amber-400"
         customers={topSpenders}
-        renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`}
+        renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate, tz)}`}
         renderBadge={c => c.totalRevenue >= 500 ? 'VIP' : undefined}
         showRank
         searchQuery={topSearch}
@@ -1685,7 +1687,7 @@ export default function MarketingDashboard({
         customers={stockMatchCustomers}
         renderSubtitle={c => {
           const n = stockMatchMap[c.customerUsername] ?? 0;
-          return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`;
+          return `${n} part${n !== 1 ? 's' : ''} in stock · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate, tz)}`;
         }}
         renderBadge={c => {
           const n = stockMatchMap[c.customerUsername] ?? 0;

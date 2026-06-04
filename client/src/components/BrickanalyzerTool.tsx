@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate, formatTime } from "@/lib/utils";
 
 export interface BrickanalyzerToolRef {
   triggerCamera: () => void;
@@ -264,6 +266,7 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
     stockAvgPriceN?: number | null;
   }>;
 }) {
+  const tz = useOrgTimezone();
   const [idx, setIdx] = useState(0);
   const entry = colorEntries[Math.min(idx, colorEntries.length - 1)];
   const scoreColor = (s: number) => s >= 2.0 ? 'text-emerald-400' : s >= 1.5 ? 'text-orange-400' : s >= 1.0 ? 'text-yellow-500' : 'text-gray-400';
@@ -407,7 +410,7 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
       })()}
       {cachedAt && (
         <div className="px-4 pb-3 text-[9px] text-gray-700">
-          Cached: {new Date(cachedAt).toLocaleDateString()}
+          Cached: {formatDate(cachedAt, tz)}
         </div>
       )}
     </div>
@@ -572,6 +575,7 @@ interface BrickanalyzerToolProps {
 
 const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, ref) => {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
@@ -749,10 +753,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     const sameDay = d.toDateString() === now.toDateString();
     const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
     const isYesterday = d.toDateString() === yesterday.toDateString();
-    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const time = formatTime(d, tz, { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
     if (sameDay) return `Today · ${time}`;
     if (isYesterday) return `Yesterday · ${time}`;
-    return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} · ${time}`;
+    return `${formatDate(d, tz, { month: "short", day: "numeric" })} · ${time}`;
   }
 
 
@@ -1649,7 +1653,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     ? new Date(new Date(blRateLimit.oldestCallTime).getTime() + 24 * 60 * 60 * 1000)
     : null;
   const blResetStr = blResetTime
-    ? blResetTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? formatTime(blResetTime, tz, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })
     : null;
 
   return (

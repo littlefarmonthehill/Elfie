@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 interface DiagnosticData {
   success: boolean;
@@ -31,6 +33,7 @@ interface DiagnosticData {
 }
 
 export default function MarketplaceDiagnostic() {
+  const tz = useOrgTimezone();
   const { data, isLoading } = useQuery<DiagnosticData>({
     queryKey: ['/api/orders/marketplace-diagnostic'],
   });
@@ -168,7 +171,7 @@ export default function MarketplaceDiagnostic() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">Date:</span>
                     <span className="text-xs text-gray-400">
-                      {new Date(order.order_date).toLocaleDateString()}
+                      {formatDate(order.order_date, tz)}
                     </span>
                   </div>
                 )}

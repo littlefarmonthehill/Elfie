@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import PartImage from "@/components/PartImage";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { formatDate } from "@/lib/utils";
 
 function getTrackingUrl(trackingNumber: string, carrier?: string): string {
   const c = (carrier ?? '').toLowerCase();
@@ -110,6 +112,7 @@ interface OrderDetailProps {
 
 export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderDetailProps) {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingWeight, setIsLoadingWeight] = useState(false);
@@ -336,7 +339,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-[9px] md:text-xs text-gray-400">
               <Calendar className="h-4 w-4" />
-              <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
+              <span className="font-medium">{formatDate(data.orderDate, tz)}</span>
             </div>
             {data.customerNotes && (
               <Button
@@ -806,7 +809,7 @@ export default function OrderDetail({ data, onOrderSelect, onItemClick }: OrderD
               <Truck className="h-4 w-4 text-lego-green shrink-0" />
               <span className="font-bold text-lego-green">SHIPPED</span>
               {data.shippedDate && (
-                <span className="text-gray-400">{new Date(data.shippedDate).toLocaleDateString()}</span>
+                <span className="text-gray-400">{formatDate(data.shippedDate, tz)}</span>
               )}
               {(data.shippingCarrier || data.shippingService) && (
                 <span className="text-gray-400">

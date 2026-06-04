@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { RefreshCw, Loader2, CheckCircle2, AlertTriangle, ArrowRight, Info, X, GitCompare, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
+import { formatDateTime } from "@/lib/utils";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 
 type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
@@ -56,6 +58,7 @@ type DiscrepancyItem = {
 };
 
 export default function PlatformSyncTool() {
+  const tz = useOrgTimezone();
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
   const [discrepancyDrawer, setDiscrepancyDrawer] = useState<{
     open: boolean;
@@ -157,7 +160,7 @@ export default function PlatformSyncTool() {
                   <span className="inline-block bg-gray-700 h-2 w-32 rounded animate-pulse" />
                 ) : (
                   displayData?.source.stats.lastSyncedAt 
-                    ? `Last synced: ${new Date(displayData.source.stats.lastSyncedAt).toLocaleString()}`
+                    ? `Last synced: ${formatDateTime(displayData.source.stats.lastSyncedAt, tz)}`
                     : 'Never synced'
                 )}
               </p>
@@ -381,7 +384,7 @@ export default function PlatformSyncTool() {
                   <div className="mt-1.5 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-green-400" />
                     <p className="text-[10px] md:text-sm text-gray-400">
-                      Last synced: {new Date(platform.stats.lastSyncedAt).toLocaleString()}
+                      Last synced: {formatDateTime(platform.stats.lastSyncedAt, tz)}
                     </p>
                   </div>
                 )}
@@ -629,6 +632,7 @@ function SyncIssuesSection() {
 // Sync Issues List Component
 function SyncIssuesList() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [filter, setFilter] = useState<'all' | 'critical' | 'high'>('all');
 
   // Fetch sync issues
@@ -718,7 +722,7 @@ function SyncIssuesList() {
                       <p className="text-xs text-gray-400 mt-1">Item: {issue.itemNo}</p>
                     )}
                     <p className="text-[10px] md:text-sm text-gray-500 mt-1">
-                      {new Date(issue.createdAt).toLocaleString()}
+                      {formatDateTime(issue.createdAt, tz)}
                     </p>
                   </div>
                   <div className="flex gap-1">
