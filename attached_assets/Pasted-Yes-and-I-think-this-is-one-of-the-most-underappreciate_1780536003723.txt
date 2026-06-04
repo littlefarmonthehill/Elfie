@@ -1,0 +1,129 @@
+Yes, and I think this is one of the most underappreciated impacts of AI on software.
+
+Historically, software companies had to think:
+
+“Will enough customers use this feature to justify the cost of building and maintaining it?”
+
+If only 5 customers wanted it, the answer was usually no.
+
+The costs were:
+
+* Product managers
+* Developers
+* QA
+* Documentation
+* Support
+* Future maintenance
+
+So software gravitated toward the “average customer.”
+
+⸻
+
+With AI development agents, the economics start to change.
+
+Imagine Elfie has 500 LEGO sellers.
+
+Today:
+
+* 400 sellers want inventory management.
+* 300 want repricing.
+* 250 want order management.
+
+Those become core features.
+
+But maybe:
+
+* One seller specializes in retired Star Wars sets.
+* One seller runs convention events.
+* One seller rents LEGO rather than selling it.
+* One seller wants a custom profitability model.
+
+Traditionally those niche requests get rejected.
+
+With AI, you could potentially say:
+
+“Generate a custom module for this customer.”
+
+The development cost might drop from weeks to hours.
+
+⸻
+
+The really interesting shift is from:
+
+One product → many customers
+
+to
+
+One platform → many customized experiences
+
+Think of Elfie as providing:
+
+* Authentication
+* Data storage
+* Inventory engine
+* Marketplace connections
+* Billing
+
+Then AI generates:
+
+* Custom dashboards
+* Custom reports
+* Custom workflows
+* Custom automations
+* Custom business rules
+
+for individual customers.
+
+⸻
+
+This is similar to what happened with websites.
+
+In the 1990s, every website was custom-built.
+
+Then platforms emerged:
+
+* WordPress
+* Shopify
+* Wix
+
+The platform provided the foundation, and customization happened on top.
+
+AI may do the same thing for business software.
+
+⸻
+
+For PlanetBrick and Elfie specifically, I suspect your long-term moat may not be the features themselves.
+
+A bigger moat could be:
+
+* Deep LEGO-specific data.
+* Knowledge of LEGO sellers’ workflows.
+* Connections to LEGO marketplaces.
+* Historical sales data.
+* Community knowledge.
+
+If that’s true, then AI makes custom features easier, not harder.
+
+The question changes from:
+
+“Can we afford to build this feature?”
+
+to:
+
+“Does this feature fit within our LEGO platform and data model?”
+
+⸻
+
+One caution: custom features can create maintenance chaos if each customer gets a completely unique codebase.
+
+The likely winning model is:
+
+Shared core platform
++
+AI-generated extensions/plugins
++
+Strong underlying data model
+
+That gives customers the feeling of bespoke software while keeping the platform manageable.
+
+Ironically, AI may bring us back to something that existed decades ago: software tailored to individual organizations. The difference is that instead of needing a team of consultants and developers, an AI agent can create and maintain much of that customization at a fraction of the cost. For a niche market like LEGO sellers, that could be a significant competitive advantage.
