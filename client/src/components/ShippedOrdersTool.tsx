@@ -21,7 +21,6 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
-import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
@@ -251,6 +250,14 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
   });
+
+  // Org-configured IANA timezone (from Settings). Ship dates are stored in UTC,
+  // so they must be rendered in the org's timezone — otherwise evening shipments
+  // (Central) roll past midnight UTC and display as the next day.
+  const { data: appSettings } = useQuery<{ timezone?: string }>({
+    queryKey: ['/api/settings'],
+  });
+  const orgTimezone = appSettings?.timezone || 'America/Chicago';
 
   // Not-delivered panel: no date range, backend excludes delivered orders
   const { data: notDeliveredOrders, isLoading: isLoadingNotDelivered, isFetching: isFetchingNotDelivered } = useQuery<ShippedOrder[]>({
@@ -592,7 +599,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                     <span className="text-gray-600 shrink-0">·</span>
                     <span className="text-xs text-gray-400 shrink-0">${order.orderTotal}</span>
                     <span className="text-gray-600 shrink-0">·</span>
-                    <span className="text-xs text-gray-400 shrink-0">{order.shipDate ? format(new Date(order.shipDate), 'MMM d') : '—'}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{order.shipDate ? new Date(order.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: orgTimezone }) : '—'}</span>
                     {order.carrier && (
                       <>
                         <span className="text-gray-600 shrink-0">·</span>
