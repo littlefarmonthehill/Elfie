@@ -19,7 +19,15 @@ export interface VisibleFeatures {
  *  - `beta`: beta-stage features available to opt into (for the Beta Features panel)
  */
 export function useFeatures() {
-  const query = useQuery<VisibleFeatures>({ queryKey: ['/api/features'] });
+  // Override the app-wide "cache forever" default so that stage changes
+  // (beta <-> released) propagate without a hard reload: refetch on window
+  // focus and on a slow interval picks up changes made in other sessions.
+  const query = useQuery<VisibleFeatures>({
+    queryKey: ['/api/features'],
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+  });
   return {
     ...query,
     visible: query.data?.visible ?? [],

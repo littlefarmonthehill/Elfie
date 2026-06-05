@@ -911,7 +911,7 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
   return (
     <div ref={ref} className="relative inline-block" data-testid={testId}>
       <button onClick={() => setOpen(!open)} className={`text-[10px] px-1.5 py-0.5 rounded border truncate max-w-[110px] text-left ${className || 'text-gray-500 border-gray-700'}`}>
-        {selected?.label || value} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
+        {selected?.label || (value === 'none' ? 'Stage —' : value)} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
       </button>
       {open && (
         <div className="absolute z-50 mt-0.5 right-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 max-h-[180px] overflow-y-auto min-w-[140px]" style={{ maxWidth: '220px' }}>
@@ -1155,6 +1155,9 @@ function ProductRoadmapPanel() {
     try {
       await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, updates);
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+      // Stage / feature-key edits change what is gated, so refresh the live
+      // feature map too — this updates dashboards in the current session.
+      queryClient.invalidateQueries({ queryKey: ['/api/features'] });
       setEditingId(null);
     } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
   };
@@ -1297,7 +1300,7 @@ function ProductRoadmapPanel() {
                                       <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
                                     </span>
                                   )}
-                                  <InlineDropdown value={f.stage || 'none'} options={[{ value: 'none', label: 'Stage —' }, { value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
+                                  <InlineDropdown value={f.stage || 'none'} options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
                                   <input
                                     className="w-24 bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
                                     placeholder="feature key"
