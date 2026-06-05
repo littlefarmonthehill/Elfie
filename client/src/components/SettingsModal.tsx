@@ -911,7 +911,7 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
   return (
     <div ref={ref} className="relative inline-block" data-testid={testId}>
       <button onClick={() => setOpen(!open)} className={`text-[10px] px-1.5 py-0.5 rounded border truncate max-w-[110px] text-left ${className || 'text-gray-500 border-gray-700'}`}>
-        {selected?.label || (value === 'none' ? 'Stage —' : value)} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
+        {selected?.label || (value === 'none' ? '—' : value)} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
       </button>
       {open && (
         <div className="absolute z-50 mt-0.5 right-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 max-h-[180px] overflow-y-auto min-w-[140px]" style={{ maxWidth: '220px' }}>
@@ -1305,7 +1305,21 @@ function ProductRoadmapPanel() {
                                   </div>
                                   {/* Row 2 — controls (stage / feature key / location / delete), wraps on small screens */}
                                   <div className="flex items-center gap-2 flex-wrap pl-1">
-                                    <InlineDropdown value={f.stage || 'none'} options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="text-[9px] uppercase tracking-wide text-gray-500">Stage</span>
+                                      <InlineDropdown
+                                        value={f.stage || 'none'}
+                                        options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
+                                        onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }}
+                                        className={
+                                          f.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                                          : f.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
+                                          : f.stage === 'alpha' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                                          : 'text-gray-500 border-gray-700'
+                                        }
+                                        testId={`select-feature-stage-${f.id}`}
+                                      />
+                                    </div>
                                     <input
                                       className="flex-1 min-w-[120px] bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
                                       placeholder="feature key"
