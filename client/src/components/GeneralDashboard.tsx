@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { useFeature } from "@/hooks/use-feature";
+import { Sparkles } from "lucide-react";
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
@@ -608,6 +610,29 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   );
 }
 
+function BetaDemoCard() {
+  const enabled = useFeature('beta_demo');
+  const { data, isLoading } = useQuery<{ message: string; generatedAt: string }>({
+    queryKey: ['/api/features/example-insight'],
+    enabled,
+  });
+  if (!enabled) return null;
+  return (
+    <div className="rounded-md ring-1 ring-amber-400/30 bg-amber-400/5 p-4" data-testid="card-beta-demo">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <Sparkles className="w-4 h-4 text-amber-400" />
+        <span className="text-sm font-medium text-amber-200">Beta Demo</span>
+        <span className="text-[10px] uppercase tracking-wide text-amber-400/70 border border-amber-400/30 rounded px-1">Beta</span>
+      </div>
+      {isLoading ? (
+        <p className="text-xs text-gray-400">Loading…</p>
+      ) : (
+        <p className="text-xs text-gray-300" data-testid="text-beta-demo-message">{data?.message ?? 'Beta demo unavailable.'}</p>
+      )}
+    </div>
+  );
+}
+
 export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenBilling, onOpenSettings, onNavigate, section = 'all', activeSection }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
@@ -1006,6 +1031,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       {showPlan && (
         <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} onDismissSetupItem={dismissSetupItem} />
       )}
+
+      {/* Example beta-gated feature (proves the staging flow end-to-end) */}
+      <BetaDemoCard />
 
       {/* Operational areas */}
       {showOps && (<div className="space-y-3" data-testid="section-the-bridge">

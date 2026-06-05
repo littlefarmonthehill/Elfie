@@ -1219,6 +1219,25 @@ router.post("/settings", isApproved, asyncRoute(async (req: any, res) => {
   res.json(maskSettingsSecrets(settings as any));
 }));
 
+// Dedicated beta opt-in toggle. Kept separate from POST /settings so a single
+// beta toggle never round-trips the full settings object (which would inject
+// schema defaults and clobber unrelated fields). Server-side merge avoids
+// stale-client read-modify-write dropping other opted-in keys.
+router.post("/settings/beta-features", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { key, enable } = z.object({ key: z.string().min(1).max(100), enable: z.boolean() }).parse(req.body);
+  const current = await getOrgSettings(orgId);
+  const existing: string[] = ((current as any)?.betaFeatures ?? []).filter(Boolean);
+  const next = enable
+    ? Array.from(new Set([...existing, key]))
+    : existing.filter(k => k !== key);
+  const [settings] = await db.insert(appSettings)
+    .values({ id: orgId, orgId, betaFeatures: next })
+    .onConflictDoUpdate({ target: appSettings.id, set: { betaFeatures: next, updatedAt: sql`CURRENT_TIMESTAMP` } })
+    .returning();
+  res.json({ betaFeatures: settings.betaFeatures ?? [] });
+}));
+
 // ── Shipping service mappings ─────────────────────────────────────────────────
 
 router.get("/shipping/service-mappings", isApproved, asyncRoute(async (req: any, res) => {

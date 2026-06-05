@@ -34,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
+import { useFeatures, type BetaFeatureInfo } from "@/hooks/use-feature";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Link } from "wouter";
 import { getTierConfig } from "@shared/tierConfig";
@@ -50,7 +51,7 @@ interface SettingsModalProps {
   forcePlatformAdmin?: boolean;
 }
 
-type ActiveSection = 'general' | 'team' | 'platforms' | 'printing' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | 'shipping' | null;
+type ActiveSection = 'general' | 'team' | 'platforms' | 'printing' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | 'shipping' | 'betaFeatures' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -1136,6 +1137,7 @@ function ProductRoadmapPanel() {
   const [newFeature, setNewFeature] = useState<Record<number, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [featureKeyDraft, setFeatureKeyDraft] = useState<Record<number, string>>({});
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
@@ -1295,6 +1297,17 @@ function ProductRoadmapPanel() {
                                       <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
                                     </span>
                                   )}
+                                  <InlineDropdown value={f.stage || 'none'} options={[{ value: 'none', label: 'Stage —' }, { value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
+                                  <input
+                                    className="w-24 bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
+                                    placeholder="feature key"
+                                    value={featureKeyDraft[f.id] ?? (f.featureKey || '')}
+                                    onChange={e => setFeatureKeyDraft(p => ({ ...p, [f.id]: e.target.value }))}
+                                    onBlur={() => { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); }}
+                                    onKeyDown={e => { if (e.key === 'Enter') { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); } }}
+                                    title="Stable code key that gates this feature at runtime. Leave blank for roadmap-only."
+                                    data-testid={`input-feature-key-${f.id}`}
+                                  />
                                   <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
                                   <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                                 </div>
@@ -1319,6 +1332,70 @@ function ProductRoadmapPanel() {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BetaFeaturesSection() {
+  const { toast } = useToast();
+  const { beta, isLoading } = useFeatures();
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ key, enable }: { key: string; enable: boolean }) => {
+      const response = await fetch('/api/settings/beta-features', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, enable }),
+      });
+      if (!response.ok) throw new Error('Failed to update beta features');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/features'] });
+    },
+    onError: (e: any) => toast({ title: 'Could not update', description: e.message, variant: 'destructive' }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-gray-100">Beta Features</p>
+        <p className="sm-description mt-1">Try out new features early. Turn one on to enable it for your whole company; turn it off any time. Once a feature is fully released it turns on for everyone and drops off this list.</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>
+      ) : beta.length === 0 ? (
+        <div className="text-center py-10">
+          <Sparkles className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">No beta features available right now. Check back soon.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {beta.map((f: BetaFeatureInfo) => (
+            <div key={f.key} className="sm-card p-3 flex items-start justify-between gap-3" data-testid={`beta-feature-${f.key}`}>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-gray-100">{f.title}</p>
+                  {f.votes > 0 && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${f.votes} vote(s)`} data-testid={`beta-votes-${f.key}`}>
+                      <ThumbsUp className="w-2.5 h-2.5" />{f.votes}
+                    </span>
+                  )}
+                </div>
+                {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
+              </div>
+              <Switch
+                checked={f.enabled}
+                disabled={toggleMutation.isPending}
+                onCheckedChange={(checked) => toggleMutation.mutate({ key: f.key, enable: checked })}
+                data-testid={`switch-beta-${f.key}`}
+              />
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -4334,6 +4411,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
+    { id: 'betaFeatures' as const, label: 'Beta Features', icon: Sparkles, bsVisible: false },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, bsVisible: false },
     { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
@@ -12839,6 +12917,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             )}
 
             {/* Notifications */}
+            {activeSection === 'betaFeatures' && <BetaFeaturesSection />}
             {activeSection === 'notifications' && <NotificationsSection />}
 
             {/* Mappings */}

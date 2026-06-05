@@ -1232,8 +1232,9 @@ router.post("/platform-admin/product/capabilities", isSuperAdmin, asyncRoute(asy
 
 router.patch("/platform-admin/product/capabilities/:id", isSuperAdmin, asyncRoute(async (req, res) => {
   const id = parseInt(req.params.id);
-  const { title, description, level, parentId, sortOrder, status } = req.body;
+  const { title, description, level, parentId, sortOrder, status, stage, featureKey } = req.body;
   const validStatuses = ['built', 'new', 'now', 'next', 'testing', 'later'];
+  const validStages = ['none', 'alpha', 'beta', 'released'];
   const updates: any = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
@@ -1241,8 +1242,22 @@ router.patch("/platform-admin/product/capabilities/:id", isSuperAdmin, asyncRout
   if (parentId !== undefined) updates.parentId = parentId;
   if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   if (status !== undefined && validStatuses.includes(status)) updates.status = status;
-  const [updated] = await db.update(productCapabilities).set(updates).where(eq(productCapabilities.id, id)).returning();
-  res.json(updated);
+  if (stage !== undefined) {
+    if (!validStages.includes(stage)) return res.status(400).json({ message: `Invalid stage. Must be one of: ${validStages.join(', ')}.` });
+    updates.stage = stage;
+  }
+  if (featureKey !== undefined) {
+    // Stable code-matched key; empty/whitespace clears the gate (roadmap entry only).
+    const trimmed = typeof featureKey === 'string' ? featureKey.trim() : '';
+    updates.featureKey = trimmed.length > 0 ? trimmed : null;
+  }
+  try {
+    const [updated] = await db.update(productCapabilities).set(updates).where(eq(productCapabilities.id, id)).returning();
+    res.json(updated);
+  } catch (e: any) {
+    if (e?.code === '23505') return res.status(409).json({ message: 'That feature key is already in use. Feature keys must be unique.' });
+    throw e;
+  }
 }));
 
 router.delete("/platform-admin/product/capabilities/:id", isSuperAdmin, asyncRoute(async (req, res) => {
@@ -1322,6 +1337,23 @@ router.get("/public-roadmap", isAuthenticated, asyncRoute(async (req: any, res) 
   const enriched = features.map(f => ({ id: f.id, title: f.title, description: f.description, status: f.status, parentId: f.parentId, l2Name: l2s.find(l => l.id === f.parentId)?.title || '', l1Name: (() => { const l2 = l2s.find(l => l.id === f.parentId); return l2 ? (l1s.find(l => l.id === l2.parentId)?.title || '') : ''; })(), votes: voteMap.get(f.id) || 0, userVoted: userVotes.includes(f.id) }));
   enriched.sort((a, b) => b.votes - a.votes);
   res.json(enriched);
+}));
+
+// ── Feature Staging (alpha/beta/released) ────────────────────────────────────
+// Returns the feature keys visible to the current user/org plus the beta-stage
+// features available to opt into (with vote counts) for the Beta Features panel.
+router.get("/features", isApproved, asyncRoute(async (req: any, res) => {
+  const { getVisibleFeatures } = await import("../services/feature-gate");
+  res.json(await getVisibleFeatures(req));
+}));
+
+// Example gated endpoint — proves server-side enforcement end-to-end for one key.
+router.get("/features/example-insight", isApproved, asyncRoute(async (req: any, res) => {
+  const { canSeeFeature } = await import("../services/feature-gate");
+  if (!(await canSeeFeature(req, 'beta_demo'))) {
+    return res.status(403).json({ message: 'This feature is not available for your organization yet.' });
+  }
+  res.json({ message: "Beta demo is live for your organization.", generatedAt: new Date().toISOString() });
 }));
 
 router.get("/feature-votes/counts", isAuthenticated, asyncRoute(async (_req, res) => {

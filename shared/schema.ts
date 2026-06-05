@@ -615,6 +615,7 @@ export const appSettings = pgTable("app_settings", {
   blUkVatNumber: text("bl_uk_vat_number"),         // BrickLink UK VAT number
   boUkVatNumber: text("bo_uk_vat_number"),         // BrickOwl UK VAT number
   orgTimezone: text("org_timezone").default('America/Chicago'),  // Org's local timezone (for display + order sync windows)
+  betaFeatures: text("beta_features").array().default(sql`'{}'::text[]`),  // Feature keys this org has opted into (beta stage)
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Legacy: time of day (HH:MM) — kept for backward compat
@@ -2114,8 +2115,14 @@ export const productCapabilities = pgTable("product_capabilities", {
   parentId: integer("parent_id"),
   sortOrder: integer("sort_order").notNull().default(0),
   status: varchar("cap_status", { length: 20 }).notNull().default('built'),
+  // Release-maturity gate (separate from product `status`): 'none' | 'alpha' | 'beta' | 'released'.
+  stage: varchar("stage", { length: 20 }).notNull().default('none'),
+  // Stable code-matched key for runtime gating; null = roadmap entry only, not a runtime gate.
+  featureKey: varchar("feature_key", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  featureKeyIdx: uniqueIndex("product_capabilities_feature_key_idx").on(table.featureKey),
+}));
 export const insertProductCapabilitySchema = createInsertSchema(productCapabilities).omit({ id: true, createdAt: true });
 export type InsertProductCapability = z.infer<typeof insertProductCapabilitySchema>;
 export type ProductCapability = typeof productCapabilities.$inferSelect;
