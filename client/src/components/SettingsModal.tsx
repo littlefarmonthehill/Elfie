@@ -1288,31 +1288,37 @@ function ProductRoadmapPanel() {
                           {!isL2Collapsed && visibleFeatures.length > 0 && (
                             <div className="ml-5 space-y-0.5 pb-1">
                               {visibleFeatures.map((f: any) => (
-                                <div key={f.id} className="flex items-center gap-2 py-1 group" data-testid={`roadmap-feature-${f.id}`}>
-                                  <CapStatusBadge status={f.status || 'built'} onSelect={(s) => moveCapStatus(f.id, s)} />
-                                  {editingId === f.id ? (
-                                    <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-feature-${f.id}`} />
-                                  ) : (
-                                    <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
-                                  )}
-                                  {(voteCounts?.[f.id] || 0) > 0 && (
-                                    <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${voteCounts?.[f.id]} vote(s)`} data-testid={`votes-roadmap-${f.id}`}>
-                                      <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
-                                    </span>
-                                  )}
-                                  <InlineDropdown value={f.stage || 'none'} options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
-                                  <input
-                                    className="w-24 bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
-                                    placeholder="feature key"
-                                    value={featureKeyDraft[f.id] ?? (f.featureKey || '')}
-                                    onChange={e => setFeatureKeyDraft(p => ({ ...p, [f.id]: e.target.value }))}
-                                    onBlur={() => { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); }}
-                                    onKeyDown={e => { if (e.key === 'Enter') { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); } }}
-                                    title="Stable code key that gates this feature at runtime. Leave blank for roadmap-only."
-                                    data-testid={`input-feature-key-${f.id}`}
-                                  />
-                                  <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
-                                  <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                                <div key={f.id} className="flex flex-col gap-1 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`roadmap-feature-${f.id}`}>
+                                  {/* Row 1 — status + feature name (always full width, never squished) */}
+                                  <div className="flex items-start gap-2 min-w-0">
+                                    <div className="pt-0.5"><CapStatusBadge status={f.status || 'built'} onSelect={(s) => moveCapStatus(f.id, s)} /></div>
+                                    {editingId === f.id ? (
+                                      <input className="flex-1 min-w-0 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-feature-${f.id}`} />
+                                    ) : (
+                                      <span className={`flex-1 min-w-0 break-words text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
+                                    )}
+                                    {(voteCounts?.[f.id] || 0) > 0 && (
+                                      <span className="flex items-center gap-0.5 text-[10px] text-cyan-400 shrink-0 pt-0.5" title={`${voteCounts?.[f.id]} vote(s)`} data-testid={`votes-roadmap-${f.id}`}>
+                                        <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {/* Row 2 — controls (stage / feature key / location / delete), wraps on small screens */}
+                                  <div className="flex items-center gap-2 flex-wrap pl-1">
+                                    <InlineDropdown value={f.stage || 'none'} options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]} onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }} testId={`select-feature-stage-${f.id}`} />
+                                    <input
+                                      className="flex-1 min-w-[120px] bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
+                                      placeholder="feature key"
+                                      value={featureKeyDraft[f.id] ?? (f.featureKey || '')}
+                                      onChange={e => setFeatureKeyDraft(p => ({ ...p, [f.id]: e.target.value }))}
+                                      onBlur={() => { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); }}
+                                      onKeyDown={e => { if (e.key === 'Enter') { const v = featureKeyDraft[f.id]; if (v !== undefined && v !== (f.featureKey || '')) updateCap(f.id, { featureKey: v }); } }}
+                                      title="Stable code key that gates this feature at runtime. Leave blank for roadmap-only."
+                                      data-testid={`input-feature-key-${f.id}`}
+                                    />
+                                    <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
+                                    <Button size="icon" variant="ghost" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
