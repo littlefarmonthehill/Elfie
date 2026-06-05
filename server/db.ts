@@ -1243,7 +1243,17 @@ export async function runMigrations() {
       const { rows: alreadyDone } = await client.query(
         `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_settings_old' LIMIT 1`
       );
-      if (alreadyDone.length === 0) {
+      // Only run when app_settings still has the legacy openai_api_key column.
+      // A later migration (Phase-73) moves that column out to platform_settings,
+      // so once it's gone this one-time reclaim is obsolete. The original guard
+      // relied on app_settings_old existing, but that fallback table was later
+      // cleaned up — which made this phase wrongly re-run on every boot, fail
+      // copying a column that no longer exists, halt the whole migration chain,
+      // and leave behind an empty app_settings_v2 each time.
+      const { rows: needsReclaim } = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_settings' AND column_name = 'openai_api_key' LIMIT 1`
+      );
+      if (alreadyDone.length === 0 && needsReclaim.length > 0) {
         // Drop any partial v2 table left over from a previous failed attempt
         await client.query(`DROP TABLE IF EXISTS app_settings_v2`);
 
@@ -1473,7 +1483,7 @@ export async function runMigrations() {
         const { rows: verifyRows } = await client.query(`SELECT COUNT(*) as cnt FROM app_settings`);
         console.log(`[Migration] Phase-72 (app_settings recreated — ${verifyRows[0].cnt} rows migrated, 1,478 ghost column slots reclaimed) complete.`);
       } else {
-        console.log('[Migration] Phase-72 (app_settings already recreated) — skipped.');
+        console.log('[Migration] Phase-72 (app_settings already reshaped — reclaim obsolete) — skipped.');
       }
     }
 

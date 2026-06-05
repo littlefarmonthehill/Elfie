@@ -1,3 +1,4 @@
 - [BrickOwl formats](brickowl-formats.md) — BO inventory XML uses `<lot>` not `ITEM`; boid is `{owlId}-{boColorId}`, name's last parenthetical holds `(BL-id / LEGO-id)`; resolve to BL ids before any BL-keyed lookup.
 - [Multi-tenant scoping](multi-tenant-scoping.md) — GET-by-id routes must scope by orgId (real IDOR existed on order-shipping); `isApproved` is not tenant isolation; validate numeric body params before vendor APIs.
+- [Migration idempotency guards](migration-idempotency-guards.md) — guard one-time startup migrations on the data/column they consume, not a sentinel table that may be cleaned up; a thrown phase halts the whole chain & drives destructive publish diffs.
 - [Date/time display](datetime-display.md) — render in ORG tz via useOrgTimezone()+formatDate/Time/DateTime (utils.ts), show zone abbr on times; API field `timezone` vs DB col `orgTimezone`; date-only YYYY-MM-DD must format in UTC or the day shifts.
