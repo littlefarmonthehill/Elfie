@@ -24,6 +24,7 @@ import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 import { type SalesDrawer } from "./SalesDashboard";
 import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useAuth } from "@/hooks/useAuth";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
 // BrickLink is always present as a fixed button; entries here are additional channel platforms.
@@ -318,8 +319,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   // in (or the user is a super admin). See the Beta Features panel in Settings.
   const showOperations = useFeature('sales_operations');
   const showTopItems = useFeature('sales_top_items');
-  const betaOperations = useFeatureBeta('sales_operations');
-  const betaTopItems = useFeatureBeta('sales_top_items');
+  // Beta badges are super-admin-only; opted-in regular users see the feature
+  // but no badge.
+  const { superAdmin } = useAuth();
+  const betaOperations = useFeatureBeta('sales_operations') && superAdmin;
+  const betaTopItems = useFeatureBeta('sales_top_items') && superAdmin;
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
 

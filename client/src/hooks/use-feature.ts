@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
+export type Stage = 'none' | 'alpha' | 'beta' | 'released';
+
 export interface BetaFeatureInfo {
   key: string;
   title: string;
@@ -11,6 +13,7 @@ export interface BetaFeatureInfo {
 export interface VisibleFeatures {
   visible: string[];
   beta: BetaFeatureInfo[];
+  stages: Record<string, Stage>;
 }
 
 /**
@@ -32,8 +35,19 @@ export function useFeatures() {
     ...query,
     visible: query.data?.visible ?? [],
     beta: query.data?.beta ?? [],
+    stages: query.data?.stages ?? {},
     isLoading: query.isLoading,
   };
+}
+
+/**
+ * Returns the maturity stage of a given feature key for the current user/org,
+ * or `undefined` while loading or when the key isn't visible. Keeping this as a
+ * generic stage lookup makes adding other stage markers (e.g. alpha) trivial.
+ */
+export function useFeatureStage(key: string): Stage | undefined {
+  const { stages } = useFeatures();
+  return stages[key];
 }
 
 /**
@@ -52,6 +66,5 @@ export function useFeature(key: string): boolean {
  * beta feature automatically) and opted-in orgs know the tool is beta.
  */
 export function useFeatureBeta(key: string): boolean {
-  const { beta } = useFeatures();
-  return beta.some(b => b.key === key);
+  return useFeatureStage(key) === 'beta';
 }

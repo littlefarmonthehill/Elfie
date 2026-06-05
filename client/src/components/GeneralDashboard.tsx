@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
-import { useFeature } from "@/hooks/use-feature";
+import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useAuth } from "@/hooks/useAuth";
+import { BetaTag } from "@/components/BetaTag";
 import { Sparkles } from "lucide-react";
 
 interface GeneralDashboardProps {
@@ -612,6 +614,9 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
 function BetaDemoCard() {
   const enabled = useFeature('beta_demo');
+  // Beta badge is super-admin-only; opted-in regular users see the card but no badge.
+  const { superAdmin } = useAuth();
+  const showBetaBadge = useFeatureBeta('beta_demo') && superAdmin;
   const { data, isLoading } = useQuery<{ message: string; generatedAt: string }>({
     queryKey: ['/api/features/example-insight'],
     enabled,
@@ -622,7 +627,7 @@ function BetaDemoCard() {
       <div className="flex items-center gap-2 mb-1 flex-wrap">
         <Sparkles className="w-4 h-4 text-amber-400" />
         <span className="text-sm font-medium text-amber-200">Beta Demo</span>
-        <span className="text-[10px] uppercase tracking-wide text-amber-400/70 border border-amber-400/30 rounded px-1">Beta</span>
+        {showBetaBadge && <BetaTag />}
       </div>
       {isLoading ? (
         <p className="text-xs text-gray-400">Loading…</p>

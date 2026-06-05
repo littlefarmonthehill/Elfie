@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useAuth } from "@/hooks/useAuth";
 import { BetaTag } from "@/components/BetaTag";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,7 +267,9 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
   // Beta feature gating — the strategy lens is hidden unless the org has opted
   // in (or the user is a super admin). See the Beta Features panel in Settings.
   const showStrategy = useFeature('insights_strategy');
-  const betaStrategy = useFeatureBeta('insights_strategy');
+  // Beta badge is super-admin-only; opted-in regular users see the lens but no badge.
+  const { superAdmin } = useAuth();
+  const betaStrategy = useFeatureBeta('insights_strategy') && superAdmin;
 
   // Clear any active strategy filter when the feature is hidden, so the
   // strategy-context banner can't linger after the lens is gated off.

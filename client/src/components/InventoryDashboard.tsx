@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useAuth } from "@/hooks/useAuth";
 import { BetaTag } from "@/components/BetaTag";
 
 interface InventoryStats {
@@ -90,11 +91,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const showBundleTron = useFeature('inv_bundletron');
   const showAcquisition = useFeature('inv_acquisition');
   const showListOMatic = useFeature('inv_list_o_matic');
-  const betaBrickSpotter = useFeatureBeta('inv_brick_spotter');
-  const betaInventoryHealth = useFeatureBeta('inv_health');
-  const betaBundleTron = useFeatureBeta('inv_bundletron');
-  const betaAcquisition = useFeatureBeta('inv_acquisition');
-  const betaListOMatic = useFeatureBeta('inv_list_o_matic');
+  // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
+  // users still get the feature but see no badge.
+  const { superAdmin } = useAuth();
+  const betaBrickSpotter = useFeatureBeta('inv_brick_spotter') && superAdmin;
+  const betaInventoryHealth = useFeatureBeta('inv_health') && superAdmin;
+  const betaBundleTron = useFeatureBeta('inv_bundletron') && superAdmin;
+  const betaAcquisition = useFeatureBeta('inv_acquisition') && superAdmin;
+  const betaListOMatic = useFeatureBeta('inv_list_o_matic') && superAdmin;
 
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);

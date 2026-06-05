@@ -17,6 +17,7 @@ export interface BetaFeatureInfo {
 export interface VisibleFeatures {
   visible: string[];        // feature keys the current user/org can see right now
   beta: BetaFeatureInfo[];  // beta-stage features available to opt into (for the Beta Features panel)
+  stages: Record<string, Stage>; // visible feature key -> maturity stage (drives in-context stage badges)
 }
 
 /**
@@ -72,11 +73,18 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
   const optIns = await getOrgBetaOptIns(orgId);
 
   const visible: string[] = [];
+  const stages: Record<string, Stage> = {};
   for (const c of gated) {
     const key = c.featureKey as string;
-    if (c.stage === 'released') visible.push(key);
-    else if (c.stage === 'alpha') { if (isSuper) visible.push(key); }
-    else if (c.stage === 'beta') { if (isSuper || optIns.has(key)) visible.push(key); }
+    const stage = c.stage as Stage;
+    let isVisible = false;
+    if (stage === 'released') isVisible = true;
+    else if (stage === 'alpha') isVisible = isSuper;
+    else if (stage === 'beta') isVisible = isSuper || optIns.has(key);
+    if (isVisible) {
+      visible.push(key);
+      stages[key] = stage;
+    }
   }
 
   // Beta-stage features for the opt-in panel, with vote counts.
@@ -98,7 +106,7 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
     enabled: optIns.has(c.featureKey as string),
   }));
 
-  return { visible: Array.from(new Set(visible)), beta };
+  return { visible: Array.from(new Set(visible)), beta, stages };
 }
 
 /** Guard helper for feature-specific routes. Returns true if the request may access `key`. */
