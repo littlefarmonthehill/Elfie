@@ -1,4 +1,4 @@
-import { useState, ComponentType } from "react";
+import { useState, useEffect, ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useFeature } from "@/hooks/use-feature";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,6 +262,16 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
   const [strategyModal, setStrategyModal] = useState<StrategyModalData | null>(null);
   const [visionExpanded, setVisionExpanded] = useState(false);
 
+  // Beta feature gating — the strategy lens is hidden unless the org has opted
+  // in (or the user is a super admin). See the Beta Features panel in Settings.
+  const showStrategy = useFeature('insights_strategy');
+
+  // Clear any active strategy filter when the feature is hidden, so the
+  // strategy-context banner can't linger after the lens is gated off.
+  useEffect(() => {
+    if (!showStrategy) setActiveFilter(null);
+  }, [showStrategy]);
+
   const {
     data: marketIntel,
     isLoading: intelLoading,
@@ -361,6 +372,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
           </div>
         </div>
         {/* Strategy filter cells */}
+        {showStrategy && (
         <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
           {areaCounts.map(area => {
             const isActive = activeFilter === area.key;
@@ -392,6 +404,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
             );
           })}
         </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════

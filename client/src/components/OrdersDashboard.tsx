@@ -23,6 +23,7 @@ import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotificati
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 import { type SalesDrawer } from "./SalesDashboard";
+import { useFeature } from "@/hooks/use-feature";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
 // BrickLink is always present as a fixed button; entries here are additional channel platforms.
@@ -313,6 +314,10 @@ function QtySyncQueuePanel() {
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, onSalesDrawer, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode, tvSplit, compact, initialPanelTab }: OrdersDashboardProps) {
   const isCompact = !!(tvSplit || compact);
+  // Beta feature gating — these sales tools are hidden unless the org has opted
+  // in (or the user is a super admin). See the Beta Features panel in Settings.
+  const showOperations = useFeature('sales_operations');
+  const showTopItems = useFeature('sales_top_items');
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
 
@@ -713,6 +718,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               testId="tool-performance"
             />
 
+            {showOperations && (
             <StationTool
               icon={Gauge}
               label="Operations"
@@ -722,7 +728,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               onClick={() => onSalesDrawer?.('operations')}
               testId="tool-operations"
             />
+            )}
 
+            {showTopItems && (
             <StationTool
               icon={Zap}
               label="Top Items"
@@ -732,6 +740,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               onClick={() => onSalesDrawer?.('top-items')}
               testId="tool-top-items"
             />
+            )}
 
           </div>
           )}

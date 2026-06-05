@@ -185,6 +185,12 @@ router.get("/orders/summary", isApproved, asyncRoute(async (req: any, res) => {
 
 router.get("/orders/top-items", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
+  // Beta gate: Top Items is opt-in. This endpoint is dedicated to the gated
+  // drawer, so guarding it here enforces the flag server-side too.
+  const { canSeeFeature } = await import("../services/feature-gate");
+  if (!(await canSeeFeature(req, 'sales_top_items'))) {
+    return res.status(403).json({ error: 'Feature not enabled' });
+  }
   const range = req.query.range as string | undefined;
   const tz = await getOrgTimezone(orgId);
   const { start, end } = tzDateBounds(range ?? '', tz);

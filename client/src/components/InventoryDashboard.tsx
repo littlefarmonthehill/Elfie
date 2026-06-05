@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useFeature } from "@/hooks/use-feature";
 
 interface InventoryStats {
   totalLots: number;
@@ -80,6 +81,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const isCompact = !!(tvSplit || compact);
 
   const { toast } = useToast();
+
+  // Beta feature gating — these tools are hidden unless the org has opted in
+  // (or the user is a super admin). See the Beta Features panel in Settings.
+  const showBrickSpotter = useFeature('inv_brick_spotter');
+  const showInventoryHealth = useFeature('inv_health');
+  const showBundleTron = useFeature('inv_bundletron');
+  const showAcquisition = useFeature('inv_acquisition');
+  const showListOMatic = useFeature('inv_list_o_matic');
 
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
@@ -470,6 +479,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <div className="h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
 
               {/* List-o-Matic pipeline */}
+              {showListOMatic && (
               <PipelineRow
                 buttonIcon={<ListOrdered className="w-3.5 h-3.5 text-teal-200" />}
                 buttonLabel="List-o-Matic"
@@ -508,6 +518,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </div>
                 ) : undefined}
               />
+              )}
               </div>
             </div>
           );
@@ -557,6 +568,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {panelTab === 'systems' && (
           <div className={cn("grid grid-cols-2", isCompact ? "gap-1.5" : "gap-2")} data-testid="section-tools">
 
+            {showBrickSpotter && (
             <StationTool
               icon={Crosshair}
               label="Brick Spotter"
@@ -566,7 +578,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => onDrawerChange('brickanalyzer')}
               testId="tool-brickspotter"
             />
+            )}
 
+            {showInventoryHealth && (
             <StationTool
               icon={Gauge}
               label="Inventory Health"
@@ -576,7 +590,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => onDrawerChange('inventoryhealth')}
               testId="tool-inventoryhealth"
             />
+            )}
 
+            {showBundleTron && (
             <StationTool
               icon={Bot}
               label="BundleTron"
@@ -586,7 +602,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => onDrawerChange('bundletron')}
               testId="tool-bundletron"
             />
+            )}
 
+            {showAcquisition && (
             <StationTool
               icon={Atom}
               label="Acquisition Evaluator"
@@ -596,6 +614,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               onClick={() => onDrawerChange('acquisition-evaluator')}
               testId="tool-acquisition-evaluator"
             />
+            )}
 
             <StationTool
               icon={Warehouse}
