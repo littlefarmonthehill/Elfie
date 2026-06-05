@@ -1,5 +1,6 @@
 import { ElementType } from "react";
 import { cn } from "@/lib/utils";
+import { BetaTag } from "@/components/BetaTag";
 
 interface StationToolProps {
   icon: ElementType;
@@ -9,6 +10,7 @@ interface StationToolProps {
   isCompact?: boolean;
   onClick?: () => void;
   testId?: string;
+  beta?: boolean;
 }
 
 export function StationTool({
@@ -19,6 +21,7 @@ export function StationTool({
   isCompact,
   onClick,
   testId,
+  beta,
 }: StationToolProps) {
   const lampSize = isCompact ? 28 : 32;
   const iconSize = isCompact ? 13 : 15;
@@ -65,6 +68,8 @@ export function StationTool({
       >
         {label}
       </span>
+
+      {beta && <BetaTag className="ml-auto" />}
     </button>
   );
 }

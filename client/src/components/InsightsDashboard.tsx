@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useFeature } from "@/hooks/use-feature";
+import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { BetaTag } from "@/components/BetaTag";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -265,6 +266,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
   // Beta feature gating — the strategy lens is hidden unless the org has opted
   // in (or the user is a super admin). See the Beta Features panel in Settings.
   const showStrategy = useFeature('insights_strategy');
+  const betaStrategy = useFeatureBeta('insights_strategy');
 
   // Clear any active strategy filter when the feature is hidden, so the
   // strategy-context banner can't linger after the lens is gated off.
@@ -373,6 +375,13 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         </div>
         {/* Strategy filter cells */}
         {showStrategy && (
+        <>
+        {betaStrategy && (
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <BetaTag />
+            <span className="text-[9px] font-mono uppercase tracking-wide text-gray-500">Strategy Lens</span>
+          </div>
+        )}
         <div className="grid grid-cols-5 gap-1.5" data-testid="section-strategy-lens">
           {areaCounts.map(area => {
             const isActive = activeFilter === area.key;
@@ -404,6 +413,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
             );
           })}
         </div>
+        </>
         )}
       </div>
 

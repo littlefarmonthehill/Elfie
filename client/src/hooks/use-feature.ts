@@ -45,3 +45,13 @@ export function useFeature(key: string): boolean {
   const { visible } = useFeatures();
   return visible.includes(key);
 }
+
+/**
+ * Returns whether a given feature key is currently at the BETA stage.
+ * Used to show a "Beta" marker on launchers so super admins (who see every
+ * beta feature automatically) and opted-in orgs know the tool is beta.
+ */
+export function useFeatureBeta(key: string): boolean {
+  const { beta } = useFeatures();
+  return beta.some(b => b.key === key);
+}

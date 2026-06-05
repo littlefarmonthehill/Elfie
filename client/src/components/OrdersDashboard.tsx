@@ -23,7 +23,7 @@ import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotificati
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 import { type SalesDrawer } from "./SalesDashboard";
-import { useFeature } from "@/hooks/use-feature";
+import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
 // BrickLink is always present as a fixed button; entries here are additional channel platforms.
@@ -318,6 +318,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   // in (or the user is a super admin). See the Beta Features panel in Settings.
   const showOperations = useFeature('sales_operations');
   const showTopItems = useFeature('sales_top_items');
+  const betaOperations = useFeatureBeta('sales_operations');
+  const betaTopItems = useFeatureBeta('sales_top_items');
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
 
@@ -726,6 +728,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               glowRgb="59,130,246"
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('operations')}
+              beta={betaOperations}
               testId="tool-operations"
             />
             )}
@@ -738,6 +741,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               glowRgb="168,85,247"
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('top-items')}
+              beta={betaTopItems}
               testId="tool-top-items"
             />
             )}
