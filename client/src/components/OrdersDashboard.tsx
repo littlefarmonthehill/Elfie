@@ -23,7 +23,7 @@ import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotificati
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel, { PLATFORM_CONFIG, OrderSyncPlatform } from "./OrderSyncPanel";
 import { type SalesDrawer } from "./SalesDashboard";
-import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useFeature, useFeatures, type Stage } from "@/hooks/use-feature";
 import { useAuth } from "@/hooks/useAuth";
 
 // Order-sync channels that appear dynamically in the "Selling Channels" sidebar.
@@ -322,8 +322,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   // Beta badges are super-admin-only; opted-in regular users see the feature
   // but no badge.
   const { superAdmin } = useAuth();
-  const betaOperations = useFeatureBeta('sales_operations') && superAdmin;
-  const betaTopItems = useFeatureBeta('sales_top_items') && superAdmin;
+  const { stages: featureStages } = useFeatures();
+  const tagStage = (k: string): Stage | undefined => (superAdmin ? featureStages[k] : undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
 
@@ -732,7 +732,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               glowRgb="59,130,246"
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('operations')}
-              beta={betaOperations}
+              stage={tagStage('sales_operations')}
               testId="tool-operations"
             />
             )}
@@ -745,7 +745,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               glowRgb="168,85,247"
               isCompact={isCompact}
               onClick={() => onSalesDrawer?.('top-items')}
-              beta={betaTopItems}
+              stage={tagStage('sales_top_items')}
               testId="tool-top-items"
             />
             )}

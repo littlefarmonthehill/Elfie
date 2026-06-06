@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useFeature, useFeatureStage } from "@/hooks/use-feature";
 import { useAuth } from "@/hooks/useAuth";
-import { BetaTag } from "@/components/BetaTag";
+import { StageTag } from "@/components/BetaTag";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -269,7 +269,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
   const showStrategy = useFeature('insights_strategy');
   // Beta badge is super-admin-only; opted-in regular users see the lens but no badge.
   const { superAdmin } = useAuth();
-  const betaStrategy = useFeatureBeta('insights_strategy') && superAdmin;
+  const stageStrategy = useFeatureStage('insights_strategy');
 
   // Clear any active strategy filter when the feature is hidden, so the
   // strategy-context banner can't linger after the lens is gated off.
@@ -379,9 +379,9 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         {/* Strategy filter cells */}
         {showStrategy && (
         <>
-        {betaStrategy && (
+        {superAdmin && (stageStrategy === 'alpha' || stageStrategy === 'beta') && (
           <div className="flex items-center gap-1.5 mb-1.5">
-            <BetaTag />
+            <StageTag stage={stageStrategy} />
             <span className="text-[9px] font-mono uppercase tracking-wide text-gray-500">Strategy Lens</span>
           </div>
         )}

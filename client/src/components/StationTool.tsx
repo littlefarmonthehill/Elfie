@@ -1,6 +1,7 @@
 import { ElementType } from "react";
 import { cn } from "@/lib/utils";
-import { BetaTag } from "@/components/BetaTag";
+import { StageTag } from "@/components/BetaTag";
+import type { Stage } from "@/hooks/use-feature";
 
 interface StationToolProps {
   icon: ElementType;
@@ -10,7 +11,7 @@ interface StationToolProps {
   isCompact?: boolean;
   onClick?: () => void;
   testId?: string;
-  beta?: boolean;
+  stage?: Stage;
 }
 
 export function StationTool({
@@ -21,7 +22,7 @@ export function StationTool({
   isCompact,
   onClick,
   testId,
-  beta,
+  stage,
 }: StationToolProps) {
   const lampSize = isCompact ? 28 : 32;
   const iconSize = isCompact ? 13 : 15;
@@ -57,9 +58,9 @@ export function StationTool({
         />
       </div>
 
-      {/* Label */}
+      {/* Label — wraps instead of truncating so the badge never clips it */}
       <span
-        className="truncate min-w-0 font-mono uppercase tracking-widest leading-none"
+        className="flex-1 min-w-0 font-mono uppercase tracking-widest leading-tight"
         style={{
           fontSize: '10px',
           color: `color-mix(in srgb, ${hex} 55%, #8fa3bf)`,
@@ -69,7 +70,7 @@ export function StationTool({
         {label}
       </span>
 
-      {beta && <BetaTag className="ml-auto" />}
+      {stage && <StageTag stage={stage} className="self-center" />}
     </button>
   );
 }

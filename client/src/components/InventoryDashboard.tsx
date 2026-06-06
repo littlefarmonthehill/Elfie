@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFeature, useFeatureBeta } from "@/hooks/use-feature";
+import { useFeature, useFeatures, type Stage } from "@/hooks/use-feature";
 import { useAuth } from "@/hooks/useAuth";
-import { BetaTag } from "@/components/BetaTag";
+import { StageTag } from "@/components/BetaTag";
 
 interface InventoryStats {
   totalLots: number;
@@ -94,11 +94,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
   // users still get the feature but see no badge.
   const { superAdmin } = useAuth();
-  const betaBrickSpotter = useFeatureBeta('inv_brick_spotter') && superAdmin;
-  const betaInventoryHealth = useFeatureBeta('inv_health') && superAdmin;
-  const betaBundleTron = useFeatureBeta('inv_bundletron') && superAdmin;
-  const betaAcquisition = useFeatureBeta('inv_acquisition') && superAdmin;
-  const betaListOMatic = useFeatureBeta('inv_list_o_matic') && superAdmin;
+  // Show the maturity badge (Alpha/Beta) to super admins on each gated launcher.
+  const { stages: featureStages } = useFeatures();
+  const tagStage = (k: string): Stage | undefined => (superAdmin ? featureStages[k] : undefined);
 
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
@@ -392,7 +390,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             testId,
             statuses,
             trailingContent,
-            beta,
+            stage,
           }: {
             buttonIcon: React.ReactNode;
             buttonLabel: string;
@@ -402,7 +400,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             testId: string;
             statuses: { key: string; label: string; count: number; lampColor: string }[];
             trailingContent?: React.ReactNode;
-            beta?: boolean;
+            stage?: Stage;
           }) => (
             <div className="flex items-stretch gap-3">
               <button
@@ -413,7 +411,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               >
                 {buttonIcon}
                 <span className="font-mono text-[8px] font-bold uppercase tracking-wide leading-none whitespace-nowrap">{buttonLabel}</span>
-                {beta && <BetaTag className="mt-0.5" />}
+                {stage && <StageTag stage={stage} className="mt-0.5" />}
               </button>
               <div className="flex-1 relative pt-1 pb-1.5">
                 <div className="absolute left-0 right-0 top-[18px] h-px bg-gradient-to-r from-gray-700/10 via-gray-500/30 to-gray-700/10 pointer-events-none" />
@@ -496,7 +494,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <PipelineRow
                 buttonIcon={<ListOrdered className="w-3.5 h-3.5 text-teal-200" />}
                 buttonLabel="List-o-Matic"
-                beta={betaListOMatic}
+                stage={tagStage('inv_list_o_matic')}
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(13,148,136,0.45) 0%, rgba(15,118,110,0.28) 100%)',
                   boxShadow: '0 3px 0 rgba(5,60,55,0.65), inset 0 1px 0 rgba(153,246,228,0.10)',
@@ -590,7 +588,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               glowRgb="245,158,11"
               isCompact={isCompact}
               onClick={() => onDrawerChange('brickanalyzer')}
-              beta={betaBrickSpotter}
+              stage={tagStage('inv_brick_spotter')}
               testId="tool-brickspotter"
             />
             )}
@@ -603,7 +601,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               glowRgb="6,182,212"
               isCompact={isCompact}
               onClick={() => onDrawerChange('inventoryhealth')}
-              beta={betaInventoryHealth}
+              stage={tagStage('inv_health')}
               testId="tool-inventoryhealth"
             />
             )}
@@ -616,7 +614,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               glowRgb="249,115,22"
               isCompact={isCompact}
               onClick={() => onDrawerChange('bundletron')}
-              beta={betaBundleTron}
+              stage={tagStage('inv_bundletron')}
               testId="tool-bundletron"
             />
             )}
@@ -629,7 +627,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               glowRgb="139,92,246"
               isCompact={isCompact}
               onClick={() => onDrawerChange('acquisition-evaluator')}
-              beta={betaAcquisition}
+              stage={tagStage('inv_acquisition')}
               testId="tool-acquisition-evaluator"
             />
             )}
