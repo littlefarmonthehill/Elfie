@@ -744,7 +744,7 @@ export default function Home() {
     }
     if (activeInventoryDrawer === 'warehouse') {
       return (
-        <ToolDrawer icon={Warehouse} iconColor="text-emerald-400" title="Cargo Bay 11" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto min-h-0">
+        <ToolDrawer icon={Warehouse} iconColor="text-emerald-400" title="Cargo Bay" onClose={closeActiveDrawer} contentClassName="flex-1 overflow-y-auto min-h-0">
           <WarehouseManagement />
         </ToolDrawer>
       );
@@ -1525,7 +1525,7 @@ export default function Home() {
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
                   {activeInventoryDrawer === 'bundletron' && <><Bot className="w-4 h-4 text-orange-400 flex-shrink-0" /> BundleTron</>}
                   {activeInventoryDrawer === 'acquisition-evaluator' && <><Atom className="w-4 h-4 text-violet-400 flex-shrink-0" /> Acquisition Evaluator</>}
-                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-4 h-4 text-emerald-400 flex-shrink-0" /> Cargo Bay 11</>}
+                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-4 h-4 text-emerald-400 flex-shrink-0" /> Cargo Bay</>}
                   {activeOrdersDrawer === 'fulfillment' && <><Rocket className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><Globe className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Megaphone className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
