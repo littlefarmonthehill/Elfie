@@ -1250,6 +1250,10 @@ router.patch("/platform-admin/product/capabilities/:id", isSuperAdmin, asyncRout
     // Stable code-matched key; empty/whitespace clears the gate (roadmap entry only).
     const trimmed = typeof featureKey === 'string' ? featureKey.trim() : '';
     updates.featureKey = trimmed.length > 0 ? trimmed : null;
+    // Stage only means anything when a key exists. Clearing the key must reset
+    // the stage to 'none' so we never leave an orphaned gate (e.g. 'released')
+    // on a keyless feature where the Stage control is no longer shown.
+    if (updates.featureKey === null) updates.stage = 'none';
   }
   try {
     const [updated] = await db.update(productCapabilities).set(updates).where(eq(productCapabilities.id, id)).returning();
