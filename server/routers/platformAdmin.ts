@@ -1,7 +1,7 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { z } from "zod";
-import { eq, desc, sql, inArray, or, and, isNull, count, gte, asc, ne } from "drizzle-orm";
+import { eq, desc, sql, inArray, or, and, isNull, isNotNull, count, gte, asc, ne } from "drizzle-orm";
 import { db, pool } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isAuthenticated, isApproved, isSuperAdmin } from "../auth";
@@ -1281,6 +1281,79 @@ router.delete("/platform-admin/product/capabilities/:id", isSuperAdmin, asyncRou
   await db.update(productBacklogItems).set({ capabilityId: null }).where(eq(productBacklogItems.capabilityId, id));
   await db.delete(productCapabilities).where(eq(productCapabilities.id, id));
   res.json({ ok: true });
+}));
+
+// ── Feature visibility gates ──────────────────────────────────────────────────
+// A code-catalog-driven control surface for who can SEE each gated feature.
+// The effective stage of a feature is the database override (a product_capabilities
+// row carrying its featureKey) when one exists, otherwise the code default in
+// FEATURE_GATE_DEFAULTS. This works in every environment — a freshly published
+// prod DB with no feature keys still shows the catalog defaults, and the super
+// admin can change them here without hunting through the roadmap tree.
+
+// Find (or lazily create) the L2 group that holds stage-override rows.
+async function ensureFeatureGateGroupL2Id(): Promise<number> {
+  let [l1] = await db.select().from(productCapabilities)
+    .where(and(eq(productCapabilities.level, 1), eq(productCapabilities.title, 'Feature Gates'))).limit(1);
+  if (!l1) {
+    [l1] = await db.insert(productCapabilities)
+      .values({ title: 'Feature Gates', description: 'Runtime feature visibility controls.', level: 1, parentId: null, sortOrder: 999, status: 'built', stage: 'none' })
+      .returning();
+  }
+  let [l2] = await db.select().from(productCapabilities)
+    .where(and(eq(productCapabilities.level, 2), eq(productCapabilities.parentId, l1.id))).limit(1);
+  if (!l2) {
+    [l2] = await db.insert(productCapabilities)
+      .values({ title: 'Gated features', description: '', level: 2, parentId: l1.id, sortOrder: 0, status: 'built', stage: 'none' })
+      .returning();
+  }
+  return l2.id;
+}
+
+router.get("/platform-admin/feature-gates", isSuperAdmin, asyncRoute(async (_req, res) => {
+  const { FEATURE_GATE_DEFAULTS } = await import("../services/feature-gate");
+  const rows = await db.select({ stage: productCapabilities.stage, featureKey: productCapabilities.featureKey })
+    .from(productCapabilities).where(isNotNull(productCapabilities.featureKey));
+  const dbByKey = new Map<string, string>();
+  for (const r of rows) if (r.featureKey && r.stage && r.stage !== 'none') dbByKey.set(r.featureKey, r.stage);
+  const gates = Object.entries(FEATURE_GATE_DEFAULTS).map(([key, def]) => ({
+    key,
+    title: def.title,
+    description: def.description,
+    stage: dbByKey.get(key) ?? def.stage,
+    isOverridden: dbByKey.has(key),
+  }));
+  res.json(gates);
+}));
+
+router.patch("/platform-admin/feature-gates/:key", isSuperAdmin, asyncRoute(async (req, res) => {
+  const { FEATURE_GATE_DEFAULTS } = await import("../services/feature-gate");
+  const key = req.params.key;
+  const { stage } = req.body;
+  const validStages = ['alpha', 'beta', 'released'];
+  if (!FEATURE_GATE_DEFAULTS[key]) return res.status(404).json({ message: 'Unknown feature key.' });
+  if (!validStages.includes(stage)) return res.status(400).json({ message: `Invalid stage. Must be one of: ${validStages.join(', ')}.` });
+  const def = FEATURE_GATE_DEFAULTS[key];
+  const [existing] = await db.select().from(productCapabilities).where(eq(productCapabilities.featureKey, key)).limit(1);
+  if (existing) {
+    await db.update(productCapabilities).set({ stage }).where(eq(productCapabilities.id, existing.id));
+  } else {
+    const parentL2Id = await ensureFeatureGateGroupL2Id();
+    try {
+      await db.insert(productCapabilities).values({
+        title: def.title, description: def.description, level: 3, parentId: parentL2Id,
+        sortOrder: 0, status: 'built', stage, featureKey: key,
+      });
+    } catch (e: any) {
+      // Lost a race to another writer creating the same keyed row — fall back to update.
+      if (e?.code === '23505') {
+        await db.update(productCapabilities).set({ stage }).where(eq(productCapabilities.featureKey, key));
+      } else {
+        throw e;
+      }
+    }
+  }
+  res.json({ ok: true, key, stage });
 }));
 
 // ── Feature Requests + Public Roadmap ────────────────────────────────────────

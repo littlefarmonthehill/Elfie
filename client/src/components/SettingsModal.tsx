@@ -1130,6 +1130,7 @@ function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const { data: voteCounts } = useQuery<Record<number, number>>({ queryKey: ['/api/feature-votes/counts'] });
+  const { data: featureGates } = useQuery<{ key: string; title: string; description: string; stage: string; isOverridden: boolean }[]>({ queryKey: ['/api/platform-admin/feature-gates'] });
   const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'testing' | 'later'>('all');
   const [stageFilter, setStageFilter] = useState<'all' | 'alpha' | 'beta' | 'released'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
@@ -1183,6 +1184,16 @@ function ProductRoadmapPanel() {
     } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
   };
 
+  const setGateStage = async (key: string, stage: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/feature-gates/${key}`, { stage });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/feature-gates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+      // Stage changes who can see the dashboard — refresh the live feature map too.
+      queryClient.invalidateQueries({ queryKey: ['/api/features'] });
+    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
+  };
+
   const toggleCollapse = (id: number) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
@@ -1213,6 +1224,37 @@ function ProductRoadmapPanel() {
         <p className="text-sm font-medium text-gray-100">Roadmap</p>
         <p className="sm-description mt-1">Capability tree by delivery horizon. Add L1/L2/features, tap status to cycle, filter by status (build progress) or stage (who can see it).</p>
       </div>
+
+      {/* Feature visibility — who can SEE each gated dashboard. Beta = super admins + opted-in orgs; Released = everyone. */}
+      {featureGates && featureGates.length > 0 && (
+        <div className="rounded-md border border-gray-700 bg-gray-800/50 p-3 space-y-2" data-testid="panel-feature-visibility">
+          <div>
+            <p className="text-sm font-medium text-gray-100">Feature visibility</p>
+            <p className="sm-description mt-1">Set who can see each gated dashboard. <span className="text-amber-300">Alpha</span> = super admins only. <span className="text-blue-300">Beta</span> = super admins + orgs that opt in. <span className="text-emerald-300">Released</span> = everyone.</p>
+          </div>
+          <div className="space-y-1">
+            {featureGates.map(g => (
+              <div key={g.key} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`feature-gate-${g.key}`}>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-200 break-words">{g.title}</p>
+                  <p className="text-[10px] text-gray-500 break-words">{g.description}</p>
+                </div>
+                <InlineDropdown
+                  value={g.stage}
+                  options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
+                  onChange={val => { if (val !== g.stage) setGateStage(g.key, val); }}
+                  className={
+                    g.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                    : g.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
+                    : 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                  }
+                  testId={`select-feature-gate-${g.key}`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <div className="flex items-center gap-1.5 flex-wrap">

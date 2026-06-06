@@ -32,3 +32,13 @@ for the `/api/features` response shape rather than assuming the dev DB reflects
 prod. Note: `executeSql({environment:"production"})` hits a Replit-managed replica
 that may itself differ from the deployed app's actual DB — corroborate with
 deployment logs.
+
+**Management UI must be catalog-driven too.** The Roadmap panel's per-feature
+Stage dropdown only renders when a row has a `featureKey`, so on an unseeded prod
+DB it never appeared and stage filters showed 0/0/0 — the admin couldn't see OR
+change stages even though code-default gating worked. Fix: a dedicated control
+surface that lists `FEATURE_GATE_DEFAULTS` with effective stage (DB override else
+default) and writes overrides via upsert-by-featureKey (lazy-create the row).
+**Why:** an admin screen that reads only per-env DB rows is blank exactly when the
+gates are code-only. Drive admin UIs off the same code catalog the gate resolves
+from, and let the deployed app write its own overrides (no prod seeding needed).
