@@ -159,23 +159,50 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Hidden-print helper ──────────────────────────────────────────────────────
 
-function isIOS(): boolean {
+function isMobile(): boolean {
   return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    /Android|iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   );
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
-  // iOS Safari can't print from a hidden iframe — the share sheet is the
-  // only path to AirPrint / PDF save on that platform.
-  if (isIOS()) {
+  // Hidden-iframe printing only works reliably on desktop. iOS Safari can't
+  // print from a hidden iframe at all, and Android Chrome/Firefox silently
+  // block print() from a hidden iframe — so on any phone/tablet we route the
+  // PDF through the native share sheet (which exposes Print / Save to PDF /
+  // send to a printing app), falling back to a plain download if the browser
+  // can't share files.
+  if (isMobile()) {
+    // Download the PDF so the user can open and print it from their device's
+    // PDF viewer. Used both when file-sharing is unsupported and when a share
+    // attempt fails for any reason other than the user cancelling.
+    const downloadPdf = () => {
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => { try { URL.revokeObjectURL(dlUrl); } catch { /* already revoked */ } }, 60_000);
+    };
+
     const file = new File([blob], filename, { type: 'application/pdf' });
     if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') })
-        .catch(() => { /* user cancelled */ });
+        .catch((err: unknown) => {
+          // AbortError = user cancelled the share sheet; anything else (e.g.
+          // user-activation expired after async PDF generation) falls back to
+          // a download so the user always ends up with the file.
+          if (err instanceof Error && err.name === 'AbortError') return;
+          downloadPdf();
+        });
       return;
     }
+    downloadPdf();
+    return;
   }
 
   const url = URL.createObjectURL(blob);
