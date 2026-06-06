@@ -1140,16 +1140,16 @@ function ProductRoadmapPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [featureKeyDraft, setFeatureKeyDraft] = useState<Record<number, string>>({});
+  const [roadmapView, setRoadmapView] = useState<'development' | 'release'>('development');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
   const features = (caps || []).filter((c: any) => c.level === 3);
 
-  // A feature passes the top-of-list filters when it matches BOTH the selected
-  // status (build progress) and stage (release gating) — two independent axes.
+  // The capability tree (Development view) filters by build status only.
+  // Release stage lives in the separate Release visibility view.
   const featureMatches = (f: any) =>
-    (statusFilter === 'all' || (f.status || 'built') === statusFilter) &&
-    (stageFilter === 'all' || (f.featureKey ? (f.stage || 'none') : 'none') === stageFilter);
+    statusFilter === 'all' || (f.status || 'built') === statusFilter;
 
   const addCap = async (title: string, level: number, parentId: number | null, status?: string) => {
     if (!title.trim()) return;
@@ -1211,7 +1211,7 @@ function ProductRoadmapPanel() {
   };
 
   const filteredL1s = l1s.filter((l1: any) => {
-    if (statusFilter === 'all' && stageFilter === 'all') return true;
+    if (statusFilter === 'all') return true;
     const childL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
     return features.some((f: any) => childL2Ids.includes(f.parentId) && featureMatches(f));
   });
@@ -1222,41 +1222,70 @@ function ProductRoadmapPanel() {
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-gray-100">Roadmap</p>
-        <p className="sm-description mt-1">Capability tree by delivery horizon. Add L1/L2/features, tap status to cycle, filter by status (build progress) or stage (who can see it).</p>
+        <p className="sm-description mt-1"><span className="text-gray-300">Development</span> tracks what you're building (status). <span className="text-gray-300">Release visibility</span> controls who can see each finished feature (stage).</p>
       </div>
 
-      {/* Feature visibility — who can SEE each gated dashboard. Beta = super admins + opted-in orgs; Released = everyone. */}
-      {featureGates && featureGates.length > 0 && (
-        <div className="rounded-md border border-gray-700 bg-gray-800/50 p-3 space-y-2" data-testid="panel-feature-visibility">
-          <div>
-            <p className="text-sm font-medium text-gray-100">Feature visibility</p>
-            <p className="sm-description mt-1">Set who can see each gated dashboard. <span className="text-amber-300">Alpha</span> = super admins only. <span className="text-blue-300">Beta</span> = super admins + orgs that opt in. <span className="text-emerald-300">Released</span> = everyone.</p>
+      {/* Two views: Development = build status; Release visibility = who can see it */}
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => setRoadmapView('development')} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${roadmapView === 'development' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'text-gray-400 border-gray-700 hover-elevate'}`} data-testid="button-roadmap-view-development">Development</button>
+        <button onClick={() => { setStageFilter('all'); setRoadmapView('release'); }} className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${roadmapView === 'release' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'text-gray-400 border-gray-700 hover-elevate'}`} data-testid="button-roadmap-view-release">Release visibility</button>
+      </div>
+
+      {/* ── Release visibility view — who can SEE each gated feature ───────────── */}
+      {roadmapView === 'release' && (
+        <div className="space-y-3">
+          <p className="sm-description">Set who can see each gated feature. <span className="text-amber-300">Alpha</span> = super admins only. <span className="text-blue-300">Beta</span> = super admins + orgs that opt in. <span className="text-emerald-300">Released</span> = everyone.</p>
+          {/* Stage pills — counts come from the live gate list, so they always match the dropdowns below */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[9px] uppercase tracking-wide text-gray-500 w-12 shrink-0">Stage</span>
+            {(['all', 'alpha', 'beta', 'released'] as const).map(s => {
+              const colors: Record<string, string> = {
+                all: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                alpha: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+                beta: 'text-blue-300 border-blue-500/30 bg-blue-500/10',
+                released: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+              };
+              const count = s === 'all' ? (featureGates?.length || 0) : (featureGates || []).filter(g => g.stage === s).length;
+              return (
+                <button key={s} onClick={() => setStageFilter(s)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${stageFilter === s ? colors[s] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-stage-filter-${s}`}>
+                  {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  <span className="ml-1 text-gray-600">({count})</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="space-y-1">
-            {featureGates.map(g => (
-              <div key={g.key} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`feature-gate-${g.key}`}>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-200 break-words">{g.title}</p>
-                  <p className="text-[10px] text-gray-500 break-words">{g.description}</p>
+          {(!featureGates || featureGates.length === 0) ? (
+            <p className="text-xs text-gray-500 italic">No gated features yet.</p>
+          ) : (
+            <div className="rounded-md border border-gray-700 bg-gray-800/50 p-3 space-y-1" data-testid="panel-feature-visibility">
+              {(featureGates || []).filter(g => stageFilter === 'all' || g.stage === stageFilter).map(g => (
+                <div key={g.key} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`feature-gate-${g.key}`}>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-200 break-words">{g.title}</p>
+                    <p className="text-[10px] text-gray-500 break-words">{g.description}</p>
+                    <p className="text-[9px] text-gray-600 font-mono mt-0.5">code: {g.key}</p>
+                  </div>
+                  <InlineDropdown
+                    value={g.stage}
+                    options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
+                    onChange={val => { if (val !== g.stage) setGateStage(g.key, val); }}
+                    className={
+                      g.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                      : g.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
+                      : 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                    }
+                    testId={`select-feature-gate-${g.key}`}
+                  />
                 </div>
-                <InlineDropdown
-                  value={g.stage}
-                  options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
-                  onChange={val => { if (val !== g.stage) setGateStage(g.key, val); }}
-                  className={
-                    g.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-                    : g.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
-                    : 'text-amber-300 border-amber-500/30 bg-amber-500/10'
-                  }
-                  testId={`select-feature-gate-${g.key}`}
-                />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="space-y-1.5">
+      {/* ── Development view — capability tree + build status ──────────────────── */}
+      {roadmapView === 'development' && (
+      <div className="space-y-4">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[9px] uppercase tracking-wide text-gray-500 w-12 shrink-0">Status</span>
           {(['all', 'built', 'new', 'now', 'next', 'testing', 'later'] as const).map(f => {
@@ -1270,25 +1299,6 @@ function ProductRoadmapPanel() {
             );
           })}
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[9px] uppercase tracking-wide text-gray-500 w-12 shrink-0">Stage</span>
-          {(['all', 'alpha', 'beta', 'released'] as const).map(s => {
-            const colors: Record<string, string> = {
-              all: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-              alpha: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
-              beta: 'text-blue-300 border-blue-500/30 bg-blue-500/10',
-              released: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
-            };
-            const count = s === 'all' ? features.length : features.filter((c: any) => (c.stage || 'none') === s).length;
-            return (
-              <button key={s} onClick={() => setStageFilter(s)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${stageFilter === s ? colors[s] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-stage-filter-${s}`}>
-                {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
-                <span className="ml-1 text-gray-600">({count})</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div className="flex items-center gap-2">
         <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
@@ -1305,7 +1315,7 @@ function ProductRoadmapPanel() {
       ) : (
         <div className="space-y-2">
           {filteredL1s.map((l1: any) => {
-            const childL2s = l2s.filter((c: any) => c.parentId === l1.id && ((statusFilter === 'all' && stageFilter === 'all') || features.some((f: any) => f.parentId === c.id && featureMatches(f))));
+            const childL2s = l2s.filter((c: any) => c.parentId === l1.id && ((statusFilter === 'all') || features.some((f: any) => f.parentId === c.id && featureMatches(f))));
             const allL1L2s = l2s.filter((c: any) => c.parentId === l1.id);
             const allL2Ids = allL1L2s.map((c: any) => c.id);
             const l1FeatureCount = features.filter((f: any) => allL2Ids.includes(f.parentId)).length;
@@ -1336,7 +1346,7 @@ function ProductRoadmapPanel() {
                     {childL2s.map((l2: any) => {
                       const derivedStatus = getL2DerivedStatus(l2);
                       const allChildFeatures = features.filter((f: any) => f.parentId === l2.id);
-                      const visibleFeatures = (statusFilter === 'all' && stageFilter === 'all') ? allChildFeatures : allChildFeatures.filter(featureMatches);
+                      const visibleFeatures = (statusFilter === 'all') ? allChildFeatures : allChildFeatures.filter(featureMatches);
                       const isL2Collapsed = collapsed[l2.id];
                       const builtCount = allChildFeatures.filter((f: any) => (f.status || 'built') === 'built').length;
                       return (
@@ -1375,23 +1385,9 @@ function ProductRoadmapPanel() {
                                   </div>
                                   {/* Row 2 — controls (stage / feature key / location / delete), wraps on small screens */}
                                   <div className="flex items-center gap-2 flex-wrap pl-1">
-                                    {/* Stage gates who can SEE the feature at runtime — only meaningful once a feature key exists, so hide it for roadmap-only items. */}
+                                    {/* Has a feature key → it's gateable. Who can see it (stage) is managed in the Release visibility view. */}
                                     {f.featureKey && (
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <span className="text-[9px] uppercase tracking-wide text-gray-500">Stage</span>
-                                        <InlineDropdown
-                                          value={f.stage || 'none'}
-                                          options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
-                                          onChange={(val) => { if (val !== (f.stage || 'none')) updateCap(f.id, { stage: val }); }}
-                                          className={
-                                            f.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-                                            : f.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
-                                            : f.stage === 'alpha' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
-                                            : 'text-gray-500 border-gray-700'
-                                          }
-                                          testId={`select-feature-stage-${f.id}`}
-                                        />
-                                      </div>
+                                      <span className="text-[9px] uppercase tracking-wide text-blue-300/80 border border-blue-500/30 bg-blue-500/10 rounded px-1.5 py-0.5 shrink-0" title="This feature is gated. Set who can see it in the Release visibility view.">Gated</span>
                                     )}
                                     <input
                                       className="flex-1 min-w-[120px] bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-400/50"
@@ -1410,7 +1406,7 @@ function ProductRoadmapPanel() {
                               ))}
                             </div>
                           )}
-                          {!isL2Collapsed && statusFilter === 'all' && stageFilter === 'all' && (
+                          {!isL2Collapsed && statusFilter === 'all' && (
                             <div className="ml-5 pb-1">
                               <input className="w-full bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400/50" placeholder="+ Add feature..." value={newFeature[l2.id] || ''} onChange={e => setNewFeature(p => ({ ...p, [l2.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newFeature[l2.id] || '').trim()) { addCap(newFeature[l2.id], 3, l2.id); setNewFeature(p => ({ ...p, [l2.id]: '' })); } }} data-testid={`input-new-feature-${l2.id}`} />
                             </div>
@@ -1418,7 +1414,7 @@ function ProductRoadmapPanel() {
                         </div>
                       );
                     })}
-                    {statusFilter === 'all' && stageFilter === 'all' && (
+                    {statusFilter === 'all' && (
                       <div className="ml-3 flex items-center gap-1">
                         <input className="flex-1 bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-violet-400/50" placeholder="+ Add L2 sub-capability..." value={newL2[l1.id] || ''} onChange={e => setNewL2(p => ({ ...p, [l1.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newL2[l1.id] || '').trim()) { addCap(newL2[l1.id], 2, l1.id); setNewL2(p => ({ ...p, [l1.id]: '' })); } }} data-testid={`input-new-l2-${l1.id}`} />
                       </div>
@@ -1429,6 +1425,8 @@ function ProductRoadmapPanel() {
             );
           })}
         </div>
+      )}
+      </div>
       )}
     </div>
   );
