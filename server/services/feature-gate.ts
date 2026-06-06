@@ -21,6 +21,26 @@ export interface VisibleFeatures {
 }
 
 /**
+ * Canonical, code-level catalog of every gated feature and its DEFAULT release
+ * stage. This is the source of truth that ships with the build, so gating
+ * behaves identically in every environment (dev, and a freshly published prod
+ * DB that has no feature keys set yet). A roadmap row in the database carrying
+ * the same `featureKey` can OVERRIDE the stage per environment; if none exists,
+ * the default below applies. Keep these keys in sync with the `useFeature(...)`
+ * calls in the frontend.
+ */
+export const FEATURE_GATE_DEFAULTS: Record<string, { stage: Stage; title: string; description: string }> = {
+  inv_brick_spotter: { stage: 'beta', title: 'Brick Spotter', description: 'Scan photos of LEGO pieces to identify them and match against your inventory.' },
+  inv_health: { stage: 'beta', title: 'Inventory Health', description: 'Health scoring and breakdowns that flag gaps and issues across your inventory.' },
+  inv_bundletron: { stage: 'beta', title: 'BundleTron', description: 'Build and manage bulk and bundle lots with AI-assisted descriptions.' },
+  inv_acquisition: { stage: 'beta', title: 'Acquisition Evaluator', description: 'Evaluate a seller price list against your inventory to spot buying opportunities.' },
+  inv_list_o_matic: { stage: 'beta', title: 'List-o-Matic', description: 'Prioritized listing pipeline that tells you what to list next.' },
+  sales_operations: { stage: 'beta', title: 'Operations', description: 'Fulfillment operations metrics like time-to-ship and cancel or return rates.' },
+  sales_top_items: { stage: 'beta', title: 'Top Items', description: 'Your best-selling items by revenue for the selected period.' },
+  insights_strategy: { stage: 'beta', title: 'Strategy Lens', description: 'Filter business insights by strategy area: pricing, inventory, orders, customers and market.' },
+};
+
+/**
  * Resolve whether the current request's user is a PlanetBrick super admin.
  * Fast path uses the session flag; falls back to a DB lookup if the session is stale.
  */
@@ -50,7 +70,13 @@ async function getOrgBetaOptIns(orgId: string): Promise<Set<string>> {
  * Compute the set of feature keys visible to the current user/org plus the list of
  * beta-stage features available to opt into.
  *
- * Visibility rules by capability stage:
+ * The gate set is the union of the code-level FEATURE_GATE_DEFAULTS (always
+ * present, so behaviour is identical in every environment) and any database
+ * roadmap rows carrying a featureKey. A DB row OVERRIDES the catalog stage for
+ * its environment; where no DB row exists (e.g. a freshly published prod DB),
+ * the catalog default applies.
+ *
+ * Visibility rules by effective stage:
  *  - released → everyone
  *  - alpha    → super admins only
  *  - beta     → super admins, or orgs that have opted in
@@ -59,8 +85,10 @@ async function getOrgBetaOptIns(orgId: string): Promise<Set<string>> {
 export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
   const orgId = reqOrgId(req);
   const isSuper = await resolveSuperAdmin(req);
+  const optIns = await getOrgBetaOptIns(orgId);
 
-  // Only capabilities with a real featureKey participate in runtime gating.
+  // DB rows with a real featureKey: used to override the catalog stage per
+  // environment and to supply vote counts / fresh copy for the beta panel.
   const caps = await db.select({
     id: productCapabilities.id,
     title: productCapabilities.title,
@@ -69,41 +97,60 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
     featureKey: productCapabilities.featureKey,
   }).from(productCapabilities).where(isNotNull(productCapabilities.featureKey));
 
-  const gated = caps.filter(c => !!c.featureKey && c.stage !== 'none');
-  const optIns = await getOrgBetaOptIns(orgId);
-
-  const visible: string[] = [];
-  const stages: Record<string, Stage> = {};
-  for (const c of gated) {
-    const key = c.featureKey as string;
-    const stage = c.stage as Stage;
-    let isVisible = false;
-    if (stage === 'released') isVisible = true;
-    else if (stage === 'alpha') isVisible = isSuper;
-    else if (stage === 'beta') isVisible = isSuper || optIns.has(key);
-    if (isVisible) {
-      visible.push(key);
-      stages[key] = stage;
+  const dbByKey = new Map<string, { id: number; title: string; description: string; stage: Stage }>();
+  for (const c of caps) {
+    if (c.featureKey && (c.stage as Stage) !== 'none') {
+      dbByKey.set(c.featureKey, { id: c.id, title: c.title, description: c.description ?? '', stage: c.stage as Stage });
     }
   }
 
-  // Beta-stage features for the opt-in panel, with vote counts.
-  const betaCaps = gated.filter(c => c.stage === 'beta');
+  // Effective gate set = code defaults, with DB rows of the same key overriding
+  // stage/copy. DB-only gates (keys not in the catalog) are included too so
+  // nothing that previously worked regresses.
+  const effective = new Map<string, { stage: Stage; title: string; description: string; capId?: number }>();
+  for (const [key, def] of Object.entries(FEATURE_GATE_DEFAULTS)) {
+    effective.set(key, { stage: def.stage, title: def.title, description: def.description });
+  }
+  for (const [key, row] of dbByKey) {
+    const base = effective.get(key);
+    effective.set(key, {
+      stage: row.stage,
+      title: row.title || base?.title || key,
+      description: row.description || base?.description || '',
+      capId: row.id,
+    });
+  }
+
+  const visible: string[] = [];
+  const stages: Record<string, Stage> = {};
+  for (const [key, info] of effective) {
+    let isVisible = false;
+    if (info.stage === 'released') isVisible = true;
+    else if (info.stage === 'alpha') isVisible = isSuper;
+    else if (info.stage === 'beta') isVisible = isSuper || optIns.has(key);
+    if (isVisible) {
+      visible.push(key);
+      stages[key] = info.stage;
+    }
+  }
+
+  // Beta-stage features for the opt-in panel, with vote counts where a DB row exists.
+  const betaEntries = Array.from(effective.entries()).filter(([, i]) => i.stage === 'beta');
   let voteMap = new Map<number, number>();
-  if (betaCaps.length > 0) {
-    const ids = betaCaps.map(c => c.id);
+  const betaCapIds = betaEntries.map(([, i]) => i.capId).filter((id): id is number => typeof id === 'number');
+  if (betaCapIds.length > 0) {
     const voteRows = await db.select({ capabilityId: featureVotes.capabilityId, votes: count() })
-      .from(featureVotes).where(inArray(featureVotes.capabilityId, ids))
+      .from(featureVotes).where(inArray(featureVotes.capabilityId, betaCapIds))
       .groupBy(featureVotes.capabilityId);
     voteMap = new Map(voteRows.map(v => [v.capabilityId, Number(v.votes)]));
   }
 
-  const beta: BetaFeatureInfo[] = betaCaps.map(c => ({
-    key: c.featureKey as string,
-    title: c.title,
-    description: c.description ?? '',
-    votes: voteMap.get(c.id) ?? 0,
-    enabled: optIns.has(c.featureKey as string),
+  const beta: BetaFeatureInfo[] = betaEntries.map(([key, i]) => ({
+    key,
+    title: i.title,
+    description: i.description,
+    votes: i.capId != null ? (voteMap.get(i.capId) ?? 0) : 0,
+    enabled: optIns.has(key),
   }));
 
   return { visible: Array.from(new Set(visible)), beta, stages };
