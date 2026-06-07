@@ -1591,7 +1591,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer"
               >
-                <Rocket className="w-3 h-3 rotate-45" />
+                <Rocket className="w-3 h-3 -rotate-90" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
@@ -1663,7 +1663,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer-shipping"
               >
-                <Rocket className="w-3 h-3 rotate-45" />
+                <Rocket className="w-3 h-3 -rotate-90" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
