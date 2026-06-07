@@ -14,6 +14,7 @@ import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { ChannelConfigPanel, defaultChannelConfigValues, type ChannelConfigValues } from "@/components/ChannelConfigPanel";
+import { useFeatures, type Stage } from "@/hooks/use-feature";
 
 interface Props {
   org: Organization;
@@ -37,9 +38,11 @@ const DEPTH_OPTIONS = [
   { value: 3, label: "Full Warehouse", description: "Aisles, shelves, and bins", example: "Aisle 1 → Shelf A → Bin A-01", icon: MapPin },
 ];
 
-const SALES_CHANNELS: Array<{ key: string; name: string; description: string; status: 'live' | 'coming_soon' }> = [
+// `featureKey` links a channel to a gated feature so onboarding can hide it
+// (alpha) or auto opt-in the org (beta) based on the feature's effective stage.
+const SALES_CHANNELS: Array<{ key: string; name: string; description: string; status: 'live' | 'coming_soon'; featureKey?: string }> = [
   { key: 'brickowl', name: 'BrickOwl', description: 'Push your BrickLink inventory to BrickOwl and sync orders in both directions.', status: 'live' },
-  { key: 'ebay', name: 'eBay', description: 'Sync inventory to eBay listings and import orders automatically.', status: 'coming_soon' },
+  { key: 'ebay', name: 'eBay', description: 'Sync inventory to eBay listings and import orders automatically.', status: 'coming_soon', featureKey: 'channel_ebay' },
 ];
 
 const SHIPPING_PROVIDERS: Array<{ key: string; name: string; description: string; status: 'live' | 'coming_soon' }> = [
@@ -179,6 +182,53 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [step, setStep] = useState(1);
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
+  const { catalog, isLoading: featuresLoading } = useFeatures();
+
+  // Effective stage of a gated feature, regardless of current visibility.
+  // Items with no featureKey are always-available. A gated key that isn't in the
+  // catalog yet is treated as hidden ('none') WHILE features load — fail-closed
+  // so an alpha feature can never flash into onboarding before we can suppress
+  // it; once loaded, an unknown key falls back to 'released'.
+  const effectiveStage = (featureKey?: string): Stage => {
+    if (!featureKey) return 'released';
+    if (featureKey in catalog) return catalog[featureKey];
+    return featuresLoading ? 'none' : 'released';
+  };
+
+  // A gated feature is offered in onboarding only when released or beta;
+  // alpha (and 'none') features are removed from the flow entirely.
+  const stageIsOffered = (featureKey?: string): boolean => {
+    const stage = effectiveStage(featureKey);
+    return stage !== 'alpha' && stage !== 'none';
+  };
+
+  // Channels onboarding offers to set up — alpha channels are filtered out.
+  const availableChannels = SALES_CHANNELS.filter(ch => stageIsOffered(ch.featureKey));
+
+  // Whole wizard steps whose sole purpose is setting up one gated feature. Such
+  // a step is removed (skipped) when its feature is alpha, per the staging rule.
+  const STEP_FEATURE: Record<number, string> = { 4: 'inv_cargo_bay' };
+  const isStepHidden = (stepId: number): boolean => {
+    const fk = STEP_FEATURE[stepId];
+    return fk ? !stageIsOffered(fk) : false;
+  };
+  const visibleSteps = STEPS.filter(s => !isStepHidden(s.id));
+  // Smallest in-wizard step (1–7) after `after` that isn't hidden.
+  const nextVisibleStep = (after: number): number => {
+    let n = after + 1;
+    while (n <= 7 && isStepHidden(n)) n++;
+    return n;
+  };
+
+  // Safety net: if the current step becomes hidden once feature stages load
+  // (e.g. a feature flips to alpha), force-advance off it so the user can never
+  // sit on a removed step.
+  useEffect(() => {
+    if (step <= 7 && isStepHidden(step)) {
+      setStep(nextVisibleStep(step - 1));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, catalog, featuresLoading]);
 
   const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
     id: number; name: string; basePrice: number; salesPercentage: number;
@@ -265,6 +315,20 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/warehouse/settings"] }),
   });
 
+  const betaOptInMutation = useMutation({
+    mutationFn: (key: string) => apiRequest("POST", "/api/settings/beta-features", { key, enable: true }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/features"] }),
+  });
+
+  // When onboarding sets up a feature that's currently in BETA, opt the org in
+  // so the feature stays visible after onboarding. Released features need no
+  // opt-in; alpha features are never offered here in the first place.
+  const ensureBetaOptIn = async (featureKey?: string) => {
+    if (featureKey && effectiveStage(featureKey) === 'beta') {
+      await betaOptInMutation.mutateAsync(featureKey);
+    }
+  };
+
   const importCsvMutation = useMutation({
     mutationFn: (csvText: string) => apiRequest("POST", "/api/warehouse/import/csv", { csvText }),
     onSuccess: async (res: any) => {
@@ -316,7 +380,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       data.tosAcceptedAt = new Date().toISOString();
     }
     await saveOrgMutation.mutateAsync(data);
-    setStep(2);
+    setStep(nextVisibleStep(1));
   };
 
   const handleStep2 = async (skip = false) => {
@@ -344,7 +408,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       }
       await Promise.all(saves);
     }
-    setStep(3);
+    setStep(nextVisibleStep(2));
   };
 
   const handleStep3 = async (skip = false) => {
@@ -360,14 +424,17 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       setBlSyncStarted(true);
       apiRequest('POST', '/api/sync/bricklink/inventory').catch(() => {});
     }
-    setStep(4);
+    setStep(nextVisibleStep(3));
   };
 
   const handleStep4 = async () => {
     if (selectedDepth !== null) {
       await saveDepthMutation.mutateAsync(selectedDepth);
+      // Warehouse management ships as the gated "Cargo Bay" feature — opt the
+      // org in when it's in beta so the tools they just set up stay visible.
+      await ensureBetaOptIn('inv_cargo_bay');
     }
-    setStep(5);
+    setStep(nextVisibleStep(4));
   };
 
   const analysisMutation = useMutation({
@@ -417,7 +484,15 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         syncPriceFloor:     boChannelValues.syncPriceFloor.trim() ? parseFloat(boChannelValues.syncPriceFloor) : null,
       });
     }
-    setStep(6);
+    // Opt the org into any selected channel that maps to a beta-stage feature.
+    if (!skip) {
+      for (const ch of availableChannels) {
+        if (ch.featureKey && selectedChannels.has(ch.key)) {
+          await ensureBetaOptIn(ch.featureKey);
+        }
+      }
+    }
+    setStep(nextVisibleStep(5));
   };
 
   const handleStep6 = async (skip = false) => {
@@ -427,7 +502,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       if (epTestApiKey.trim()) payload.easypostTestApiKey = epTestApiKey.trim();
       await saveSettingsMutation.mutateAsync(payload);
     }
-    setStep(7);
+    setStep(nextVisibleStep(6));
   };
 
   const handleStep7Skip = () => setStep(8);
@@ -541,7 +616,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         {/* Step indicator */}
         {step < 8 && (
           <div className="flex items-center justify-center gap-0 mb-6 overflow-x-auto pb-1">
-            {STEPS.map((s, i) => (
+            {visibleSteps.map((s, i) => (
               <div key={s.id} className="flex items-center flex-shrink-0">
                 <div className="flex flex-col items-center gap-1">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors ${
@@ -561,7 +636,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                     {s.label}
                   </span>
                 </div>
-                {i < STEPS.length - 1 && (
+                {i < visibleSteps.length - 1 && (
                   <div className={`w-8 h-px mx-1.5 mb-0 sm:mb-4 flex-shrink-0 transition-colors ${step > s.id ? "bg-green-500/50" : "bg-gray-700"}`} />
                 )}
               </div>
@@ -1187,7 +1262,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
               {/* Channel selection cards */}
               <div className="space-y-2">
-                {SALES_CHANNELS.map(ch => {
+                {availableChannels.map(ch => {
                   const isLive = ch.status === 'live';
                   const isSelected = selectedChannels.has(ch.key);
                   return (

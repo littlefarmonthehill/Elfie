@@ -14,6 +14,7 @@ export interface VisibleFeatures {
   visible: string[];
   beta: BetaFeatureInfo[];
   stages: Record<string, Stage>;
+  catalog: Record<string, Stage>;
 }
 
 /**
@@ -36,6 +37,7 @@ export function useFeatures() {
     visible: query.data?.visible ?? [],
     beta: query.data?.beta ?? [],
     stages: query.data?.stages ?? {},
+    catalog: query.data?.catalog ?? {},
     isLoading: query.isLoading,
   };
 }

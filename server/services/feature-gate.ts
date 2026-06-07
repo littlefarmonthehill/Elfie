@@ -18,6 +18,7 @@ export interface VisibleFeatures {
   visible: string[];        // feature keys the current user/org can see right now
   beta: BetaFeatureInfo[];  // beta-stage features available to opt into (for the Beta Features panel)
   stages: Record<string, Stage>; // visible feature key -> maturity stage (drives in-context stage badges)
+  catalog: Record<string, Stage>; // EVERY gated feature key -> effective stage, regardless of visibility (drives onboarding stage-awareness)
 }
 
 /**
@@ -158,7 +159,14 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
     enabled: optIns.has(key),
   }));
 
-  return { visible: Array.from(new Set(visible)), beta, stages };
+  // Full catalog of effective stages for EVERY gated feature, regardless of
+  // whether the current user can see it. Onboarding (run by normal, non-super
+  // users) needs this to know an alpha/beta feature's true stage even though
+  // those features are absent from `stages`/`visible`.
+  const catalog: Record<string, Stage> = {};
+  for (const [key, info] of effective) catalog[key] = info.stage;
+
+  return { visible: Array.from(new Set(visible)), beta, stages, catalog };
 }
 
 /** Guard helper for feature-specific routes. Returns true if the request may access `key`. */
