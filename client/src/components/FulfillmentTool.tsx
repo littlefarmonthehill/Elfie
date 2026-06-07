@@ -1551,114 +1551,124 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
 
         {/* ── Tab-specific action bar — full width ── */}
         {activeTab === 'picklist' && (
-          <div className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
-            {/* Actions group */}
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={selectedOrders.size === 0}
-              onClick={handlePrintLotLabels}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-print-lot-labels"
-            >
-              <Tag className="w-3.5 h-3.5" />
-              Labels
-            </Button>
-            {/* Separator */}
-            <div className="w-px h-5 bg-gray-700/60 shrink-0 mx-0.5" />
-            {/* Packing */}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={selectedOrders.size === 0}
-              onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-print-packing-slips"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Packing Slips
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setDrawerOpen(true)}
-              className="text-xs whitespace-nowrap shrink-0 ml-auto"
-              title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
-              data-testid="button-open-orders-drawer"
-            >
-              <PanelRight className="w-3.5 h-3.5" />
-              {sortedOrders.length > 0 && (
-                <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
-              )}
-            </Button>
+          <div className="flex items-stretch bg-gray-900/60 border-b border-gray-700/40">
+            <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+              {/* Actions group */}
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selectedOrders.size === 0}
+                onClick={handlePrintLotLabels}
+                className="text-xs whitespace-nowrap shrink-0"
+                data-testid="button-print-lot-labels"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                Labels
+              </Button>
+              {/* Separator */}
+              <div className="w-px h-5 bg-gray-700/60 shrink-0 mx-0.5" />
+              {/* Packing */}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selectedOrders.size === 0}
+                onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+                className="text-xs whitespace-nowrap shrink-0"
+                data-testid="button-print-packing-slips"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Packing Slips
+              </Button>
+            </div>
+            {/* Pinned right: orders panel toggle */}
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 px-2 py-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDrawerOpen(true)}
+                className="text-xs whitespace-nowrap shrink-0"
+                title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
+                data-testid="button-open-orders-drawer"
+              >
+                <PanelRight className="w-3.5 h-3.5" />
+                {sortedOrders.length > 0 && (
+                  <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
+                )}
+              </Button>
+            </div>
           </div>
         )}
         {!isSplitMode && activeTab === 'shipping' && (
-          <div ref={actionRowRef} className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
-            <Button
-              ref={shipBtnRef}
-              size="sm"
-              variant="outline"
-              disabled={shippableCount === 0 || isShippingAll}
-              onClick={() => setShowShipConfirmDialog(true)}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-ship-all"
-            >
-              {isShippingAll
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Shipping...</>
-                : <><Truck className="w-3.5 h-3.5" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
-              }
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
-              onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-end-of-day-scan"
-            >
-              {scanFormMutation.isPending
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Generating...</>
-                : scanFormUrl
-                  ? <><ExternalLink className="w-3.5 h-3.5" />Reopen EOD</>
-                  : <><ScanLine className="w-3.5 h-3.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
-              }
-            </Button>
-            {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+          <div ref={actionRowRef} className="flex items-stretch bg-gray-900/60 border-b border-gray-700/40">
+            <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
               <Button
-                size="icon"
+                ref={shipBtnRef}
+                size="sm"
                 variant="outline"
-                disabled={clearEodBacklogMutation.isPending}
-                onClick={() => {
-                  if (confirm(`Mark all ${endOfDayData.count} queued shipment${endOfDayData.count !== 1 ? 's' : ''} as already manifested? Use this to clear test/stale data.`)) {
-                    clearEodBacklogMutation.mutate();
-                  }
-                }}
-                className="text-gray-500 shrink-0"
-                title="Clear EOD backlog (mark all as manifested)"
-                data-testid="button-clear-eod-backlog"
+                disabled={shippableCount === 0 || isShippingAll}
+                onClick={() => setShowShipConfirmDialog(true)}
+                className="text-xs whitespace-nowrap shrink-0"
+                data-testid="button-ship-all"
               >
-                {clearEodBacklogMutation.isPending
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Trash2 className="w-3.5 h-3.5" />
+                {isShippingAll
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Shipping...</>
+                  : <><Truck className="w-3.5 h-3.5" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
                 }
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setDrawerOpen(true)}
-              className="text-xs whitespace-nowrap shrink-0 ml-auto"
-              title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
-              data-testid="button-open-orders-drawer-shipping"
-            >
-              <PanelRight className="w-3.5 h-3.5" />
-              {sortedOrders.length > 0 && (
-                <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
+                onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
+                className="text-xs whitespace-nowrap shrink-0"
+                data-testid="button-end-of-day-scan"
+              >
+                {scanFormMutation.isPending
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Generating...</>
+                  : scanFormUrl
+                    ? <><ExternalLink className="w-3.5 h-3.5" />Reopen EOD</>
+                    : <><ScanLine className="w-3.5 h-3.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
+                }
+              </Button>
+              {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  disabled={clearEodBacklogMutation.isPending}
+                  onClick={() => {
+                    if (confirm(`Mark all ${endOfDayData.count} queued shipment${endOfDayData.count !== 1 ? 's' : ''} as already manifested? Use this to clear test/stale data.`)) {
+                      clearEodBacklogMutation.mutate();
+                    }
+                  }}
+                  className="text-gray-500 shrink-0"
+                  title="Clear EOD backlog (mark all as manifested)"
+                  data-testid="button-clear-eod-backlog"
+                >
+                  {clearEodBacklogMutation.isPending
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Trash2 className="w-3.5 h-3.5" />
+                  }
+                </Button>
               )}
-            </Button>
+            </div>
+            {/* Pinned right: orders panel toggle */}
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 px-2 py-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDrawerOpen(true)}
+                className="text-xs whitespace-nowrap shrink-0"
+                title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
+                data-testid="button-open-orders-drawer-shipping"
+              >
+                <PanelRight className="w-3.5 h-3.5" />
+                {sortedOrders.length > 0 && (
+                  <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
+                )}
+              </Button>
+            </div>
           </div>
         )}
 
