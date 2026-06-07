@@ -1554,13 +1554,13 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           <div className="flex items-stretch bg-gray-900/60 border-b border-gray-700/40">
             <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
               {/* Actions group */}
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-orange-500/70 shrink-0 pr-1">Actions</span>
               <Button
                 size="sm"
                 variant="outline"
                 disabled={selectedOrders.size === 0}
                 onClick={handlePrintLotLabels}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-xs whitespace-nowrap shrink-0 border-amber-500/30 bg-amber-500/10 text-amber-300"
                 data-testid="button-print-lot-labels"
               >
                 <Tag className="w-3.5 h-3.5" />
@@ -1574,7 +1574,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={selectedOrders.size === 0}
                 onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-xs whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
                 data-testid="button-print-packing-slips"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -1602,14 +1602,14 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         {!isSplitMode && activeTab === 'shipping' && (
           <div ref={actionRowRef} className="flex items-stretch bg-gray-900/60 border-b border-gray-700/40">
             <div className="flex items-center gap-1.5 px-2 py-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-purple-400/70 shrink-0 pr-1">Actions</span>
               <Button
                 ref={shipBtnRef}
                 size="sm"
                 variant="outline"
                 disabled={shippableCount === 0 || isShippingAll}
                 onClick={() => setShowShipConfirmDialog(true)}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-xs whitespace-nowrap shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                 data-testid="button-ship-all"
               >
                 {isShippingAll
@@ -1622,7 +1622,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
                 onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-xs whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
                 data-testid="button-end-of-day-scan"
               >
                 {scanFormMutation.isPending
