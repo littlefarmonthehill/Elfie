@@ -30,3 +30,12 @@ nextVisibleStep + visibleSteps progress filter). Onboarding nav is forward-only.
 unknown gated key as hidden during load so an alpha feature never flashes in;
 fall back to 'released' only once loaded. Add a safety effect that force-advances
 off the current step if it becomes hidden after the catalog resolves.
+
+# Beta panel grouping + a shadowing gotcha
+Each FEATURE_GATE_DEFAULTS entry carries a `group` (dashboard label, e.g.
+Inventory/Warehouse/Orders/Insights/Channels) plumbed through BetaFeatureInfo
+so the Settings → Beta Features panel groups toggles by dashboard.
+
+**Gotcha:** SettingsModal imports `Map` from lucide-react, which shadows the
+global `Map` constructor — `new Map<...>()` fails to typecheck there. Use a
+plain array + `.find()` for grouping instead of a Map in that file.

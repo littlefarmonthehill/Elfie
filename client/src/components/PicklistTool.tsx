@@ -243,7 +243,13 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
   // from by-part to by-bin as each query resolves.
   const { visible: visibleFeatures, isLoading: featuresLoading } = useFeatures();
   const cargoBayEnabled = visibleFeatures.includes('inv_cargo_bay');
+  const scanPickEnabled = visibleFeatures.includes('orders_scan_pick');
   const viewMode: ViewMode = cargoBayEnabled && warehouseDepth >= 1 ? 'by_bin' : 'by_part';
+
+  // Force scan mode off if the gated feature becomes unavailable
+  useEffect(() => {
+    if (!scanPickEnabled && scanMode) setScanMode(false);
+  }, [scanPickEnabled, scanMode]);
 
   const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
@@ -497,27 +503,30 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
             {sortDir === 'asc' ? 'A–Z' : 'Z–A'}
           </button>
 
-          {/* Separator */}
-          <div className="w-px h-5 bg-gray-700 shrink-0" />
-
-          {/* Scan Mode toggle */}
-          <button
-            onClick={() => setScanMode(s => !s)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-              scanMode
-                ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-300'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
-            }`}
-            data-testid="button-scan-mode"
-          >
-            <ScanLine className="w-3.5 h-3.5" />
-            {scanMode ? 'Scanning…' : 'Scan'}
-          </button>
+          {/* Scan Mode toggle (gated beta feature) */}
+          {scanPickEnabled && (
+            <>
+              {/* Separator */}
+              <div className="w-px h-5 bg-gray-700 shrink-0" />
+              <button
+                onClick={() => setScanMode(s => !s)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  scanMode
+                    ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-300'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+                }`}
+                data-testid="button-scan-mode"
+              >
+                <ScanLine className="w-3.5 h-3.5" />
+                {scanMode ? 'Scanning…' : 'Scan'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {/* ── Scan mode bar ── */}
-      {scanMode && !noOrdersSelected && (
+      {scanPickEnabled && scanMode && !noOrdersSelected && (
         <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-3 space-y-2.5">
           <div className="flex items-center gap-2">
             <ScanLine className="h-4 w-4 text-yellow-400 shrink-0" />

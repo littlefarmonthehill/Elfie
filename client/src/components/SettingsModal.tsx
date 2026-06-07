@@ -1468,28 +1468,45 @@ function BetaFeaturesSection() {
           <p className="text-xs text-gray-500">No beta features available right now. Check back soon.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {beta.map((f: BetaFeatureInfo) => (
-            <div key={f.key} className="sm-card p-3 flex items-start justify-between gap-3" data-testid={`beta-feature-${f.key}`}>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-gray-100">{f.title}</p>
-                  {f.votes > 0 && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${f.votes} vote(s)`} data-testid={`beta-votes-${f.key}`}>
-                      <ThumbsUp className="w-2.5 h-2.5" />{f.votes}
-                    </span>
-                  )}
+        <div className="space-y-5">
+          {(() => {
+            // Group beta features by dashboard, preserving first-seen order.
+            const groups: { name: string; items: BetaFeatureInfo[] }[] = [];
+            for (const f of beta) {
+              const name = f.group || 'Other';
+              let g = groups.find((x) => x.name === name);
+              if (!g) { g = { name, items: [] }; groups.push(g); }
+              g.items.push(f);
+            }
+            return groups.map((g) => (
+              <div key={g.name} className="space-y-2" data-testid={`beta-group-${g.name}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{g.name}</p>
+                <div className="space-y-2">
+                  {g.items.map((f: BetaFeatureInfo) => (
+                    <div key={f.key} className="sm-card p-3 flex items-start justify-between gap-3" data-testid={`beta-feature-${f.key}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-100">{f.title}</p>
+                          {f.votes > 0 && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${f.votes} vote(s)`} data-testid={`beta-votes-${f.key}`}>
+                              <ThumbsUp className="w-2.5 h-2.5" />{f.votes}
+                            </span>
+                          )}
+                        </div>
+                        {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
+                      </div>
+                      <Switch
+                        checked={f.enabled}
+                        disabled={toggleMutation.isPending}
+                        onCheckedChange={(checked) => toggleMutation.mutate({ key: f.key, enable: checked })}
+                        data-testid={`switch-beta-${f.key}`}
+                      />
+                    </div>
+                  ))}
                 </div>
-                {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
               </div>
-              <Switch
-                checked={f.enabled}
-                disabled={toggleMutation.isPending}
-                onCheckedChange={(checked) => toggleMutation.mutate({ key: f.key, enable: checked })}
-                data-testid={`switch-beta-${f.key}`}
-              />
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       )}
     </div>

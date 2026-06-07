@@ -6,6 +6,7 @@ export interface BetaFeatureInfo {
   key: string;
   title: string;
   description: string;
+  group: string;
   votes: number;
   enabled: boolean;
 }

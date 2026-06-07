@@ -10,6 +10,7 @@ export interface BetaFeatureInfo {
   key: string;
   title: string;
   description: string;
+  group: string; // dashboard / area the feature belongs to (for grouping in the Beta panel)
   votes: number;
   enabled: boolean; // whether the current org has opted in
 }
@@ -30,18 +31,19 @@ export interface VisibleFeatures {
  * the default below applies. Keep these keys in sync with the `useFeature(...)`
  * calls in the frontend.
  */
-export const FEATURE_GATE_DEFAULTS: Record<string, { stage: Stage; title: string; description: string }> = {
-  inv_brick_spotter: { stage: 'beta', title: 'Brick Spotter', description: 'Scan photos of LEGO pieces to identify them and match against your inventory.' },
-  inv_health: { stage: 'beta', title: 'Inventory Health', description: 'Health scoring and breakdowns that flag gaps and issues across your inventory.' },
-  inv_bundletron: { stage: 'beta', title: 'BundleTron', description: 'Build and manage bulk and bundle lots with AI-assisted descriptions.' },
-  inv_acquisition: { stage: 'beta', title: 'Acquisition Evaluator', description: 'Evaluate a seller price list against your inventory to spot buying opportunities.' },
-  inv_list_o_matic: { stage: 'beta', title: 'List-o-Matic', description: 'Prioritized listing pipeline that tells you what to list next.' },
-  inv_price_o_matic: { stage: 'released', title: 'Price-o-Matic', description: 'Bulk pricing from a proprietary time-series database with dynamic repricing scores.' },
-  inv_cargo_bay: { stage: 'beta', title: 'Cargo Bay', description: 'Warehouse management: bin locations, QR/barcode filing, and locating inventory.' },
-  channel_ebay: { stage: 'alpha', title: 'eBay Channel', description: 'Sell on eBay: list inventory, sync stock, and manage eBay orders. BrickLink and BrickOwl are always available.' },
-  sales_operations: { stage: 'beta', title: 'Operations', description: 'Fulfillment operations metrics like time-to-ship and cancel or return rates.' },
-  sales_top_items: { stage: 'beta', title: 'Top Items', description: 'Your best-selling items by revenue for the selected period.' },
-  insights_strategy: { stage: 'beta', title: 'Strategy Lens', description: 'Filter business insights by strategy area: pricing, inventory, orders, customers and market.' },
+export const FEATURE_GATE_DEFAULTS: Record<string, { stage: Stage; title: string; description: string; group: string }> = {
+  inv_brick_spotter: { stage: 'beta', title: 'Brick Spotter', description: 'Scan photos of LEGO pieces to identify them and match against your inventory.', group: 'Inventory' },
+  inv_health: { stage: 'beta', title: 'Inventory Health', description: 'Health scoring and breakdowns that flag gaps and issues across your inventory.', group: 'Inventory' },
+  inv_bundletron: { stage: 'beta', title: 'BundleTron', description: 'Build and manage bulk and bundle lots with AI-assisted descriptions.', group: 'Inventory' },
+  inv_acquisition: { stage: 'beta', title: 'Acquisition Evaluator', description: 'Evaluate a seller price list against your inventory to spot buying opportunities.', group: 'Inventory' },
+  inv_list_o_matic: { stage: 'beta', title: 'List-o-Matic', description: 'Prioritized listing pipeline that tells you what to list next.', group: 'Inventory' },
+  inv_price_o_matic: { stage: 'released', title: 'Price-o-Matic', description: 'Bulk pricing from a proprietary time-series database with dynamic repricing scores.', group: 'Inventory' },
+  inv_cargo_bay: { stage: 'beta', title: 'Cargo Bay', description: 'Warehouse management: bin locations, QR/barcode filing, and locating inventory.', group: 'Warehouse' },
+  channel_ebay: { stage: 'alpha', title: 'eBay Channel', description: 'Sell on eBay: list inventory, sync stock, and manage eBay orders. BrickLink and BrickOwl are always available.', group: 'Channels' },
+  orders_scan_pick: { stage: 'beta', title: 'Scan-to-Pick', description: 'Scan bin labels (camera or hardware scanner) to jump to and pull items while fulfilling orders.', group: 'Orders' },
+  sales_operations: { stage: 'beta', title: 'Operations', description: 'Fulfillment operations metrics like time-to-ship and cancel or return rates.', group: 'Orders' },
+  sales_top_items: { stage: 'beta', title: 'Top Items', description: 'Your best-selling items by revenue for the selected period.', group: 'Orders' },
+  insights_strategy: { stage: 'beta', title: 'Strategy Lens', description: 'Filter business insights by strategy area: pricing, inventory, orders, customers and market.', group: 'Insights' },
 };
 
 /**
@@ -113,9 +115,9 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
   // Effective gate set = code defaults, with DB rows of the same key overriding
   // stage/copy. DB-only gates (keys not in the catalog) are included too so
   // nothing that previously worked regresses.
-  const effective = new Map<string, { stage: Stage; title: string; description: string; capId?: number }>();
+  const effective = new Map<string, { stage: Stage; title: string; description: string; group: string; capId?: number }>();
   for (const [key, def] of Object.entries(FEATURE_GATE_DEFAULTS)) {
-    effective.set(key, { stage: def.stage, title: def.title, description: def.description });
+    effective.set(key, { stage: def.stage, title: def.title, description: def.description, group: def.group });
   }
   for (const [key, row] of dbByKey) {
     const base = effective.get(key);
@@ -123,6 +125,7 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
       stage: row.stage,
       title: row.title || base?.title || key,
       description: row.description || base?.description || '',
+      group: base?.group || 'Other',
       capId: row.id,
     });
   }
@@ -155,6 +158,7 @@ export async function getVisibleFeatures(req: any): Promise<VisibleFeatures> {
     key,
     title: i.title,
     description: i.description,
+    group: i.group,
     votes: i.capId != null ? (voteMap.get(i.capId) ?? 0) : 0,
     enabled: optIns.has(key),
   }));
