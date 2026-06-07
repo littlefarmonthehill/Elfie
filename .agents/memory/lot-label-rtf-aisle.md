@@ -12,3 +12,13 @@ The lot-label template (`LotLabelTemplatePrint.tsx`) prints the re-file destinat
 **Why:** the bug was exactly this — `GET /api/warehouse/lots` (lot search → quick print) selected `binName`/`locationLabel` but never `aisleName`, so searched lots always printed "rtf 0" even when the part lived in an aisle.
 
 **How to apply:** when adding/auditing any lot-label print path, confirm the source query selects `aisleName` from the shared hint, not a local re-implementation (avoid drift). Don't trust that "it prints a number" — 0 is the failure value.
+
+## Template label layout invariant (printLotLabelsWithTemplate)
+
+The image column stacks three things vertically: LOT caption (top) → part image → rtf caption (bottom). The QR column only has QR + one caption, so it is shorter. **The image column is the binding constraint** — size everything off it, not the QR column.
+
+Invariant that must hold for every template (`pageH` is the label height): `topCaption + gap + image + gap + rtfCaption <= pageH - 2*padIn`. Captions are 10pt (`10/72`) except the rtf caption which is 12pt (`12/72`). If you center using only the QR-column height, the top LOT caption clamps to `padIn` and the image (drawn *after* the caption) paints over the LOT number on short labels (DK-1201, DK-2210, Avery 5160).
+
+**Why:** that exact overlap shipped — the image covered "LOT-…" and made it unreadable; tall labels (Avery 5163/5164) hid it because they have spare height.
+
+**How to apply:** cap the art size so the full image-column stack fits, then place the LOT caption at the column top and the image below it (reserve top room in the shared top-Y). DK-1209 has `showImage=false` (no image, no top caption) and must keep its original centered layout.

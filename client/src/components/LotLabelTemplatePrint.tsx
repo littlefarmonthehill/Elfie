@@ -187,8 +187,18 @@ export async function printLotLabelsWithTemplate(
   const pageW = parseIn(tmpl.w);
   const pageH = parseIn(tmpl.h);
   const padIn = 0.05;
-  const qrIn = tmpl.qrPx / 96;
   const showImage = templateKey !== 'brotherDK1209';
+  // Side captions are 10pt; the rtf (re-file) caption under the image is 12pt.
+  const sideCaptionLineH = 10 / 72;
+  const aisleLineH = 12 / 72;
+  const sideGap = 0.03;
+  // The image column stacks a LOT caption above the art and an rtf caption below
+  // it — taller than the QR column's single caption. Cap the art so all three fit
+  // inside the printable height; otherwise the image is drawn on top of the LOT
+  // number on short labels (DK-1201 / DK-2210 / Avery 5160).
+  const topReserve = showImage ? sideCaptionLineH + sideGap : 0;
+  const botReserve = showImage ? aisleLineH : sideCaptionLineH;
+  const qrIn = Math.min(tmpl.qrPx / 96, pageH - 2 * padIn - topReserve - sideGap - botReserve);
   const imgIn = showImage ? qrIn : 0;
   const imgGap = showImage ? 0.06 : 0;
 
@@ -242,10 +252,12 @@ export async function printLotLabelsWithTemplate(
     const metaParts = [lot.colorName, cond].filter(Boolean).join(' · ');
 
     const sideCaptionPt = 10;
-    const sideCaptionLineH = sideCaptionPt / 72;
-    const sideGap = 0.03;
-    const sideStackH = qrIn + sideGap + sideCaptionLineH;
-    const sideTopY = Math.max(padIn, (pageH - sideStackH) / 2);
+    // Reserve room above the art for the LOT caption (image column only) and
+    // center the whole column so the bottom caption stays within the margin.
+    const sideStackTopCapH = showImage ? sideCaptionLineH + sideGap : 0;
+    const sideStackH = sideStackTopCapH + qrIn + sideGap + botReserve;
+    const sideStackTop = Math.max(padIn, (pageH - sideStackH) / 2);
+    const sideTopY = sideStackTop + sideStackTopCapH;
 
     const partLabel = `#${lot.itemNo}`;
     doc.addImage(qrCanvases[i], 'PNG', padIn, sideTopY, qrIn, qrIn);
@@ -260,7 +272,7 @@ export async function printLotLabelsWithTemplate(
     if (showImage) {
       const imgX = pageW - padIn - imgIn;
       const lotLabel = `LOT:${lot.id}`;
-      const lotCaptionY = Math.max(padIn, sideTopY - sideGap - sideCaptionLineH);
+      const lotCaptionY = sideStackTop;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(sideCaptionPt);
       doc.setTextColor(26, 95, 26);
