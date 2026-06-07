@@ -4,6 +4,7 @@ import { db } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
 import { broadcast } from "../sse";
+import { lotAisleHintSql } from "./listing-batches";
 import {
   organizations, whZones, whAisles, whShelves, whBins, inventoryLocations,
   blInventory, blColors, blCatalog,
@@ -500,6 +501,7 @@ router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
       binName: binNameExpr,
       locationLabel: locationLabelExpr,
       isFilingQueue: isFilingQueueExpr,
+      aisleName: lotAisleHintSql.as('aisle_name'),
     })
     .from(blInventory)
     .leftJoin(blColors, eq(blInventory.colorId, blColors.id))

@@ -20,7 +20,7 @@ const router = Router();
 //   1. sibling lot with same part+color+condition
 //   2. sibling lot with same part+condition (any color)
 //   3. sibling lot with same part (any condition, any color)
-const lotAisleHintSql = sql<string | null>`(
+export const lotAisleHintSql = sql<string | null>`(
   SELECT wa.name
   FROM bl_inventory sib
   JOIN inventory_locations il ON il.inventory_id = sib.id
