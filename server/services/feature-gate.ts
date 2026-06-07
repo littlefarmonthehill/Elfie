@@ -37,6 +37,7 @@ export const FEATURE_GATE_DEFAULTS: Record<string, { stage: Stage; title: string
   inv_list_o_matic: { stage: 'beta', title: 'List-o-Matic', description: 'Prioritized listing pipeline that tells you what to list next.' },
   inv_price_o_matic: { stage: 'released', title: 'Price-o-Matic', description: 'Bulk pricing from a proprietary time-series database with dynamic repricing scores.' },
   inv_cargo_bay: { stage: 'beta', title: 'Cargo Bay', description: 'Warehouse management: bin locations, QR/barcode filing, and locating inventory.' },
+  channel_ebay: { stage: 'beta', title: 'eBay Channel', description: 'Sell on eBay: list inventory, sync stock, and manage eBay orders. BrickLink and BrickOwl are always available.' },
   sales_operations: { stage: 'beta', title: 'Operations', description: 'Fulfillment operations metrics like time-to-ship and cancel or return rates.' },
   sales_top_items: { stage: 'beta', title: 'Top Items', description: 'Your best-selling items by revenue for the selected period.' },
   insights_strategy: { stage: 'beta', title: 'Strategy Lens', description: 'Filter business insights by strategy area: pricing, inventory, orders, customers and market.' },

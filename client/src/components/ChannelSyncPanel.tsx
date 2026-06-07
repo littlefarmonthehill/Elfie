@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useFeature } from "@/hooks/use-feature";
 import {
   Globe,
   RefreshCw,
@@ -163,11 +164,23 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   const [showColorRepair, setShowColorRepair] = useState(false);
   const [changeDetail, setChangeDetail] = useState<'created' | 'updated' | null>(null);
   const [selectedChannel, setSelectedChannel] = useState(lockedChannel ?? initialChannel ?? 'brickowl');
+  // eBay is a gated (beta) selling channel; BrickLink and BrickOwl are always
+  // available. When eBay isn't visible for this org it's dropped from the
+  // channel switcher and its locked panel renders nothing.
+  const showEbayChannel = useFeature('channel_ebay');
 
   useEffect(() => {
     if (lockedChannel) { selectChannel(lockedChannel); return; }
-    if (initialChannel) selectChannel(initialChannel);
-  }, [initialChannel, lockedChannel]);
+    if (initialChannel && (initialChannel !== 'ebay' || showEbayChannel)) selectChannel(initialChannel);
+  }, [initialChannel, lockedChannel, showEbayChannel]);
+
+  // If eBay is hidden for this org but somehow selected (e.g. stale initial
+  // channel), fall back to BrickOwl so sync actions never target the gate.
+  useEffect(() => {
+    if (!lockedChannel && !showEbayChannel && selectedChannel === 'ebay') {
+      selectChannel('brickowl');
+    }
+  }, [showEbayChannel, selectedChannel, lockedChannel]);
 
   function selectChannel(key: string) {
     setSelectedChannel(key);
@@ -253,9 +266,10 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
     });
 
   // Fallback: if platformData not loaded yet, show brickowl as the only channel
-  const allDisplayChannels = configuredChannels.length > 0
+  const allDisplayChannels = (configuredChannels.length > 0
     ? configuredChannels
-    : [{ key: 'brickowl', label: 'BrickOwl', target: null }];
+    : [{ key: 'brickowl', label: 'BrickOwl', target: null }]
+  ).filter(c => c.key !== 'ebay' || showEbayChannel);
 
   // When locked to a single channel, only expose that one (hides the switcher)
   const displayChannels = lockedChannel
@@ -488,6 +502,12 @@ export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose, 
   ].filter((a: any) => a.count > 0) as DiscrepancyArea[];
 
   const activeArea = discrepancyAreas.find(a => a.type === selectedArea);
+
+  // Hard deny: a panel locked to eBay renders nothing when the gated eBay
+  // channel isn't visible for this org, even if a caller passes channel="ebay".
+  if (lockedChannel === 'ebay' && !showEbayChannel) {
+    return null;
+  }
 
   if (!isLoading && !brickOwl?.enabled) {
     return (

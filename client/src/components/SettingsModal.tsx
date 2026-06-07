@@ -34,7 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
-import { useFeatures, type BetaFeatureInfo } from "@/hooks/use-feature";
+import { useFeatures, useFeature, type BetaFeatureInfo } from "@/hooks/use-feature";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Link } from "wouter";
 import { getTierConfig } from "@shared/tierConfig";
@@ -3253,6 +3253,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     queryKey: ['/api/org/integrations'],
     enabled: open && (activeSection === 'platforms' || activeSection === 'autoSync'),
   });
+  // eBay is a gated (beta) selling channel; BrickLink and BrickOwl are always
+  // shown. eBay's nav entry and settings panel only appear when the feature is
+  // visible for this org (super admins always see it).
+  const showEbayChannel = useFeature('channel_ebay');
 
   const createIntegrationMutation = useMutation({
     mutationFn: (data: { channel: string; type: 'sales_channel' | 'shipping' | 'payment'; displayName: string; credentials: Record<string, string> }) =>
@@ -5337,7 +5341,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
                     </button>
                     {/* eBay hardcoded entry (credentials stored in org_integrations) */}
-                    {(() => {
+                    {showEbayChannel && (() => {
                       const ebayInt = orgIntegrationsList.find(i => i.channel === 'ebay');
                       return (
                         <button onClick={() => { setActivePlatform('ebay'); setEbayManualExpanded(false); }}
@@ -5667,7 +5671,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 })()}
 
                 {/* ── DETAIL: eBay ─────────────────────────────────────────── */}
-                {activePlatform === 'ebay' && (() => {
+                {activePlatform === 'ebay' && showEbayChannel && (() => {
                   const ebayInt = orgIntegrationsList.find(i => i.channel === 'ebay');
                   const existingCreds = ebayInt?.credentials as Record<string, string> | undefined;
                   const activeEnv = ebayConnectionStatus?.activeEnvironment ?? (existingCreds?.environment as 'production' | 'sandbox') ?? 'production';

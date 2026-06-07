@@ -93,6 +93,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const showListOMatic = useFeature('inv_list_o_matic');
   const showPriceOMatic = useFeature('inv_price_o_matic');
   const showCargoBay = useFeature('inv_cargo_bay');
+  const showEbayChannel = useFeature('channel_ebay');
   // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
   // users still get the feature but see no badge.
   const { actualSuperAdmin } = useAuth();
@@ -660,7 +661,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="flex flex-col gap-2" data-testid="section-selling-channels">
               <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
               <ChannelSyncPanel channel="brickowl" onOpenSettings={onOpenSettings} />
-              <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />
+              {showEbayChannel && <ChannelSyncPanel channel="ebay" onOpenSettings={onOpenSettings} />}
               {isCompact && <DashboardNotifications groupKeys={['product']} />}
             </div>
           )}
