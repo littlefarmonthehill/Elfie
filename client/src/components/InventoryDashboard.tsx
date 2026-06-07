@@ -91,6 +91,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const showBundleTron = useFeature('inv_bundletron');
   const showAcquisition = useFeature('inv_acquisition');
   const showListOMatic = useFeature('inv_list_o_matic');
+  const showPriceOMatic = useFeature('inv_price_o_matic');
   const showCargoBay = useFeature('inv_cargo_bay');
   // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
   // users still get the feature but see no badge.
@@ -471,9 +472,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
 
               {/* Price-o-Matic pipeline */}
+              {showPriceOMatic && (
               <PipelineRow
                 buttonIcon={<Rocket className="w-3.5 h-3.5 text-blue-200" />}
                 buttonLabel="Price-o-Matic"
+                stage={tagStage('inv_price_o_matic')}
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(37,99,235,0.45) 0%, rgba(29,78,216,0.28) 100%)',
                   boxShadow: '0 3px 0 rgba(15,35,100,0.65), inset 0 1px 0 rgba(147,197,253,0.10)',
@@ -487,6 +490,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   { key: 'deep-space', label: 'Deep Space',  count: deepSpaceCount, lampColor: 'rgba(167,139,250,0.9)' },
                 ]}
               />
+              )}
 
               <div className="h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
 
