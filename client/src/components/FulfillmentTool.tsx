@@ -268,7 +268,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [visualPanelHeight, setVisualPanelHeight] = useState<number | null>(null);
   const [visualPanelTop, setVisualPanelTop] = useState<number>(0);
-  const initialDrawerChecked = useRef(false);
   const drawerPanelRef = useRef<HTMLDivElement>(null);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
@@ -500,15 +499,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
       const next = new Set([...prev].filter(id => validIds.has(id)));
       return next.size === prev.size ? prev : next;
     });
-  }, [data]);
-
-  // Open orders flyout on mount only if there are orders waiting
-  useEffect(() => {
-    if (initialDrawerChecked.current || !data) return;
-    initialDrawerChecked.current = true;
-    if (data.orders && data.orders.length > 0) {
-      setDrawerOpen(true);
-    }
   }, [data]);
 
   // When new orders appear mid-session (e.g. a BO order synced on another device),
@@ -1582,7 +1572,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               size="sm"
               variant="outline"
               onClick={() => setDrawerOpen(true)}
-              className="ml-auto text-[10px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300"
+              className={`ml-auto text-[10px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300 ${sortedOrders.length > 0 ? 'panel-lamp-active' : ''}`}
               title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
               data-testid="button-open-orders-drawer"
             >
@@ -1650,7 +1640,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               size="sm"
               variant="outline"
               onClick={() => setDrawerOpen(true)}
-              className="ml-auto text-[10px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300"
+              className={`ml-auto text-[10px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300 ${sortedOrders.length > 0 ? 'panel-lamp-active' : ''}`}
               title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
               data-testid="button-open-orders-drawer-shipping"
             >
