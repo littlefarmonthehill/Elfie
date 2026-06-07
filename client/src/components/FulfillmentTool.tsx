@@ -1580,9 +1580,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 <Printer className="w-2.5 h-2.5" />
                 Packing Slips
               </Button>
+              {/* Trailing spacer so the last action never touches the pinned toggle */}
+              <div className="shrink-0 w-2" aria-hidden="true" />
             </div>
             {/* Pinned right: orders panel toggle */}
-            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 px-2 py-2">
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 pl-3 pr-2 py-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -1652,9 +1654,11 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                   }
                 </Button>
               )}
+              {/* Trailing spacer so the last action never touches the pinned toggle */}
+              <div className="shrink-0 w-2" aria-hidden="true" />
             </div>
             {/* Pinned right: orders panel toggle */}
-            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 px-2 py-2">
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 pl-3 pr-2 py-2">
               <Button
                 size="sm"
                 variant="outline"
