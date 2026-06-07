@@ -1547,24 +1547,13 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               </span>
             )}
           </button>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            data-testid="button-open-orders-drawer"
-            title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
-            className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
-          >
-            {sortedOrders.length > 0 && (
-              <span className="text-xs font-bold tabular-nums text-gray-400">{selectedOrders.size}/{sortedOrders.length}</span>
-            )}
-            <PanelRight className="w-4 h-4" />
-          </button>
         </div>
 
         {/* ── Tab-specific action bar — full width ── */}
         {activeTab === 'picklist' && (
           <div className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
-            {/* Picking group */}
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0">Picking</span>
+            {/* Actions group */}
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0 pr-1">Actions</span>
             <Button
               size="sm"
               variant="outline"
@@ -1589,6 +1578,19 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
             >
               <Printer className="w-3.5 h-3.5" />
               Packing Slips
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDrawerOpen(true)}
+              className="text-xs whitespace-nowrap shrink-0 ml-auto"
+              title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
+              data-testid="button-open-orders-drawer"
+            >
+              <PanelRight className="w-3.5 h-3.5" />
+              {sortedOrders.length > 0 && (
+                <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
+              )}
             </Button>
           </div>
         )}
@@ -1644,6 +1646,19 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 }
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDrawerOpen(true)}
+              className="text-xs whitespace-nowrap shrink-0 ml-auto"
+              title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
+              data-testid="button-open-orders-drawer-shipping"
+            >
+              <PanelRight className="w-3.5 h-3.5" />
+              {sortedOrders.length > 0 && (
+                <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
+              )}
+            </Button>
           </div>
         )}
 
