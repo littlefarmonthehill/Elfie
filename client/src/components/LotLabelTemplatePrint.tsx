@@ -80,10 +80,10 @@ export const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
     qrPx: 64, previewH: 'h-10', previewQr: 42, mode: 'brother', group: 'Brother QL-810W',
   },
   brotherDK1209: {
-    name: 'Brother DK-1209', desc: '⅞" × 1⅝" small address',
-    w: '1.625in', h: '0.875in', cols: 1, perSheet: 1,
-    pageMarginV: '0.04in', pageMarginH: '0.04in', colGap: '0in', rowGap: '0in',
-    qrPx: 44, previewH: 'h-9', previewQr: 28, mode: 'brother', group: 'Brother QL-810W',
+    name: 'Brother DK-1209', desc: '1.1" × 2.4" small address',
+    w: '2.4in', h: '1.125in', cols: 1, perSheet: 1,
+    pageMarginV: '0.06in', pageMarginH: '0.06in', colGap: '0in', rowGap: '0in',
+    qrPx: 64, previewH: 'h-10', previewQr: 42, mode: 'brother', group: 'Brother QL-810W',
   },
 };
 
