@@ -945,27 +945,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
     }
   };
 
-  const handlePrintPicklist = async () => {
-    if (selectedOrders.size === 0) return;
-    try {
-      const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
-      const freshItems: PicklistBinItem[] = freshBins.flatMap(b => b.items);
-      const items = freshItems
-        .filter(item => selectedOrders.has(item.orderId))
-        .sort((a, b) => {
-          const pk = (a.partNumber || a.sku || '').localeCompare(b.partNumber || b.sku || '', undefined, { numeric: true });
-          if (pk !== 0) return pk;
-          const ck = (a.condition || '').localeCompare(b.condition || '');
-          if (ck !== 0) return ck;
-          return (a.colorName || '').localeCompare(b.colorName || '');
-        });
-      printPicklist(items.map(item => ({ ...item, comment: item.comment })));
-    } catch (error) {
-      console.error('Error fetching picklist data:', error);
-      toast({ title: "Error", description: "Failed to generate picklist. Please try again.", variant: "destructive" });
-    }
-  };
-
   const handlePrintLotLabels = async () => {
     if (selectedOrders.size === 0) return;
     try {
@@ -1586,17 +1565,6 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
           <div className="flex items-center gap-1.5 px-2 py-2 bg-gray-900/60 border-b border-gray-700/40 overflow-x-auto scrollbar-hide">
             {/* Picking group */}
             <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-600 shrink-0">Picking</span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={selectedOrders.size === 0}
-              onClick={handlePrintPicklist}
-              className="text-xs whitespace-nowrap shrink-0"
-              data-testid="button-print-picklist"
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Sheet
-            </Button>
             <Button
               size="sm"
               variant="outline"
