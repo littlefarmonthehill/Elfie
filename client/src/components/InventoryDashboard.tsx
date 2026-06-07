@@ -91,6 +91,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const showBundleTron = useFeature('inv_bundletron');
   const showAcquisition = useFeature('inv_acquisition');
   const showListOMatic = useFeature('inv_list_o_matic');
+  const showCargoBay = useFeature('inv_cargo_bay');
   // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
   // users still get the feature but see no badge.
   const { superAdmin } = useAuth();
@@ -632,6 +633,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             />
             )}
 
+            {showCargoBay && (
             <StationTool
               icon={Warehouse}
               label="Cargo Bay"
@@ -639,8 +641,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               glowRgb="16,185,129"
               isCompact={isCompact}
               onClick={() => onDrawerChange('warehouse')}
+              stage={tagStage('inv_cargo_bay')}
               testId="tool-cargo-bay"
             />
+            )}
 
           </div>
           )}

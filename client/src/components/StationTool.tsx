@@ -31,7 +31,7 @@ export function StationTool({
     <button
       onClick={onClick}
       data-testid={testId}
-      className="group flex items-center gap-2.5 w-full active-elevate-2 transition-all rounded-sm px-2.5 py-2"
+      className="group relative flex items-center gap-2.5 w-full active-elevate-2 transition-all rounded-sm px-2.5 py-2"
       style={{
         background: 'rgba(0,0,0,0.18)',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -58,9 +58,13 @@ export function StationTool({
         />
       </div>
 
-      {/* Label — wraps instead of truncating so the badge never clips it */}
+      {/* Label — keeps its natural flow; reserves a small right gutter only when
+          a stage badge is present so the badge never squishes or clips it. */}
       <span
-        className="flex-1 min-w-0 font-mono uppercase tracking-widest leading-tight"
+        className={cn(
+          "flex-1 min-w-0 font-mono uppercase tracking-widest leading-tight",
+          stage && "pr-11",
+        )}
         style={{
           fontSize: '10px',
           color: `color-mix(in srgb, ${hex} 55%, #8fa3bf)`,
@@ -70,7 +74,9 @@ export function StationTool({
         {label}
       </span>
 
-      {stage && <StageTag stage={stage} className="self-center" />}
+      {/* Maturity badge — absolutely positioned in the top-right corner so it
+          overlays the button without pushing, shrinking, or wrapping the label. */}
+      {stage && <StageTag stage={stage} className="absolute top-1 right-1.5" />}
     </button>
   );
 }
