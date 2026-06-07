@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ, Warehouse, Layers, Box } from "lucide-react";
 import { printPicklist, shortCode } from "./PackingSlip";
 import PartImage from "./PartImage";
+import { useFeatures } from "@/hooks/use-feature";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -229,11 +230,20 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
     if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
   }, []);
 
-  const { data: warehouseSettings } = useQuery<{ depth: number }>({
+  const { data: warehouseSettings, isLoading: warehouseLoading } = useQuery<{ depth: number }>({
     queryKey: ['/api/warehouse/settings'],
   });
   const warehouseDepth = warehouseSettings?.depth ?? 0;
-  const viewMode: ViewMode = warehouseDepth >= 1 ? 'by_bin' : 'by_part';
+  // Bin locations only appear on the picklist when the Cargo Bay (warehouse)
+  // feature is enabled AND a warehouse depth is configured. Turning Cargo Bay
+  // off forces the plain "by part" list without touching any saved depth or
+  // bin data, so turning it back on restores locations exactly as before.
+  // Read both inputs from their queries and wait for them to settle (see the
+  // loading gate below) so the view mode is resolved once rather than flipping
+  // from by-part to by-bin as each query resolves.
+  const { visible: visibleFeatures, isLoading: featuresLoading } = useFeatures();
+  const cargoBayEnabled = visibleFeatures.includes('inv_cargo_bay');
+  const viewMode: ViewMode = cargoBayEnabled && warehouseDepth >= 1 ? 'by_bin' : 'by_part';
 
   const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
@@ -426,7 +436,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
     sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a)
   );
 
-  if (isLoading) {
+  if (isLoading || featuresLoading || warehouseLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
