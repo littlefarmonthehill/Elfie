@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   X, Camera, CameraOff, ScanLine, Package, Archive,
-  CheckCircle2, AlertCircle, Loader2, RotateCcw, Undo2,
+  CheckCircle2, AlertCircle, AlertTriangle, Loader2, RotateCcw, Undo2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
@@ -63,7 +63,10 @@ interface FeedEntry {
   id: string;
   code: string;
   ts: Date;
-  status: "ok" | "err" | "busy";
+  // "ok" = filed into the correct/expected bin (green)
+  // "new" = filed into a new bin association after override (orange)
+  // "warn" = wrong bin scanned; awaiting a second scan to confirm (orange)
+  status: "ok" | "new" | "warn" | "err" | "busy";
   message: string;
   undo?: UndoMeta;
   undone?: boolean;
@@ -115,6 +118,22 @@ function suggestBinLabel(s: NonNullable<ResolvedLot["suggestedBin"]>): string {
   return [s.aisleName, s.shelfName, s.name].filter(Boolean).join(" › ");
 }
 
+// The bin(s) a lot is "expected" to go in: its current home(s) if already
+// filed, otherwise the suggested bin. Empty = no expectation, so any bin is
+// accepted as a correct first-time filing.
+function expectedBinIds(lot: ResolvedLot): number[] {
+  if (lot.locations.length > 0) return lot.locations.map(l => l.binId);
+  if (lot.suggestedBin) return [lot.suggestedBin.id];
+  return [];
+}
+
+// Human-readable description of where a lot is expected to go.
+function expectedBinLabel(lot: ResolvedLot): string {
+  if (lot.locations.length > 0) return lot.locations.map(l => l.binName ?? "?").join(", ");
+  if (lot.suggestedBin) return suggestBinLabel(lot.suggestedBin);
+  return "a bin";
+}
+
 const UNDO_WINDOW_MS = 60_000;
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -126,6 +145,9 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const [mode, setMode] = useState<ScanMode>("bin-first");
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
+  // A "wrong" bin scanned for the active lot, awaiting a confirming second scan
+  // to override the expected bin and file into this new one instead.
+  const [pendingBin, setPendingBin] = useState<ResolvedBin | null>(null);
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [inputVal, setInputVal] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -190,55 +212,87 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     return id;
   }, []);
 
+  // Update an existing feed entry in place (e.g. turn a "Resolving…" busy entry
+  // into its final ok/new/warn/err result instead of leaving a stuck spinner).
+  const updateFeed = useCallback((id: string, patch: Partial<FeedEntry>) => {
+    setFeed(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)));
+  }, []);
+
   const processCode = useCallback(async (raw: string) => {
     const code = raw.trim();
     if (!code || processingRef.current) return;
     processingRef.current = true;
 
-    addFeed({ code, status: "busy", message: "Resolving…" });
+    const feedId = addFeed({ code, status: "busy", message: "Resolving…" });
 
     let resolved: Resolved;
     try {
       const res = await fetch(`/api/warehouse/scan/resolve?code=${encodeURIComponent(code)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        addFeed({ code, status: "err", message: err.error ?? "Not found" });
+        updateFeed(feedId, { status: "err", message: err.error ?? "Not found" });
         processingRef.current = false;
         return;
       }
       resolved = await res.json();
     } catch {
-      addFeed({ code, status: "err", message: "Network error" });
+      updateFeed(feedId, { status: "err", message: "Network error" });
       processingRef.current = false;
       return;
     }
+
+    // File a lot into a bin and resolve the busy feed entry to its result.
+    // tone "ok" = correct/expected bin (green); "new" = override bin (orange).
+    const fileLot = async (
+      lot: ResolvedLot,
+      bin: ResolvedBin,
+      tone: "ok" | "new",
+    ): Promise<boolean> => {
+      const priorRtf = lot.rtfBin;
+      const priorLoc = lotLocationStr(lot);
+      try {
+        const result: any = await assignMutation.mutateAsync({ inventoryId: lot.id, binId: bin.id });
+        const undoMeta: UndoMeta | undefined = result?.id
+          ? { locationId: result.id, restoreRtfBin: priorRtf }
+          : undefined;
+        updateFeed(feedId, {
+          status: tone,
+          message: `${lotLabel(lot)} — ${priorLoc} → ${binFullLabel(bin)}`,
+          undo: undoMeta,
+        });
+        return true;
+      } catch {
+        updateFeed(feedId, { status: "err", message: "Assignment failed" });
+        return false;
+      }
+    };
 
     // ── BIN scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "bin") {
       if (mode === "bin-first") {
         setActiveBin(resolved);
-        addFeed({ code, status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
+        updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
+      } else if (!activeLot) {
+        updateFeed(feedId, { status: "err", message: "Scan a lot first" });
       } else {
-        if (!activeLot) {
-          addFeed({ code, status: "err", message: "Scan a lot first" });
+        const expected = expectedBinIds(activeLot);
+        const isExpected = expected.length === 0 || expected.includes(resolved.id);
+        if (isExpected) {
+          // Correct bin (or no expectation) — file straight away, even if a
+          // wrong bin was pending from a prior scan.
+          setPendingBin(null);
+          if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
+        } else if (pendingBin && pendingBin.id === resolved.id) {
+          // Second consecutive scan of the same wrong bin → confirm override.
+          setPendingBin(null);
+          if (await fileLot(activeLot, resolved, "new")) setActiveLot(null);
         } else {
-          const priorRtf = activeLot.rtfBin;
-          const priorLoc = lotLocationStr(activeLot);
-          try {
-            const result: any = await assignMutation.mutateAsync({ inventoryId: activeLot.id, binId: resolved.id });
-            const undoMeta: UndoMeta | undefined = result?.id
-              ? { locationId: result.id, restoreRtfBin: priorRtf }
-              : undefined;
-            addFeed({
-              code,
-              status: "ok",
-              message: `${lotLabel(activeLot)} — ${priorLoc} → ${binFullLabel(resolved)}`,
-              undo: undoMeta,
-            });
-            setActiveLot(null);
-          } catch {
-            addFeed({ code, status: "err", message: "Assignment failed" });
-          }
+          // First scan of a wrong bin → warn and wait for a confirming rescan.
+          setPendingBin(resolved);
+          updateFeed(feedId, {
+            status: "warn",
+            message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan ${binFullLabel(resolved)} again to file it here, or scan the correct bin.`,
+          });
         }
       }
     }
@@ -249,34 +303,22 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         if (activeLot && activeLot.id !== resolved.id) {
           addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
         }
+        // New active lot clears any pending wrong-bin confirmation.
+        setPendingBin(null);
         setActiveLot(resolved);
-        addFeed({ code, status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
+        updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
+      } else if (!activeBin) {
+        updateFeed(feedId, { status: "err", message: "Scan a bin first" });
       } else {
-        if (!activeBin) {
-          addFeed({ code, status: "err", message: "Scan a bin first" });
-        } else {
-          const priorRtf = resolved.rtfBin;
-          const priorLoc = lotLocationStr(resolved);
-          try {
-            const result: any = await assignMutation.mutateAsync({ inventoryId: resolved.id, binId: activeBin.id });
-            const undoMeta: UndoMeta | undefined = result?.id
-              ? { locationId: result.id, restoreRtfBin: priorRtf }
-              : undefined;
-            addFeed({
-              code,
-              status: "ok",
-              message: `${lotLabel(resolved)} — ${priorLoc} → ${binFullLabel(activeBin)}`,
-              undo: undoMeta,
-            });
-          } catch {
-            addFeed({ code, status: "err", message: "Assignment failed" });
-          }
-        }
+        const expected = expectedBinIds(resolved);
+        const tone: "ok" | "new" =
+          expected.length === 0 || expected.includes(activeBin.id) ? "ok" : "new";
+        await fileLot(resolved, activeBin, tone);
       }
     }
 
     processingRef.current = false;
-  }, [mode, activeBin, activeLot, addFeed, assignMutation]);
+  }, [mode, activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation]);
 
   const undoEntry = useCallback(async (entryId: string) => {
     setFeed(prev => prev.map(e => e.id === entryId && e.undo
@@ -377,6 +419,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     setMode(m);
     setActiveBin(null);
     setActiveLot(null);
+    setPendingBin(null);
     inputRef.current?.focus();
   };
 
@@ -478,13 +521,30 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               )}
             </div>
             {activeLot && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveLot(null)} data-testid="button-clear-active-lot">
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { setActiveLot(null); setPendingBin(null); }} data-testid="button-clear-active-lot">
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
         )}
       </div>
+
+      {/* Wrong-bin warning (lot-first): require a confirming rescan to override */}
+      {mode === "lot-first" && activeLot && pendingBin && (
+        <div className="px-4 mb-3 shrink-0">
+          <div className="rounded-md border border-orange-500/40 bg-orange-500/10 p-3 flex items-start gap-2.5" data-testid="warning-wrong-bin">
+            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 text-xs">
+              <p className="font-semibold text-orange-500">Wrong bin</p>
+              <p className="text-muted-foreground mt-0.5">
+                {lotLabel(activeLot)} is expected in{" "}
+                <span className="font-semibold">{expectedBinLabel(activeLot)}</span>. Scan{" "}
+                <span className="font-semibold">{binFullLabel(pendingBin)}</span> again to file it here anyway, or scan the correct bin.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Camera or input */}
       <div className="px-4 mb-3 shrink-0 space-y-2">
@@ -567,10 +627,14 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               className={`flex items-start gap-2.5 rounded-md px-3 py-2 text-sm border
                 ${entry.undone ? "border-border/40 bg-muted/10 opacity-60" :
                   entry.status === "ok" ? "border-green-500/20 bg-green-500/5" :
+                  entry.status === "new" ? "border-orange-500/30 bg-orange-500/10" :
+                  entry.status === "warn" ? "border-orange-500/40 bg-orange-500/10" :
                   entry.status === "err" ? "border-destructive/20 bg-destructive/5" :
                   "border-border/60 bg-muted/20"}`}
             >
               {entry.status === "ok" && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />}
+              {entry.status === "new" && <CheckCircle2 className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />}
+              {entry.status === "warn" && <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />}
               {entry.status === "err" && <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />}
               {entry.status === "busy" && <Loader2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 animate-spin" />}
               <div className="flex-1 min-w-0">
