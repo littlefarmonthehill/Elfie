@@ -615,7 +615,8 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 function BetaDemoCard() {
   const enabled = useFeature('beta_demo');
   // Beta badge is super-admin-only; opted-in regular users see the card but no badge.
-  const { superAdmin } = useAuth();
+  // Use actualSuperAdmin so the badge still shows while previewing as a regular user.
+  const { actualSuperAdmin } = useAuth();
   const stageDemo = useFeatureStage('beta_demo');
   const { data, isLoading } = useQuery<{ message: string; generatedAt: string }>({
     queryKey: ['/api/features/example-insight'],
@@ -627,7 +628,7 @@ function BetaDemoCard() {
       <div className="flex items-center gap-2 mb-1 flex-wrap">
         <Sparkles className="w-4 h-4 text-amber-400" />
         <span className="text-sm font-medium text-amber-200">Beta Demo</span>
-        {superAdmin && (stageDemo === 'alpha' || stageDemo === 'beta') && <StageTag stage={stageDemo} />}
+        {actualSuperAdmin && (stageDemo === 'alpha' || stageDemo === 'beta') && <StageTag stage={stageDemo} />}
       </div>
       {isLoading ? (
         <p className="text-xs text-gray-400">Loading…</p>

@@ -320,10 +320,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   const showOperations = useFeature('sales_operations');
   const showTopItems = useFeature('sales_top_items');
   // Beta badges are super-admin-only; opted-in regular users see the feature
-  // but no badge.
-  const { superAdmin } = useAuth();
+  // but no badge. Use actualSuperAdmin so the badge still shows while previewing
+  // as a regular user (effective superAdmin is false in preview mode).
+  const { actualSuperAdmin } = useAuth();
   const { stages: featureStages } = useFeatures();
-  const tagStage = (k: string): Stage | undefined => (superAdmin ? featureStages[k] : undefined);
+  const tagStage = (k: string): Stage | undefined => (actualSuperAdmin ? featureStages[k] : undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
   const [panelTab, setPanelTab] = useState<'systems' | 'uplink'>(initialPanelTab ?? 'systems');
 

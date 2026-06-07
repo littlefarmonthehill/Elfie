@@ -268,7 +268,8 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
   // in (or the user is a super admin). See the Beta Features panel in Settings.
   const showStrategy = useFeature('insights_strategy');
   // Beta badge is super-admin-only; opted-in regular users see the lens but no badge.
-  const { superAdmin } = useAuth();
+  // Use actualSuperAdmin so the badge still shows while previewing as a regular user.
+  const { actualSuperAdmin } = useAuth();
   const stageStrategy = useFeatureStage('insights_strategy');
 
   // Clear any active strategy filter when the feature is hidden, so the
@@ -379,7 +380,7 @@ export default function InsightsDashboard({ onOpenSettings, compact }: InsightsD
         {/* Strategy filter cells */}
         {showStrategy && (
         <>
-        {superAdmin && (stageStrategy === 'alpha' || stageStrategy === 'beta') && (
+        {actualSuperAdmin && (stageStrategy === 'alpha' || stageStrategy === 'beta') && (
           <div className="flex items-center gap-1.5 mb-1.5">
             <StageTag stage={stageStrategy} />
             <span className="text-[9px] font-mono uppercase tracking-wide text-gray-500">Strategy Lens</span>

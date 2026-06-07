@@ -95,10 +95,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const showCargoBay = useFeature('inv_cargo_bay');
   // Beta badges are an at-a-glance, super-admin-only cue; opted-in regular
   // users still get the feature but see no badge.
-  const { superAdmin } = useAuth();
+  const { actualSuperAdmin } = useAuth();
   // Show the maturity badge (Alpha/Beta) to super admins on each gated launcher.
+  // Use actualSuperAdmin so the badge still shows while previewing as a regular
+  // user (effective superAdmin is false in preview mode).
   const { stages: featureStages } = useFeatures();
-  const tagStage = (k: string): Stage | undefined => (superAdmin ? featureStages[k] : undefined);
+  const tagStage = (k: string): Stage | undefined => (actualSuperAdmin ? featureStages[k] : undefined);
 
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
