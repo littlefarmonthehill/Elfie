@@ -100,21 +100,19 @@ export default function Header({ onSettingsClick, onElfieClick, onSearchClick, s
       {/* iOS Safe Area spacer */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
 
-      {/* Preview-mode banner — visible while a super admin views as a regular user */}
+      {/* Preview-mode banner — one thin row while a super admin views as a regular user */}
       {previewAsUser && (
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-amber-500 text-black text-xs font-semibold px-3 py-1" data-testid="banner-preview-mode">
-          <Eye className="h-3.5 w-3.5 shrink-0" />
-          <span>You're viewing E.L.F.I.E. as a regular user</span>
-          <Button
-            size="sm"
-            variant="outline"
+        <div className="flex items-center justify-center gap-2 bg-amber-500/90 text-black text-[11px] leading-none px-3 py-0.5" data-testid="banner-preview-mode">
+          <Eye className="h-3 w-3 shrink-0" />
+          <span className="truncate">Viewing as a regular user</span>
+          <button
             onClick={() => previewMutation.mutate(false)}
             disabled={previewMutation.isPending}
             data-testid="button-exit-preview"
-            className="bg-black/10 border-black/30 text-black"
+            className="shrink-0 font-semibold underline underline-offset-2 hover-elevate rounded-sm px-1 py-0.5"
           >
-            Back to admin view
-          </Button>
+            Back to admin
+          </button>
         </div>
       )}
       
