@@ -1322,6 +1322,7 @@ router.get("/platform-admin/feature-gates", isSuperAdmin, asyncRoute(async (_req
     key,
     title: def.title,
     description: def.description,
+    group: def.group,
     stage: dbByKey.get(key) ?? def.stage,
     isOverridden: dbByKey.has(key),
   }));

@@ -1130,7 +1130,7 @@ function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const { data: voteCounts } = useQuery<Record<number, number>>({ queryKey: ['/api/feature-votes/counts'] });
-  const { data: featureGates } = useQuery<{ key: string; title: string; description: string; stage: string; isOverridden: boolean }[]>({ queryKey: ['/api/platform-admin/feature-gates'] });
+  const { data: featureGates } = useQuery<{ key: string; title: string; description: string; group: string; stage: string; isOverridden: boolean }[]>({ queryKey: ['/api/platform-admin/feature-gates'] });
   const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'testing' | 'later'>('all');
   const [stageFilter, setStageFilter] = useState<'all' | 'alpha' | 'beta' | 'released'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
@@ -1257,27 +1257,46 @@ function ProductRoadmapPanel() {
           {(!featureGates || featureGates.length === 0) ? (
             <p className="text-xs text-gray-500 italic">No gated features yet.</p>
           ) : (
-            <div className="rounded-md border border-gray-700 bg-gray-800/50 p-3 space-y-1" data-testid="panel-feature-visibility">
-              {(featureGates || []).filter(g => stageFilter === 'all' || g.stage === stageFilter).map(g => (
-                <div key={g.key} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`feature-gate-${g.key}`}>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-200 break-words">{g.title}</p>
-                    <p className="text-[10px] text-gray-500 break-words">{g.description}</p>
-                    <p className="text-[9px] text-gray-600 font-mono mt-0.5">code: {g.key}</p>
+            <div className="space-y-4" data-testid="panel-feature-visibility">
+              {(() => {
+                // Group gated features by dashboard, preserving first-seen order.
+                const filtered = (featureGates || []).filter(g => stageFilter === 'all' || g.stage === stageFilter);
+                const groups: { name: string; items: typeof filtered }[] = [];
+                for (const g of filtered) {
+                  const name = g.group || 'Other';
+                  let grp = groups.find(x => x.name === name);
+                  if (!grp) { grp = { name, items: [] }; groups.push(grp); }
+                  grp.items.push(g);
+                }
+                if (groups.length === 0) return <p className="text-xs text-gray-500 italic">No features match this stage.</p>;
+                return groups.map(grp => (
+                  <div key={grp.name} className="space-y-1.5" data-testid={`feature-gate-group-${grp.name}`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{grp.name}</p>
+                    <div className="rounded-md border border-gray-700 bg-gray-800/50 p-3 space-y-1">
+                      {grp.items.map(g => (
+                        <div key={g.key} className="flex items-start justify-between gap-3 py-1.5 border-b border-white/5 last:border-b-0" data-testid={`feature-gate-${g.key}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-200 break-words">{g.title}</p>
+                            <p className="text-[10px] text-gray-500 break-words">{g.description}</p>
+                            <p className="text-[9px] text-gray-600 font-mono mt-0.5">code: {g.key}</p>
+                          </div>
+                          <InlineDropdown
+                            value={g.stage}
+                            options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
+                            onChange={val => { if (val !== g.stage) setGateStage(g.key, val); }}
+                            className={
+                              g.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                              : g.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
+                              : 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                            }
+                            testId={`select-feature-gate-${g.key}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <InlineDropdown
-                    value={g.stage}
-                    options={[{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'released', label: 'Released' }]}
-                    onChange={val => { if (val !== g.stage) setGateStage(g.key, val); }}
-                    className={
-                      g.stage === 'released' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-                      : g.stage === 'beta' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10'
-                      : 'text-amber-300 border-amber-500/30 bg-amber-500/10'
-                    }
-                    testId={`select-feature-gate-${g.key}`}
-                  />
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
         </div>
