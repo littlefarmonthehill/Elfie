@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PackageOpen, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, Rocket, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 import { printPackingSlips, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
@@ -1591,7 +1591,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer"
               >
-                <PackageOpen className="w-3 h-3" />
+                <Rocket className="w-3 h-3 rotate-45" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
@@ -1663,7 +1663,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer-shipping"
               >
-                <PackageOpen className="w-3 h-3" />
+                <Rocket className="w-3 h-3 rotate-45" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
