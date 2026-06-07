@@ -46,6 +46,8 @@ export const FEATURE_GATE_DEFAULTS: Record<string, { stage: Stage; title: string
  * Fast path uses the session flag; falls back to a DB lookup if the session is stale.
  */
 async function resolveSuperAdmin(req: any): Promise<boolean> {
+  // Preview mode: super admin is "viewing as a regular user" — suppress access.
+  if (req?.session?.previewAsUser) return false;
   const sessionUser = req?.user as any;
   if (sessionUser?.superAdmin === true) return true;
   try {

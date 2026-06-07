@@ -19,6 +19,9 @@ declare module 'express-session' {
   interface SessionData {
     impersonatingOrgId?: string;
     impersonatingOrgName?: string;
+    // When a super admin enables "view as regular user", their elevated access
+    // is suppressed for the session until they switch back.
+    previewAsUser?: boolean;
   }
 }
 
@@ -523,6 +526,12 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   }
   const sessionUser = req.user as any;
   console.log('[isSuperAdmin] user:', sessionUser?.id, 'superAdmin:', sessionUser?.superAdmin, 'path:', (req as any).path);
+  // Preview mode: a super admin viewing as a regular user has elevated access
+  // suppressed, so platform-only routes behave exactly as they would for a
+  // normal user.
+  if (req.session?.previewAsUser) {
+    return res.status(403).json({ message: "Super admin access required" });
+  }
   // Fast path: session already has superAdmin flag
   if (sessionUser?.superAdmin === true) {
     return next();

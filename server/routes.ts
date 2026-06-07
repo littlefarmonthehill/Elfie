@@ -494,10 +494,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const freshUser = await storage.getUser(userId);
       if (!freshUser) return res.status(401).json({ message: "User not found" });
       const { password: _pw, ...safeUser } = freshUser as any;
-      res.json(safeUser);
+      // "View as regular user" preview: report the EFFECTIVE super-admin status
+      // (false while previewing) so every existing client gate reflects it
+      // automatically, while still exposing the real flag so the toggle/banner
+      // can be shown and switched back.
+      const previewAsUser = !!req.session?.previewAsUser;
+      const actualSuperAdmin = !!safeUser.superAdmin;
+      res.json({
+        ...safeUser,
+        superAdmin: previewAsUser ? false : actualSuperAdmin,
+        actualSuperAdmin,
+        previewAsUser,
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // POST /api/auth/preview-mode — super admins toggle "view as regular user".
+  // Only the real super-admin flag (from the DB) may enable/disable this, so a
+  // previewing admin can always switch back even though their session reports
+  // them as a normal user.
+  app.post('/api/auth/preview-mode', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const dbUser = userId ? await storage.getUser(userId) : null;
+      if (!dbUser?.superAdmin) return res.status(403).json({ message: "Super admin access required" });
+      const enabled = req.body?.enabled === true;
+      req.session.previewAsUser = enabled;
+      req.session.save((err: any) => {
+        if (err) {
+          console.error("Error saving preview mode:", err);
+          return res.status(500).json({ message: "Failed to update preview mode" });
+        }
+        res.json({ previewAsUser: enabled });
+      });
+    } catch (error) {
+      console.error("Error setting preview mode:", error);
+      res.status(500).json({ message: "Failed to update preview mode" });
     }
   });
 

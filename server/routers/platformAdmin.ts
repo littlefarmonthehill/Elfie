@@ -174,7 +174,9 @@ router.get("/admin/mappings/sku-links", isAuthenticated, asyncRoute(async (req: 
 router.get("/admin/organizations/:id/limits", isAuthenticated, asyncRoute(async (req, res) => {
   const { id } = req.params;
   const user = req.user as any;
-  if (user.orgId !== id && !user.superAdmin) return res.status(403).json({ message: "Forbidden" });
+  // Preview mode: a super admin "viewing as a regular user" loses cross-org access.
+  const effectiveSuperAdmin = user.superAdmin && !req.session?.previewAsUser;
+  if (user.orgId !== id && !effectiveSuperAdmin) return res.status(403).json({ message: "Forbidden" });
   const orgWithLimits = await getOrgWithLimits(id);
   if (!orgWithLimits) return res.status(404).json({ message: "Organization not found" });
   const [seatCheck, automationCheck, brickspotterCheck] = await Promise.all([checkSeatLimit(id), checkAutomationLimit(id), checkBrickspotterLimit(id)]);

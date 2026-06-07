@@ -14,6 +14,11 @@ export function useAuth() {
     isAuthenticated: !!user,
     isApproved: user?.isApproved ?? false,
     isAdmin: user?.role === 'admin' || user?.role === 'employee',
+    // Effective super-admin: the server already reports this as false while a
+    // super admin is "viewing as a regular user", so all existing gates follow.
     superAdmin: user?.superAdmin ?? false,
+    // The real super-admin flag, used only to show the preview toggle/banner.
+    actualSuperAdmin: (user as any)?.actualSuperAdmin ?? user?.superAdmin ?? false,
+    previewAsUser: (user as any)?.previewAsUser ?? false,
   };
 }

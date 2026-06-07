@@ -2,4 +2,5 @@
 - [Multi-tenant scoping](multi-tenant-scoping.md) — GET-by-id routes must scope by orgId (real IDOR existed on order-shipping); `isApproved` is not tenant isolation; validate numeric body params before vendor APIs.
 - [Feature gating env drift](feature-gating-env-drift.md) — deployed DB ≠ dev DB; gates need code-level FEATURE_GATE_DEFAULTS or unseeded prod DB hides all gated UI; verify prod via /api/features in deployment logs.
 - [Migration idempotency guards](migration-idempotency-guards.md) — guard one-time startup migrations on the data/column they consume, not a sentinel table that may be cleaned up; a thrown phase halts the whole chain & drives destructive publish diffs.
+- [Super-admin gating scattered](superadmin-gating-scattered.md) — super-admin access enforced in many spots (middleware, feature-gate, direct route checks); session suppression (preview/impersonation) must touch all or it leaks cross-org.
 - [Date/time display](datetime-display.md) — render in ORG tz via useOrgTimezone()+formatDate/Time/DateTime (utils.ts), show zone abbr on times; API field `timezone` vs DB col `orgTimezone`; date-only YYYY-MM-DD must format in UTC or the day shifts.

@@ -613,7 +613,7 @@ router.post("/chat", isApproved, asyncRoute(async (req: any, res) => {
   
   // Get API key from settings
   const orgId = reqOrgId(req);
-  const isSuperAdminUser = (req.user as any)?.superAdmin === true;
+  const isSuperAdminUser = (req.user as any)?.superAdmin === true && !req.session?.previewAsUser;
   const settings = await getOrgSettings(orgId);
 
   if (!settings?.aiEnabled) {

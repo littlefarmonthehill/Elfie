@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Settings, LogOut, Search } from "lucide-react";
+import { Settings, LogOut, Search, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { Organization } from "@shared/schema";
 
@@ -16,11 +16,17 @@ interface HeaderProps {
 }
 
 export default function Header({ onSettingsClick, onElfieClick, onSearchClick, supportNotification, hideSettings }: HeaderProps) {
-  const { superAdmin } = useAuth();
+  const { superAdmin, actualSuperAdmin, previewAsUser, user } = useAuth();
+  const hasOrg = !!(user as any)?.orgId;
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
     onSuccess: () => { window.location.href = '/'; },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (enabled: boolean) => apiRequest('POST', '/api/auth/preview-mode', { enabled }),
+    onSuccess: () => { queryClient.invalidateQueries(); },
   });
 
   const { data: supportQueueCount } = useQuery<{ count: number }>({
@@ -93,6 +99,24 @@ export default function Header({ onSettingsClick, onElfieClick, onSearchClick, s
     <header className="border-b border-gray-800 bg-gradient-to-r from-blue-950 to-black relative">
       {/* iOS Safe Area spacer */}
       <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
+
+      {/* Preview-mode banner — visible while a super admin views as a regular user */}
+      {previewAsUser && (
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-amber-500 text-black text-xs font-semibold px-3 py-1" data-testid="banner-preview-mode">
+          <Eye className="h-3.5 w-3.5 shrink-0" />
+          <span>You're viewing E.L.F.I.E. as a regular user</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => previewMutation.mutate(false)}
+            disabled={previewMutation.isPending}
+            data-testid="button-exit-preview"
+            className="bg-black/10 border-black/30 text-black"
+          >
+            Back to admin view
+          </Button>
+        </div>
+      )}
       
       {/* Header content */}
       <div className="h-12 md:h-14 lg:h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 relative">
@@ -150,6 +174,18 @@ export default function Header({ onSettingsClick, onElfieClick, onSearchClick, s
 
         {/* Settings / Sign-out - Right */}
         <div className="flex items-center gap-1">
+          {actualSuperAdmin && hasOrg && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => previewMutation.mutate(!previewAsUser)}
+              disabled={previewMutation.isPending}
+              data-testid="button-preview-as-user"
+              title={previewAsUser ? 'Return to super admin view' : 'View as a regular user'}
+            >
+              {previewAsUser ? <EyeOff className="h-4 w-4 text-amber-400" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          )}
           {hideSettings ? (
             <Button
               size="icon"
