@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PackageOpen, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 import { printPackingSlips, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
@@ -1560,10 +1560,10 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={selectedOrders.size === 0}
                 onClick={handlePrintLotLabels}
-                className="text-xs whitespace-nowrap shrink-0 border-amber-500/30 bg-amber-500/10 text-amber-300"
+                className="text-[11px] whitespace-nowrap shrink-0 border-amber-500/30 bg-amber-500/10 text-amber-300"
                 data-testid="button-print-lot-labels"
               >
-                <Tag className="w-3.5 h-3.5" />
+                <Tag className="w-3 h-3" />
                 Labels
               </Button>
               {/* Separator */}
@@ -1574,24 +1574,24 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={selectedOrders.size === 0}
                 onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                className="text-xs whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
+                className="text-[11px] whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
                 data-testid="button-print-packing-slips"
               >
-                <Printer className="w-3.5 h-3.5" />
+                <Printer className="w-3 h-3" />
                 Packing Slips
               </Button>
             </div>
             {/* Pinned right: orders panel toggle */}
-            <div className="flex items-center shrink-0 border-l border-gray-700/60 px-2 py-2">
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 px-2 py-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setDrawerOpen(true)}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-[11px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300"
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer"
               >
-                <PanelRight className="w-3.5 h-3.5" />
+                <PackageOpen className="w-3.5 h-3.5" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
@@ -1609,12 +1609,12 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={shippableCount === 0 || isShippingAll}
                 onClick={() => setShowShipConfirmDialog(true)}
-                className="text-xs whitespace-nowrap shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                className="text-[11px] whitespace-nowrap shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                 data-testid="button-ship-all"
               >
                 {isShippingAll
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Shipping...</>
-                  : <><Truck className="w-3.5 h-3.5" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
+                  ? <><Loader2 className="w-3 h-3 animate-spin" />Shipping...</>
+                  : <><Truck className="w-3 h-3" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
                 }
               </Button>
               <Button
@@ -1622,14 +1622,14 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
                 variant="outline"
                 disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
                 onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
-                className="text-xs whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
+                className="text-[11px] whitespace-nowrap shrink-0 border-sky-500/30 bg-sky-500/10 text-sky-300"
                 data-testid="button-end-of-day-scan"
               >
                 {scanFormMutation.isPending
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Generating...</>
+                  ? <><Loader2 className="w-3 h-3 animate-spin" />Generating...</>
                   : scanFormUrl
-                    ? <><ExternalLink className="w-3.5 h-3.5" />Reopen EOD</>
-                    : <><ScanLine className="w-3.5 h-3.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
+                    ? <><ExternalLink className="w-3 h-3" />Reopen EOD</>
+                    : <><ScanLine className="w-3 h-3" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
                 }
               </Button>
               {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
@@ -1654,16 +1654,16 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
               )}
             </div>
             {/* Pinned right: orders panel toggle */}
-            <div className="flex items-center shrink-0 border-l border-gray-700/60 px-2 py-2">
+            <div className="flex items-center shrink-0 border-l border-gray-700/60 bg-gray-900 px-2 py-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setDrawerOpen(true)}
-                className="text-xs whitespace-nowrap shrink-0"
+                className="text-[11px] whitespace-nowrap shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-300"
                 title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
                 data-testid="button-open-orders-drawer-shipping"
               >
-                <PanelRight className="w-3.5 h-3.5" />
+                <PackageOpen className="w-3.5 h-3.5" />
                 {sortedOrders.length > 0 && (
                   <span className="tabular-nums">{selectedOrders.size}/{sortedOrders.length}</span>
                 )}
