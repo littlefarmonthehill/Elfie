@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X,
   Search, Plus, Printer, Loader2, Package, Calendar, RefreshCw,
-  Sparkles, ArrowLeft,
+  Sparkles, ArrowLeft, MapPin, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +133,51 @@ function conditionLabel(newOrUsed: string | null) {
   if (newOrUsed === 'N') return 'New';
   if (newOrUsed === 'U') return 'Used';
   return null;
+}
+
+// A lot's locationLabel aggregates every permanent (non-filing-queue) bin it
+// sits in, joined by " | " (e.g. "A / 1 / 24 | B / 2 / 5"). Split it back into
+// individual bin paths so we can count how many distinct bins a part+condition
+// spans across all its colors.
+function parseBins(locationLabel: string | null): string[] {
+  if (!locationLabel) return [];
+  return locationLabel.split('|').map(s => s.trim()).filter(Boolean);
+}
+
+// Group lot search results by part number + condition (New/Used). For each
+// group, pool the distinct permanent bins across all its color lots — when a
+// single part+condition lands in more than one bin it's flagged so a filer can
+// catch a color that was bagged into the wrong bin during consolidation.
+interface LotGroup {
+  key: string;
+  itemNo: string;
+  itemName: string | null;
+  newOrUsed: string | null;
+  lots: LotItem[];
+  bins: string[];
+  multiBin: boolean;
+}
+function groupLotsByPartCondition(lots: LotItem[]): LotGroup[] {
+  const map = new Map<string, LotGroup>();
+  const order: string[] = [];
+  for (const lot of lots) {
+    const key = `${lot.itemNo}|${lot.newOrUsed ?? ''}`;
+    let g = map.get(key);
+    if (!g) {
+      g = { key, itemNo: lot.itemNo, itemName: lot.itemName, newOrUsed: lot.newOrUsed, lots: [], bins: [], multiBin: false };
+      map.set(key, g);
+      order.push(key);
+    }
+    g.lots.push(lot);
+  }
+  for (const key of order) {
+    const g = map.get(key)!;
+    const set = new Set<string>();
+    for (const lot of g.lots) for (const b of parseBins(lot.locationLabel)) set.add(b);
+    g.bins = Array.from(set);
+    g.multiBin = g.bins.length > 1;
+  }
+  return order.map(k => map.get(k)!);
 }
 
 // ── Date-range labels sub-view (Smart Parts) ──────────────────────────────────
@@ -404,6 +449,9 @@ export default function ListomaticPriority() {
     enabled: lotsQueryEnabled,
     staleTime: 20_000,
   });
+
+  // Group results by part+condition so multi-bin combos can be flagged for QC.
+  const lotGroups = useMemo(() => groupLotsByPartCondition(lotResults), [lotResults]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const phaseScores = localPhaseScores ?? data?.phaseScores ?? { category: 25, subcategory: 50, finalsort: 75, listing: 100 };
@@ -709,65 +757,110 @@ export default function ListomaticPriority() {
                         {lotResults.length === 200 && <span className="text-muted-foreground/60"> (showing first 200)</span>}
                         {' '}— tap a row to queue, or use the printer icon to print now
                       </p>
-                      <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-52 overflow-y-auto">
-                        {lotResults.map((lot) => {
-                          const inQueue = lotQueue.some(l => l.id === lot.id);
-                          const cond = conditionLabel(lot.newOrUsed);
+                      <div className="rounded-md border border-border bg-muted/20 max-h-52 overflow-y-auto">
+                        {lotGroups.map((group) => {
+                          const cond = conditionLabel(group.newOrUsed);
+                          const testKey = `${group.itemNo}-${group.newOrUsed ?? 'NA'}`;
+                          // Most common filed bin in this group — anything else is an outlier worth a second look.
+                          const freq = new Map<string, number>();
+                          for (const l of group.lots) {
+                            const sig = parseBins(l.locationLabel).sort().join(', ');
+                            if (sig) freq.set(sig, (freq.get(sig) ?? 0) + 1);
+                          }
+                          let majoritySig = '';
+                          let maxN = 0;
+                          freq.forEach((n, s) => { if (n > maxN) { maxN = n; majoritySig = s; } });
                           return (
-                            <div
-                              key={lot.id}
-                              className="w-full flex items-center"
-                              data-testid={`lot-result-${lot.id}`}
-                            >
-                              <button
-                                onClick={() => addToQueue(lot)}
-                                disabled={inQueue}
-                                className={`flex-1 min-w-0 flex items-start gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
-                                data-testid={`button-queue-lot-${lot.id}`}
-                              >
-                                <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
-                                <div className="flex-1 min-w-0 space-y-0.5">
-                                  <div className="flex items-baseline gap-2 flex-wrap">
-                                    <span className="font-mono text-xs font-semibold text-foreground">{lot.itemNo}</span>
-                                    <span className="text-xs text-muted-foreground break-words">{lot.itemName || '—'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {lot.colorName && (
-                                      <span className="flex items-center gap-1">
-                                        {lot.colorRgb && (
-                                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                        )}
-                                        <span className="text-[10px] text-muted-foreground/70 break-words">{lot.colorName}</span>
-                                      </span>
-                                    )}
-                                    {cond && (
-                                      <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
-                                    )}
-                                    {lot.isFilingQueue && (
-                                      <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
-                                    )}
-                                    {!lot.assigned && !lot.isFilingQueue && (
-                                      <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1">Unassigned</span>
-                                    )}
-                                  </div>
-                                </div>
-                                {inQueue ? (
-                                  <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-500" />
-                                ) : (
-                                  <Plus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                            <div key={group.key} className="border-b border-border last:border-b-0" data-testid={`group-${testKey}`}>
+                              {/* Group header: part + condition + bin summary / multi-bin flag */}
+                              <div className={`flex items-center gap-2 flex-wrap px-3 py-1.5 border-b ${group.multiBin ? 'bg-orange-500/10 border-orange-500/30' : 'bg-muted/40 border-border'}`}>
+                                <span className="font-mono text-xs font-semibold text-foreground">{group.itemNo}</span>
+                                <span className="text-[11px] text-muted-foreground break-words min-w-0">{group.itemName || '—'}</span>
+                                {cond && (
+                                  <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${group.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
                                 )}
-                              </button>
-                              <div className="pr-1.5 shrink-0">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => quickPrint(lot)}
-                                  data-testid={`button-print-lot-${lot.id}`}
-                                  aria-label={`Print label for lot ${lot.itemNo}`}
-                                  title="Print this lot label now"
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                </Button>
+                                {group.multiBin ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-orange-300 break-words" data-testid={`flag-multibin-${testKey}`}>
+                                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                                    In {group.bins.length} bins: {group.bins.join(', ')} — check consolidation
+                                  </span>
+                                ) : group.bins.length === 1 ? (
+                                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    {group.bins[0]}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground/60">No filed bin yet</span>
+                                )}
+                              </div>
+                              {/* Color rows */}
+                              <div className="divide-y divide-border">
+                                {group.lots.map((lot) => {
+                                  const inQueue = lotQueue.some(l => l.id === lot.id);
+                                  const lotBins = parseBins(lot.locationLabel).sort();
+                                  const sig = lotBins.join(', ');
+                                  const isOutlier = group.multiBin && !!sig && sig !== majoritySig;
+                                  return (
+                                    <div
+                                      key={lot.id}
+                                      className="w-full flex items-center"
+                                      data-testid={`lot-result-${lot.id}`}
+                                    >
+                                      <button
+                                        onClick={() => addToQueue(lot)}
+                                        disabled={inQueue}
+                                        className={`flex-1 min-w-0 flex items-start gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
+                                        data-testid={`button-queue-lot-${lot.id}`}
+                                      >
+                                        <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                                        <div className="flex-1 min-w-0 space-y-0.5">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            {lot.colorRgb && (
+                                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                            )}
+                                            <span className="text-xs text-foreground break-words">{lot.colorName || '—'}</span>
+                                            {lot.isFilingQueue && (
+                                              <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
+                                            )}
+                                            {!lot.assigned && !lot.isFilingQueue && (
+                                              <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1">Unassigned</span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            {lotBins.length > 0 ? (
+                                              <span className={`flex items-center gap-1 text-[10px] ${isOutlier ? 'text-orange-300 font-semibold' : 'text-muted-foreground/70'}`} data-testid={`lot-bin-${lot.id}`}>
+                                                <MapPin className="h-3 w-3 shrink-0" />
+                                                {sig}
+                                              </span>
+                                            ) : (
+                                              <span className="text-[10px] text-muted-foreground/50">No filed bin</span>
+                                            )}
+                                            {isOutlier && (
+                                              <span className="text-[8px] font-semibold text-orange-300 bg-orange-500/10 border border-orange-500/30 rounded px-1">different bin</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {inQueue ? (
+                                          <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-500" />
+                                        ) : (
+                                          <Plus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
+                                        )}
+                                      </button>
+                                      <div className="pr-1.5 shrink-0">
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          onClick={() => quickPrint(lot)}
+                                          data-testid={`button-print-lot-${lot.id}`}
+                                          aria-label={`Print label for lot ${lot.itemNo}`}
+                                          title="Print this lot label now"
+                                        >
+                                          <Printer className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
