@@ -72,8 +72,6 @@ interface FeedEntry {
   undone?: boolean;
 }
 
-type ScanMode = "bin-first" | "lot-first";
-
 interface Props {
   onClose?: () => void;
   initialCode?: string;
@@ -142,7 +140,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const { toast } = useToast();
   const tz = useOrgTimezone();
   const { setActive } = useScanSession();
-  const [mode, setMode] = useState<ScanMode>("bin-first");
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
   // A "wrong" bin scanned for the active lot, awaiting a confirming second scan
@@ -267,14 +264,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       }
     };
 
+    // Workflow is auto-detected from what is already active:
+    //  • an active lot present → lot-first (scan a bin to file that lot)
+    //  • an active bin present → bin-first (scan lots to file into that bin)
+    //  • nothing active → the first scan sets the active context.
+
     // ── BIN scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "bin") {
-      if (mode === "bin-first") {
-        setActiveBin(resolved);
-        updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
-      } else if (!activeLot) {
-        updateFeed(feedId, { status: "err", message: "Scan a lot first" });
-      } else {
+      if (activeLot) {
+        // Lot-first: file the active lot into this bin.
         const expected = expectedBinIds(activeLot);
         const isExpected = expected.length === 0 || expected.includes(resolved.id);
         if (isExpected) {
@@ -294,31 +292,39 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
             message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan ${binFullLabel(resolved)} again to file it here, or scan the correct bin.`,
           });
         }
+      } else {
+        // Bin-first (or switching the active bin): set this bin active.
+        // Keep contexts mutually exclusive — a bin and a lot are never both active.
+        setActiveLot(null);
+        setPendingBin(null);
+        setActiveBin(resolved);
+        updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
       }
     }
 
     // ── LOT scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "lot") {
-      if (mode === "lot-first") {
-        if (activeLot && activeLot.id !== resolved.id) {
-          addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
-        }
-        // New active lot clears any pending wrong-bin confirmation.
-        setPendingBin(null);
-        setActiveLot(resolved);
-        updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
-      } else if (!activeBin) {
-        updateFeed(feedId, { status: "err", message: "Scan a bin first" });
-      } else {
+      if (activeBin) {
+        // Bin-first: file this lot into the active bin.
         const expected = expectedBinIds(resolved);
         const tone: "ok" | "new" =
           expected.length === 0 || expected.includes(activeBin.id) ? "ok" : "new";
         await fileLot(resolved, activeBin, tone);
+      } else {
+        // Lot-first (or switching the active lot): set this lot active.
+        if (activeLot && activeLot.id !== resolved.id) {
+          addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
+        }
+        // Keep contexts mutually exclusive and clear any pending wrong-bin confirmation.
+        setActiveBin(null);
+        setPendingBin(null);
+        setActiveLot(resolved);
+        updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
       }
     }
 
     processingRef.current = false;
-  }, [mode, activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation]);
+  }, [activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation]);
 
   const undoEntry = useCallback(async (entryId: string) => {
     setFeed(prev => prev.map(e => e.id === entryId && e.undo
@@ -337,13 +343,10 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
   }, [feed, unassignMutation, toast]);
 
-  // Auto-process a code passed in on mount (from global scanner).
-  // Mode is auto-detected from the first scan: BIN: → bin-first, LOT: → lot-first.
+  // Auto-process a code passed in on mount (from global scanner). The workflow
+  // is auto-detected from whether a bin or lot is scanned first.
   useEffect(() => {
     if (initialCode) {
-      const upper = initialCode.toUpperCase();
-      if (upper.startsWith("LOT:")) setMode("lot-first");
-      else if (upper.startsWith("BIN:")) setMode("bin-first");
       processCode(initialCode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -413,16 +416,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
   };
 
-  // ── Mode switch resets active context ────────────────────────────────────
-
-  const switchMode = (m: ScanMode) => {
-    setMode(m);
-    setActiveBin(null);
-    setActiveLot(null);
-    setPendingBin(null);
-    inputRef.current?.focus();
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const containerClass = embedded
@@ -434,7 +427,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
         <ScanLine className="h-5 w-5 text-yellow-400 shrink-0" />
-        <span className="font-semibold text-sm flex-1">{embedded ? "Scan to file" : "Scan Mode"}</span>
+        <span className="font-semibold text-sm flex-1">Scan to file</span>
         {!embedded && onClose && (
           <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-scan-close">
             <X className="h-4 w-4" />
@@ -442,95 +435,56 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         )}
       </div>
 
-      {/* Mode toggle */}
-      <div className="flex gap-2 px-4 pt-3 pb-2 shrink-0">
-        <button
-          onClick={() => switchMode("bin-first")}
-          data-testid="button-mode-bin-first"
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border transition-colors
-            ${mode === "bin-first"
-              ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-400"
-              : "border-border text-muted-foreground hover-elevate"}`}
-        >
-          <Archive className="h-4 w-4" />
-          Bin → Lots
-        </button>
-        <button
-          onClick={() => switchMode("lot-first")}
-          data-testid="button-mode-lot-first"
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border transition-colors
-            ${mode === "lot-first"
-              ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-400"
-              : "border-border text-muted-foreground hover-elevate"}`}
-        >
-          <Package className="h-4 w-4" />
-          Lot → Bin
-        </button>
-      </div>
-
-      <p className="px-4 text-[11px] text-muted-foreground mb-3 shrink-0">
-        {mode === "bin-first"
-          ? "Scan a bin label to set it as active, then scan lots to file them into that bin."
-          : "Scan a lot to identify it, then scan a bin label to move it there."}
+      <p className="px-4 pt-3 text-[11px] text-muted-foreground mb-3 shrink-0">
+        Scan a bin first to file lots into it, or scan a lot first to choose its bin — the workflow is detected automatically.
       </p>
 
-      {/* Active context card */}
+      {/* Active context card — shows whichever context the scans established */}
       <div className="px-4 mb-3 shrink-0">
-        {mode === "bin-first" ? (
-          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeBin ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`} data-testid="card-active-bin">
-            <Archive className={`h-5 w-5 shrink-0 ${activeBin ? "text-yellow-400" : "text-muted-foreground/40"}`} />
+        {activeBin ? (
+          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-bin">
+            <Archive className="h-5 w-5 shrink-0 text-yellow-400" />
             <div className="flex-1 min-w-0">
-              {activeBin ? (
-                <>
-                  <p className="text-sm font-semibold leading-none">{binFullLabel(activeBin)}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{activeBin.itemCount} lots currently in bin</p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">No active bin — scan a bin label</p>
+              <p className="text-sm font-semibold leading-none">{binFullLabel(activeBin)}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{activeBin.itemCount} lots currently in bin — scan lots to file them here</p>
+            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)} data-testid="button-clear-active-bin">
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : activeLot ? (
+          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-lot">
+            <Package className="h-5 w-5 shrink-0 text-yellow-400" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-none truncate">{lotLabel(activeLot)}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{lotSub(activeLot)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Currently in: {lotLocationStr(activeLot)}
+              </p>
+              {activeLot.locations.length === 0 && activeLot.suggestedBin && (
+                <p className="text-[11px] text-emerald-400 mt-0.5" data-testid="text-suggested-bin">
+                  Suggested bin:{" "}
+                  <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>{" "}
+                  <span className="text-emerald-400/60">
+                    ({suggestMatchLabel(activeLot.suggestedBin.matchLevel)} — scan a bin to confirm or override)
+                  </span>
+                </p>
               )}
             </div>
-            {activeBin && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)} data-testid="button-clear-active-bin">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-            )}
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { setActiveLot(null); setPendingBin(null); }} data-testid="button-clear-active-lot">
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
           </div>
         ) : (
-          <div className={`rounded-md border p-3 flex items-center gap-3 ${activeLot ? "border-yellow-500/40 bg-yellow-500/8" : "border-dashed border-border"}`} data-testid="card-active-lot">
-            <Package className={`h-5 w-5 shrink-0 ${activeLot ? "text-yellow-400" : "text-muted-foreground/40"}`} />
-            <div className="flex-1 min-w-0">
-              {activeLot ? (
-                <>
-                  <p className="text-sm font-semibold leading-none truncate">{lotLabel(activeLot)}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{lotSub(activeLot)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Currently in: {lotLocationStr(activeLot)}
-                  </p>
-                  {activeLot.locations.length === 0 && activeLot.suggestedBin && (
-                    <p className="text-[11px] text-emerald-400 mt-0.5" data-testid="text-suggested-bin">
-                      Suggested bin:{" "}
-                      <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>{" "}
-                      <span className="text-emerald-400/60">
-                        ({suggestMatchLabel(activeLot.suggestedBin.matchLevel)} — scan a bin to confirm or override)
-                      </span>
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">No active lot — scan a lot label</p>
-              )}
-            </div>
-            {activeLot && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { setActiveLot(null); setPendingBin(null); }} data-testid="button-clear-active-lot">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-            )}
+          <div className="rounded-md border border-dashed border-border p-3 flex items-center gap-3" data-testid="card-active-empty">
+            <ScanLine className="h-5 w-5 shrink-0 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">Scan a bin or a lot to begin</p>
           </div>
         )}
       </div>
 
-      {/* Wrong-bin warning (lot-first): require a confirming rescan to override */}
-      {mode === "lot-first" && activeLot && pendingBin && (
+      {/* Wrong-bin warning: require a confirming rescan to override */}
+      {activeLot && pendingBin && (
         <div className="px-4 mb-3 shrink-0">
           <div className="rounded-md border border-orange-500/40 bg-orange-500/10 p-3 flex items-start gap-2.5" data-testid="warning-wrong-bin">
             <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
