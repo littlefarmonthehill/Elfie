@@ -5,6 +5,7 @@ import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
 import { broadcast } from "../sse";
 import { lotAisleHintSql } from "./listing-batches";
+import { recordInventoryChanges } from "../services/inventory-history";
 import {
   organizations, whZones, whAisles, whShelves, whBins, inventoryLocations,
   blInventory, blColors, blCatalog,
@@ -15,6 +16,30 @@ import {
 const router = Router();
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
+
+// Build a human-readable description of every place a lot currently lives, for
+// the inventory-history audit trail. Joins each bin up to its shelf/aisle and
+// falls back to the Ready-to-File hint (or "Unfiled") when the lot has no bins.
+async function lotLocationLabel(orgId: string, inventoryId: number): Promise<string> {
+  const rows: any = await db.execute(sql`
+    SELECT wb.name AS name, ws.name AS shelf_name, wa.name AS aisle_name
+    FROM inventory_locations il
+    JOIN wh_bins wb ON wb.id = il.bin_id AND wb.org_id = ${orgId}
+    LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id AND ws.org_id = ${orgId}
+    LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id AND wa.org_id = ${orgId}
+    WHERE il.org_id = ${orgId} AND il.inventory_id = ${inventoryId}
+    ORDER BY wb.id
+  `);
+  const labels: string[] = (rows.rows ?? []).map((r: any) =>
+    [r.aisle_name, r.shelf_name, r.name].filter(Boolean).join(' › ')
+  );
+  if (labels.length > 0) return labels.join(', ');
+
+  const [inv] = await db.select({ rtfBin: blInventory.rtfBin })
+    .from(blInventory)
+    .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, inventoryId)));
+  return inv?.rtfBin ? `Ready-to-File (aisle ${inv.rtfBin})` : 'Unfiled';
+}
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
   sql<string | null>`COALESCE(
@@ -1017,10 +1042,11 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
     db.select({ oneLotPerBin: organizations.oneLotPerBin })
       .from(organizations).where(eq(organizations.id, orgId)),
     db.select({ isFilingQueue: whBins.isFilingQueue })
-      .from(whBins).where(eq(whBins.id, binId)),
+      .from(whBins).where(and(eq(whBins.id, binId), eq(whBins.orgId, orgId))),
   ]);
+  if (!targetBin) return res.status(404).json({ error: 'Bin not found' });
   const strict = org?.oneLotPerBin ?? true;
-  const targetIsFilingQueue = targetBin?.isFilingQueue ?? false;
+  const targetIsFilingQueue = targetBin.isFilingQueue ?? false;
 
   // Skip if already in this exact bin
   const [existing] = await db.select({ id: inventoryLocations.id })
@@ -1031,6 +1057,13 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
       eq(inventoryLocations.binId, binId),
     ));
   if (existing) return res.json({ alreadyAssigned: true, inventoryId, binId });
+
+  // Capture the lot's identity and where it lived before the move, for history.
+  const [lotMeta] = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId })
+    .from(blInventory)
+    .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, inventoryId)));
+  if (!lotMeta) return res.status(404).json({ error: 'Lot not found' });
+  const priorLabel = await lotLocationLabel(orgId, inventoryId);
 
   if (strict) {
     if (targetIsFilingQueue) {
@@ -1066,6 +1099,21 @@ router.post("/warehouse/scan/assign", isApproved, asyncRoute(async (req: any, re
       .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, inventoryId)));
   }
 
+  // Log the move (original → new location) to the lot's history.
+  const newLabel = await lotLocationLabel(orgId, inventoryId);
+  if (lotMeta && priorLabel !== newLabel) {
+    await recordInventoryChanges([{
+      orgId,
+      inventoryId,
+      itemNo: lotMeta.itemNo,
+      colorId: lotMeta.colorId ?? null,
+      source: 'warehouse_scan',
+      field: 'location',
+      oldValue: priorLabel,
+      newValue: newLabel,
+    }]);
+  }
+
   broadcast(orgId, 'warehouse.location_changed', { inventoryId, binId });
   res.json(location);
 }));
@@ -1083,6 +1131,12 @@ router.post("/warehouse/scan/unassign", isApproved, asyncRoute(async (req: any, 
     .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.id, locationId)));
   if (!loc) return res.status(404).json({ error: 'Location not found' });
 
+  // Capture the lot's identity and where it lived before the removal, for history.
+  const [lotMeta] = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId })
+    .from(blInventory)
+    .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, loc.inventoryId)));
+  const priorLabel = await lotLocationLabel(orgId, loc.inventoryId);
+
   await db.delete(inventoryLocations)
     .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.id, locationId)));
 
@@ -1090,6 +1144,21 @@ router.post("/warehouse/scan/unassign", isApproved, asyncRoute(async (req: any, 
     await db.update(blInventory)
       .set({ rtfBin: restoreRtfBin ?? null })
       .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, loc.inventoryId)));
+  }
+
+  // Log the removal (original → new location) to the lot's history.
+  const newLabel = await lotLocationLabel(orgId, loc.inventoryId);
+  if (lotMeta && priorLabel !== newLabel) {
+    await recordInventoryChanges([{
+      orgId,
+      inventoryId: loc.inventoryId,
+      itemNo: lotMeta.itemNo,
+      colorId: lotMeta.colorId ?? null,
+      source: 'warehouse_scan',
+      field: 'location',
+      oldValue: priorLabel,
+      newValue: newLabel,
+    }]);
   }
 
   broadcast(orgId, 'warehouse.location_changed', { inventoryId: loc.inventoryId, binId: loc.binId });

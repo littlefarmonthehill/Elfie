@@ -2413,7 +2413,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                             {row.source === 'rebrickable' && (
                               <span className="text-[9px] px-1.5 py-0 rounded bg-sky-900/40 text-sky-400 border border-sky-700/30">Rebrickable</span>
                             )}
-                            {!['bricklink_sync','order','order_restore','catalog_change','rebrickable'].includes(row.source) && (
+                            {row.source === 'warehouse_scan' && (
+                              <span className="text-[9px] px-1.5 py-0 rounded bg-teal-900/40 text-teal-400 border border-teal-700/30">Warehouse</span>
+                            )}
+                            {!['bricklink_sync','order','order_restore','catalog_change','rebrickable','warehouse_scan'].includes(row.source) && (
                               <span className="text-[9px] px-1.5 py-0 rounded bg-gray-700 text-gray-400 border border-gray-600/30">Manual</span>
                             )}
                             {/* Field label */}
@@ -2424,6 +2427,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                                row.field === 'saleRate' ? 'Sale Rate' :
                                row.field === 'remarks' ? 'Remarks' :
                                row.field === 'description' ? 'Description' :
+                               row.field === 'location' ? 'Location' :
                                row.field === 'catalogSuperseded' ? 'Design change' :
                                row.field === 'catalogObsolete' ? 'Retired' :
                                row.field === 'part_alternate' ? 'Alternate' :
