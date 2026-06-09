@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   X, Camera, CameraOff, ScanLine, Package, Archive,
-  CheckCircle2, AlertCircle, AlertTriangle, Loader2, RotateCcw, Undo2,
+  CheckCircle2, AlertCircle, AlertTriangle, Loader2, RotateCcw, Undo2, Layers,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
@@ -103,13 +103,6 @@ function lotLocationStr(lot: ResolvedLot): string {
     return lot.locations.map(l => l.binName ?? "?").join(", ");
   }
   return `rtf ${lot.rtfBin ?? "0"}`;
-}
-
-// Why a bin was suggested — how closely the sibling lot matched.
-function suggestMatchLabel(level: number): string {
-  if (level === 1) return "same part, colour & condition";
-  if (level === 2) return "same part & condition";
-  return "same part";
 }
 
 function suggestBinLabel(s: NonNullable<ResolvedLot["suggestedBin"]>): string {
@@ -461,15 +454,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               <p className="text-[11px] text-muted-foreground">
                 Currently in: {lotLocationStr(activeLot)}
               </p>
-              {activeLot.locations.length === 0 && activeLot.suggestedBin && (
-                <p className="text-[11px] text-emerald-400 mt-0.5" data-testid="text-suggested-bin">
-                  Suggested bin:{" "}
-                  <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>{" "}
-                  <span className="text-emerald-400/60">
-                    ({suggestMatchLabel(activeLot.suggestedBin.matchLevel)} — scan a bin to confirm or override)
-                  </span>
-                </p>
-              )}
             </div>
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { setActiveLot(null); setPendingBin(null); }} data-testid="button-clear-active-lot">
               <RotateCcw className="h-3.5 w-3.5" />
@@ -482,6 +466,61 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           </div>
         )}
       </div>
+
+      {/* Consolidate alert: this part already has stock filed — tell the filer
+          to combine into the existing baggie (same condition) or at least
+          file it alongside (part-only match, condition may differ). Same-
+          condition is required to share a baggie — new and used never mix. */}
+      {activeLot && (activeLot.locations.length > 0 || activeLot.suggestedBin) && (() => {
+        // "Combine" = safe to share a baggie: the exact same lot (restock) or a
+        // sibling with the same condition (level 1/2). A part-only match (level 3)
+        // may be a different condition, so we only co-locate, never merge bags.
+        const canCombine =
+          activeLot.locations.length > 0 ||
+          (activeLot.suggestedBin != null && activeLot.suggestedBin.matchLevel <= 2);
+        return (
+          <div className="px-4 mb-3 shrink-0">
+            <div className="rounded-md border border-blue-500/40 bg-blue-500/10 p-3 flex items-start gap-2.5" data-testid="alert-consolidate">
+              <Layers className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0 text-xs">
+                <p className="font-semibold text-blue-400">
+                  {canCombine ? "Consolidate — don't start a second baggie" : "File alongside — same part already here"}
+                </p>
+                {activeLot.locations.length > 0 ? (
+                  <p className="text-muted-foreground mt-0.5">
+                    This exact lot is already filed in{" "}
+                    <span className="font-semibold">{expectedBinLabel(activeLot)}</span>. Open that
+                    baggie and combine the new pieces into it.
+                  </p>
+                ) : activeLot.suggestedBin ? (
+                  <p className="text-muted-foreground mt-0.5">
+                    {activeLot.suggestedBin.matchLevel === 1 ? (
+                      <>
+                        The same part, colour &amp; condition already lives in{" "}
+                        <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>.
+                        File it there and combine into the existing baggie.
+                      </>
+                    ) : activeLot.suggestedBin.matchLevel === 2 ? (
+                      <>
+                        The same part &amp; condition (different colour) already lives in{" "}
+                        <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>.
+                        File it there and combine into that baggie — same condition can share a baggie.
+                      </>
+                    ) : (
+                      <>
+                        The same part (different colour/condition) already lives in{" "}
+                        <span className="font-semibold">{suggestBinLabel(activeLot.suggestedBin)}</span>.
+                        File it in that bin to keep it together, but keep new and used in separate baggies.
+                      </>
+                    )}{" "}
+                    Scan that bin to confirm, or another to override.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Wrong-bin warning: require a confirming rescan to override */}
       {activeLot && pendingBin && (
