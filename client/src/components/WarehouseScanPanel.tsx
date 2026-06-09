@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import {
   X, Camera, CameraOff, ScanLine, Package, Archive,
   CheckCircle2, AlertCircle, AlertTriangle, Loader2, RotateCcw, Undo2, Layers,
+  Volume2, VolumeX,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
+import { playTone, speak, unlockAudio, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -109,6 +111,26 @@ function suggestBinLabel(s: NonNullable<ResolvedLot["suggestedBin"]>): string {
   return [s.aisleName, s.shelfName, s.name].filter(Boolean).join(" › ");
 }
 
+// Strip the visual "›" separators so a location reads naturally when spoken.
+function toSpeech(label: string): string {
+  return label.replace(/›/g, ",").replace(/\s+/g, " ").trim();
+}
+
+// Spoken instruction for where a freshly-scanned lot should be filed — the
+// hands-free equivalent of the on-screen consolidate banner.
+function lotFileGuidanceSpeech(lot: ResolvedLot): string {
+  if (lot.locations.length > 0) {
+    return `Consolidate. Already in ${toSpeech(expectedBinLabel(lot))}.`;
+  }
+  if (lot.suggestedBin) {
+    const where = toSpeech(suggestBinLabel(lot.suggestedBin));
+    return lot.suggestedBin.matchLevel <= 2
+      ? `Consolidate into ${where}.`
+      : `File alongside in ${where}.`;
+  }
+  return "No suggested bin. Pick any bin.";
+}
+
 // The bin(s) a lot is "expected" to go in: its current home(s) if already
 // filed, otherwise the suggested bin. Empty = no expectation, so any bin is
 // accepted as a correct first-time filing.
@@ -147,7 +169,17 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
+  // Last code accepted from the camera; reset when the code leaves view so the
+  // same QR isn't processed every frame (which would spam the feed and audio).
+  const lastCameraCodeRef = useRef<string | null>(null);
   const processingRef = useRef(false);
+  // Audio cues for hands-free filing; persisted so a filer's preference sticks.
+  const [soundOn, setSoundOn] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("scanSoundOn") !== "0";
+  });
+  const soundOnRef = useRef(soundOn);
+  useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
 
   // Suppress global hardware-scanner BIN/LOT modal while this session is mounted.
   useEffect(() => {
@@ -208,6 +240,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     setFeed(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)));
   }, []);
 
+  // Play a tone (and optionally speak) for a scan outcome, when sound is on.
+  const cue = useCallback((kind: ScanTone, speech?: string) => {
+    if (!soundOnRef.current) return;
+    playTone(kind);
+    if (speech) speak(speech);
+  }, []);
+
   const processCode = useCallback(async (raw: string) => {
     const code = raw.trim();
     if (!code || processingRef.current) return;
@@ -220,12 +259,14 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       const res = await fetch(`/api/warehouse/scan/resolve?code=${encodeURIComponent(code)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        cue("err", "Not found.");
         updateFeed(feedId, { status: "err", message: err.error ?? "Not found" });
         processingRef.current = false;
         return;
       }
       resolved = await res.json();
     } catch {
+      cue("err", "Network error.");
       updateFeed(feedId, { status: "err", message: "Network error" });
       processingRef.current = false;
       return;
@@ -250,8 +291,10 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           message: `${lotLabel(lot)} — ${priorLoc} → ${binFullLabel(bin)}`,
           undo: undoMeta,
         });
+        cue(tone, tone === "new" ? "Filed. Override." : "Filed.");
         return true;
       } catch {
+        cue("err", "Assignment failed.");
         updateFeed(feedId, { status: "err", message: "Assignment failed" });
         return false;
       }
@@ -280,6 +323,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         } else {
           // First scan of a wrong bin → warn and wait for a confirming rescan.
           setPendingBin(resolved);
+          cue("warn", "Wrong bin. Scan again to confirm, or scan the correct bin.");
           updateFeed(feedId, {
             status: "warn",
             message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan ${binFullLabel(resolved)} again to file it here, or scan the correct bin.`,
@@ -291,6 +335,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setActiveLot(null);
         setPendingBin(null);
         setActiveBin(resolved);
+        cue("ok", `${toSpeech(binFullLabel(resolved))}. ${resolved.itemCount} lots. Scan lots to file here.`);
         updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
       }
     }
@@ -312,12 +357,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setActiveBin(null);
         setPendingBin(null);
         setActiveLot(resolved);
+        cue("ok", lotFileGuidanceSpeech(resolved));
         updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
       }
     }
 
     processingRef.current = false;
-  }, [activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation]);
+  }, [activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation, cue]);
 
   const undoEntry = useCallback(async (entryId: string) => {
     setFeed(prev => prev.map(e => e.id === entryId && e.undo
@@ -350,6 +396,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+    lastCameraCodeRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -362,6 +409,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       toast({ title: "Camera scanning not supported on this browser", variant: "destructive" });
       return;
     }
+    unlockAudio();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
@@ -385,7 +433,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           const codes = await detectorRef.current.detect(videoRef.current);
           if (codes.length > 0) {
             const value: string = codes[0].rawValue;
-            await processCode(value);
+            // Only act on a code that wasn't the last one accepted; the user
+            // must move the camera away (no code in view) before the same code
+            // is read again. Prevents repeated feed entries and audio spam.
+            if (value !== lastCameraCodeRef.current) {
+              lastCameraCodeRef.current = value;
+              await processCode(value);
+            }
+          } else {
+            lastCameraCodeRef.current = null;
           }
         } catch {}
         rafRef.current = requestAnimationFrame(scanFrame);
@@ -421,6 +477,23 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
         <ScanLine className="h-5 w-5 text-yellow-400 shrink-0" />
         <span className="font-semibold text-sm flex-1">Scan to file</span>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => {
+            unlockAudio();
+            const nv = !soundOn;
+            setSoundOn(nv);
+            try { localStorage.setItem("scanSoundOn", nv ? "1" : "0"); } catch {}
+            if (nv) playTone("ok");
+          }}
+          aria-pressed={soundOn}
+          title={soundOn ? "Mute scan sounds" : "Unmute scan sounds"}
+          aria-label={soundOn ? "Mute scan sounds" : "Unmute scan sounds"}
+          data-testid="button-toggle-scan-sound"
+        >
+          {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </Button>
         {!embedded && onClose && (
           <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-scan-close">
             <X className="h-4 w-4" />
