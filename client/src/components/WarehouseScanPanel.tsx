@@ -131,6 +131,20 @@ function lotFileGuidanceSpeech(lot: ResolvedLot): string {
   return "No suggested bin. Pick any bin.";
 }
 
+// Returns the individual aisle/shelf/bin name parts for the hero board so they
+// can be displayed at different sizes (bin biggest, context smaller).
+function heroBin(lot: ResolvedLot): { aisle: string | null; shelf: string | null; bin: string } | null {
+  if (lot.locations.length > 0) {
+    const l = lot.locations[0];
+    return { aisle: l.aisleName, shelf: l.shelfName, bin: l.binName ?? "?" };
+  }
+  if (lot.suggestedBin) {
+    const s = lot.suggestedBin;
+    return { aisle: s.aisleName, shelf: s.shelfName, bin: s.name };
+  }
+  return null;
+}
+
 // The bin(s) a lot is "expected" to go in: its current home(s) if already
 // filed, otherwise the suggested bin. Empty = no expectation, so any bin is
 // accepted as a correct first-time filing.
@@ -500,6 +514,126 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           </Button>
         )}
       </div>
+
+      {/* Distance-readable status board — full-screen only. The filer stands
+          at the end of the aisle; this panel is readable from several feet
+          away without squinting. High-contrast colour + large type = the
+          visual half of voice-directed putaway. */}
+      {!embedded && (() => {
+        const isWrong = !!(activeLot && pendingBin);
+        const isLot   = !isWrong && !!activeLot;
+        const isBin   = !isWrong && !isLot && !!activeBin;
+        const last    = !isWrong && !isLot && !isBin ? feed[0] : undefined;
+        const isOk    = last?.status === "ok";
+        const isNew   = last?.status === "new";
+        const isErr   = last?.status === "err";
+        const isBusy  = last?.status === "busy";
+        const isIdle  = !isWrong && !isLot && !isBin && !isOk && !isNew && !isErr && !isBusy;
+
+        const bg =
+          isWrong ? "bg-amber-600"
+          : isLot ? "bg-blue-900 dark:bg-blue-950"
+          : isBin ? "bg-yellow-700 dark:bg-yellow-800"
+          : isOk  ? "bg-green-700 dark:bg-green-800"
+          : isNew ? "bg-orange-600 dark:bg-orange-700"
+          : isErr ? "bg-red-700 dark:bg-red-800"
+          : "bg-muted";
+
+        return (
+          <div
+            className={`${bg} shrink-0 flex flex-col items-center justify-center min-h-52 px-6 py-5 text-center gap-1 transition-colors duration-300`}
+            data-testid="hero-status-board"
+          >
+            {isLot && activeLot && (() => {
+              const dest = heroBin(activeLot);
+              const consolidate =
+                activeLot.locations.length > 0 ? "consolidate"
+                : activeLot.suggestedBin != null
+                  ? activeLot.suggestedBin.matchLevel <= 2 ? "consolidate" : "file alongside"
+                  : null;
+              return (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">Go to</p>
+                  {dest ? (
+                    <>
+                      <p className="text-8xl font-black leading-none text-white">{dest.bin}</p>
+                      <p className="text-xl font-medium text-white/70 mt-2">
+                        {[dest.shelf, dest.aisle].filter(Boolean).join(" · ")}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-5xl font-black text-white">Any bin</p>
+                  )}
+                  {consolidate && (
+                    <div className="mt-3 px-4 py-1.5 rounded-full bg-white/20">
+                      <p className="text-sm font-bold text-white tracking-wide uppercase">
+                        {consolidate === "consolidate" ? "Consolidate" : "File alongside"}
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {isWrong && activeLot && pendingBin && (
+              <>
+                <AlertTriangle className="h-10 w-10 text-white mb-1" />
+                <p className="text-5xl font-black text-white leading-none">Wrong bin</p>
+                <p className="text-xl text-white/80 mt-2">Expected: {expectedBinLabel(activeLot)}</p>
+                <p className="text-sm text-white/60 mt-1">Scan {binFullLabel(pendingBin)} again to override</p>
+              </>
+            )}
+
+            {isBin && activeBin && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">Active bin</p>
+                <p className="text-8xl font-black text-white leading-none">{activeBin.name}</p>
+                <p className="text-xl font-medium text-white/70 mt-2">
+                  {[activeBin.shelfName, activeBin.aisleName].filter(Boolean).join(" · ")}
+                </p>
+                <p className="text-sm text-white/60 mt-1">Scan lots to file here</p>
+              </>
+            )}
+
+            {isOk && (
+              <>
+                <CheckCircle2 className="h-14 w-14 text-white mb-1" />
+                <p className="text-6xl font-black text-white leading-none">Filed</p>
+              </>
+            )}
+
+            {isNew && (
+              <>
+                <CheckCircle2 className="h-12 w-12 text-white mb-1" />
+                <p className="text-5xl font-black text-white leading-none">Filed</p>
+                <p className="text-xl text-white/80 mt-2">Override</p>
+              </>
+            )}
+
+            {isErr && (
+              <>
+                <AlertCircle className="h-10 w-10 text-white mb-1" />
+                <p className="text-4xl font-black text-white leading-none">Error</p>
+                <p className="text-sm text-white/60 mt-2">{last?.message}</p>
+              </>
+            )}
+
+            {isBusy && (
+              <>
+                <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                <p className="text-lg text-muted-foreground mt-2">Resolving…</p>
+              </>
+            )}
+
+            {isIdle && (
+              <>
+                <ScanLine className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-xl text-muted-foreground mt-2">Scan a lot or bin to begin</p>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <p className="px-4 pt-3 text-[11px] text-muted-foreground mb-3 shrink-0">
         Scan a bin first to file lots into it, or scan a lot first to choose its bin — the workflow is detected automatically.
