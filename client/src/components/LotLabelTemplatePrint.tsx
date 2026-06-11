@@ -245,10 +245,15 @@ export async function printLotLabelsWithTemplate(
     partImages = items.map(() => null);
   }
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
+  // Do NOT pass orientation:'landscape' — jsPDF embeds a /Rotate 90 flag
+  // when orientation is set, which iOS handles but macOS Brother printer
+  // drivers treat as a portrait page shown sideways (content cut off).
+  // Instead, pass [pageW, pageH] directly (long side first) so jsPDF sees
+  // width > height and creates a naturally landscape page with no rotation.
+  const doc = new jsPDF({ unit: 'in', format: [pageW, pageH] });
 
   items.forEach((lot, i) => {
-    if (i > 0) doc.addPage([pageW, pageH], 'landscape');
+    if (i > 0) doc.addPage([pageW, pageH]);
 
     const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
     const cond = conditionLabel(lot.newOrUsed);
