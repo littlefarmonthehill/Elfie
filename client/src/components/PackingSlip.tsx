@@ -166,30 +166,20 @@ function isMobile(): boolean {
   );
 }
 
-// macOS Safari uses a PDF plugin for blob URLs loaded into iframes — it shows
-// its own "Open in Preview / generate print version" overlay instead of
-// allowing iframe.contentWindow.print(). Detect it so we can use a new-tab
-// fallback instead of the hidden-iframe path.
-function isMacSafari(): boolean {
-  const ua = navigator.userAgent;
-  return (
-    /Macintosh/.test(ua) &&
-    /Safari\//.test(ua) &&
-    !/Chrome\/|Chromium\/|CriOS\/|EdgA?\/|OPR\//.test(ua)
-  );
+function isMacDesktop(): boolean {
+  return /Macintosh/.test(navigator.userAgent) && !isMobile();
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
-  // Hidden-iframe printing only works reliably on desktop. iOS Safari can't
-  // print from a hidden iframe at all, and Android Chrome/Firefox silently
-  // block print() from a hidden iframe — so on any phone/tablet we route the
-  // PDF through the native share sheet (which exposes Print / Save to PDF /
-  // send to a printing app), falling back to a plain download if the browser
-  // can't share files.
-  if (isMobile()) {
-    // Download the PDF so the user can open and print it from their device's
-    // PDF viewer. Used both when file-sharing is unsupported and when a share
-    // attempt fails for any reason other than the user cancelling.
+  // On iOS, Android, and macOS desktop we route through the native share sheet
+  // (navigator.share with a File attachment), which hands the PDF directly to
+  // the OS print / AirPrint pipeline — preserving exact label dimensions with
+  // no browser margins applied.  macOS Safari's PDF plugin and Chrome's PDF
+  // renderer both add or distort margins when printing from a hidden iframe,
+  // so Mac desktop uses the same path as mobile.  Falls back to a plain
+  // download when the browser doesn't support file sharing (e.g. Firefox on
+  // Mac, or user activation expired after async PDF generation).
+  if (isMobile() || isMacDesktop()) {
     const downloadPdf = () => {
       const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -206,9 +196,6 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
     if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') })
         .catch((err: unknown) => {
-          // AbortError = user cancelled the share sheet; anything else (e.g.
-          // user-activation expired after async PDF generation) falls back to
-          // a download so the user always ends up with the file.
           if (err instanceof Error && err.name === 'AbortError') return;
           downloadPdf();
         });
@@ -218,23 +205,7 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
     return;
   }
 
-  // macOS Safari — open the PDF in a new tab. The user can Cmd+P from there.
-  // The hidden-iframe path causes Safari's PDF plugin to show its own UI
-  // rather than calling our print() programmatically.
-  if (isMacSafari()) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* already revoked */ } }, 60_000);
-    return;
-  }
-
-  // Desktop (Chrome / Edge / Firefox on Mac or Windows): hidden-iframe print.
+  // Windows / Linux desktop: hidden-iframe auto-print.
   //
   // Key Mac-Chrome fixes:
   //  1. Wait 1200 ms after the iframe "load" event before calling print() —
