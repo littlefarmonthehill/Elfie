@@ -166,6 +166,19 @@ function isMobile(): boolean {
   );
 }
 
+// macOS Safari uses a PDF plugin for blob URLs loaded into iframes — it shows
+// its own "Open in Preview / generate print version" overlay instead of
+// allowing iframe.contentWindow.print(). Detect it so we can use a new-tab
+// fallback instead of the hidden-iframe path.
+function isMacSafari(): boolean {
+  const ua = navigator.userAgent;
+  return (
+    /Macintosh/.test(ua) &&
+    /Safari\//.test(ua) &&
+    !/Chrome\/|Chromium\/|CriOS\/|EdgA?\/|OPR\//.test(ua)
+  );
+}
+
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
   // Hidden-iframe printing only works reliably on desktop. iOS Safari can't
   // print from a hidden iframe at all, and Android Chrome/Firefox silently
@@ -205,17 +218,53 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
     return;
   }
 
+  // macOS Safari — open the PDF in a new tab. The user can Cmd+P from there.
+  // The hidden-iframe path causes Safari's PDF plugin to show its own UI
+  // rather than calling our print() programmatically.
+  if (isMacSafari()) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* already revoked */ } }, 60_000);
+    return;
+  }
+
+  // Desktop (Chrome / Edge / Firefox on Mac or Windows): hidden-iframe print.
+  //
+  // Key Mac-Chrome fixes:
+  //  1. Wait 1200 ms after the iframe "load" event before calling print() —
+  //     Chrome's built-in PDF renderer renders lazily and the print dialog
+  //     shows blank thumbnails if we call print() the moment load fires.
+  //  2. Clean up the iframe (and revoke the blob URL) as soon as the print
+  //     dialog closes.  afterprint is unreliable on macOS Chrome; listening
+  //     for the window regaining focus is a reliable cross-browser fallback.
+  //     Without this, each print leaves an 816×1056 px iframe in the DOM and
+  //     the app slows down after a few prints.
+
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText =
-    'position:fixed;top:-2400px;left:-2400px;width:816px;height:1056px;border:none;visibility:hidden;';
+    'position:fixed;top:-9999px;left:-9999px;width:816px;height:1056px;border:none;visibility:hidden;';
   document.body.appendChild(iframe);
 
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    window.removeEventListener('focus', onWindowFocus);
     try { document.body.removeChild(iframe); } catch { /* already removed */ }
     try { URL.revokeObjectURL(url); } catch { /* already revoked */ }
   };
+
+  // Focus on the main window is restored as soon as the print dialog closes
+  // (or the user Cmd-Tabs back). Small delay lets afterprint fire first if it will.
+  const onWindowFocus = () => setTimeout(cleanup, 400);
 
   let printed = false;
   const doPrint = () => {
@@ -226,11 +275,16 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
       iframe.contentWindow?.print();
     } catch { /* cross-origin guard */ }
     iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+    window.addEventListener('focus', onWindowFocus, { once: true });
   };
 
-  iframe.addEventListener('load', doPrint, { once: true });
-  setTimeout(doPrint, 1500);
-  setTimeout(cleanup, 120_000);
+  // Delay after load so Chrome's PDF renderer has time to paint the pages
+  // before the print dialog opens — prevents blank thumbnails on first print.
+  iframe.addEventListener('load', () => setTimeout(doPrint, 1200), { once: true });
+  // Fallback if the load event never fires
+  setTimeout(doPrint, 4000);
+  // Absolute safety net — remove the iframe even if everything else fails
+  setTimeout(cleanup, 45_000);
   iframe.src = url;
 }
 
