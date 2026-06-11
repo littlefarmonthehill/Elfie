@@ -2572,36 +2572,6 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
     }
   }
 
-  // ── Org pricing strategy + trailing 12-month sell-through ───────────────────
-  const [stratRows, invQtyRows, soldQtyRows] = await Promise.all([
-    db.select({
-      pricingPreset:   ieStrategies.pricingStrategyPreset,
-      pricingStrategy: ieStrategies.pricingStrategy,
-    }).from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1),
-
-    db.select({ total: sql<string>`COALESCE(SUM(${blInventory.quantity}), 0)::text` })
-      .from(blInventory)
-      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0))),
-
-    db.select({ total: sql<string>`COALESCE(SUM(${orderDetails.quantity}), 0)::text` })
-      .from(orderDetails)
-      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-      .where(and(
-        eq(orders.orgId, orgId),
-        eq(orders.isTest, false),
-        gte(orders.orderDate, sql`NOW() - INTERVAL '12 months'`),
-        sql`lower(${orders.orderStatus}) != 'cancelled'`,
-      )),
-  ]);
-
-  const pricingPreset   = stratRows[0]?.pricingPreset   ?? null;
-  const pricingStrategy = stratRows[0]?.pricingStrategy ?? null;
-  const currentInvQty   = parseInt(invQtyRows[0]?.total  ?? '0', 10);
-  const qtySold12mo     = parseInt(soldQtyRows[0]?.total  ?? '0', 10);
-  const orgSellThrough  = (qtySold12mo + currentInvQty) > 10
-    ? Math.round((qtySold12mo / (qtySold12mo + currentInvQty)) * 1000) / 1000
-    : null;
-
   res.json({
     summary: {
       totalSellerLots: sellerItems.length,
@@ -2625,10 +2595,6 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       newUnpricedQty,
       commonUnpricedLots,
       commonUnpricedQty,
-      // Org context
-      orgSellThrough,
-      pricingPreset,
-      pricingStrategy: pricingStrategy ?? null,
     },
     common,
     newItems,
@@ -2690,107 +2656,7 @@ Analyze this store's inventory and respond with ONLY a valid JSON object (no mar
   res.json(analysis);
 }));
 
-// 27. POST /inventory/acquisition-ai-estimate
-router.post("/inventory/acquisition-ai-estimate", isApproved, asyncRoute(async (req: any, res) => {
-  const items = req.body?.items as { itemNo: string; colorId: number; condition: string; qty: number; itemName?: string; colorName?: string }[] | undefined;
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "No items provided" });
-  }
-
-  // Look up catalog info and categories for the items
-  const uniqueItemNosEst = Array.from(new Set(items.map(i => i.itemNo)));
-  const [catalogRowsEst, allColors] = await Promise.all([
-    db.select({ itemNo: blCatalog.itemNo, colorId: blCatalog.colorId, categoryId: blCatalog.categoryId, itemName: blCatalog.itemName, colorName: blCatalog.colorName })
-      .from(blCatalog).where(inArray(blCatalog.itemNo, uniqueItemNosEst)),
-    db.select({ id: blColors.id, name: blColors.name }).from(blColors),
-  ]);
-
-  const colorNameById = new Map(allColors.map(c => [c.id, c.name]));
-  const categoryByItem = new Map<string, number | null>();
-  const nameByKey = new Map<string, { itemName: string | null; colorName: string | null }>();
-  for (const r of catalogRowsEst) {
-    categoryByItem.set(r.itemNo, r.categoryId ?? null);
-    nameByKey.set(`${r.itemNo}|${r.colorId ?? 0}`, { itemName: r.itemName, colorName: r.colorName });
-  }
-
-  // Find reference prices from same categories
-  const categoryIds = Array.from(new Set(catalogRowsEst.map(r => r.categoryId).filter((c): c is number => c != null)));
-  let refLines: string[] = [];
-  if (categoryIds.length > 0) {
-    const refCatalog = await db.select({ itemNo: blCatalog.itemNo, colorId: blCatalog.colorId, categoryId: blCatalog.categoryId, itemName: blCatalog.itemName })
-      .from(blCatalog).where(inArray(blCatalog.categoryId as any, categoryIds)).limit(300);
-    const refItemNos = Array.from(new Set(refCatalog.map(r => r.itemNo))).slice(0, 150);
-    if (refItemNos.length > 0) {
-      const refPrices = await db.select({
-        itemNo: priceGuideCache.itemNo, colorId: priceGuideCache.colorId,
-        newOrUsed: priceGuideCache.newOrUsed, soldAvgPrice: priceGuideCache.soldAvgPrice,
-        itemName: priceGuideCache.itemName,
-      }).from(priceGuideCache)
-        .where(and(inArray(priceGuideCache.itemNo, refItemNos), isNotNull(priceGuideCache.soldAvgPrice)))
-        .limit(60);
-
-      const catLookup = new Map(refCatalog.map(r => [r.itemNo, r.categoryId]));
-      refLines = refPrices
-        .filter(r => r.soldAvgPrice != null)
-        .slice(0, 40)
-        .map(r => {
-          const cName = colorNameById.get(r.colorId ?? 0) ?? `#${r.colorId}`;
-          return `  ${r.itemNo} | ${cName} | ${r.itemName ?? '?'} | ${r.newOrUsed} | $${parseFloat(r.soldAvgPrice!).toFixed(4)} (cat ${catLookup.get(r.itemNo) ?? '?'})`;
-        });
-    }
-  }
-
-  const itemLines = items.map(item => {
-    const cat = nameByKey.get(`${item.itemNo}|${item.colorId}`) ?? {};
-    const cName = item.colorName || (cat as any).colorName || colorNameById.get(item.colorId) || `Color #${item.colorId}`;
-    const iName = item.itemName || (cat as any).itemName || 'Unknown part';
-    const catId = categoryByItem.get(item.itemNo) ?? 'unknown';
-    return `  ${item.itemNo} | ${cName} | ${iName} | ${item.condition === 'N' ? 'New' : 'Used'} | qty ${item.qty} | cat ${catId}`;
-  });
-
-  const refBlock = refLines.length > 0
-    ? `\nREFERENCE SOLD PRICES (same categories):\n${refLines.join('\n')}\n`
-    : '';
-
-  const prompt = `You are a LEGO parts pricing expert. Estimate per-unit sold (completed transaction) prices for these BrickLink parts that have no cached market data.
-
-PARTS TO ESTIMATE:
-${itemLines.join('\n')}
-${refBlock}
-Rules:
-- Base estimates on part type, complexity, color rarity, and condition
-- Common colors (Black, White, Red, Yellow, Blue, Grey) are cheaper than rare/trans/special
-- Used is typically 40–65% of New price
-- Reference prices are from similar category parts — use as anchors
-- Be conservative: it is better to slightly underestimate than overestimate
-
-Respond ONLY with valid JSON (no markdown, no extra text):
-{"estimates":[{"itemNo":"...","colorId":<number>,"condition":"N" or "U","estimatedPrice":<number>,"confidence":"low" or "medium" or "high"}]}`;
-
-  const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
-  const client = new (AnthropicSDK as any)({
-    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  });
-
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = message.content[0]?.type === 'text' ? message.content[0].text.trim() : '{}';
-  let result: Record<string, unknown>;
-  try { result = JSON.parse(raw); }
-  catch {
-    const match = raw.match(/\{[\s\S]+\}/);
-    try { result = match ? JSON.parse(match[0]) : { error: "Could not parse response" }; }
-    catch { result = { error: "Could not parse response" }; }
-  }
-  res.json(result);
-}));
-
-// 28. GET /bricklink/rate-limit
+// 27. GET /bricklink/rate-limit
 router.get("/bricklink/rate-limit", isApproved, asyncRoute(async (req, res) => {
   const orgId = reqOrgId(req);
   const { checkRateLimit } = await import("../services/bricklink");
