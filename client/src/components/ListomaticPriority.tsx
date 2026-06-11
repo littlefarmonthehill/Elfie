@@ -315,6 +315,32 @@ function DateRangeLabels(props: {
     [rows, todayLocal],
   );
 
+  // Consolidation quality check: flag rows where the same part+condition is
+  // spread across more than one aisle — a sign a color ended up in the wrong bin.
+  const { multiBinIds, multiBinAisles } = useMemo(() => {
+    // Build per-group aisle sets
+    const groupAisles = new Map<string, Set<string>>();
+    const groupIds = new Map<string, number[]>();
+    for (const r of rows) {
+      const key = `${r.itemNo}|${r.newOrUsed ?? ''}`;
+      if (!groupAisles.has(key)) { groupAisles.set(key, new Set()); groupIds.set(key, []); }
+      if (r.aisleName) groupAisles.get(key)!.add(r.aisleName);
+      groupIds.get(key)!.push(r.id);
+    }
+    const multiBinIds = new Set<number>();
+    const multiBinAisles = new Map<number, string[]>();
+    for (const [key, aisles] of groupAisles) {
+      if (aisles.size > 1) {
+        const aisleList = Array.from(aisles);
+        for (const id of groupIds.get(key)!) {
+          multiBinIds.add(id);
+          multiBinAisles.set(id, aisleList);
+        }
+      }
+    }
+    return { multiBinIds, multiBinAisles };
+  }, [rows]);
+
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
@@ -374,6 +400,12 @@ function DateRangeLabels(props: {
                     {printedTodayIds.size > 0 && (
                       <span className="ml-1.5 text-amber-400">· {printedTodayIds.size} already printed today</span>
                     )}
+                    {multiBinIds.size > 0 && (
+                      <span className="ml-1.5 text-orange-400 flex items-center gap-0.5 inline-flex">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        {multiBinIds.size} consolidation issue{multiBinIds.size !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </p>
                   <button
                     onClick={toggleAll}
@@ -426,10 +458,12 @@ function DateRangeLabels(props: {
                 {sortedRows.map(r => {
                   const isSelected = selectedIds.has(r.id);
                   const printedToday = printedTodayIds.has(r.id);
+                  const isMultiBin = multiBinIds.has(r.id);
+                  const conflictAisles = multiBinAisles.get(r.id);
                   return (
                     <div
                       key={r.id}
-                      className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-500/10' : ''}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${isMultiBin ? 'bg-orange-500/10' : isSelected ? 'bg-emerald-500/10' : ''}`}
                       onClick={() => toggleRow(r.id)}
                       data-testid={`range-row-${r.id}`}
                     >
@@ -447,6 +481,12 @@ function DateRangeLabels(props: {
                       {r.newOrUsed && (
                         <span className={`text-[9px] font-semibold rounded px-1 shrink-0 border ${r.newOrUsed === 'N' ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' : 'bg-zinc-800 text-zinc-300 border-zinc-600'}`}>
                           {r.newOrUsed === 'N' ? 'N' : 'U'}
+                        </span>
+                      )}
+                      {isMultiBin && conflictAisles && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-orange-300 shrink-0" title={`Check consolidation — found in: ${conflictAisles.join(', ')}`}>
+                          <AlertTriangle className="h-3 w-3" />
+                          {conflictAisles.join(', ')}
                         </span>
                       )}
                       {printedToday && (
