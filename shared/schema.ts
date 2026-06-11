@@ -193,6 +193,9 @@ export const blInventory = pgTable("bl_inventory", {
   // can find the bag in its pre-file tote before it's officially filed.
   // Cleared automatically when the lot is moved into a non-filing-queue bin.
   rtfBin: text("rtf_bin"),
+  // Timestamp of the last time a lot label was printed for this lot.
+  // Used by the date-range print view to deselect lots already printed today.
+  labelPrintedAt: timestamp("label_printed_at"),
 }, (table) => ({
   // Index for quantity-based filtering (general queries)
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),

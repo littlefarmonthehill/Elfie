@@ -195,7 +195,11 @@ interface RangeRow {
   description: string | null;
   changeType: 'new' | 'qty_updated';
   aisleName: string | null;
+  labelPrintedAt: string | null;
 }
+
+const RANGE_SORT_KEY = 'elfie.rangeLabelSort';
+type RangeSortKey = 'part' | 'color' | 'condition';
 
 function DateRangeLabels(props: {
   from: string;
@@ -206,8 +210,24 @@ function DateRangeLabels(props: {
   onPrint: (items: LotLabelPrintItem[]) => void;
 }) {
   const { from, to, onFrom, onTo, onCancel, onPrint } = props;
+  const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [sort, setSort] = useState<RangeSortKey>(() => {
+    try { return (localStorage.getItem(RANGE_SORT_KEY) as RangeSortKey) ?? 'part'; } catch { return 'part'; }
+  });
+
+  // Auto-sync from BrickLink when this view opens so the latest lots are present
+  const syncMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
+    onError: () => toast({
+      title: 'BrickLink sync failed',
+      description: 'Could not pull latest inventory — results may be incomplete.',
+      variant: 'destructive',
+    }),
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { syncMutation.mutate(); }, []);
 
   const enabled = submitted && !!from && !!to;
   const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
@@ -223,13 +243,31 @@ function DateRangeLabels(props: {
     enabled,
   });
 
+  // Smart default selection: select only lots NOT already printed today
   useEffect(() => {
-    if (rows.length > 0) {
-      setSelectedIds(new Set(rows.map(r => r.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
+    if (rows.length === 0) { setSelectedIds(new Set()); return; }
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    const notYetPrinted = rows.filter(r => {
+      if (!r.labelPrintedAt) return true;
+      return new Date(r.labelPrintedAt).toLocaleDateString('en-CA') !== todayLocal;
+    });
+    setSelectedIds(new Set(notYetPrinted.map(r => r.id)));
   }, [rows]);
+
+  const changeSort = (s: RangeSortKey) => {
+    setSort(s);
+    try { localStorage.setItem(RANGE_SORT_KEY, s); } catch { /* ignore */ }
+  };
+
+  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+    if (sort === 'part') return a.itemNo.localeCompare(b.itemNo);
+    if (sort === 'color') return (a.colorName ?? '').localeCompare(b.colorName ?? '');
+    if (sort === 'condition') {
+      const ord: Record<string, number> = { N: 0, U: 1 };
+      return (ord[a.newOrUsed ?? ''] ?? 2) - (ord[b.newOrUsed ?? ''] ?? 2);
+    }
+    return 0;
+  }), [rows, sort]);
 
   const toLabelItem = (r: RangeRow): LotLabelPrintItem => ({
     id: r.id,
@@ -263,6 +301,12 @@ function DateRangeLabels(props: {
     }
   };
 
+  const todayLocal = new Date().toLocaleDateString('en-CA');
+  const printedTodayIds = useMemo(
+    () => new Set(rows.filter(r => r.labelPrintedAt && new Date(r.labelPrintedAt).toLocaleDateString('en-CA') === todayLocal).map(r => r.id)),
+    [rows, todayLocal],
+  );
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -275,13 +319,18 @@ function DateRangeLabels(props: {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> All batches
         </Button>
+        {syncMutation.isPending && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" /> Syncing from BrickLink…
+          </span>
+        )}
       </div>
 
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
         <p className="text-[10px] text-muted-foreground">
-          Useful when you missed printing labels at sync time. Returns every lot whose
-          BrickLink sync timestamp falls in this window.
+          Lots already printed today are deselected automatically. BrickLink inventory
+          is synced when you open this view.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -312,7 +361,9 @@ function DateRangeLabels(props: {
           className="text-xs w-full"
           data-testid="button-range-fetch"
         >
-          <Search className="h-3.5 w-3.5 mr-1.5" /> Find lots
+          {syncMutation.isPending
+            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Syncing…</>
+            : <><Search className="h-3.5 w-3.5 mr-1.5" /> Find lots</>}
         </Button>
       </div>
 
@@ -326,15 +377,19 @@ function DateRangeLabels(props: {
             <p className="text-center text-xs text-muted-foreground py-6">No lots in this date range.</p>
           ) : (
             <>
+              {/* Action bar */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-[10px] text-muted-foreground">
                     <span className="font-semibold text-foreground">{rows.length}</span> lot{rows.length !== 1 ? 's' : ''}
                     {rows.length === 2000 && <span className="text-muted-foreground/60"> (capped at 2000)</span>}
+                    {printedTodayIds.size > 0 && (
+                      <span className="ml-1.5 text-amber-400">· {printedTodayIds.size} already printed today</span>
+                    )}
                   </p>
                   <button
                     onClick={toggleAll}
-                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors hover:underline underline-offset-2"
                     data-testid="button-range-toggle-all"
                   >
                     {selectedIds.size === rows.length ? 'Deselect all' : 'Select all'}
@@ -343,7 +398,7 @@ function DateRangeLabels(props: {
                 <Button
                   size="sm"
                   onClick={() => {
-                    const items = rows.filter(r => selectedIds.has(r.id)).map(toLabelItem);
+                    const items = sortedRows.filter(r => selectedIds.has(r.id)).map(toLabelItem);
                     if (items.length > 0) onPrint(items);
                   }}
                   disabled={selectedIds.size === 0}
@@ -358,9 +413,31 @@ function DateRangeLabels(props: {
                       : 'Print Selected'}
                 </Button>
               </div>
+
+              {/* Sort controls */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground shrink-0">Sort by:</span>
+                {(['part', 'color', 'condition'] as RangeSortKey[]).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => changeSort(s)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors capitalize ${
+                      sort === s
+                        ? 'bg-foreground/10 text-foreground border-foreground/30'
+                        : 'text-muted-foreground border-border hover:text-foreground hover:border-foreground/30'
+                    }`}
+                    data-testid={`button-range-sort-${s}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              {/* Results */}
               <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
-                {rows.map(r => {
+                {sortedRows.map(r => {
                   const isSelected = selectedIds.has(r.id);
+                  const printedToday = printedTodayIds.has(r.id);
                   return (
                     <div
                       key={r.id}
@@ -376,9 +453,17 @@ function DateRangeLabels(props: {
                       ) : (
                         <div className="w-6 h-6 shrink-0 rounded bg-gray-800" />
                       )}
-                      <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{r.itemNo}</span>
+                      <span className="font-mono text-xs font-semibold shrink-0 w-14 truncate text-foreground">{r.itemNo}</span>
                       <span className="text-xs text-muted-foreground truncate flex-1">{r.itemName || '—'}</span>
-                      {r.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{r.colorName}</span>}
+                      {r.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline truncate max-w-[80px]">{r.colorName}</span>}
+                      {r.newOrUsed && (
+                        <span className={`text-[9px] font-semibold rounded px-1 shrink-0 border ${r.newOrUsed === 'N' ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' : 'bg-zinc-800 text-zinc-300 border-zinc-600'}`}>
+                          {r.newOrUsed === 'N' ? 'N' : 'U'}
+                        </span>
+                      )}
+                      {printedToday && (
+                        <span className="text-[9px] text-amber-400 shrink-0 font-medium">printed</span>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"

@@ -65,10 +65,11 @@ router.post("/listing-batches/mark-rtf", isApproved, asyncRoute(async (req: any,
     arr.push(it.inventoryId);
     byBin.set(it.rtfBin, arr);
   }
+  const now = new Date();
   let updated = 0;
   for (const [rtfBin, ids] of byBin.entries()) {
     const result = await db.update(blInventory)
-      .set({ rtfBin })
+      .set({ rtfBin, labelPrintedAt: now })
       .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, ids)));
     updated += (result as any)?.rowCount ?? ids.length;
   }
@@ -102,6 +103,7 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       remarks: blInventory.remarks,
       description: blInventory.description,
       dateCreated: blInventory.dateCreated,
+      labelPrintedAt: blInventory.labelPrintedAt,
       itemName: sql<string | null>`COALESCE(${blCatalog.itemName}, NULL)`,
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
