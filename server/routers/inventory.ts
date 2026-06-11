@@ -2495,6 +2495,8 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
   let commonSellerQty = 0;
   let commonSellerValue = 0;
   let commonOrgListValue = 0;
+  let newSellerQty = 0;
+  let newSellerValue = 0;
   // Listed-price market values
   let commonListedMarketValue = 0;
   let hasCommonListedMarket = false;
