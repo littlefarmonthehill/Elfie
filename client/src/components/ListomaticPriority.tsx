@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -211,7 +212,6 @@ function DateRangeLabels(props: {
 }) {
   const { from, to, onFrom, onTo, onCancel, onPrint } = props;
   const { toast } = useToast();
-  const [submitted, setSubmitted] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sort, setSort] = useState<RangeSortKey>(() => {
     try { return (localStorage.getItem(RANGE_SORT_KEY) as RangeSortKey) ?? 'part'; } catch { return 'part'; }
@@ -229,7 +229,16 @@ function DateRangeLabels(props: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { syncMutation.mutate(); }, []);
 
-  const enabled = submitted && !!from && !!to;
+  // Poll sync progress while sync is running
+  const { data: progressData } = useQuery<{ status: string; currentStep: string; progress: number }>({
+    queryKey: ['/api/sync/bricklink/progress'],
+    refetchInterval: syncMutation.isPending ? 1500 : false,
+    enabled: syncMutation.isPending,
+  });
+  const progressPct = progressData?.progress ?? 0;
+
+  // Results auto-load once sync finishes and both dates are set
+  const enabled = !!from && !!to && !syncMutation.isPending;
   const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
     queryKey: ['/api/listing-batches/range/labels', from, to],
     queryFn: async () => {
@@ -309,7 +318,7 @@ function DateRangeLabels(props: {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="ghost"
@@ -319,18 +328,12 @@ function DateRangeLabels(props: {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> All batches
         </Button>
-        {syncMutation.isPending && (
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" /> Syncing from BrickLink…
-          </span>
-        )}
       </div>
 
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
         <p className="text-[10px] text-muted-foreground">
-          Lots already printed today are deselected automatically. BrickLink inventory
-          is synced when you open this view.
+          Lots already printed today are deselected automatically. Results load automatically after sync.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -338,7 +341,7 @@ function DateRangeLabels(props: {
             <Input
               type="date"
               value={from}
-              onChange={e => { onFrom(e.target.value); setSubmitted(false); }}
+              onChange={e => onFrom(e.target.value)}
               className="text-xs h-9"
               data-testid="input-range-from"
             />
@@ -348,23 +351,21 @@ function DateRangeLabels(props: {
             <Input
               type="date"
               value={to}
-              onChange={e => { onTo(e.target.value); setSubmitted(false); }}
+              onChange={e => onTo(e.target.value)}
               className="text-xs h-9"
               data-testid="input-range-to"
             />
           </div>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setSubmitted(true)}
-          disabled={!from || !to}
-          className="text-xs w-full"
-          data-testid="button-range-fetch"
-        >
-          {syncMutation.isPending
-            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Syncing…</>
-            : <><Search className="h-3.5 w-3.5 mr-1.5" /> Find lots</>}
-        </Button>
+        {syncMutation.isPending && (
+          <div className="space-y-1 pt-0.5" data-testid="range-sync-progress">
+            <Progress value={progressPct} className="h-1.5" />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{progressData?.currentStep ?? 'Syncing from BrickLink…'}</span>
+              <span className="tabular-nums">{progressPct}%</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {enabled && (
