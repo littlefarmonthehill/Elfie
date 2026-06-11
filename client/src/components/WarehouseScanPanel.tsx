@@ -446,6 +446,34 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
   }, [feed, unassignMutation, toast]);
 
+  // Keep the screen awake while the scan panel is mounted so the device
+  // doesn't lock mid-filing. The wake lock is automatically released by the
+  // browser when the page goes hidden, so we re-acquire it on visibilitychange.
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let lock: WakeLockSentinel | null = null;
+
+    const acquire = async () => {
+      try {
+        lock = await (navigator as any).wakeLock.request("screen");
+      } catch {
+        // Wake lock not granted (e.g. low battery) — best-effort, ignore.
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") acquire();
+    };
+
+    acquire();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      lock?.release().catch(() => {});
+    };
+  }, []);
+
   // Auto-process a code passed in on mount (from global scanner). The workflow
   // is auto-detected from whether a bin or lot is scanned first.
   useEffect(() => {
