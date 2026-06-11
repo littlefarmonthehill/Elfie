@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, isNull, gte, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, or, isNull, gte, lte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
@@ -77,8 +77,10 @@ router.post("/listing-batches/mark-rtf", isApproved, asyncRoute(async (req: any,
 }));
 
 // GET /api/listing-batches/range/labels — returns lots in a date range for label print
-// Uses bl_inventory.synced_at by default (covers both new + qty-updated). Includes
-// already-filed lots (the lister prints labels for the new physical bags).
+// Uses bl_inventory.updated_at (touched on every sync change) OR date_created (BL
+// listing date) so both newly-listed lots and restocked lots appear. synced_at is
+// intentionally NOT used here — it is set once on first insert and never refreshed,
+// so filtering on it would silently exclude every lot that already existed in the DB.
 router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const from = req.query.from ? new Date(String(req.query.from)) : null;
@@ -120,8 +122,10 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
     .where(and(
       eq(blInventory.orgId, orgId),
       isNull(blInventory.deletedAt),
-      gte(blInventory.syncedAt, from),
-      lte(blInventory.syncedAt, to),
+      or(
+        and(gte(blInventory.updatedAt, from), lte(blInventory.updatedAt, to)),
+        and(gte(blInventory.dateCreated, from), lte(blInventory.dateCreated, to)),
+      ),
     ))
     .orderBy(sql`aisle_name NULLS LAST`, blInventory.itemNo, blInventory.colorId)
     .limit(2000);
