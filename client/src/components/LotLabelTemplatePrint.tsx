@@ -203,14 +203,17 @@ export async function printLotLabelsWithTemplate(
   const imgGap = showImage ? 0.06 : 0;
 
   // QR codes are unique per lot (LOT:<id>), so each must be generated.
-  const qrCanvases = await Promise.all(items.map(async (lot) => {
+  // Convert to data URLs immediately — passing canvas elements directly to
+  // jsPDF addImage can behave unexpectedly in some versions (extra pages,
+  // blank content). Data URLs are the safe, portable path.
+  const qrDataUrls = await Promise.all(items.map(async (lot) => {
     const canvas = document.createElement('canvas');
     await QRCode.toCanvas(canvas, `LOT:${lot.id}`, {
       width: tmpl.qrPx * 2,
       margin: 0,
       color: { dark: '#000000', light: '#ffffff' },
     });
-    return canvas;
+    return canvas.toDataURL('image/png');
   }));
 
   // Part thumbnails repeat across labels for the same SKU+color — dedupe so
@@ -242,10 +245,14 @@ export async function printLotLabelsWithTemplate(
     partImages = items.map(() => null);
   }
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
+  // jsPDF expects [shorter, longer] for landscape (same convention as
+  // printLotLabels in PackingSlip.tsx). Passing [longer, shorter] can produce
+  // malformed pages in some jsPDF versions, which macOS Preview renders as
+  // two pages with blank content.
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageH, pageW] });
 
   items.forEach((lot, i) => {
-    if (i > 0) doc.addPage([pageW, pageH], 'landscape');
+    if (i > 0) doc.addPage([pageH, pageW], 'landscape');
 
     const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
     const cond = conditionLabel(lot.newOrUsed);
@@ -260,7 +267,7 @@ export async function printLotLabelsWithTemplate(
     const sideTopY = sideStackTop + sideStackTopCapH;
 
     const partLabel = `#${lot.itemNo}`;
-    doc.addImage(qrCanvases[i], 'PNG', padIn, sideTopY, qrIn, qrIn);
+    doc.addImage(qrDataUrls[i], 'PNG', padIn, sideTopY, qrIn, qrIn);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(sideCaptionPt);
     doc.setTextColor(102, 102, 102);
