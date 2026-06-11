@@ -245,15 +245,15 @@ export async function printLotLabelsWithTemplate(
     partImages = items.map(() => null);
   }
 
-  // Do NOT pass orientation:'landscape' — jsPDF embeds a /Rotate 90 flag
-  // when orientation is set, which iOS handles but macOS Brother printer
-  // drivers treat as a portrait page shown sideways (content cut off).
-  // Instead, pass [pageW, pageH] directly (long side first) so jsPDF sees
-  // width > height and creates a naturally landscape page with no rotation.
-  const doc = new jsPDF({ unit: 'in', format: [pageW, pageH] });
+  // orientation:'landscape' is REQUIRED. Without it jsPDF defaults to portrait
+  // and makes the page short-side-wide (pageH wide × pageW tall), so the
+  // content drawn across pageW overflows and the whole label prints sideways.
+  // iOS AirPrint auto-rotates this landscape page to fit the portrait-feeding
+  // DK tape; on macOS the user selects "Landscape" in the print dialog.
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
   items.forEach((lot, i) => {
-    if (i > 0) doc.addPage([pageW, pageH]);
+    if (i > 0) doc.addPage([pageW, pageH], 'landscape');
 
     const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
     const cond = conditionLabel(lot.newOrUsed);
