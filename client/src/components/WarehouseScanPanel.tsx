@@ -332,16 +332,22 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           setPendingBin(null);
           if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
         } else if (pendingBin && pendingBin.id === resolved.id) {
-          // Second consecutive scan of the same wrong bin → confirm override.
+          // Second consecutive scan of the same wrong bin → do not override.
+          // Instead, direct the filer to the bin-splitting area so they can
+          // manually split the bin rather than silently mixing lots.
           setPendingBin(null);
-          if (await fileLot(activeLot, resolved, "new")) setActiveLot(null);
-        } else {
-          // First scan of a wrong bin → warn and wait for a confirming rescan.
-          setPendingBin(resolved);
-          cue("warn", "Wrong bin. Scan again to confirm, or scan the correct bin.");
+          cue("warn", "Bin needs splitting. Move lot to the bin splitting area.");
           updateFeed(feedId, {
             status: "warn",
-            message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan ${binFullLabel(resolved)} again to file it here, or scan the correct bin.`,
+            message: `Bin split needed — ${lotLabel(activeLot)} belongs in ${expectedBinLabel(activeLot)} but ${binFullLabel(resolved)} was scanned twice. Move this lot to the bin splitting area.`,
+          });
+        } else {
+          // First scan of a wrong bin → warn and wait for a second scan.
+          setPendingBin(resolved);
+          cue("warn", "Wrong bin. Scan the correct bin, or scan this bin again if it needs splitting.");
+          updateFeed(feedId, {
+            status: "warn",
+            message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan the correct bin, or scan ${binFullLabel(resolved)} again to flag it for splitting.`,
           });
         }
       } else {
