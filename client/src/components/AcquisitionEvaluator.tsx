@@ -74,6 +74,18 @@ interface AcqSummary {
   newUnpricedQty: number;
   commonUnpricedLots: number;
   commonUnpricedQty: number;
+  // Org context
+  orgSellThrough: number | null;
+  pricingPreset: string | null;
+  pricingStrategy: string | null;
+}
+
+interface AiEstimate {
+  itemNo: string;
+  colorId: number;
+  condition: string;
+  estimatedPrice: number;
+  confidence: 'low' | 'medium' | 'high';
 }
 
 interface AcqResult {
@@ -499,8 +511,28 @@ const SELL_THROUGH_SCENARIOS = [
   { label: 'Optimistic',   rate: 0.85, color: 'text-green-300', bg: 'bg-green-900/20', border: 'border-green-700/30' },
 ] as const;
 
+const PRESET_NOTES: Record<string, string> = {
+  premium:          'Premium pricing slows velocity — buyers are selective. Expect sell-through closer to the conservative end.',
+  clear_inventory:  'Clear-inventory pricing accelerates turnover. Expect sell-through closer to the optimistic end.',
+  market_rate:      'Market-rate pricing tracks typical industry velocity.',
+  balanced:         'Balanced pricing tracks typical industry velocity.',
+};
+
+function CalcRow({ label, value, sub, indent }: { label: string; value: string; sub?: string; indent?: boolean }) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-2", indent && "pl-3")}>
+      <span className="text-gray-500 shrink-0">{label}</span>
+      <span className="text-right">
+        <span className="text-gray-300 font-mono">{value}</span>
+        {sub && <span className="text-gray-600 ml-1">{sub}</span>}
+      </span>
+    </div>
+  );
+}
+
 function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
   const [priceMode, setPriceMode] = useState<'listed' | 'sold'>('sold');
+  const [showCalc, setShowCalc]   = useState(false);
 
   const newMkt    = priceMode === 'sold' ? (s.newSoldMarketValue    ?? s.newEstMarketValue    ?? 0)
                                          : (s.newEstMarketValue     ?? 0);
@@ -520,11 +552,24 @@ function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
     ? Math.round((totalPricedLots / (s.newLots + s.commonLots)) * 100)
     : 0;
 
+  // Per-piece averages (for calc breakdown)
+  const pricedNewQty    = s.newSellerQty    - s.newUnpricedQty;
+  const pricedCommonQty = s.commonSellerQty - s.commonUnpricedQty;
+  const avgNewPc    = pricedNewQty    > 0 ? newMkt    / pricedNewQty    : null;
+  const avgCommonPc = pricedCommonQty > 0 ? commonMkt / pricedCommonQty : null;
+
+  // Your store rate
+  const orgRate    = s.orgSellThrough;
+  const orgPct     = orgRate != null ? Math.round(orgRate * 100) : null;
+  const orgProjAmt = orgRate != null ? totalMkt * orgRate : null;
+  const presetNote = s.pricingPreset ? PRESET_NOTES[s.pricingPreset] : null;
+
   if (!hasListed && !hasSold) return null;
 
   return (
     <div className="rounded-xl border border-gray-700/50 bg-gray-900/40 p-3 flex flex-col gap-3">
-      {/* Header row */}
+
+      {/* ── Header row ── */}
       <div className="flex items-center gap-2 flex-wrap">
         <TrendingUp className="w-3.5 h-3.5 text-violet-400 shrink-0" />
         <span className="text-xs font-semibold text-white">Revenue Projection</span>
@@ -548,55 +593,73 @@ function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
           ))}
         </div>
 
+        {/* Definitions tooltip */}
         <div className="group relative">
           <Info className="w-3 h-3 text-gray-600 cursor-default" />
-          <div className="invisible group-hover:visible absolute right-0 top-5 z-10 w-72 rounded-lg border border-gray-700/60 bg-gray-900 p-2.5 text-[10px] text-gray-400 leading-relaxed shadow-xl">
-            <p className="font-semibold text-gray-300 mb-1">Sold avg vs. Listed avg</p>
-            <p className="mb-1.5"><span className="text-violet-300">Sold avg</span> — average price buyers actually paid for completed sales. Better baseline for sell-through projections.</p>
-            <p className="mb-2"><span className="text-gray-300">Listed avg</span> — average of what's currently listed (asking price). Typically higher than sold; useful for ceiling estimates.</p>
-            <p className="font-semibold text-gray-300 mb-1">Sell-through rates</p>
-            <p>No industry standard exists for LEGO parts. Typical reseller range is 40–85% annually. High-demand common parts sell faster; rare or niche parts drag the rate down. Calibrate against your own store's historical velocity.</p>
+          <div className="invisible group-hover:visible absolute right-0 top-5 z-10 w-72 rounded-lg border border-gray-700/60 bg-gray-900 p-3 text-[10px] text-gray-400 leading-relaxed shadow-xl space-y-2">
+            <div>
+              <p className="font-semibold text-gray-200 mb-0.5">Market Value</p>
+              <p>Sum of (seller qty × BrickLink avg price) for each priced lot. Only lots with cached price data are included.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-200 mb-0.5">Sold avg price</p>
+              <p>Average price from completed BrickLink transactions — what buyers actually paid. Best basis for revenue projection.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-200 mb-0.5">Listed avg price</p>
+              <p>Average of current asking prices across active BrickLink listings. Typically higher than sold; useful as a ceiling estimate.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-200 mb-0.5">Sell-through rate</p>
+              <p>% of acquired inventory sold within ~12 months. No industry standard exists for LEGO parts — ranges here are based on typical reseller patterns. Your store rate is computed from your actual trailing 12-month sales ÷ (sales + current stock).</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-200 mb-0.5">New lots vs. Overlap lots</p>
+              <p><span className="text-green-300">New lots</span> — parts not currently in your inventory. <span className="text-amber-300">Overlap lots</span> — parts you already carry; buying these adds more qty to existing listings.</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Coverage warning */}
+      {/* ── Coverage warning ── */}
       {totalUnpricedLots > 0 && (
         <div className="rounded-lg border border-amber-700/30 bg-amber-900/10 px-2.5 py-2 flex items-start gap-2">
           <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
           <p className="text-[10px] text-amber-300 leading-relaxed">
             <span className="font-semibold">{totalUnpricedLots} lot{totalUnpricedLots !== 1 ? 's' : ''} ({totalUnpricedQty.toLocaleString()} pcs) excluded</span>
-            {' '}— no BrickLink price data cached yet. These are likely parts new to your catalog that haven't been fetched.
-            {' '}<span className="text-amber-500">Projection covers {coveragePct}% of total lots.</span>
+            {' '}— no BrickLink price data cached yet.{' '}
+            <span className="text-amber-500">Projection covers {coveragePct}% of total lots.</span>
           </p>
         </div>
       )}
 
-      {/* Input breakdown */}
+      {/* ── Input tiles ── */}
       <div className="grid grid-cols-2 gap-2 text-[10px]">
         {hasNew && (
           <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
-            <div className="text-gray-500 mb-0.5">New lots ({priceMode === 'sold' ? 'sold' : 'listed'} avg)</div>
+            <div className="text-gray-500 mb-0.5">New lots market value</div>
             <div className="text-white font-semibold">${newMkt.toFixed(2)}</div>
             <div className="text-gray-600 mt-0.5">
-              {s.newLots - s.newUnpricedLots} priced lots
+              {s.newLots - s.newUnpricedLots} priced lots · {pricedNewQty.toLocaleString()} pcs
+              {avgNewPc != null && <span className="text-gray-700"> · avg ${avgNewPc.toFixed(4)}/pc</span>}
               {s.newUnpricedLots > 0 && <span className="text-amber-600"> · {s.newUnpricedLots} unpriced</span>}
             </div>
           </div>
         )}
         {hasCommon && (
           <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
-            <div className="text-gray-500 mb-0.5">Overlap lots ({priceMode === 'sold' ? 'sold' : 'listed'} avg)</div>
+            <div className="text-gray-500 mb-0.5">Overlap lots market value</div>
             <div className="text-white font-semibold">${commonMkt.toFixed(2)}</div>
             <div className="text-gray-600 mt-0.5">
-              {s.commonLots - s.commonUnpricedLots} priced lots
+              {s.commonLots - s.commonUnpricedLots} priced lots · {pricedCommonQty.toLocaleString()} pcs
+              {avgCommonPc != null && <span className="text-gray-700"> · avg ${avgCommonPc.toFixed(4)}/pc</span>}
               {s.commonUnpricedLots > 0 && <span className="text-amber-600"> · {s.commonUnpricedLots} unpriced</span>}
             </div>
           </div>
         )}
       </div>
 
-      {/* Scenario cards */}
+      {/* ── Scenario cards ── */}
       <div className="grid grid-cols-3 gap-2">
         {SELL_THROUGH_SCENARIOS.map(({ label, rate, color, bg, border }) => {
           const proj       = totalMkt * rate;
@@ -618,13 +681,105 @@ function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
         })}
       </div>
 
-      <p className="text-[9px] text-gray-600 leading-relaxed">
-        {priceMode === 'sold'
-          ? 'Using BrickLink sold (completed) avg prices — reflects what buyers actually paid. '
-          : 'Using BrickLink listed (stock) avg prices — reflects current asking prices, typically higher than sold. '}
-        40% is a cautious floor; 85% assumes a well-optimized store with fast turnover.
-        {totalUnpricedLots > 0 && ` Unpriced lots not included — run a price guide sync to improve coverage.`}
-      </p>
+      {/* ── Your Store card ── */}
+      {orgPct != null && orgProjAmt != null && (
+        <div className="rounded-lg border border-violet-600/40 bg-violet-900/20 p-2.5 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] font-semibold text-violet-300">Your Store</span>
+              <span className="text-[9px] text-violet-500">(trailing 12 mo actual)</span>
+            </div>
+            <div className="text-xl font-black text-violet-200 leading-none">${orgProjAmt.toFixed(0)}</div>
+            {hasNew && hasCommon && (
+              <div className="text-[9px] text-violet-500 mt-0.5">
+                New: ${(newMkt * orgRate!).toFixed(0)} · Overlap: ${(commonMkt * orgRate!).toFixed(0)}
+              </div>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-black text-violet-300 leading-none">{orgPct}%</div>
+            <div className="text-[9px] text-violet-500 mt-0.5">sell-through</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pricing preset note ── */}
+      {presetNote && (
+        <p className="text-[10px] text-gray-500 leading-relaxed">
+          <span className="text-gray-400 font-medium">Strategy note:</span> {presetNote}
+        </p>
+      )}
+
+      {/* ── Calculation breakdown (toggle) ── */}
+      <button
+        onClick={() => setShowCalc(x => !x)}
+        data-testid="acq-toggle-calc"
+        className="flex items-center gap-1.5 text-[10px] text-gray-600 hover:text-gray-400 transition-colors self-start"
+      >
+        {showCalc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        {showCalc ? 'Hide calculation' : 'Show calculation'}
+      </button>
+
+      {showCalc && (
+        <div className="rounded-lg border border-gray-700/40 bg-gray-950/60 p-3 text-[10px] space-y-3">
+
+          {/* Step 1 — market value */}
+          <div className="space-y-1.5">
+            <p className="text-gray-400 font-semibold uppercase tracking-wide text-[9px]">Step 1 — Total market value</p>
+            {hasNew && (
+              <CalcRow
+                label={`New lots: ${pricedNewQty.toLocaleString()} pcs × avg $${avgNewPc?.toFixed(4) ?? '—'}/pc`}
+                value={`$${newMkt.toFixed(2)}`}
+                indent
+              />
+            )}
+            {hasCommon && (
+              <CalcRow
+                label={`Overlap lots: ${pricedCommonQty.toLocaleString()} pcs × avg $${avgCommonPc?.toFixed(4) ?? '—'}/pc`}
+                value={`$${commonMkt.toFixed(2)}`}
+                indent
+              />
+            )}
+            {totalUnpricedLots > 0 && (
+              <CalcRow label={`Unpriced lots excluded`} value={`${totalUnpricedLots} lots`} sub={`(${totalUnpricedQty.toLocaleString()} pcs)`} indent />
+            )}
+            <div className="border-t border-gray-700/50 pt-1.5">
+              <CalcRow label="Total addressable market value" value={`$${totalMkt.toFixed(2)}`} />
+            </div>
+          </div>
+
+          {/* Step 2 — apply sell-through */}
+          <div className="space-y-1.5">
+            <p className="text-gray-400 font-semibold uppercase tracking-wide text-[9px]">Step 2 — Apply sell-through %</p>
+            <p className="text-gray-600 italic">Projected revenue = Total market value × sell-through rate</p>
+            {SELL_THROUGH_SCENARIOS.map(({ label, rate }) => (
+              <CalcRow
+                key={label}
+                label={`${label} (${Math.round(rate * 100)}%): $${totalMkt.toFixed(2)} × ${Math.round(rate * 100)}%`}
+                value={`$${(totalMkt * rate).toFixed(2)}`}
+                indent
+              />
+            ))}
+            {orgPct != null && orgProjAmt != null && (
+              <CalcRow
+                label={`Your Store (${orgPct}%): $${totalMkt.toFixed(2)} × ${orgPct}%`}
+                value={`$${orgProjAmt.toFixed(2)}`}
+                sub="actual"
+                indent
+              />
+            )}
+          </div>
+
+          {/* Price mode note */}
+          <p className="text-gray-700 italic">
+            {priceMode === 'sold'
+              ? 'Prices: BrickLink sold avg (completed transactions)'
+              : 'Prices: BrickLink listed avg (current asking prices)'}
+            {' · '}Avg per piece shown is a weighted average across all priced lots in each group.
+          </p>
+        </div>
+      )}
+
     </div>
   );
 }
