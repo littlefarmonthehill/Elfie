@@ -207,10 +207,9 @@ function DateRangeLabels(props: {
   to: string;
   onFrom: (s: string) => void;
   onTo: (s: string) => void;
-  onCancel: () => void;
   onPrint: (items: LotLabelPrintItem[]) => void;
 }) {
-  const { from, to, onFrom, onTo, onCancel, onPrint } = props;
+  const { from, to, onFrom, onTo, onPrint } = props;
   const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sort, setSort] = useState<RangeSortKey>(() => {
@@ -318,18 +317,6 @@ function DateRangeLabels(props: {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onCancel}
-          className="gap-1.5 text-xs"
-          data-testid="button-range-back"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> All batches
-        </Button>
-      </div>
-
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
         <p className="text-[10px] text-muted-foreground">
@@ -509,9 +496,6 @@ export default function ListomaticPriority() {
   const [openPhaseId, setOpenPhaseId] = useState<number | null>(null);
 
   // ── Lots tab ──────────────────────────────────────────────────────────────
-  const [lotSearch, setLotSearch] = useState('');
-  const [lotSearchSubmitted, setLotSearchSubmitted] = useState('');
-  const [lotFilter, setLotFilter] = useState<LotFilter>('all');
   // The print queue is persisted across page loads so a partially-built batch
   // survives an accidental refresh or a deploy. The version key is bumped
   // whenever the LotItem shape changes — older payloads are dropped on load.
@@ -559,7 +543,6 @@ export default function ListomaticPriority() {
   const todayStr = new Date().toISOString().split('T')[0];
   const [rangeFrom, setRangeFrom] = useState(todayStr);
   const [rangeTo, setRangeTo] = useState(todayStr);
-  const [rangeMode, setRangeMode] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -573,25 +556,6 @@ export default function ListomaticPriority() {
     queryKey: ['/api/listomatc/priority'],
     staleTime: 30000,
   });
-
-  const lotsQueryEnabled = lotFilter !== 'all' || lotSearchSubmitted.length > 0;
-  const { data: lotResults = [], isFetching: lotSearchLoading } = useQuery<LotItem[]>({
-    queryKey: ['/api/warehouse/lots', lotFilter, lotSearchSubmitted],
-    queryFn: async ({ queryKey }) => {
-      const filter = queryKey[1] as string;
-      const q = queryKey[2] as string;
-      const params = new URLSearchParams({ filter });
-      if (q) params.set('q', q);
-      const res = await fetch(`/api/warehouse/lots?${params}`);
-      if (!res.ok) throw new Error('Search failed');
-      return res.json();
-    },
-    enabled: lotsQueryEnabled,
-    staleTime: 20_000,
-  });
-
-  // Group results by part+condition so multi-bin combos can be flagged for QC.
-  const lotGroups = useMemo(() => groupLotsByPartCondition(lotResults), [lotResults]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const phaseScores = localPhaseScores ?? data?.phaseScores ?? { category: 25, subcategory: 50, finalsort: 75, listing: 100 };
@@ -663,57 +627,9 @@ export default function ListomaticPriority() {
   };
 
   // ── Lots tab helpers ──────────────────────────────────────────────────────
-  // Live search: debounce the typed query so results appear on the fly without
-  // needing to click a search button.
-  useEffect(() => {
-    const t = setTimeout(() => setLotSearchSubmitted(lotSearch.trim()), 250);
-    return () => clearTimeout(t);
-  }, [lotSearch]);
-
-  const handleLotFilterChange = (f: LotFilter) => {
-    setLotFilter(f);
-    setLotSearchSubmitted(lotSearch.trim());
-  };
-
-  const addToQueue = (lot: LotItem) => {
-    if (lotQueue.some(l => l.id === lot.id)) return;
-    setLotQueue(prev => [...prev, { ...lot, locationLabel: null, binName: null }]);
-  };
-
   const removeFromQueue = (id: number) => {
     setLotQueue(prev => prev.filter(l => l.id !== id));
   };
-
-  // Print a single lot's label immediately from the search results, without
-  // touching the print queue. Used by the per-row "Print" button.
-  const quickPrint = (lot: LotItem) => {
-    setQuickPrintItems([lot]);
-    setPrintDialogOpen(true);
-  };
-
-  // "Pull from BrickLink" — runs the incremental inventory sync (downloads BL
-  // inventory, upserts new/changed lots), then refetches the lot search so a
-  // newly-added lot (or new color of an existing part) shows up ready to print.
-  const pullFromBricklinkMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
-    onSuccess: (data: any) => {
-      const added = data?.data?.inventoryAdded ?? 0;
-      const updated = data?.data?.inventoryUpdated ?? 0;
-      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/lots'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
-      toast({
-        title: 'BrickLink sync complete',
-        description: added > 0 || updated > 0
-          ? `${added} lot${added !== 1 ? 's' : ''} added, ${updated} updated — searching again…`
-          : 'No new lots found on BrickLink. Double-check the part was added there first.',
-      });
-    },
-    onError: (err: any) => toast({
-      title: 'Pull failed',
-      description: err?.message || 'Could not pull from BrickLink.',
-      variant: 'destructive',
-    }),
-  });
 
   // ── Lot label print queue ─────────────────────────────────────────────────
   // The actual PDF rendering lives in LotLabelTemplatePrint.tsx so any font /
@@ -757,260 +673,16 @@ export default function ListomaticPriority() {
 
         {/* ── LISTING TAB (Smart Parts) ─────────────────────────────── */}
         <TabsContent value="listing" className="space-y-3 mt-0">
-
-          {/* ── Select view: search a part, print its label ──────────── */}
-          {!rangeMode && (
-            <>
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground">Find lots to label</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Search a part you added or restocked on BrickLink, print its label,
-                    stick it on the bag, then drop the bag in its Ready-to-File bin.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRangeMode(true)}
-                  className="gap-1.5 text-xs"
-                  data-testid="button-range-labels"
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                  Print by date range
-                </Button>
-              </div>
-
-              {/* Filter pills */}
-              <div className="flex items-center gap-1 flex-wrap">
-                {([
-                  ['all',          'All'],
-                  ['assigned',     'Assigned'],
-                  ['unassigned',   'Unassigned'],
-                  ['filing-queue', 'Filing Queue'],
-                ] as [LotFilter, string][]).map(([f, label]) => (
-                  <button
-                    key={f}
-                    onClick={() => handleLotFilterChange(f)}
-                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                      lotFilter === f
-                        ? f === 'filing-queue'
-                          ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                        : 'text-gray-500 hover:text-gray-300 border-gray-700 hover:border-gray-600'
-                    }`}
-                    data-testid={`filter-lots-${f}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  placeholder={lotFilter === 'all' ? 'Part number or name…' : 'Narrow by part number or name…'}
-                  value={lotSearch}
-                  onChange={e => setLotSearch(e.target.value)}
-                  className="pl-8 pr-8 text-xs"
-                  data-testid="input-lot-search"
-                />
-                {lotSearchLoading && (
-                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                )}
-              </div>
-
-              {/* Results */}
-              {lotsQueryEnabled && (
-                <div className="space-y-1">
-                  {lotSearchLoading ? (
-                    <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-xs">Loading…</span>
-                    </div>
-                  ) : lotResults.length === 0 ? (
-                    <div className="text-center py-6 space-y-3" data-testid="lots-empty-state">
-                      <p className="text-xs text-muted-foreground">
-                        {lotSearchSubmitted
-                          ? <>No lots found matching &ldquo;{lotSearchSubmitted}&rdquo;.</>
-                          : 'No lots in this filter.'}
-                      </p>
-                      {lotSearchSubmitted && (
-                        <div className="space-y-1.5">
-                          <Button
-                            size="sm"
-                            onClick={() => pullFromBricklinkMutation.mutate()}
-                            disabled={pullFromBricklinkMutation.isPending}
-                            data-testid="button-pull-bricklink"
-                          >
-                            {pullFromBricklinkMutation.isPending ? (
-                              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Pulling from BrickLink…</>
-                            ) : (
-                              <><RefreshCw className="h-3.5 w-3.5" /> Pull from BrickLink</>
-                            )}
-                          </Button>
-                          <p className="text-[10px] text-muted-foreground/70 max-w-xs mx-auto">
-                            Syncs the lots you just added to BrickLink, then shows them here to print.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-[10px] text-muted-foreground mb-1">
-                        <span className="font-semibold text-foreground">{lotResults.length}</span> lot{lotResults.length !== 1 ? 's' : ''}
-                        {lotResults.length === 200 && <span className="text-muted-foreground/60"> (showing first 200)</span>}
-                        {' '}— tap a row to queue, or use the printer icon to print now
-                      </p>
-                      <div className="rounded-md border border-border bg-muted/20 max-h-52 overflow-y-auto">
-                        {lotGroups.map((group) => {
-                          const cond = conditionLabel(group.newOrUsed);
-                          const testKey = `${group.itemNo}-${group.newOrUsed ?? 'NA'}`;
-                          // Most common filed bin in this group — anything else is an outlier worth a second look.
-                          const freq = new Map<string, number>();
-                          for (const l of group.lots) {
-                            const sig = parseBins(l.locationLabel).sort().join(', ');
-                            if (sig) freq.set(sig, (freq.get(sig) ?? 0) + 1);
-                          }
-                          let majoritySig = '';
-                          let maxN = 0;
-                          freq.forEach((n, s) => { if (n > maxN) { maxN = n; majoritySig = s; } });
-                          return (
-                            <div key={group.key} className="border-b border-border last:border-b-0" data-testid={`group-${testKey}`}>
-                              {/* Group header: part + condition + bin summary / multi-bin flag */}
-                              <div className={`flex items-center gap-2 flex-wrap px-3 py-1.5 border-b ${group.multiBin ? 'bg-orange-500/10 border-orange-500/30' : 'bg-muted/40 border-border'}`}>
-                                <span className="font-mono text-xs font-semibold text-foreground">{group.itemNo}</span>
-                                <span className="text-[11px] text-muted-foreground break-words min-w-0">{group.itemName || '—'}</span>
-                                {cond && (
-                                  <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${group.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
-                                )}
-                                {group.multiBin ? (
-                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-orange-300 break-words" data-testid={`flag-multibin-${testKey}`}>
-                                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    In {group.bins.length} bins: {group.bins.join(', ')} — check consolidation
-                                  </span>
-                                ) : group.bins.length === 1 ? (
-                                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                    <MapPin className="h-3 w-3 shrink-0" />
-                                    {group.bins[0]}
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground/60">No filed bin yet</span>
-                                )}
-                              </div>
-                              {/* Color rows */}
-                              <div className="divide-y divide-border">
-                                {group.lots.map((lot) => {
-                                  const inQueue = lotQueue.some(l => l.id === lot.id);
-                                  const lotBins = parseBins(lot.locationLabel).sort();
-                                  const sig = lotBins.join(', ');
-                                  const isOutlier = group.multiBin && !!sig && sig !== majoritySig;
-                                  return (
-                                    <div
-                                      key={lot.id}
-                                      className="w-full flex items-center"
-                                      data-testid={`lot-result-${lot.id}`}
-                                    >
-                                      <button
-                                        onClick={() => addToQueue(lot)}
-                                        disabled={inQueue}
-                                        className={`flex-1 min-w-0 flex items-start gap-2 px-3 py-2 text-left transition-colors ${inQueue ? 'opacity-40 cursor-default' : 'hover-elevate'}`}
-                                        data-testid={`button-queue-lot-${lot.id}`}
-                                      >
-                                        <Package className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
-                                        <div className="flex-1 min-w-0 space-y-0.5">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            {lot.colorRgb && (
-                                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                            )}
-                                            <span className="text-xs text-foreground break-words">{lot.colorName || '—'}</span>
-                                            {lot.isFilingQueue && (
-                                              <span className="text-[8px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded px-1">Queue</span>
-                                            )}
-                                            {!lot.assigned && !lot.isFilingQueue && (
-                                              <span className="text-[8px] font-semibold text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1">Unassigned</span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            {lotBins.length > 0 ? (
-                                              <span className={`flex items-center gap-1 text-[10px] ${isOutlier ? 'text-orange-300 font-semibold' : 'text-muted-foreground/70'}`} data-testid={`lot-bin-${lot.id}`}>
-                                                <MapPin className="h-3 w-3 shrink-0" />
-                                                {sig}
-                                              </span>
-                                            ) : (
-                                              <span className="text-[10px] text-muted-foreground/50">No filed bin</span>
-                                            )}
-                                            {isOutlier && (
-                                              <span className="text-[8px] font-semibold text-orange-300 bg-orange-500/10 border border-orange-500/30 rounded px-1">different bin</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        {inQueue ? (
-                                          <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-green-500" />
-                                        ) : (
-                                          <Plus className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
-                                        )}
-                                      </button>
-                                      <div className="pr-1.5 shrink-0">
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          onClick={() => quickPrint(lot)}
-                                          data-testid={`button-print-lot-${lot.id}`}
-                                          aria-label={`Print label for lot ${lot.itemNo}`}
-                                          title="Print this lot label now"
-                                        >
-                                          <Printer className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {lotSearchSubmitted && (
-                        <div className="flex justify-center pt-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-[11px] text-muted-foreground"
-                            onClick={() => pullFromBricklinkMutation.mutate()}
-                            disabled={pullFromBricklinkMutation.isPending}
-                            data-testid="button-pull-bricklink-inline"
-                          >
-                            {pullFromBricklinkMutation.isPending ? (
-                              <><Loader2 className="h-3 w-3 animate-spin" /> Pulling from BrickLink…</>
-                            ) : (
-                              <><RefreshCw className="h-3 w-3" /> Don&rsquo;t see it? Pull from BrickLink</>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Date range mode ─────────────────────────────────────── */}
-          {rangeMode && (
-            <DateRangeLabels
-              from={rangeFrom}
-              to={rangeTo}
-              onFrom={setRangeFrom}
-              onTo={setRangeTo}
-              onCancel={() => setRangeMode(false)}
-              onPrint={(items) => {
-                setQuickPrintItems(items);
-                setPrintDialogOpen(true);
-              }}
-            />
-          )}
+          <DateRangeLabels
+            from={rangeFrom}
+            to={rangeTo}
+            onFrom={setRangeFrom}
+            onTo={setRangeTo}
+            onPrint={(items) => {
+              setQuickPrintItems(items);
+              setPrintDialogOpen(true);
+            }}
+          />
         </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
