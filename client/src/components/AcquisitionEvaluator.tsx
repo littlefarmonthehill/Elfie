@@ -7,7 +7,7 @@ import {
   Upload, FileUp, X, CheckCircle2, AlertTriangle,
   Package, Layers, ChevronDown, ChevronUp, Loader2,
   ArrowUpDown, ArrowUp, ArrowDown, Sparkles, ClipboardPaste,
-  TrendingUp, ShieldAlert, Target, Handshake, Star,
+  TrendingUp, ShieldAlert, Target, Handshake, Star, Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,7 @@ interface AcqSummary {
   commonSellerQty: number;
   commonSellerValue: number | null;
   commonOrgListValue: number | null;
+  commonEstMarketValue: number | null;
   newLots: number;
   newSellerQty: number;
   newSellerValue: number | null;
@@ -481,6 +482,88 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
   );
 }
 
+// ── Revenue Projection ────────────────────────────────────────────────────────
+
+const SELL_THROUGH_SCENARIOS = [
+  { label: 'Conservative', rate: 0.40, color: 'text-amber-300', bg: 'bg-amber-900/20', border: 'border-amber-700/30' },
+  { label: 'Moderate',     rate: 0.65, color: 'text-blue-300',  bg: 'bg-blue-900/20',  border: 'border-blue-700/30'  },
+  { label: 'Optimistic',   rate: 0.85, color: 'text-green-300', bg: 'bg-green-900/20', border: 'border-green-700/30' },
+] as const;
+
+function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
+  const newMkt = s.newEstMarketValue ?? 0;
+  const commonMkt = s.commonEstMarketValue ?? 0;
+  const totalMkt = newMkt + commonMkt;
+
+  const hasNew    = s.newEstMarketValue != null;
+  const hasCommon = s.commonEstMarketValue != null;
+
+  return (
+    <div className="rounded-xl border border-gray-700/50 bg-gray-900/40 p-3 flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <TrendingUp className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+        <span className="text-xs font-semibold text-white">Revenue Projection</span>
+        <div className="ml-auto group relative">
+          <Info className="w-3 h-3 text-gray-600 cursor-default" />
+          <div className="invisible group-hover:visible absolute right-0 top-5 z-10 w-64 rounded-lg border border-gray-700/60 bg-gray-900 p-2.5 text-[10px] text-gray-400 leading-relaxed shadow-xl">
+            Sell-through rates estimate what % of acquired inventory you'll sell within ~12 months.
+            There's no formal industry standard for LEGO parts — these ranges are based on typical
+            reseller patterns: high-demand common parts sell faster, rare or slow-moving parts drag
+            the overall rate down. Adjust your expectation based on your store's historical velocity.
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown note */}
+      <div className="grid grid-cols-2 gap-2 text-[10px]">
+        {hasNew && (
+          <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
+            <div className="text-gray-500 mb-0.5">New lots market value</div>
+            <div className="text-white font-semibold">${newMkt.toFixed(2)}</div>
+            <div className="text-gray-600 mt-0.5">{s.newLots} lots · {s.newSellerQty.toLocaleString()} pcs</div>
+          </div>
+        )}
+        {hasCommon && (
+          <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
+            <div className="text-gray-500 mb-0.5">Overlap lots market value</div>
+            <div className="text-white font-semibold">${commonMkt.toFixed(2)}</div>
+            <div className="text-gray-600 mt-0.5">{s.commonLots} lots · {s.commonSellerQty.toLocaleString()} pcs</div>
+          </div>
+        )}
+      </div>
+
+      {/* Scenario cards */}
+      <div className="grid grid-cols-3 gap-2">
+        {SELL_THROUGH_SCENARIOS.map(({ label, rate, color, bg, border }) => {
+          const proj = totalMkt * rate;
+          const newProj = newMkt * rate;
+          const commonProj = commonMkt * rate;
+          return (
+            <div key={label} className={cn("rounded-lg border p-2.5 flex flex-col gap-1", bg, border)}>
+              <div className="text-[10px] text-gray-400 font-semibold">{label}</div>
+              <div className={cn("text-base font-black leading-none", color)}>${proj.toFixed(0)}</div>
+              <div className="text-[9px] text-gray-500">{Math.round(rate * 100)}% sell-through</div>
+              {hasNew && hasCommon && (
+                <div className="text-[9px] text-gray-600 mt-0.5 space-y-0.5">
+                  <div>New: ${newProj.toFixed(0)}</div>
+                  <div>Overlap: ${commonProj.toFixed(0)}</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[9px] text-gray-600 leading-relaxed">
+        Based on BrickLink market avg prices. No industry standard exists for LEGO reseller sell-through —
+        40% is a cautious floor, 85% assumes a well-optimized store. Your actual rate depends on pricing,
+        part demand, and how quickly you list acquired inventory.
+      </p>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AcquisitionEvaluator() {
@@ -897,6 +980,11 @@ export default function AcquisitionEvaluator() {
               color="border-violet-700/40 bg-violet-900/10"
             />
           </div>
+
+          {/* Revenue Projection */}
+          {(s.newEstMarketValue != null || s.commonEstMarketValue != null) && (
+            <RevenueProjection summary={s} />
+          )}
 
           {/* Section tabs */}
           <div className="flex gap-1.5 border-b border-gray-700/50 pb-0">

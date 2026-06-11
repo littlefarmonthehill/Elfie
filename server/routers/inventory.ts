@@ -2491,6 +2491,8 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
   let commonSellerQty = 0;
   let commonSellerValue = 0;
   let commonOrgListValue = 0;
+  let commonEstMarketValue = 0;
+  let hasCommonEstMarket = false;
   let newSellerQty = 0;
   let newSellerValue = 0;
   let newEstMarketValue = 0;
@@ -2514,6 +2516,8 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       commonSellerQty += item.quantity;
       if (item.price != null) { commonSellerValue += item.price * item.quantity; }
       if (orgLot.unitPrice != null) { commonOrgListValue += parseFloat(orgLot.unitPrice) * orgLot.quantity; }
+      const cMktPrice = item.condition === 'N' ? marketNew : marketUsed;
+      if (cMktPrice != null) { commonEstMarketValue += cMktPrice * item.quantity; hasCommonEstMarket = true; }
       common.push({
         itemNo: item.itemNo,
         colorId: item.colorId ?? 0,
@@ -2559,6 +2563,7 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       newSellerQty,
       newSellerValue: newSellerValue > 0 ? Math.round(newSellerValue * 100) / 100 : null,
       newEstMarketValue: hasNewEstMarket ? Math.round(newEstMarketValue * 100) / 100 : null,
+      commonEstMarketValue: hasCommonEstMarket ? Math.round(commonEstMarketValue * 100) / 100 : null,
     },
     common,
     newItems,
