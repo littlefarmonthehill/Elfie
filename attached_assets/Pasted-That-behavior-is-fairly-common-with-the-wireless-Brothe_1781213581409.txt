@@ -1,0 +1,41 @@
+That behavior is fairly common with the wireless Brother label and receipt printers, including the Brother QL-810W and related models.
+
+If iOS says “Printer is not available”, but then immediately prints when you tap Try Again, the most likely causes are:
+
+1. Printer is sleeping
+    * iOS discovers the printer via AirPrint.
+    * The printer is in a low-power state.
+    * The first attempt wakes it up.
+    * The second attempt succeeds because the printer is now fully awake.
+2. Wi-Fi reconnection delay
+    * The printer drops off the network when idle.
+    * When a print job arrives, it reconnects.
+    * AirPrint times out before the reconnect completes.
+    * Retrying works because the printer is back online.
+3. Bonjour/AirPrint discovery lag
+    * AirPrint relies on Bonjour announcements.
+    * Sometimes the printer is reachable but hasn’t refreshed its presence on the network.
+    * A retry often succeeds.
+4. Mesh Wi-Fi issues
+    * If you’re using Eero, Orbi, Google WiFi, etc., printers sometimes have trouble staying visible across access points.
+    * The printer may be connected to one node while the phone is on another.
+
+Things I’d try
+
+* Update the printer firmware using Brother’s utilities.
+* Assign the printer a static IP address in your router.
+* Disable any aggressive power-saving or deep sleep settings if available.
+* Make sure both the iPhone and printer are on the same Wi-Fi network (not guest Wi-Fi).
+* If using a mesh network, try placing the printer near the primary router and see if the problem disappears.
+
+For your Elfie app question
+
+If you’re seeing this behavior in all iOS apps (Safari, Notes, Photos, etc.), then it’s almost certainly a printer/network issue rather than an app issue.
+
+If it only happens in Elfie, I’d investigate whether the app is:
+
+* generating the print content slowly,
+* recreating the print controller each time,
+* or handing off to AirPrint before the document is fully ready.
+
+Does the error happen from every app on the iPhone, or only from Elfie? Also, is the printer connected directly to your Wi-Fi router, or are you using a mesh system like Eero, Deco, Orbi, or Google WiFi?
