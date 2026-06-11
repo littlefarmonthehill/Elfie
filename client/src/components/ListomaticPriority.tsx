@@ -203,10 +203,11 @@ function DateRangeLabels(props: {
   onFrom: (s: string) => void;
   onTo: (s: string) => void;
   onCancel: () => void;
-  onAddToQueue: (items: LotItem[]) => void;
+  onPrint: (items: LotLabelPrintItem[]) => void;
 }) {
-  const { from, to, onFrom, onTo, onCancel, onAddToQueue } = props;
+  const { from, to, onFrom, onTo, onCancel, onPrint } = props;
   const [submitted, setSubmitted] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const enabled = submitted && !!from && !!to;
   const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
@@ -221,6 +222,46 @@ function DateRangeLabels(props: {
     },
     enabled,
   });
+
+  useEffect(() => {
+    if (rows.length > 0) {
+      setSelectedIds(new Set(rows.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }, [rows]);
+
+  const toLabelItem = (r: RangeRow): LotLabelPrintItem => ({
+    id: r.id,
+    itemNo: r.itemNo,
+    itemName: r.itemName,
+    colorName: r.colorName,
+    newOrUsed: r.newOrUsed,
+    quantity: r.quantity,
+    itemType: r.itemType,
+    colorId: r.colorId,
+    imageUrl: r.thumbnailUrl,
+    remarks: r.remarks,
+    description: r.description,
+    aisleName: r.aisleName,
+  });
+
+  const toggleRow = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === rows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(rows.map(r => r.id)));
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -285,58 +326,72 @@ function DateRangeLabels(props: {
             <p className="text-center text-xs text-muted-foreground py-6">No lots in this date range.</p>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] text-muted-foreground">
-                  <span className="font-semibold text-foreground">{rows.length}</span> lot{rows.length !== 1 ? 's' : ''}
-                  {rows.length === 2000 && <span className="text-muted-foreground/60"> (capped at 2000)</span>}
-                </p>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-muted-foreground">
+                    <span className="font-semibold text-foreground">{rows.length}</span> lot{rows.length !== 1 ? 's' : ''}
+                    {rows.length === 2000 && <span className="text-muted-foreground/60"> (capped at 2000)</span>}
+                  </p>
+                  <button
+                    onClick={toggleAll}
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                    data-testid="button-range-toggle-all"
+                  >
+                    {selectedIds.size === rows.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                </div>
                 <Button
                   size="sm"
                   onClick={() => {
-                    const items: LotItem[] = rows.map(r => ({
-                      id: r.id,
-                      itemNo: r.itemNo,
-                      itemName: r.itemName,
-                      colorName: r.colorName,
-                      colorRgb: null,
-                      newOrUsed: r.newOrUsed,
-                      quantity: r.quantity,
-                      binName: null,
-                      locationLabel: null,
-                      assigned: false,
-                      isFilingQueue: false,
-                      itemType: r.itemType,
-                      colorId: r.colorId,
-                      imageUrl: r.thumbnailUrl,
-                      remarks: r.remarks,
-                      description: r.description,
-                      changeType: r.changeType,
-                      aisleName: r.aisleName,
-                    }));
-                    onAddToQueue(items);
+                    const items = rows.filter(r => selectedIds.has(r.id)).map(toLabelItem);
+                    if (items.length > 0) onPrint(items);
                   }}
+                  disabled={selectedIds.size === 0}
                   className="gap-1.5 text-xs"
-                  data-testid="button-range-add-all"
+                  data-testid="button-range-print-selected"
                 >
-                  <Printer className="h-3.5 w-3.5" /> Queue all labels
+                  <Printer className="h-3.5 w-3.5" />
+                  {selectedIds.size === rows.length
+                    ? 'Print All'
+                    : selectedIds.size > 0
+                      ? `Print Selected (${selectedIds.size})`
+                      : 'Print Selected'}
                 </Button>
               </div>
               <div className="rounded-md border border-border bg-muted/20 divide-y divide-border max-h-80 overflow-y-auto">
-                {rows.slice(0, 200).map(r => (
-                  <div key={r.id} className="flex items-center gap-2 px-3 py-1.5">
-                    {r.thumbnailUrl ? (
-                      <img src={r.thumbnailUrl} alt={r.itemNo} className="w-6 h-6 object-contain shrink-0 rounded bg-gray-800" />
-                    ) : (
-                      <div className="w-6 h-6 shrink-0 rounded bg-gray-800" />
-                    )}
-                    <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{r.itemNo}</span>
-                    <span className="text-xs text-muted-foreground truncate flex-1">{r.itemName || '—'}</span>
-                    {r.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{r.colorName}</span>}
-                  </div>
-                ))}
-                {rows.length > 200 && (
-                  <p className="text-center text-[10px] text-muted-foreground py-1">… preview shows first 200; queue gets all {rows.length}.</p>
-                )}
+                {rows.map(r => {
+                  const isSelected = selectedIds.has(r.id);
+                  return (
+                    <div
+                      key={r.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-500/10' : ''}`}
+                      onClick={() => toggleRow(r.id)}
+                      data-testid={`range-row-${r.id}`}
+                    >
+                      <div className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-emerald-500 border-emerald-400' : 'border-border'}`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      {r.thumbnailUrl ? (
+                        <img src={r.thumbnailUrl} alt={r.itemNo} className="w-6 h-6 object-contain shrink-0 rounded bg-gray-800" />
+                      ) : (
+                        <div className="w-6 h-6 shrink-0 rounded bg-gray-800" />
+                      )}
+                      <span className="font-mono text-xs font-semibold shrink-0 w-16 truncate text-foreground">{r.itemNo}</span>
+                      <span className="text-xs text-muted-foreground truncate flex-1">{r.itemName || '—'}</span>
+                      {r.colorName && <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden sm:inline">{r.colorName}</span>}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={e => { e.stopPropagation(); onPrint([toLabelItem(r)]); }}
+                        className="shrink-0"
+                        data-testid={`button-range-print-row-${r.id}`}
+                        title="Print this label"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -415,10 +470,9 @@ export default function ListomaticPriority() {
   const [quickPrintItems, setQuickPrintItems] = useState<LotLabelPrintItem[] | null>(null);
 
   // ── Listing tab ───────────────────────────────────────────────────────────
-  const [listingView, setListingView] = useState<'select' | 'print'>('select');
-  const [queueFilter, setQueueFilter] = useState<'all' | 'new' | 'updated'>('all');
-  const [rangeFrom, setRangeFrom] = useState('');
-  const [rangeTo, setRangeTo] = useState('');
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [rangeFrom, setRangeFrom] = useState(todayStr);
+  const [rangeTo, setRangeTo] = useState(todayStr);
   const [rangeMode, setRangeMode] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -617,43 +671,9 @@ export default function ListomaticPriority() {
 
         {/* ── LISTING TAB (Smart Parts) ─────────────────────────────── */}
         <TabsContent value="listing" className="space-y-3 mt-0">
-          {/* Top-level Select / Print switcher — keeps queue one click away */}
-          <div className="flex items-center gap-1 rounded-md border border-border bg-muted/20 p-0.5">
-            <button
-              onClick={() => setListingView('select')}
-              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded transition-colors ${
-                listingView === 'select'
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              data-testid="listing-view-select"
-            >
-              Select Lots
-            </button>
-            <button
-              onClick={() => setListingView('print')}
-              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded transition-colors flex items-center justify-center gap-1.5 ${
-                listingView === 'print'
-                  ? 'bg-emerald-500/20 text-emerald-200'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              data-testid="listing-view-print"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Print Queue
-              {lotQueue.length > 0 && (
-                <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
-                  listingView === 'print' ? 'bg-emerald-500/30 text-emerald-100' : 'bg-emerald-500/20 text-emerald-300'
-                }`}>
-                  {lotQueue.length}
-                </span>
-              )}
-            </button>
-          </div>
-
 
           {/* ── Select view: search a part, print its label ──────────── */}
-          {listingView === 'select' && !rangeMode && (
+          {!rangeMode && (
             <>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="min-w-0">
@@ -892,192 +912,19 @@ export default function ListomaticPriority() {
           )}
 
           {/* ── Date range mode ─────────────────────────────────────── */}
-          {listingView === 'select' && rangeMode && (
+          {rangeMode && (
             <DateRangeLabels
               from={rangeFrom}
               to={rangeTo}
               onFrom={setRangeFrom}
               onTo={setRangeTo}
               onCancel={() => setRangeMode(false)}
-              onAddToQueue={(items) => {
-                enqueueForPrint(items);
+              onPrint={(items) => {
+                setQuickPrintItems(items);
+                setPrintDialogOpen(true);
               }}
             />
           )}
-
-
-          {/* ── Print Queue view ─────────────────────────────────────── */}
-          {listingView === 'print' && (() => {
-            const newQ = lotQueue.filter(l => l.changeType === 'new');
-            const updQ = lotQueue.filter(l => l.changeType === 'qty_updated');
-            const otherQ = lotQueue.filter(l => l.changeType !== 'new' && l.changeType !== 'qty_updated');
-            const shown =
-              queueFilter === 'new' ? newQ
-              : queueFilter === 'updated' ? updQ
-              : lotQueue;
-            const pills: [typeof queueFilter, string, number][] = [
-              ['all', 'All', lotQueue.length],
-              ['new', 'New', newQ.length],
-              ['updated', 'Updated', updQ.length],
-            ];
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">Print Queue</h3>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {lotQueue.length === 0
-                        ? 'Nothing queued yet.'
-                        : queueFilter === 'all'
-                          ? `${lotQueue.length} label${lotQueue.length !== 1 ? 's' : ''} ready to print.`
-                          : `Showing ${shown.length} of ${lotQueue.length} queued.`}
-                    </p>
-                  </div>
-                  {lotQueue.length > 0 && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (queueFilter === 'all') {
-                            setLotQueue([]);
-                          } else {
-                            const idsToRemove = new Set(shown.map(l => l.id));
-                            setLotQueue(prev => prev.filter(l => !idsToRemove.has(l.id)));
-                          }
-                        }}
-                        className="text-[10px] text-muted-foreground"
-                        data-testid="button-listing-clear-queue"
-                      >
-                        {queueFilter === 'all' ? 'Clear all' : `Clear ${shown.length}`}
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setPendingPrintIds(
-                            queueFilter === 'all' ? null : new Set(shown.map(l => l.id))
-                          );
-                          setPrintDialogOpen(true);
-                        }}
-                        disabled={shown.length === 0}
-                        className="gap-1.5 text-xs"
-                        data-testid="button-listing-print-labels"
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                        Print {queueFilter === 'all' ? 'Labels' : `(${shown.length})`}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {lotQueue.length > 0 && queueFilter !== 'all' && shown.length === 0 && otherQ.length > 0 && (
-                  <div className="rounded-md border border-amber-700/30 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-200">
-                    These {otherQ.length} queued lot{otherQ.length !== 1 ? 's' : ''} weren't added from a Listing batch
-                    (e.g. via search or date range), so they have no NEW/UPDATED tag.
-                    Switch back to <span className="font-semibold">All</span> to print them, or clear and re-queue from a batch.
-                  </div>
-                )}
-
-                {lotQueue.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {pills.map(([key, label, count]) => (
-                      <button
-                        key={key}
-                        onClick={() => setQueueFilter(key)}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          queueFilter === key
-                            ? key === 'new'
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                              : key === 'updated'
-                                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                                : 'bg-foreground/10 text-foreground border-foreground/30'
-                            : 'text-muted-foreground hover:text-foreground border-border hover:border-foreground/40'
-                        }`}
-                        data-testid={`filter-queue-${key}`}
-                      >
-                        {label} <span className="opacity-60 tabular-nums">({count})</span>
-                      </button>
-                    ))}
-                    {otherQ.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground/60 ml-1">
-                        · {otherQ.length} other
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {lotQueue.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border bg-muted/10 py-10 text-center">
-                    <Package className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2" />
-                    <p className="text-xs text-muted-foreground">No labels queued.</p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                      Switch to <span className="font-medium">Select Lots</span>, search a part, then tap a row to queue its label.
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setListingView('select')}
-                      className="mt-3 gap-1.5 text-xs"
-                      data-testid="button-back-to-select"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" /> Back to Select Lots
-                    </Button>
-                  </div>
-                ) : shown.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border bg-muted/10 py-8 text-center">
-                    <p className="text-xs text-muted-foreground">No {queueFilter === 'new' ? 'NEW' : 'UPDATED'} lots in queue.</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-border bg-muted/20 divide-y divide-border overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-                    {shown.map((lot) => {
-                      const cond = conditionLabel(lot.newOrUsed);
-                      const isNew = lot.changeType === 'new';
-                      const isUpd = lot.changeType === 'qty_updated';
-                      return (
-                        <div
-                          key={lot.id}
-                          className="flex items-center gap-2 px-3 py-2"
-                          data-testid={`queue-item-${lot.id}`}
-                        >
-                          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="font-mono text-xs font-semibold shrink-0 w-20 truncate text-foreground">{lot.itemNo}</span>
-                          <span className="text-xs text-muted-foreground truncate flex-1">{lot.itemName || '—'}</span>
-                          {lot.colorName && (
-                            <span className="flex items-center gap-1 shrink-0">
-                              {lot.colorRgb && (
-                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                              )}
-                              <span className="text-[10px] text-muted-foreground">{lot.colorName}</span>
-                            </span>
-                          )}
-                          {cond && (
-                            <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 shrink-0 border ${lot.newOrUsed === 'N' ? 'bg-blue-600 text-white border-blue-400' : 'bg-zinc-900 text-white border-zinc-400'}`}>{cond}</span>
-                          )}
-                          {(isNew || isUpd) && (
-                            <span className={`text-[8px] font-semibold rounded px-1 shrink-0 border ${
-                              isNew
-                                ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
-                                : 'text-blue-300 bg-blue-500/10 border-blue-500/30'
-                            }`}>
-                              {isNew ? 'NEW' : 'UPD'}
-                            </span>
-                          )}
-                          {lot.binName && <span className="text-[10px] font-mono text-yellow-500 shrink-0">{lot.binName}</span>}
-                          <button
-                            onClick={() => removeFromQueue(lot.id)}
-                            className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
-                            data-testid={`remove-queue-${lot.id}`}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
         </TabsContent>
 
         {/* ── CATEGORIES TAB ───────────────────────────────────────────── */}
