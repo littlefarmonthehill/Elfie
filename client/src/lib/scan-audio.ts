@@ -66,17 +66,48 @@ export function unlockAudio(): void {
   }
 }
 
-export function speak(text: string): void {
+export function speak(text: string, rate = 0.82): void {
   try {
     const synth = window.speechSynthesis;
     if (!synth) return;
     // Cancel any in-flight phrase so the latest result wins instead of queueing.
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.82;
+    u.rate = rate;
     u.pitch = 1;
     synth.speak(u);
   } catch {
     // Speech is best-effort; the tone already conveys the outcome.
+  }
+}
+
+// Speaks an intro phrase at normal conversational rate, then the bin name
+// separately at a very slow, deliberate rate — mirroring voice-directed
+// putaway where the picker hears the instruction first and then each segment
+// of the bin address clearly. Hyphens in the bin name ("5-B-29") are
+// replaced with comma-pauses so each section lands distinctly.
+export function speakBin(intro: string, binName: string): void {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+
+    // Intro at the regular conversational rate.
+    const u1 = new SpeechSynthesisUtterance(intro);
+    u1.rate = 0.82;
+    u1.pitch = 1;
+
+    // Bin name very slow: each dash-separated segment becomes its own breath.
+    // "5-B-29" → "5, B, 29" reads as "five … B … twenty-nine".
+    const binSpeech = binName.replace(/-/g, ", ");
+    const u2 = new SpeechSynthesisUtterance(binSpeech);
+    u2.rate = 0.38;
+    u2.pitch = 1;
+
+    // Chain via onend so the slow bin reads after the intro, not simultaneously.
+    u1.onend = () => { try { synth.speak(u2); } catch {} };
+    synth.speak(u1);
+  } catch {
+    // Speech is best-effort.
   }
 }

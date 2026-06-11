@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
-import { playTone, speak, unlockAudio, type ScanTone } from "@/lib/scan-audio";
+import { playTone, speak, speakBin, unlockAudio, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
@@ -130,6 +130,22 @@ function lotFileGuidanceSpeech(lot: ResolvedLot): string {
       : `File alongside in ${where}.`;
   }
   return "No suggested bin. Pick any bin.";
+}
+
+// Split the lot guidance into an intro phrase (normal rate) and a bin name
+// (very slow) so the bin address is spoken deliberately with speakBin().
+// Returns {text} when there is no bin to call out (fallback to plain speak).
+function lotGuidanceParts(lot: ResolvedLot):
+  | { intro: string; bin: string }
+  | { text: string } {
+  const dest = heroBin(lot);
+  if (!dest) return { text: "No suggested bin. Pick any bin." };
+  if (lot.locations.length > 0) return { intro: "Consolidate.", bin: dest.bin };
+  if (lot.suggestedBin) {
+    const verb = lot.suggestedBin.matchLevel <= 2 ? "Consolidate." : "File alongside.";
+    return { intro: verb, bin: dest.bin };
+  }
+  return { text: "No suggested bin. Pick any bin." };
 }
 
 // Returns the individual aisle/shelf/bin name parts for the hero board so they
@@ -360,7 +376,12 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setActiveLot(null);
         setPendingBin(null);
         setActiveBin(resolved);
-        cue("ok", `${toSpeech(binFullLabel(resolved))}. ${resolved.itemCount} lots. Scan lots to file here.`);
+        // Tone fires immediately; then the bin name is spoken very slowly so
+        // the filer can hear each segment ("Active bin." pause "5, B, 29").
+        if (soundOnRef.current) {
+          playTone("ok");
+          speakBin("Active bin.", binFullLabel(resolved));
+        }
         updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
       }
     }
@@ -382,7 +403,14 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setActiveBin(null);
         setPendingBin(null);
         setActiveLot(resolved);
-        cue("ok", lotFileGuidanceSpeech(resolved));
+        // Speak the intro at normal rate, then say the bin name very slowly
+        // so the filer can hear every segment without mishearing a digit/letter.
+        if (soundOnRef.current) {
+          playTone("ok");
+          const parts = lotGuidanceParts(resolved);
+          if ("bin" in parts) speakBin(parts.intro, parts.bin);
+          else speak(parts.text);
+        }
         updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
       }
     }
