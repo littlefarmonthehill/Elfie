@@ -245,14 +245,10 @@ export async function printLotLabelsWithTemplate(
     partImages = items.map(() => null);
   }
 
-  // jsPDF expects [shorter, longer] for landscape (same convention as
-  // printLotLabels in PackingSlip.tsx). Passing [longer, shorter] can produce
-  // malformed pages in some jsPDF versions, which macOS Preview renders as
-  // two pages with blank content.
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageH, pageW] });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
   items.forEach((lot, i) => {
-    if (i > 0) doc.addPage([pageH, pageW], 'landscape');
+    if (i > 0) doc.addPage([pageW, pageH], 'landscape');
 
     const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;
     const cond = conditionLabel(lot.newOrUsed);
