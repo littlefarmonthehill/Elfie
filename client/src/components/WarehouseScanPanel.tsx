@@ -184,6 +184,10 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
+  // Set to true by the useHardwareScanner window-level hook when it claims a
+  // scan so the text-input's handleKeyDown doesn't double-process the same
+  // Enter keystroke that the hook already forwarded to processCode.
+  const hwScanHandledRef = useRef(false);
   // Last code accepted from the camera; reset when the code leaves view so the
   // same QR isn't processed every frame (which would spam the feed and audio).
   const lastCameraCodeRef = useRef<string | null>(null);
@@ -389,7 +393,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   // Catch hardware-scanner keystrokes at the window level so codes are
   // processed even when the text input isn't focused (e.g. user tapped a
   // button, camera is open, or the panel is in embedded mode inside a tab).
-  useHardwareScanner({ onScan: processCode });
+  // Mark hwScanHandledRef so the text-input's handleKeyDown skips this scan.
+  useHardwareScanner({
+    onScan: useCallback((code: string) => {
+      hwScanHandledRef.current = true;
+      processCode(code);
+    }, [processCode]),
+  });
 
   const undoEntry = useCallback(async (entryId: string) => {
     setFeed(prev => prev.map(e => e.id === entryId && e.undo
@@ -483,6 +493,14 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      // The window-level useHardwareScanner hook fires first (capture phase)
+      // and sets hwScanHandledRef when it processes a scan. If it already
+      // handled this Enter, clear the input and skip so we don't double-fire.
+      if (hwScanHandledRef.current) {
+        hwScanHandledRef.current = false;
+        setInputVal("");
+        return;
+      }
       const val = inputVal.trim();
       if (val) {
         processCode(val);
@@ -527,11 +545,10 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         )}
       </div>
 
-      {/* Distance-readable status board — full-screen only. The filer stands
-          at the end of the aisle; this panel is readable from several feet
-          away without squinting. High-contrast colour + large type = the
-          visual half of voice-directed putaway. */}
-      {!embedded && (() => {
+      {/* Distance-readable status board — shown in both full-screen and
+          embedded modes so the filer can read bin names from a distance on
+          any device, including mobile portrait in the File tab. */}
+      {(() => {
         const isWrong = !!(activeLot && pendingBin);
         const isLot   = !isWrong && !!activeLot;
         const isBin   = !isWrong && !isLot && !!activeBin;
@@ -592,7 +609,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <AlertTriangle className="h-10 w-10 text-white mb-1" />
                 <p className="text-5xl font-black text-white leading-none">Wrong bin</p>
                 <p className="text-xl text-white/80 mt-2">Expected: {expectedBinLabel(activeLot)}</p>
-                <p className="text-sm text-white/60 mt-1">Scan {binFullLabel(pendingBin)} again to override</p>
+                <p className="text-sm text-white/60 mt-1">Scan correct bin, or scan {binFullLabel(pendingBin)} again to flag for splitting</p>
               </>
             )}
 

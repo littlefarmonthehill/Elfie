@@ -73,7 +73,7 @@ export function speak(text: string): void {
     // Cancel any in-flight phrase so the latest result wins instead of queueing.
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.1;
+    u.rate = 0.82;
     u.pitch = 1;
     synth.speak(u);
   } catch {
