@@ -380,7 +380,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         // the filer can hear each segment ("Active bin." pause "5, B, 29").
         if (soundOnRef.current) {
           playTone("ok");
-          speakBin("Active bin.", binFullLabel(resolved));
+          speakBin(binFullLabel(resolved));
         }
         updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
       }
@@ -408,7 +408,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         if (soundOnRef.current) {
           playTone("ok");
           const parts = lotGuidanceParts(resolved);
-          if ("bin" in parts) speakBin(parts.intro, parts.bin);
+          if ("bin" in parts) speakBin(parts.bin);
           else speak(parts.text);
         }
         updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
