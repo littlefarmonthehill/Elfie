@@ -60,11 +60,20 @@ interface AcqSummary {
   commonSellerQty: number;
   commonSellerValue: number | null;
   commonOrgListValue: number | null;
+  // Listed (stock avg) market values
+  newEstMarketValue: number | null;
   commonEstMarketValue: number | null;
+  // Sold (completed) market values
+  newSoldMarketValue: number | null;
+  commonSoldMarketValue: number | null;
+  // Coverage gaps
   newLots: number;
   newSellerQty: number;
   newSellerValue: number | null;
-  newEstMarketValue: number | null;
+  newUnpricedLots: number;
+  newUnpricedQty: number;
+  commonUnpricedLots: number;
+  commonUnpricedQty: number;
 }
 
 interface AcqResult {
@@ -491,44 +500,98 @@ const SELL_THROUGH_SCENARIOS = [
 ] as const;
 
 function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
-  const newMkt = s.newEstMarketValue ?? 0;
-  const commonMkt = s.commonEstMarketValue ?? 0;
-  const totalMkt = newMkt + commonMkt;
+  const [priceMode, setPriceMode] = useState<'listed' | 'sold'>('sold');
 
-  const hasNew    = s.newEstMarketValue != null;
-  const hasCommon = s.commonEstMarketValue != null;
+  const newMkt    = priceMode === 'sold' ? (s.newSoldMarketValue    ?? s.newEstMarketValue    ?? 0)
+                                         : (s.newEstMarketValue     ?? 0);
+  const commonMkt = priceMode === 'sold' ? (s.commonSoldMarketValue ?? s.commonEstMarketValue ?? 0)
+                                         : (s.commonEstMarketValue  ?? 0);
+  const totalMkt  = newMkt + commonMkt;
+
+  const hasNew    = newMkt > 0;
+  const hasCommon = commonMkt > 0;
+  const hasSold   = (s.newSoldMarketValue != null) || (s.commonSoldMarketValue != null);
+  const hasListed = (s.newEstMarketValue  != null) || (s.commonEstMarketValue  != null);
+
+  const totalUnpricedLots = s.newUnpricedLots + s.commonUnpricedLots;
+  const totalUnpricedQty  = s.newUnpricedQty  + s.commonUnpricedQty;
+  const totalPricedLots   = (s.newLots + s.commonLots) - totalUnpricedLots;
+  const coveragePct       = (s.newLots + s.commonLots) > 0
+    ? Math.round((totalPricedLots / (s.newLots + s.commonLots)) * 100)
+    : 0;
+
+  if (!hasListed && !hasSold) return null;
 
   return (
     <div className="rounded-xl border border-gray-700/50 bg-gray-900/40 p-3 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center gap-2">
+      {/* Header row */}
+      <div className="flex items-center gap-2 flex-wrap">
         <TrendingUp className="w-3.5 h-3.5 text-violet-400 shrink-0" />
         <span className="text-xs font-semibold text-white">Revenue Projection</span>
-        <div className="ml-auto group relative">
+
+        {/* Listed / Sold toggle */}
+        <div className="flex gap-0.5 rounded-lg border border-gray-700/50 bg-gray-900/60 p-0.5 ml-auto">
+          {(['sold', 'listed'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setPriceMode(mode)}
+              data-testid={`acq-price-mode-${mode}`}
+              className={cn(
+                "text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all",
+                priceMode === mode
+                  ? "bg-violet-900/60 text-violet-200 ring-1 ring-violet-500/40"
+                  : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              {mode === 'sold' ? 'Sold avg' : 'Listed avg'}
+            </button>
+          ))}
+        </div>
+
+        <div className="group relative">
           <Info className="w-3 h-3 text-gray-600 cursor-default" />
-          <div className="invisible group-hover:visible absolute right-0 top-5 z-10 w-64 rounded-lg border border-gray-700/60 bg-gray-900 p-2.5 text-[10px] text-gray-400 leading-relaxed shadow-xl">
-            Sell-through rates estimate what % of acquired inventory you'll sell within ~12 months.
-            There's no formal industry standard for LEGO parts — these ranges are based on typical
-            reseller patterns: high-demand common parts sell faster, rare or slow-moving parts drag
-            the overall rate down. Adjust your expectation based on your store's historical velocity.
+          <div className="invisible group-hover:visible absolute right-0 top-5 z-10 w-72 rounded-lg border border-gray-700/60 bg-gray-900 p-2.5 text-[10px] text-gray-400 leading-relaxed shadow-xl">
+            <p className="font-semibold text-gray-300 mb-1">Sold avg vs. Listed avg</p>
+            <p className="mb-1.5"><span className="text-violet-300">Sold avg</span> — average price buyers actually paid for completed sales. Better baseline for sell-through projections.</p>
+            <p className="mb-2"><span className="text-gray-300">Listed avg</span> — average of what's currently listed (asking price). Typically higher than sold; useful for ceiling estimates.</p>
+            <p className="font-semibold text-gray-300 mb-1">Sell-through rates</p>
+            <p>No industry standard exists for LEGO parts. Typical reseller range is 40–85% annually. High-demand common parts sell faster; rare or niche parts drag the rate down. Calibrate against your own store's historical velocity.</p>
           </div>
         </div>
       </div>
 
-      {/* Breakdown note */}
+      {/* Coverage warning */}
+      {totalUnpricedLots > 0 && (
+        <div className="rounded-lg border border-amber-700/30 bg-amber-900/10 px-2.5 py-2 flex items-start gap-2">
+          <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-amber-300 leading-relaxed">
+            <span className="font-semibold">{totalUnpricedLots} lot{totalUnpricedLots !== 1 ? 's' : ''} ({totalUnpricedQty.toLocaleString()} pcs) excluded</span>
+            {' '}— no BrickLink price data cached yet. These are likely parts new to your catalog that haven't been fetched.
+            {' '}<span className="text-amber-500">Projection covers {coveragePct}% of total lots.</span>
+          </p>
+        </div>
+      )}
+
+      {/* Input breakdown */}
       <div className="grid grid-cols-2 gap-2 text-[10px]">
         {hasNew && (
           <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
-            <div className="text-gray-500 mb-0.5">New lots market value</div>
+            <div className="text-gray-500 mb-0.5">New lots ({priceMode === 'sold' ? 'sold' : 'listed'} avg)</div>
             <div className="text-white font-semibold">${newMkt.toFixed(2)}</div>
-            <div className="text-gray-600 mt-0.5">{s.newLots} lots · {s.newSellerQty.toLocaleString()} pcs</div>
+            <div className="text-gray-600 mt-0.5">
+              {s.newLots - s.newUnpricedLots} priced lots
+              {s.newUnpricedLots > 0 && <span className="text-amber-600"> · {s.newUnpricedLots} unpriced</span>}
+            </div>
           </div>
         )}
         {hasCommon && (
           <div className="rounded-lg border border-gray-700/40 bg-gray-900/60 px-2.5 py-2">
-            <div className="text-gray-500 mb-0.5">Overlap lots market value</div>
+            <div className="text-gray-500 mb-0.5">Overlap lots ({priceMode === 'sold' ? 'sold' : 'listed'} avg)</div>
             <div className="text-white font-semibold">${commonMkt.toFixed(2)}</div>
-            <div className="text-gray-600 mt-0.5">{s.commonLots} lots · {s.commonSellerQty.toLocaleString()} pcs</div>
+            <div className="text-gray-600 mt-0.5">
+              {s.commonLots - s.commonUnpricedLots} priced lots
+              {s.commonUnpricedLots > 0 && <span className="text-amber-600"> · {s.commonUnpricedLots} unpriced</span>}
+            </div>
           </div>
         )}
       </div>
@@ -536,8 +599,8 @@ function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
       {/* Scenario cards */}
       <div className="grid grid-cols-3 gap-2">
         {SELL_THROUGH_SCENARIOS.map(({ label, rate, color, bg, border }) => {
-          const proj = totalMkt * rate;
-          const newProj = newMkt * rate;
+          const proj       = totalMkt * rate;
+          const newProj    = newMkt    * rate;
           const commonProj = commonMkt * rate;
           return (
             <div key={label} className={cn("rounded-lg border p-2.5 flex flex-col gap-1", bg, border)}>
@@ -556,9 +619,11 @@ function RevenueProjection({ summary: s }: { summary: AcqSummary }) {
       </div>
 
       <p className="text-[9px] text-gray-600 leading-relaxed">
-        Based on BrickLink market avg prices. No industry standard exists for LEGO reseller sell-through —
-        40% is a cautious floor, 85% assumes a well-optimized store. Your actual rate depends on pricing,
-        part demand, and how quickly you list acquired inventory.
+        {priceMode === 'sold'
+          ? 'Using BrickLink sold (completed) avg prices — reflects what buyers actually paid. '
+          : 'Using BrickLink listed (stock) avg prices — reflects current asking prices, typically higher than sold. '}
+        40% is a cautious floor; 85% assumes a well-optimized store with fast turnover.
+        {totalUnpricedLots > 0 && ` Unpriced lots not included — run a price guide sync to improve coverage.`}
       </p>
     </div>
   );

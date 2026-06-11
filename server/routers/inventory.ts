@@ -2473,13 +2473,17 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       colorId: priceGuideCache.colorId,
       newOrUsed: priceGuideCache.newOrUsed,
       stockAvgPrice: priceGuideCache.stockAvgPrice,
+      soldAvgPrice: priceGuideCache.soldAvgPrice,
     })
     .from(priceGuideCache)
     .where(inArray(priceGuideCache.itemNo, uniqueItemNos));
-  const priceMap = new Map<string, number | null>();
+  // Two maps: listed (stock) and sold
+  const listedPriceMap = new Map<string, number | null>();
+  const soldPriceMap   = new Map<string, number | null>();
   for (const r of priceRows) {
     const k = `${r.itemNo}|${r.colorId ?? 0}|${r.newOrUsed}`;
-    priceMap.set(k, r.stockAvgPrice ? parseFloat(r.stockAvgPrice) : null);
+    listedPriceMap.set(k, r.stockAvgPrice ? parseFloat(r.stockAvgPrice) : null);
+    soldPriceMap.set(k,   r.soldAvgPrice  ? parseFloat(r.soldAvgPrice)  : null);
   }
 
   const common: any[] = [];
@@ -2491,19 +2495,33 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
   let commonSellerQty = 0;
   let commonSellerValue = 0;
   let commonOrgListValue = 0;
-  let commonEstMarketValue = 0;
-  let hasCommonEstMarket = false;
-  let newSellerQty = 0;
-  let newSellerValue = 0;
-  let newEstMarketValue = 0;
-  let hasNewEstMarket = false;
+  // Listed-price market values
+  let commonListedMarketValue = 0;
+  let hasCommonListedMarket = false;
+  let newListedMarketValue = 0;
+  let hasNewListedMarket = false;
+  // Sold-price market values
+  let commonSoldMarketValue = 0;
+  let hasCommonSoldMarket = false;
+  let newSoldMarketValue = 0;
+  let hasNewSoldMarket = false;
+  // Coverage: lots/qty with NO price data at all
+  let newUnpricedLots = 0;
+  let newUnpricedQty = 0;
+  let commonUnpricedLots = 0;
+  let commonUnpricedQty = 0;
 
   for (const item of sellerItems) {
     const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
     const catKey = `${item.itemNo}|${item.colorId ?? 0}`;
     const cat = catalogMap.get(catKey) ?? { itemName: null, colorName: null };
-    const marketNew = priceMap.get(`${item.itemNo}|${item.colorId ?? 0}|N`) ?? null;
-    const marketUsed = priceMap.get(`${item.itemNo}|${item.colorId ?? 0}|U`) ?? null;
+    const condKey = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
+    const listedNew  = listedPriceMap.get(`${item.itemNo}|${item.colorId ?? 0}|N`) ?? null;
+    const listedUsed = listedPriceMap.get(`${item.itemNo}|${item.colorId ?? 0}|U`) ?? null;
+    const soldNew    = soldPriceMap.get(`${item.itemNo}|${item.colorId ?? 0}|N`) ?? null;
+    const soldUsed   = soldPriceMap.get(`${item.itemNo}|${item.colorId ?? 0}|U`) ?? null;
+    const listedMkt  = item.condition === 'N' ? listedNew  : listedUsed;
+    const soldMkt    = item.condition === 'N' ? soldNew    : soldUsed;
 
     totalSellerQty += item.quantity;
     if (item.price != null) {
@@ -2516,8 +2534,9 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       commonSellerQty += item.quantity;
       if (item.price != null) { commonSellerValue += item.price * item.quantity; }
       if (orgLot.unitPrice != null) { commonOrgListValue += parseFloat(orgLot.unitPrice) * orgLot.quantity; }
-      const cMktPrice = item.condition === 'N' ? marketNew : marketUsed;
-      if (cMktPrice != null) { commonEstMarketValue += cMktPrice * item.quantity; hasCommonEstMarket = true; }
+      if (listedMkt != null) { commonListedMarketValue += listedMkt * item.quantity; hasCommonListedMarket = true; }
+      if (soldMkt   != null) { commonSoldMarketValue   += soldMkt   * item.quantity; hasCommonSoldMarket   = true; }
+      if (listedMkt == null && soldMkt == null) { commonUnpricedLots++; commonUnpricedQty += item.quantity; }
       common.push({
         itemNo: item.itemNo,
         colorId: item.colorId ?? 0,
@@ -2528,14 +2547,15 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
         sellerPrice: item.price ?? null,
         orgQty: orgLot.quantity,
         orgPrice: orgLot.unitPrice != null ? parseFloat(orgLot.unitPrice) : null,
-        marketAvgNew: marketNew,
-        marketAvgUsed: marketUsed,
+        marketAvgNew: listedNew,
+        marketAvgUsed: listedUsed,
       });
     } else {
       newSellerQty += item.quantity;
       if (item.price != null) { newSellerValue += item.price * item.quantity; hasSellerValue = true; }
-      const mktPrice = item.condition === 'N' ? marketNew : marketUsed;
-      if (mktPrice != null) { newEstMarketValue += mktPrice * item.quantity; hasNewEstMarket = true; }
+      if (listedMkt != null) { newListedMarketValue += listedMkt * item.quantity; hasNewListedMarket = true; }
+      if (soldMkt   != null) { newSoldMarketValue   += soldMkt   * item.quantity; hasNewSoldMarket   = true; }
+      if (listedMkt == null && soldMkt == null) { newUnpricedLots++; newUnpricedQty += item.quantity; }
       newItems.push({
         itemNo: item.itemNo,
         colorId: item.colorId ?? 0,
@@ -2544,8 +2564,8 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
         condition: item.condition,
         sellerQty: item.quantity,
         sellerPrice: item.price ?? null,
-        marketAvgNew: marketNew,
-        marketAvgUsed: marketUsed,
+        marketAvgNew: listedNew,
+        marketAvgUsed: listedUsed,
       });
     }
   }
@@ -2562,8 +2582,17 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       newLots: newItems.length,
       newSellerQty,
       newSellerValue: newSellerValue > 0 ? Math.round(newSellerValue * 100) / 100 : null,
-      newEstMarketValue: hasNewEstMarket ? Math.round(newEstMarketValue * 100) / 100 : null,
-      commonEstMarketValue: hasCommonEstMarket ? Math.round(commonEstMarketValue * 100) / 100 : null,
+      // Listed (stock avg) market values
+      newEstMarketValue:    hasNewListedMarket    ? Math.round(newListedMarketValue    * 100) / 100 : null,
+      commonEstMarketValue: hasCommonListedMarket ? Math.round(commonListedMarketValue * 100) / 100 : null,
+      // Sold (completed) market values
+      newSoldMarketValue:    hasNewSoldMarket    ? Math.round(newSoldMarketValue    * 100) / 100 : null,
+      commonSoldMarketValue: hasCommonSoldMarket ? Math.round(commonSoldMarketValue * 100) / 100 : null,
+      // Coverage gaps
+      newUnpricedLots,
+      newUnpricedQty,
+      commonUnpricedLots,
+      commonUnpricedQty,
     },
     common,
     newItems,
