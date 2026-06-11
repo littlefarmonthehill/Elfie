@@ -13,6 +13,7 @@ import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
 import { playTone, speak, unlockAudio, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
+import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -378,6 +379,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
 
     processingRef.current = false;
   }, [activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation, cue]);
+
+  // Catch hardware-scanner keystrokes at the window level so codes are
+  // processed even when the text input isn't focused (e.g. user tapped a
+  // button, camera is open, or the panel is in embedded mode inside a tab).
+  useHardwareScanner({ onScan: processCode });
 
   const undoEntry = useCallback(async (entryId: string) => {
     setFeed(prev => prev.map(e => e.id === entryId && e.undo
