@@ -188,11 +188,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const { setActive } = useScanSession();
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
-  const [scanMode, setScanMode] = useState<"lot-first" | "bin-first" | null>(() => {
+  const [scanMode, setScanMode] = useState<"lot-first" | "bin-first">(() => {
     try {
       const v = localStorage.getItem("wh.scanMode");
-      return (v === "lot-first" || v === "bin-first") ? v : null;
-    } catch { return null; }
+      return v === "bin-first" ? "bin-first" : "lot-first";
+    } catch { return "lot-first"; }
   });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [inputVal, setInputVal] = useState("");
@@ -740,9 +740,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               <>
                 <ScanLine className="h-10 w-10 text-muted-foreground/30" />
                 <p className="text-xl text-muted-foreground mt-2">
-                  {scanMode === "lot-first" ? "Scan a lot to begin"
-                   : scanMode === "bin-first" ? "Scan a bin to begin"
-                   : "Select a mode to begin"}
+                  {scanMode === "bin-first" ? "Scan a bin to begin" : "Scan a lot to begin"}
                 </p>
               </>
             )}
@@ -751,11 +749,9 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       })()}
 
       <p className="px-4 pt-3 text-[11px] text-muted-foreground mb-3 shrink-0">
-        {scanMode === "lot-first"
-          ? "Scan a lot — the system will direct you to its bin. Then scan that bin to file it."
-          : scanMode === "bin-first"
+        {scanMode === "bin-first"
           ? "Scan a bin to activate it, then scan unassigned lots to file them into it."
-          : "Select a mode above before scanning."}
+          : "Scan a lot — the system will direct you to its bin. Then scan that bin to file it."}
       </p>
 
       {/* Active context card — shows whichever context the scans established */}
@@ -789,9 +785,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           <div className="rounded-md border border-dashed border-border p-3 flex items-center gap-3" data-testid="card-active-empty">
             <ScanLine className="h-5 w-5 shrink-0 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              {scanMode === "lot-first" ? "Scan a lot to begin"
-               : scanMode === "bin-first" ? "Scan a bin to begin"
-               : "Select a mode to begin"}
+              {scanMode === "bin-first" ? "Scan a bin to begin" : "Scan a lot to begin"}
             </p>
           </div>
         )}
