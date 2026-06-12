@@ -20,6 +20,8 @@ const router = Router();
 //   1. sibling lot with same part+color+condition
 //   2. sibling lot with same part+condition (any color)
 //   3. sibling lot with same part (any condition, any color)
+//   4. decoration-family + same condition  (strip pb/pr/c/pa suffixes → shared numeric base)
+//   5. decoration-family, any condition    (weakest fallback before "rtf 0")
 export const lotAisleHintSql = sql<string | null>`(
   SELECT wa.name
   FROM bl_inventory sib
@@ -28,17 +30,25 @@ export const lotAisleHintSql = sql<string | null>`(
   JOIN wh_shelves ws ON ws.id = wb.shelf_id
   JOIN wh_aisles wa ON wa.id = ws.aisle_id
   WHERE sib.org_id = ${blInventory.orgId}
-    AND sib.item_no = ${blInventory.itemNo}
     AND sib.item_type = ${blInventory.itemType}
     AND sib.deleted_at IS NULL
     AND wa.name IS NOT NULL
+    AND (
+      sib.item_no = ${blInventory.itemNo}
+      OR regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1')
+         = regexp_replace(${blInventory.itemNo}::text, '^([0-9]+).*$', '\\1')
+    )
   ORDER BY
     CASE
       WHEN sib.id = ${blInventory.id} THEN 0
-      WHEN sib.color_id IS NOT DISTINCT FROM ${blInventory.colorId}
+      WHEN sib.item_no = ${blInventory.itemNo}
+        AND sib.color_id IS NOT DISTINCT FROM ${blInventory.colorId}
         AND sib.new_or_used = ${blInventory.newOrUsed} THEN 1
-      WHEN sib.new_or_used = ${blInventory.newOrUsed} THEN 2
-      ELSE 3
+      WHEN sib.item_no = ${blInventory.itemNo}
+        AND sib.new_or_used = ${blInventory.newOrUsed} THEN 2
+      WHEN sib.item_no = ${blInventory.itemNo} THEN 3
+      WHEN sib.new_or_used = ${blInventory.newOrUsed} THEN 4
+      ELSE 5
     END,
     wa.name ASC
   LIMIT 1
