@@ -72,6 +72,8 @@ E.L.F.I.E. is a business operations and analytics SaaS platform for LEGO reselle
 
 Preferred communication style: Simple, everyday language.
 
+Never use `variant="default"` (lego-red primary) for action buttons like sync, toggles, or mode selectors — it reads as alarming. Use `variant="outline"` or `variant="secondary"` instead. Reserve `variant="destructive"` only for genuine destructive confirms (delete/remove dialogs). Do not use red-colored action buttons anywhere unless explicitly requested.
+
 ## Gotchas
 
 - **Multi-tenant DB performance:** All 19 tables with `orgId` columns have indexes; tenant-scoped queries require `orgId` for performance.

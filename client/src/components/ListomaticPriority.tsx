@@ -374,7 +374,7 @@ function DateRangeLabels(props: {
         </div>
         <Button
           size="sm"
-          variant="default"
+          variant="outline"
           disabled={syncMutation.isPending}
           onClick={() => syncMutation.mutate()}
           data-testid="button-sync-bricklink"

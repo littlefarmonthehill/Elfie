@@ -679,8 +679,8 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide shrink-0">Mode</span>
         <Button
           size="sm"
-          variant={scanMode === "lot-first" ? "default" : "outline"}
-          className="flex-1 text-xs h-7"
+          variant="outline"
+          className={`flex-1 text-xs h-7 ${scanMode === "lot-first" ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-300" : ""}`}
           onClick={() => { setScanMode("lot-first"); try { localStorage.setItem("wh.scanMode", "lot-first"); } catch {} }}
           disabled={!!activeLot || !!activeBin || !!pendingConfirm}
           data-testid="button-mode-lot-first"
@@ -689,8 +689,8 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         </Button>
         <Button
           size="sm"
-          variant={scanMode === "bin-first" ? "default" : "outline"}
-          className="flex-1 text-xs h-7"
+          variant="outline"
+          className={`flex-1 text-xs h-7 ${scanMode === "bin-first" ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-300" : ""}`}
           onClick={() => { setScanMode("bin-first"); try { localStorage.setItem("wh.scanMode", "bin-first"); } catch {} }}
           disabled={!!activeLot || !!activeBin || !!pendingConfirm}
           data-testid="button-mode-bin-first"
