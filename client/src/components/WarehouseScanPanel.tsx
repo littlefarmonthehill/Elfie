@@ -188,9 +188,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const { setActive } = useScanSession();
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
-  // A "wrong" bin scanned for the active lot, awaiting a confirming second scan
-  // to override the expected bin and file into this new one instead.
-  const [pendingBin, setPendingBin] = useState<ResolvedBin | null>(null);
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [inputVal, setInputVal] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -347,34 +344,21 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         const expected = expectedBinIds(activeLot);
         const isExpected = expected.length === 0 || expected.includes(resolved.id);
         if (isExpected) {
-          // Correct bin (or no expectation) — file straight away, even if a
-          // wrong bin was pending from a prior scan.
-          setPendingBin(null);
+          // Correct bin (or no expectation) — file straight away.
           if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
-        } else if (pendingBin && pendingBin.id === resolved.id) {
-          // Second consecutive scan of the same wrong bin → do not override.
-          // Instead, direct the filer to the bin-splitting area so they can
-          // manually split the bin rather than silently mixing lots.
-          setPendingBin(null);
-          cue("warn", "Bin needs splitting. Move lot to the bin splitting area.");
-          updateFeed(feedId, {
-            status: "warn",
-            message: `Bin split needed — ${lotLabel(activeLot)} belongs in ${expectedBinLabel(activeLot)} but ${binFullLabel(resolved)} was scanned twice. Move this lot to the bin splitting area.`,
-          });
         } else {
-          // First scan of a wrong bin → warn and wait for a second scan.
-          setPendingBin(resolved);
-          cue("warn", "Wrong bin. Scan the correct bin, or scan this bin again if it needs splitting.");
+          // Wrong bin — warn and clear the active lot so the filer can move on.
+          cue("warn", "Wrong bin.");
           updateFeed(feedId, {
             status: "warn",
-            message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}. Scan the correct bin, or scan ${binFullLabel(resolved)} again to flag it for splitting.`,
+            message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}.`,
           });
+          setActiveLot(null);
         }
       } else {
         // Bin-first (or switching the active bin): set this bin active.
         // Keep contexts mutually exclusive — a bin and a lot are never both active.
         setActiveLot(null);
-        setPendingBin(null);
         setActiveBin(resolved);
         // Tone fires immediately; then the bin name is spoken very slowly so
         // the filer can hear each segment ("Active bin." pause "5, B, 29").
@@ -399,9 +383,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         if (activeLot && activeLot.id !== resolved.id) {
           addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
         }
-        // Keep contexts mutually exclusive and clear any pending wrong-bin confirmation.
         setActiveBin(null);
-        setPendingBin(null);
         setActiveLot(resolved);
         // Speak the intro at normal rate, then say the bin name very slowly
         // so the filer can hear every segment without mishearing a digit/letter.
@@ -416,7 +398,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
 
     processingRef.current = false;
-  }, [activeBin, activeLot, pendingBin, addFeed, updateFeed, assignMutation, cue]);
+  }, [activeBin, activeLot, addFeed, updateFeed, assignMutation, cue]);
 
   // Catch hardware-scanner keystrokes at the window level so codes are
   // processed even when the text input isn't focused (e.g. user tapped a
@@ -605,19 +587,17 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           embedded modes so the filer can read bin names from a distance on
           any device, including mobile portrait in the File tab. */}
       {(() => {
-        const isWrong = !!(activeLot && pendingBin);
-        const isLot   = !isWrong && !!activeLot;
-        const isBin   = !isWrong && !isLot && !!activeBin;
-        const last    = !isWrong && !isLot && !isBin ? feed[0] : undefined;
-        const isOk    = last?.status === "ok";
-        const isNew   = last?.status === "new";
-        const isErr   = last?.status === "err";
-        const isBusy  = last?.status === "busy";
-        const isIdle  = !isWrong && !isLot && !isBin && !isOk && !isNew && !isErr && !isBusy;
+        const isLot  = !!activeLot;
+        const isBin  = !isLot && !!activeBin;
+        const last   = !isLot && !isBin ? feed[0] : undefined;
+        const isOk   = last?.status === "ok";
+        const isNew  = last?.status === "new";
+        const isErr  = last?.status === "err";
+        const isBusy = last?.status === "busy";
+        const isIdle = !isLot && !isBin && !isOk && !isNew && !isErr && !isBusy;
 
         const bg =
-          isWrong ? "bg-amber-600"
-          : isLot ? "bg-blue-900 dark:bg-blue-950"
+          isLot  ? "bg-blue-900 dark:bg-blue-950"
           : isBin ? "bg-yellow-700 dark:bg-yellow-800"
           : isOk  ? "bg-green-700 dark:bg-green-800"
           : isNew ? "bg-orange-600 dark:bg-orange-700"
@@ -659,15 +639,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 </>
               );
             })()}
-
-            {isWrong && activeLot && pendingBin && (
-              <>
-                <AlertTriangle className="h-10 w-10 text-white mb-1" />
-                <p className="text-5xl font-black text-white leading-none">Wrong bin</p>
-                <p className="text-xl text-white/80 mt-2">Expected: {expectedBinLabel(activeLot)}</p>
-                <p className="text-sm text-white/60 mt-1">Scan correct bin, or scan {binFullLabel(pendingBin)} again to flag for splitting</p>
-              </>
-            )}
 
             {isBin && activeBin && (
               <>
@@ -747,7 +718,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 Currently in: {lotLocationStr(activeLot)}
               </p>
             </div>
-            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { setActiveLot(null); setPendingBin(null); }} data-testid="button-clear-active-lot">
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveLot(null)} data-testid="button-clear-active-lot">
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -805,7 +776,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                         File it in that bin to keep it together, but keep new and used in separate baggies.
                       </>
                     )}{" "}
-                    Scan that bin to confirm, or another to override.
+                    Scan that bin to file there.
                   </p>
                 ) : null}
               </div>
@@ -813,23 +784,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           </div>
         );
       })()}
-
-      {/* Wrong-bin warning: require a confirming rescan to override */}
-      {activeLot && pendingBin && (
-        <div className="px-4 mb-3 shrink-0">
-          <div className="rounded-md border border-orange-500/40 bg-orange-500/10 p-3 flex items-start gap-2.5" data-testid="warning-wrong-bin">
-            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0 text-xs">
-              <p className="font-semibold text-orange-500">Wrong bin</p>
-              <p className="text-muted-foreground mt-0.5">
-                {lotLabel(activeLot)} is expected in{" "}
-                <span className="font-semibold">{expectedBinLabel(activeLot)}</span>. Scan{" "}
-                <span className="font-semibold">{binFullLabel(pendingBin)}</span> again to file it here anyway, or scan the correct bin.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Camera or input */}
       <div className="px-4 mb-3 shrink-0 space-y-2">
