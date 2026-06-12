@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import LotLabelTemplatePrintDialog, { LotLabelPrintItem } from "./LotLabelTemplatePrint";
 import { WarehouseScanPanel } from "./WarehouseScanPanel";
@@ -211,6 +212,7 @@ function DateRangeLabels(props: {
 }) {
   const { from, to, onFrom, onTo, onPrint } = props;
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sort, setSort] = useState<RangeSortKey>(() => {
     try { return (localStorage.getItem(RANGE_SORT_KEY) as RangeSortKey) ?? 'part'; } catch { return 'part'; }
@@ -253,10 +255,10 @@ function DateRangeLabels(props: {
   // Smart default selection: select only lots NOT already printed today
   useEffect(() => {
     if (rows.length === 0) { setSelectedIds(new Set()); return; }
-    const todayLocal = new Date().toLocaleDateString('en-CA');
+    const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: tz });
     const notYetPrinted = rows.filter(r => {
       if (!r.labelPrintedAt) return true;
-      return new Date(r.labelPrintedAt).toLocaleDateString('en-CA') !== todayLocal;
+      return new Date(r.labelPrintedAt).toLocaleDateString('en-CA', { timeZone: tz }) !== todayLocal;
     });
     setSelectedIds(new Set(notYetPrinted.map(r => r.id)));
   }, [rows]);
@@ -308,10 +310,10 @@ function DateRangeLabels(props: {
     }
   };
 
-  const todayLocal = new Date().toLocaleDateString('en-CA');
+  const todayLocal = new Date().toLocaleDateString('en-CA', { timeZone: tz });
   const printedTodayIds = useMemo(
-    () => new Set(rows.filter(r => r.labelPrintedAt && new Date(r.labelPrintedAt).toLocaleDateString('en-CA') === todayLocal).map(r => r.id)),
-    [rows, todayLocal],
+    () => new Set(rows.filter(r => r.labelPrintedAt && new Date(r.labelPrintedAt).toLocaleDateString('en-CA', { timeZone: tz }) === todayLocal).map(r => r.id)),
+    [rows, todayLocal, tz],
   );
 
   // Consolidation quality check: flag rows where the same part+condition is
@@ -530,6 +532,7 @@ function DateRangeLabels(props: {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ListomaticPriority() {
   const { toast } = useToast();
+  const tz = useOrgTimezone();
   const { setInventoryInitialTab } = useScanSession();
 
   // While this view is mounted, route inventory-QR scans into the
@@ -593,7 +596,7 @@ export default function ListomaticPriority() {
   const [quickPrintItems, setQuickPrintItems] = useState<LotLabelPrintItem[] | null>(null);
 
   // ── Listing tab ───────────────────────────────────────────────────────────
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
   const [rangeFrom, setRangeFrom] = useState(todayStr);
   const [rangeTo, setRangeTo] = useState(todayStr);
 
