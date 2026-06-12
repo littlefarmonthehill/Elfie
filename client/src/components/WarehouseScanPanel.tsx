@@ -230,6 +230,8 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     isSuggested: boolean; // false = override bin (not in suggestions)
   } | null>(null);
   const pendingConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [justFiledBin, setJustFiledBin] = useState<ResolvedBin | null>(null);
+  const justFiledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scanMode, setScanMode] = useState<"lot-first" | "bin-first">(() => {
     try {
       const v = localStorage.getItem("wh.scanMode");
@@ -281,10 +283,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     };
   }, []);
 
-  // Clear pending confirmation timer on unmount.
+  // Clear pending confirmation and just-filed timers on unmount.
   useEffect(() => {
     return () => {
       if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
+      if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
     };
   }, []);
 
@@ -365,6 +368,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       });
       cue("ok", `Filed into ${s.name}.`);
       setActiveLot(null);
+      // Show capacity picker for the just-filed bin (same as lot-first flow).
+      const filedBin: ResolvedBin = {
+        type: "bin", id: s.id, name: s.name,
+        shelfName: s.shelfName, aisleName: s.aisleName,
+        capacity: s.capacity as BinCapacity, itemCount: 1,
+      };
+      if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
+      setJustFiledBin(filedBin);
+      justFiledTimerRef.current = setTimeout(() => setJustFiledBin(null), 30_000);
     } catch {
       cue("err", "Assignment failed.");
       updateFeed(feedId, { status: "err", message: "Assignment failed" });
@@ -435,7 +447,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
           const prev = pendingConfirm;
           setPendingConfirm(null);
-          await fileLot(prev.lot, resolved, prev.isSuggested ? "ok" : "new");
+          if (await fileLot(prev.lot, resolved, prev.isSuggested ? "ok" : "new")) {
+            if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
+            setJustFiledBin(resolved);
+            justFiledTimerRef.current = setTimeout(() => setJustFiledBin(null), 30_000);
+          }
         } else {
           // Different bin — update the target and restart the timer.
           const isSuggested = (pendingConfirm.lot.suggestedBins ?? (pendingConfirm.lot.suggestedBin ? [pendingConfirm.lot.suggestedBin] : []))
@@ -494,7 +510,12 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         const expected = expectedBinIds(activeLot);
         const isExpected = expected.length === 0 || expected.includes(resolved.id);
         if (isExpected) {
-          if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
+          if (await fileLot(activeLot, resolved, "ok")) {
+            setActiveLot(null);
+            if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
+            setJustFiledBin(resolved);
+            justFiledTimerRef.current = setTimeout(() => setJustFiledBin(null), 30_000);
+          }
         } else {
           cue("warn", "Wrong bin. Scan next item.");
           updateFeed(feedId, {
@@ -507,8 +528,10 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         cue("err", "Scan a lot first.");
         updateFeed(feedId, { status: "err", message: "Lot-first mode — scan a lot before scanning a bin." });
       } else {
-        // Bin-first: set this bin active.
+        // Bin-first: set this bin active; clear any just-filed state.
         setActiveLot(null);
+        if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
+        setJustFiledBin(null);
         setActiveBin(resolved);
         if (soundOnRef.current) {
           playTone("ok");
@@ -524,6 +547,9 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
 
     // ── LOT scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "lot") {
+      // Scanning a new lot means the user moved on — clear the post-file state.
+      if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current);
+      setJustFiledBin(null);
       if (activeBin) {
         // Bin-first: reject lots already filed in a different bin.
         const alreadyElsewhere =
@@ -1007,6 +1033,52 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
             <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveLot(null)} data-testid="button-clear-active-lot">
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
+          </div>
+        ) : justFiledBin ? (
+          <div className="rounded-md border border-green-500/30 bg-green-500/5 p-3 space-y-2" data-testid="card-just-filed-bin">
+            <div className="flex items-center gap-3">
+              <Archive className="h-5 w-5 shrink-0 text-green-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold leading-none">{binFullLabel(justFiledBin)}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Just filed · capacity: <span className={`font-medium ${capacityColor(justFiledBin.capacity, justFiledBin.itemCount)}`}>{capacityLabel(justFiledBin.capacity, justFiledBin.itemCount)}</span>
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => { if (justFiledTimerRef.current) clearTimeout(justFiledTimerRef.current); setJustFiledBin(null); }} data-testid="button-clear-just-filed">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-0.5">Full</span>
+              {CAPACITY_STEPS.map(step => (
+                <Button
+                  key={step}
+                  size="sm"
+                  variant="outline"
+                  className={`flex-1 h-6 text-[10px] px-0 ${
+                    justFiledBin.capacity === step
+                      ? step === 0 ? "bg-muted/60 border-muted-foreground/40 text-foreground"
+                        : step <= 25 ? "bg-green-500/15 border-green-500/40 text-green-400"
+                        : step <= 50 ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
+                        : step <= 75 ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
+                        : "bg-red-500/15 border-red-500/40 text-red-400"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    const newCap = justFiledBin.capacity === step ? null : step as BinCapacity;
+                    capacityMutation.mutate({ binId: justFiledBin.id, capacity: newCap });
+                    setJustFiledBin(prev => prev ? { ...prev, capacity: newCap } : null);
+                    if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
+                  }}
+                  disabled={capacityMutation.isPending}
+                  data-testid={`button-jf-capacity-${step}`}
+                >
+                  {step}%
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/50">Scan next lot to continue · auto-clears in 30 s</p>
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border p-3 flex items-center gap-3" data-testid="card-active-empty">
