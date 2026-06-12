@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
-import { blInventory, blCatalog, workerMemoryZones } from "@shared/schema";
+import { blInventory, blCatalog, workerMemoryZones, inventoryHistory } from "@shared/schema";
 
 const router = Router();
 
@@ -77,10 +77,10 @@ router.post("/listing-batches/mark-rtf", isApproved, asyncRoute(async (req: any,
 }));
 
 // GET /api/listing-batches/range/labels — returns lots in a date range for label print
-// Uses bl_inventory.updated_at (touched on every sync change) OR date_created (BL
-// listing date) so both newly-listed lots and restocked lots appear. synced_at is
-// intentionally NOT used here — it is set once on first insert and never refreshed,
-// so filtering on it would silently exclude every lot that already existed in the DB.
+// Two cases are included:
+//   1. NEW lots — BL date_created falls in the window (lot was first listed in this period).
+//   2. RESTOCKED lots — inventory_history has a net positive qty change in the window.
+// Qty-reduced lots (sales) and price/remarks-only changes are intentionally excluded.
 router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
   const from = req.query.from ? new Date(String(req.query.from)) : null;
@@ -123,8 +123,22 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       eq(blInventory.orgId, orgId),
       isNull(blInventory.deletedAt),
       or(
-        and(gte(blInventory.updatedAt, from), lte(blInventory.updatedAt, to)),
+        // Case 1: lot was newly listed on BrickLink in this window
         and(gte(blInventory.dateCreated, from), lte(blInventory.dateCreated, to)),
+        // Case 2: lot had a net qty INCREASE recorded in inventory_history this window
+        inArray(
+          blInventory.id,
+          db.select({ inventoryId: inventoryHistory.inventoryId })
+            .from(inventoryHistory)
+            .where(and(
+              eq(inventoryHistory.orgId, orgId),
+              eq(inventoryHistory.field, 'quantity'),
+              gte(inventoryHistory.changedAt, from),
+              lte(inventoryHistory.changedAt, to),
+            ))
+            .groupBy(inventoryHistory.inventoryId)
+            .having(sql`SUM(CAST(${inventoryHistory.newValue} AS INT) - CAST(${inventoryHistory.oldValue} AS INT)) > 0`),
+        ),
       ),
     ))
     .orderBy(sql`aisle_name NULLS LAST`, blInventory.itemNo, blInventory.colorId)

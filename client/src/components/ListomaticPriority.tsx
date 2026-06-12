@@ -236,8 +236,10 @@ function DateRangeLabels(props: {
   });
   const progressPct = progressData?.progress ?? 0;
 
-  // Results auto-load once sync finishes and both dates are set
-  const enabled = !!from && !!to && !syncMutation.isPending;
+  // Results auto-load once sync finishes and both dates are set.
+  // Gate on isSuccess|isError — NOT !isPending — because isPending starts false
+  // on mount, which would fire the query before the mutation even begins.
+  const enabled = !!from && !!to && (syncMutation.isSuccess || syncMutation.isError);
   const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
     queryKey: ['/api/listing-batches/range/labels', from, to],
     queryFn: async () => {
