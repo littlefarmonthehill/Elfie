@@ -220,6 +220,9 @@ function DateRangeLabels(props: {
 
   const syncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/listing-batches/range/labels', from, to] });
+    },
     onError: () => toast({
       title: 'BrickLink sync failed',
       description: 'Could not pull latest inventory — results may be incomplete.',
@@ -235,10 +238,6 @@ function DateRangeLabels(props: {
   });
   const progressPct = progressData?.progress ?? 0;
 
-  // Results auto-load once sync finishes and both dates are set.
-  // Gate on isSuccess|isError — NOT !isPending — because isPending starts false
-  // on mount, which would fire the query before the mutation even begins.
-  const enabled = !!from && !!to && (syncMutation.isSuccess || syncMutation.isError);
   const { data: rows = [], isFetching } = useQuery<RangeRow[]>({
     queryKey: ['/api/listing-batches/range/labels', from, to],
     queryFn: async () => {
@@ -249,7 +248,9 @@ function DateRangeLabels(props: {
       if (!res.ok) throw new Error('Range query failed');
       return res.json();
     },
-    enabled,
+    enabled: !!from && !!to,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
   // Smart default selection: select only lots NOT already printed today
@@ -347,7 +348,7 @@ function DateRangeLabels(props: {
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
         <p className="text-[10px] text-muted-foreground">
-          Lots already printed today are deselected automatically. Sync BrickLink first, then results will load.
+          Lots already printed today are deselected automatically. Sync BrickLink to pull the latest inventory before printing.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
