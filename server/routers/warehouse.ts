@@ -1009,23 +1009,50 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
     //  3 — same item, different condition           → file alongside (warn: never mix N/U)
     //  4 — decoration-family + same condition       → file alongside (pb/pr/c/pa variant)
     //  5 — decoration-family, different condition   → weak match
+    //  6 — numerically adjacent part (±20) + same condition → "part family neighborhood"
+    //  7 — numerically adjacent part (±20), any condition   → weakest adjacent hint
     const suggestedBins: Array<{
       id: number; name: string; shelfName: string | null;
-      aisleName: string | null; matchLevel: number;
+      aisleName: string | null; matchLevel: number; capacity: number | null;
     }> = [];
     if (locations.length === 0) {
       // Strip LEGO decoration suffixes to find the numeric base part number.
       // "3001pb01" → "3001", "3001c01" → "3001", "32000" stays "32000".
       const baseItemNo = lot.itemNo.replace(/[a-z]{1,3}\d+[a-z0-9]*$/i, '') || lot.itemNo;
 
+      // Extract the purely-numeric portion of the base for adjacency math.
+      const baseNumericMatch = baseItemNo.match(/^(\d+)$/);
+      const baseNumeric: number | null = baseNumericMatch ? parseInt(baseNumericMatch[1]) : null;
+
+      // Build optional adjacency WHERE fragment and CASE levels 6-7.
+      // Only included when the item number has a parseable numeric base.
+      const adjWhere = baseNumeric !== null
+        ? sql`OR (
+            regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') ~ '^[0-9]+$'
+            AND ABS(regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1')::bigint - ${baseNumeric}::bigint) BETWEEN 1 AND 20
+          )`
+        : sql``;
+      const adjCase = baseNumeric !== null
+        ? sql`
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') ~ '^[0-9]+$'
+              AND ABS(regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1')::bigint - ${baseNumeric}::bigint) BETWEEN 1 AND 20
+              AND sib.new_or_used = ${lot.newOrUsed} THEN 6
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') ~ '^[0-9]+$'
+              AND ABS(regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1')::bigint - ${baseNumeric}::bigint) BETWEEN 1 AND 20
+              THEN 7`
+        : sql``;
+
       const hint = await db.execute(sql`
         SELECT wb.id AS id, wb.name AS name, ws.name AS shelf_name, wa.name AS aisle_name,
+               wb.capacity AS capacity,
           MIN(CASE
             WHEN sib.item_no = ${lot.itemNo} AND sib.color_id IS NOT DISTINCT FROM ${lot.colorId} AND sib.new_or_used = ${lot.newOrUsed} THEN 1
             WHEN sib.item_no = ${lot.itemNo} AND sib.new_or_used = ${lot.newOrUsed} THEN 2
             WHEN sib.item_no = ${lot.itemNo} THEN 3
-            WHEN sib.new_or_used = ${lot.newOrUsed} THEN 4
-            ELSE 5
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo} AND sib.new_or_used = ${lot.newOrUsed} THEN 4
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo} THEN 5
+            ${adjCase}
+            ELSE NULL
           END) AS match_level
         FROM bl_inventory sib
         JOIN inventory_locations il ON il.inventory_id = sib.id AND il.org_id = ${orgId}
@@ -1039,8 +1066,18 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
           AND (
             sib.item_no = ${lot.itemNo}
             OR regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo}
+            ${adjWhere}
           )
-        GROUP BY wb.id, wb.name, ws.name, wa.name
+        GROUP BY wb.id, wb.name, ws.name, wa.name, wb.capacity
+        HAVING MIN(CASE
+            WHEN sib.item_no = ${lot.itemNo} AND sib.color_id IS NOT DISTINCT FROM ${lot.colorId} AND sib.new_or_used = ${lot.newOrUsed} THEN 1
+            WHEN sib.item_no = ${lot.itemNo} AND sib.new_or_used = ${lot.newOrUsed} THEN 2
+            WHEN sib.item_no = ${lot.itemNo} THEN 3
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo} AND sib.new_or_used = ${lot.newOrUsed} THEN 4
+            WHEN regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo} THEN 5
+            ${adjCase}
+            ELSE NULL
+          END) IS NOT NULL
         ORDER BY match_level ASC, wb.name ASC
         LIMIT 5
       `);
@@ -1051,6 +1088,7 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
           shelfName:  r.shelf_name  ?? null,
           aisleName:  r.aisle_name  ?? null,
           matchLevel: Number(r.match_level),
+          capacity:   r.capacity != null ? Number(r.capacity) : null,
         });
       }
     }

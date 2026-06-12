@@ -61,7 +61,8 @@ type SuggestedBin = {
   name: string;
   shelfName: string | null;
   aisleName: string | null;
-  matchLevel: number; // 1=exact+color+cond, 2=exact+cond, 3=exact part, 4=family+cond, 5=family
+  matchLevel: number; // 1=exact+color+cond, 2=exact+cond, 3=exact part, 4=family+cond, 5=family, 6=adjacent+cond, 7=adjacent
+  capacity: number | null;
 };
 
 interface ResolvedLot {
@@ -343,6 +344,33 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     playTone(kind);
     if (speech) speak(speech);
   }, []);
+
+  // File a RTF0 lot directly into a suggested bin without requiring a bin scan.
+  // The user chose the bin consciously by tapping its card, so we skip the
+  // two-step confirmation and assign immediately.
+  const tapFileLot = useCallback(async (s: SuggestedBin) => {
+    if (!activeLot || activeLot.locations.length > 0) return;
+    const feedId = addFeed({ code: `TAP:BIN:${s.name}`, status: "busy", message: `Filing into ${s.name}…` });
+    const priorRtf = activeLot.rtfBin;
+    const priorLoc = lotLocationStr(activeLot);
+    const binLabel = [s.aisleName, s.shelfName, s.name].filter(Boolean).join(" › ");
+    try {
+      const result: any = await assignMutation.mutateAsync({ inventoryId: activeLot.id, binId: s.id });
+      const undoMeta: UndoMeta | undefined = result?.id
+        ? { locationId: result.id, restoreRtfBin: priorRtf }
+        : undefined;
+      updateFeed(feedId, {
+        status: "ok",
+        message: `${lotLabel(activeLot)} — ${priorLoc} → ${binLabel}`,
+        undo: undoMeta,
+      });
+      cue("ok", `Filed into ${s.name}.`);
+      setActiveLot(null);
+    } catch {
+      cue("err", "Assignment failed.");
+      updateFeed(feedId, { status: "err", message: "Assignment failed" });
+    }
+  }, [activeLot, assignMutation, addFeed, updateFeed, cue]);
 
   const processCode = useCallback(async (raw: string) => {
     const code = raw.trim();
@@ -993,8 +1021,8 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       {/* RTF0 suggestion panel — top-5 candidate bins for new-stock lots */}
       {activeLot && activeLot.locations.length === 0 && activeLot.suggestedBins && activeLot.suggestedBins.length > 0 && (
         <div className="px-4 mb-3 shrink-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Nearby stock — suggested bins
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+            Suggested bins — tap to file
           </p>
           <div className="space-y-1.5">
             {activeLot.suggestedBins.map((s, i) => {
@@ -1004,22 +1032,53 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 : s.matchLevel === 2 ? "Same part & condition · File alongside"
                 : s.matchLevel === 3 ? "Same part, different condition — do not mix baggies"
                 : s.matchLevel === 4 ? "Decoration variant · File alongside"
-                : "Part family · File alongside";
+                : s.matchLevel === 5 ? "Part family · File alongside"
+                : s.matchLevel === 6 ? "Adjacent part number · Same condition"
+                : "Adjacent part number · Nearby neighborhood";
               const isWarnLevel = s.matchLevel === 3;
+              const isAdjacent = s.matchLevel >= 6;
+              // Capacity display
+              const capPct = s.capacity;
+              const capLabel = capPct === null ? "?" : capPct === 0 ? "Empty" : `${capPct}%`;
+              const capColor =
+                capPct === null ? "text-muted-foreground bg-muted/40 border-border"
+                : capPct === 0   ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                : capPct <= 50   ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                : capPct <= 75   ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                : "text-red-400 bg-red-500/10 border-red-500/20";
               return (
-                <div key={i} className="rounded-md border border-border px-3 py-2 flex items-center gap-3">
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => tapFileLot(s)}
+                  disabled={assignMutation.isPending}
+                  className={`w-full text-left rounded-md border px-3 py-2 flex items-center gap-3 transition-colors hover-elevate active-elevate-2 ${
+                    isWarnLevel
+                      ? "border-orange-500/30 bg-orange-500/5"
+                      : isAdjacent
+                      ? "border-border bg-muted/20"
+                      : "border-border bg-muted/10"
+                  }`}
+                  data-testid={`suggested-bin-${s.id}`}
+                >
                   <Archive className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-none">{label}</p>
-                    <p className={`text-[11px] mt-0.5 ${isWarnLevel ? "text-orange-400" : "text-muted-foreground"}`}>
+                    <p className={`text-[11px] mt-0.5 ${isWarnLevel ? "text-orange-400" : isAdjacent ? "text-muted-foreground/60 italic" : "text-muted-foreground"}`}>
                       {desc}
                     </p>
                   </div>
-                  {isWarnLevel && <AlertTriangle className="h-4 w-4 shrink-0 text-orange-400" />}
-                </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${capColor}`}>
+                      {capLabel}
+                    </span>
+                    {isWarnLevel && <AlertTriangle className="h-4 w-4 text-orange-400" />}
+                  </div>
+                </button>
               );
             })}
           </div>
+          <p className="text-[10px] text-muted-foreground/50 mt-1.5">Tap a bin to file, or scan any bin to choose your own.</p>
         </div>
       )}
 
