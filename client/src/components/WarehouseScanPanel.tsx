@@ -188,6 +188,12 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const { setActive } = useScanSession();
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
+  const [scanMode, setScanMode] = useState<"lot-first" | "bin-first" | null>(() => {
+    try {
+      const v = localStorage.getItem("wh.scanMode");
+      return (v === "lot-first" || v === "bin-first") ? v : null;
+    } catch { return null; }
+  });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [inputVal, setInputVal] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -355,13 +361,14 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           });
           setActiveLot(null);
         }
+      } else if (scanMode === "lot-first") {
+        // Lot-first mode: a stray bin scan with no active lot is a mistake.
+        cue("err", "Scan a lot first.");
+        updateFeed(feedId, { status: "err", message: "Lot-first mode — scan a lot before scanning a bin." });
       } else {
-        // Bin-first (or switching the active bin): set this bin active.
-        // Keep contexts mutually exclusive — a bin and a lot are never both active.
+        // Bin-first: set this bin active.
         setActiveLot(null);
         setActiveBin(resolved);
-        // Tone fires immediately; then the bin name is spoken very slowly so
-        // the filer can hear each segment ("Active bin." pause "5, B, 29").
         if (soundOnRef.current) {
           playTone("ok");
           speakBin(binFullLabel(resolved));
@@ -373,20 +380,32 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     // ── LOT scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "lot") {
       if (activeBin) {
-        // Bin-first: file this lot into the active bin.
-        const expected = expectedBinIds(resolved);
-        const tone: "ok" | "new" =
-          expected.length === 0 || expected.includes(activeBin.id) ? "ok" : "new";
-        await fileLot(resolved, activeBin, tone);
+        // Bin-first: reject lots already filed in a different bin — only
+        // unassigned lots (or lots already in this exact bin) may be filed here.
+        const alreadyElsewhere =
+          resolved.locations.length > 0 &&
+          !resolved.locations.some(l => l.binId === activeBin.id);
+        if (alreadyElsewhere) {
+          cue("err", "Already assigned. Scan a new bin.");
+          updateFeed(feedId, {
+            status: "err",
+            message: `${lotLabel(resolved)} is already filed in ${expectedBinLabel(resolved)} — only unassigned lots can be filed into this bin.`,
+          });
+          setActiveBin(null);
+        } else {
+          await fileLot(resolved, activeBin, "ok");
+        }
+      } else if (scanMode === "bin-first") {
+        // Bin-first mode: a stray lot scan with no active bin is a mistake.
+        cue("err", "Scan a bin first.");
+        updateFeed(feedId, { status: "err", message: "Bin-first mode — scan a bin before scanning lots." });
       } else {
-        // Lot-first (or switching the active lot): set this lot active.
+        // Lot-first: set this lot active.
         if (activeLot && activeLot.id !== resolved.id) {
           addFeed({ code, status: "err", message: `Discarded prior lot ${lotLabel(activeLot)} — scan its bin first to file it` });
         }
         setActiveBin(null);
         setActiveLot(resolved);
-        // Speak the intro at normal rate, then say the bin name very slowly
-        // so the filer can hear every segment without mishearing a digit/letter.
         if (soundOnRef.current) {
           playTone("ok");
           const parts = lotGuidanceParts(resolved);
@@ -398,7 +417,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
 
     processingRef.current = false;
-  }, [activeBin, activeLot, addFeed, updateFeed, assignMutation, cue]);
+  }, [activeBin, activeLot, scanMode, addFeed, updateFeed, assignMutation, cue]);
 
   // Catch hardware-scanner keystrokes at the window level so codes are
   // processed even when the text input isn't focused (e.g. user tapped a
@@ -583,6 +602,31 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         )}
       </div>
 
+      {/* Mode selector — must be chosen before scanning begins */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
+        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide shrink-0">Mode</span>
+        <Button
+          size="sm"
+          variant={scanMode === "lot-first" ? "default" : "outline"}
+          className="flex-1 text-xs h-7"
+          onClick={() => { setScanMode("lot-first"); try { localStorage.setItem("wh.scanMode", "lot-first"); } catch {} }}
+          disabled={!!activeLot || !!activeBin}
+          data-testid="button-mode-lot-first"
+        >
+          <Package className="h-3 w-3 mr-1" />Lot first
+        </Button>
+        <Button
+          size="sm"
+          variant={scanMode === "bin-first" ? "default" : "outline"}
+          className="flex-1 text-xs h-7"
+          onClick={() => { setScanMode("bin-first"); try { localStorage.setItem("wh.scanMode", "bin-first"); } catch {} }}
+          disabled={!!activeLot || !!activeBin}
+          data-testid="button-mode-bin-first"
+        >
+          <Archive className="h-3 w-3 mr-1" />Bin first
+        </Button>
+      </div>
+
       {/* Distance-readable status board — shown in both full-screen and
           embedded modes so the filer can read bin names from a distance on
           any device, including mobile portrait in the File tab. */}
@@ -695,7 +739,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
             {isIdle && (
               <>
                 <ScanLine className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-xl text-muted-foreground mt-2">Scan a lot or bin to begin</p>
+                <p className="text-xl text-muted-foreground mt-2">
+                  {scanMode === "lot-first" ? "Scan a lot to begin"
+                   : scanMode === "bin-first" ? "Scan a bin to begin"
+                   : "Select a mode to begin"}
+                </p>
               </>
             )}
           </div>
@@ -703,7 +751,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       })()}
 
       <p className="px-4 pt-3 text-[11px] text-muted-foreground mb-3 shrink-0">
-        Scan a bin first to file lots into it, or scan a lot first to choose its bin — the workflow is detected automatically.
+        {scanMode === "lot-first"
+          ? "Scan a lot — the system will direct you to its bin. Then scan that bin to file it."
+          : scanMode === "bin-first"
+          ? "Scan a bin to activate it, then scan unassigned lots to file them into it."
+          : "Select a mode above before scanning."}
       </p>
 
       {/* Active context card — shows whichever context the scans established */}
@@ -736,7 +788,11 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         ) : (
           <div className="rounded-md border border-dashed border-border p-3 flex items-center gap-3" data-testid="card-active-empty">
             <ScanLine className="h-5 w-5 shrink-0 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">Scan a bin or a lot to begin</p>
+            <p className="text-sm text-muted-foreground">
+              {scanMode === "lot-first" ? "Scan a lot to begin"
+               : scanMode === "bin-first" ? "Scan a bin to begin"
+               : "Select a mode to begin"}
+            </p>
           </div>
         )}
       </div>
