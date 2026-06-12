@@ -24,15 +24,15 @@ type BinCapacity = 0 | 25 | 50 | 75 | 100 | null;
 const CAPACITY_STEPS: BinCapacity[] = [0, 25, 50, 75, 100];
 
 function capacityLabel(capacity: BinCapacity, itemCount: number): string {
-  if (itemCount === 0) return "Empty";
-  if (capacity === null) return "Unknown";
-  if (capacity === 0) return "0%";
+  if (itemCount === 0) return "0%";
+  if (capacity === null) return "?";
   return `${capacity}%`;
 }
 
 function capacityColor(capacity: BinCapacity, itemCount: number): string {
-  if (itemCount === 0 || capacity === 0) return "text-muted-foreground";
+  if (itemCount === 0) return "text-green-400";
   if (capacity === null) return "text-muted-foreground";
+  if (capacity === 0) return "text-green-400";
   if (capacity <= 25) return "text-green-400";
   if (capacity <= 50) return "text-yellow-400";
   if (capacity <= 75) return "text-orange-400";
@@ -40,9 +40,8 @@ function capacityColor(capacity: BinCapacity, itemCount: number): string {
 }
 
 function capacitySpeech(capacity: BinCapacity, itemCount: number): string {
-  if (itemCount === 0) return "empty";
+  if (itemCount === 0) return "zero percent full";
   if (capacity === null) return "capacity unknown";
-  if (capacity === 0) return "zero percent full";
   return `${capacity} percent full`;
 }
 
@@ -842,8 +841,9 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <div className="mt-2 flex items-center gap-2">
                   <Gauge className="h-3.5 w-3.5 text-white/50" />
                   <span className={`text-sm font-semibold ${
-                    activeBin.itemCount === 0 || activeBin.capacity === 0 ? "text-white/60"
+                    activeBin.itemCount === 0 ? "text-green-300"
                     : activeBin.capacity === null ? "text-white/50"
+                    : activeBin.capacity === 0 ? "text-green-300"
                     : activeBin.capacity <= 25 ? "text-green-300"
                     : activeBin.capacity <= 50 ? "text-yellow-300"
                     : activeBin.capacity <= 75 ? "text-orange-300"
@@ -1039,7 +1039,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               const isAdjacent = s.matchLevel >= 6;
               // Capacity display
               const capPct = s.capacity;
-              const capLabel = capPct === null ? "?" : capPct === 0 ? "Empty" : `${capPct}%`;
+              const capLabel = capPct === null ? "?" : `${capPct}%`;
               const capColor =
                 capPct === null ? "text-muted-foreground bg-muted/40 border-border"
                 : capPct === 0   ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
