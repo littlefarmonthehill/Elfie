@@ -348,7 +348,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
         } else {
           // Wrong bin — warn and clear the active lot so the filer can move on.
-          cue("warn", "Wrong bin.");
+          cue("warn", "Wrong bin. Scan next item.");
           updateFeed(feedId, {
             status: "warn",
             message: `Wrong bin — ${lotLabel(activeLot)} expected in ${expectedBinLabel(activeLot)}.`,
@@ -592,16 +592,18 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         const last   = !isLot && !isBin ? feed[0] : undefined;
         const isOk   = last?.status === "ok";
         const isNew  = last?.status === "new";
+        const isWarn = last?.status === "warn";
         const isErr  = last?.status === "err";
         const isBusy = last?.status === "busy";
-        const isIdle = !isLot && !isBin && !isOk && !isNew && !isErr && !isBusy;
+        const isIdle = !isLot && !isBin && !isOk && !isNew && !isWarn && !isErr && !isBusy;
 
         const bg =
           isLot  ? "bg-blue-900 dark:bg-blue-950"
-          : isBin ? "bg-yellow-700 dark:bg-yellow-800"
-          : isOk  ? "bg-green-700 dark:bg-green-800"
-          : isNew ? "bg-orange-600 dark:bg-orange-700"
-          : isErr ? "bg-red-700 dark:bg-red-800"
+          : isBin  ? "bg-yellow-700 dark:bg-yellow-800"
+          : isOk   ? "bg-green-700 dark:bg-green-800"
+          : isNew  ? "bg-orange-600 dark:bg-orange-700"
+          : isWarn ? "bg-orange-600 dark:bg-orange-700"
+          : isErr  ? "bg-red-700 dark:bg-red-800"
           : "bg-muted";
 
         return (
@@ -663,6 +665,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <CheckCircle2 className="h-12 w-12 text-white mb-1" />
                 <p className="text-5xl font-black text-white leading-none">Filed</p>
                 <p className="text-xl text-white/80 mt-2">Override</p>
+              </>
+            )}
+
+            {isWarn && (
+              <>
+                <AlertTriangle className="h-10 w-10 text-white mb-1" />
+                <p className="text-5xl font-black text-white leading-none">Wrong bin</p>
+                <p className="text-xl text-white/80 mt-2">{last?.message?.replace("Wrong bin — ", "")}</p>
+                <p className="text-sm text-white/60 mt-2">Scan next item</p>
               </>
             )}
 
