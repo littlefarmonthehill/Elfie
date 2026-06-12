@@ -216,7 +216,6 @@ function DateRangeLabels(props: {
     try { return (localStorage.getItem(RANGE_SORT_KEY) as RangeSortKey) ?? 'part'; } catch { return 'part'; }
   });
 
-  // Auto-sync from BrickLink when this view opens so the latest lots are present
   const syncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
     onError: () => toast({
@@ -225,8 +224,6 @@ function DateRangeLabels(props: {
       variant: 'destructive',
     }),
   });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { syncMutation.mutate(); }, []);
 
   // Poll sync progress while sync is running
   const { data: progressData } = useQuery<{ status: string; currentStep: string; progress: number }>({
@@ -348,7 +345,7 @@ function DateRangeLabels(props: {
       <div className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground">Print labels for lots last touched in a date range</p>
         <p className="text-[10px] text-muted-foreground">
-          Lots already printed today are deselected automatically. Results load automatically after sync.
+          Lots already printed today are deselected automatically. Sync BrickLink first, then results will load.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -372,6 +369,20 @@ function DateRangeLabels(props: {
             />
           </div>
         </div>
+        <Button
+          size="sm"
+          variant="default"
+          disabled={syncMutation.isPending}
+          onClick={() => syncMutation.mutate()}
+          data-testid="button-sync-bricklink"
+          className="w-full"
+        >
+          {syncMutation.isPending ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Syncing BrickLink…</>
+          ) : (
+            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Sync BrickLink</>
+          )}
+        </Button>
         {syncMutation.isPending && (
           <div className="space-y-1 pt-0.5" data-testid="range-sync-progress">
             <Progress value={progressPct} className="h-1.5" />
