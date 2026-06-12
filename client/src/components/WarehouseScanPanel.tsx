@@ -26,6 +26,14 @@ interface ResolvedBin {
   itemCount: number;
 }
 
+type SuggestedBin = {
+  id: number;
+  name: string;
+  shelfName: string | null;
+  aisleName: string | null;
+  matchLevel: number; // 1=exact+color+cond, 2=exact+cond, 3=exact part, 4=family+cond, 5=family
+};
+
 interface ResolvedLot {
   type: "lot";
   id: number;
@@ -43,16 +51,10 @@ interface ResolvedLot {
     aisleName: string | null;
     bagLabel: string | null;
   }>;
-  // Present only for a never-filed lot (no permanent home). Points at the bin
-  // where the lot's closest sibling already lives, so the worker has a starting
-  // suggestion to confirm or override by scanning a bin.
-  suggestedBin?: {
-    id: number;
-    name: string;
-    shelfName: string | null;
-    aisleName: string | null;
-    matchLevel: number;
-  } | null;
+  // First (best) suggestion — backward compat.
+  suggestedBin?: SuggestedBin | null;
+  // All candidates for a never-filed lot, sorted best-first (up to 5).
+  suggestedBins?: SuggestedBin[];
 }
 
 type Resolved = ResolvedBin | ResolvedLot;
@@ -125,11 +127,11 @@ function lotFileGuidanceSpeech(lot: ResolvedLot): string {
   }
   if (lot.suggestedBin) {
     const where = toSpeech(suggestBinLabel(lot.suggestedBin));
-    return lot.suggestedBin.matchLevel <= 2
-      ? `Consolidate into ${where}.`
-      : `File alongside in ${where}.`;
+    if (lot.suggestedBin.matchLevel <= 2) return `Consolidate into ${where}.`;
+    if (lot.suggestedBin.matchLevel === 3) return `File alongside in ${where}.`;
+    return `New stock. Similar parts in ${where}.`;
   }
-  return "No suggested bin. Pick any bin.";
+  return "New stock. No suggestions. Scan any bin.";
 }
 
 // Split the lot guidance into an intro phrase (normal rate) and a bin name
@@ -139,13 +141,16 @@ function lotGuidanceParts(lot: ResolvedLot):
   | { intro: string; bin: string }
   | { text: string } {
   const dest = heroBin(lot);
-  if (!dest) return { text: "No suggested bin. Pick any bin." };
+  if (!dest) return { text: "New stock. No suggestions. Scan any bin." };
   if (lot.locations.length > 0) return { intro: "Consolidate.", bin: dest.bin };
   if (lot.suggestedBin) {
-    const verb = lot.suggestedBin.matchLevel <= 2 ? "Consolidate." : "File alongside.";
+    const verb =
+      lot.suggestedBin.matchLevel <= 2 ? "Consolidate." :
+      lot.suggestedBin.matchLevel === 3 ? "File alongside." :
+      "New stock, nearby family.";
     return { intro: verb, bin: dest.bin };
   }
-  return { text: "No suggested bin. Pick any bin." };
+  return { text: "New stock. No suggestions. Scan any bin." };
 }
 
 // Returns the individual aisle/shelf/bin name parts for the hero board so they
@@ -188,6 +193,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   const { setActive } = useScanSession();
   const [activeBin, setActiveBin] = useState<ResolvedBin | null>(null);
   const [activeLot, setActiveLot] = useState<ResolvedLot | null>(null);
+  // Two-step confirmation for RTF0 lots (first-time bin assignment).
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    lot: ResolvedLot;
+    bin: ResolvedBin;
+    isSuggested: boolean; // false = override bin (not in suggestions)
+  } | null>(null);
+  const pendingConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scanMode, setScanMode] = useState<"lot-first" | "bin-first">(() => {
     try {
       const v = localStorage.getItem("wh.scanMode");
@@ -236,6 +248,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   useEffect(() => {
     return () => {
       stopCamera();
+    };
+  }, []);
+
+  // Clear pending confirmation timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
     };
   }, []);
 
@@ -338,22 +357,78 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       }
     };
 
-    // Workflow is auto-detected from what is already active:
-    //  • an active lot present → lot-first (scan a bin to file that lot)
-    //  • an active bin present → bin-first (scan lots to file into that bin)
-    //  • nothing active → the first scan sets the active context.
+    // ── PENDING RTF0 CONFIRMATION ─────────────────────────────────────────────
+    // A bin was proposed for an RTF0 lot. Waiting for the same bin to be
+    // scanned again to lock in the assignment, or a different bin to switch
+    // the target. Scanning a lot cancels pending and activates that lot.
+    if (pendingConfirm) {
+      if (resolved.type === "bin") {
+        if (resolved.id === pendingConfirm.bin.id) {
+          // Confirmed — file the lot now.
+          if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
+          const prev = pendingConfirm;
+          setPendingConfirm(null);
+          await fileLot(prev.lot, resolved, prev.isSuggested ? "ok" : "new");
+        } else {
+          // Different bin — update the target and restart the timer.
+          const isSuggested = (pendingConfirm.lot.suggestedBins ?? (pendingConfirm.lot.suggestedBin ? [pendingConfirm.lot.suggestedBin] : []))
+            .some(s => s.id === resolved.id);
+          if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
+          setPendingConfirm({ lot: pendingConfirm.lot, bin: resolved, isSuggested });
+          if (soundOnRef.current) {
+            playTone("warn");
+            speak(`Changed to ${toSpeech(binFullLabel(resolved))}. Scan again to confirm.`);
+          }
+          updateFeed(feedId, {
+            status: "warn",
+            message: `Switched target: ${lotLabel(pendingConfirm.lot)} → ${binFullLabel(resolved)}. Scan bin again to confirm.`,
+          });
+          pendingConfirmTimerRef.current = setTimeout(() => setPendingConfirm(null), 30_000);
+        }
+      } else {
+        // Lot scanned while pending — cancel confirmation, switch to the new lot.
+        if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
+        setPendingConfirm(null);
+        setActiveBin(null);
+        setActiveLot(resolved);
+        if (soundOnRef.current) {
+          playTone("ok");
+          const parts = lotGuidanceParts(resolved);
+          if ("bin" in parts) speakBin(parts.bin);
+          else speak(parts.text);
+        }
+        updateFeed(feedId, { status: "ok", message: `${lotLabel(resolved)} — currently: ${lotLocationStr(resolved)}` });
+      }
+      processingRef.current = false;
+      return;
+    }
 
     // ── BIN scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "bin") {
-      if (activeLot) {
-        // Lot-first: file the active lot into this bin.
+      if (activeLot && activeLot.locations.length === 0) {
+        // RTF0 lot (first-time filing): enter two-step confirmation.
+        const isSuggested = (activeLot.suggestedBins ?? (activeLot.suggestedBin ? [activeLot.suggestedBin] : []))
+          .some(s => s.id === resolved.id);
+        if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current);
+        const lotForConfirm = activeLot;
+        setActiveLot(null);
+        setPendingConfirm({ lot: lotForConfirm, bin: resolved, isSuggested });
+        if (soundOnRef.current) {
+          playTone("warn");
+          speak(`Confirm ${toSpeech(binFullLabel(resolved))}. Scan bin again.`);
+        }
+        updateFeed(feedId, {
+          status: "warn",
+          message: `Confirm: ${lotLabel(lotForConfirm)} → ${binFullLabel(resolved)}. Scan the bin again to lock it in.`,
+        });
+        pendingConfirmTimerRef.current = setTimeout(() => setPendingConfirm(null), 30_000);
+      } else if (activeLot) {
+        // Lot-first with existing location: file directly.
         const expected = expectedBinIds(activeLot);
         const isExpected = expected.length === 0 || expected.includes(resolved.id);
         if (isExpected) {
-          // Correct bin (or no expectation) — file straight away.
           if (await fileLot(activeLot, resolved, "ok")) setActiveLot(null);
         } else {
-          // Wrong bin — warn and clear the active lot so the filer can move on.
           cue("warn", "Wrong bin. Scan next item.");
           updateFeed(feedId, {
             status: "warn",
@@ -362,7 +437,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           setActiveLot(null);
         }
       } else if (scanMode === "lot-first") {
-        // Lot-first mode: a stray bin scan with no active lot is a mistake.
         cue("err", "Scan a lot first.");
         updateFeed(feedId, { status: "err", message: "Lot-first mode — scan a lot before scanning a bin." });
       } else {
@@ -380,8 +454,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     // ── LOT scanned ──────────────────────────────────────────────────────────
     if (resolved.type === "lot") {
       if (activeBin) {
-        // Bin-first: reject lots already filed in a different bin — only
-        // unassigned lots (or lots already in this exact bin) may be filed here.
+        // Bin-first: reject lots already filed in a different bin.
         const alreadyElsewhere =
           resolved.locations.length > 0 &&
           !resolved.locations.some(l => l.binId === activeBin.id);
@@ -396,7 +469,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           await fileLot(resolved, activeBin, "ok");
         }
       } else if (scanMode === "bin-first") {
-        // Bin-first mode: a stray lot scan with no active bin is a mistake.
         cue("err", "Scan a bin first.");
         updateFeed(feedId, { status: "err", message: "Bin-first mode — scan a bin before scanning lots." });
       } else {
@@ -417,7 +489,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     }
 
     processingRef.current = false;
-  }, [activeBin, activeLot, scanMode, addFeed, updateFeed, assignMutation, cue]);
+  }, [activeBin, activeLot, scanMode, pendingConfirm, addFeed, updateFeed, assignMutation, cue]);
 
   // Catch hardware-scanner keystrokes at the window level so codes are
   // processed even when the text input isn't focused (e.g. user tapped a
@@ -610,7 +682,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           variant={scanMode === "lot-first" ? "default" : "outline"}
           className="flex-1 text-xs h-7"
           onClick={() => { setScanMode("lot-first"); try { localStorage.setItem("wh.scanMode", "lot-first"); } catch {} }}
-          disabled={!!activeLot || !!activeBin}
+          disabled={!!activeLot || !!activeBin || !!pendingConfirm}
           data-testid="button-mode-lot-first"
         >
           <Package className="h-3 w-3 mr-1" />Lot first
@@ -620,7 +692,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           variant={scanMode === "bin-first" ? "default" : "outline"}
           className="flex-1 text-xs h-7"
           onClick={() => { setScanMode("bin-first"); try { localStorage.setItem("wh.scanMode", "bin-first"); } catch {} }}
-          disabled={!!activeLot || !!activeBin}
+          disabled={!!activeLot || !!activeBin || !!pendingConfirm}
           data-testid="button-mode-bin-first"
         >
           <Archive className="h-3 w-3 mr-1" />Bin first
@@ -631,19 +703,21 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           embedded modes so the filer can read bin names from a distance on
           any device, including mobile portrait in the File tab. */}
       {(() => {
-        const isLot  = !!activeLot;
-        const isBin  = !isLot && !!activeBin;
-        const last   = !isLot && !isBin ? feed[0] : undefined;
+        const isLot     = !!activeLot;
+        const isBin     = !isLot && !!activeBin;
+        const isPending = !isLot && !isBin && !!pendingConfirm;
+        const last      = !isLot && !isBin && !isPending ? feed[0] : undefined;
         const isOk   = last?.status === "ok";
         const isNew  = last?.status === "new";
         const isWarn = last?.status === "warn";
         const isErr  = last?.status === "err";
         const isBusy = last?.status === "busy";
-        const isIdle = !isLot && !isBin && !isOk && !isNew && !isWarn && !isErr && !isBusy;
+        const isIdle = !isLot && !isBin && !isPending && !isOk && !isNew && !isWarn && !isErr && !isBusy;
 
         const bg =
-          isLot  ? "bg-blue-900 dark:bg-blue-950"
-          : isBin  ? "bg-yellow-700 dark:bg-yellow-800"
+          isLot     ? "bg-blue-900 dark:bg-blue-950"
+          : isBin     ? "bg-yellow-700 dark:bg-yellow-800"
+          : isPending ? "bg-amber-600 dark:bg-amber-700"
           : isOk   ? "bg-green-700 dark:bg-green-800"
           : isNew  ? "bg-orange-600 dark:bg-orange-700"
           : isWarn ? "bg-orange-600 dark:bg-orange-700"
@@ -694,6 +768,22 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                   {[activeBin.shelfName, activeBin.aisleName].filter(Boolean).join(" · ")}
                 </p>
                 <p className="text-sm text-white/60 mt-1">Scan lots to file here</p>
+              </>
+            )}
+
+            {isPending && pendingConfirm && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-2">Confirm bin</p>
+                <p className="text-8xl font-black leading-none text-white">{pendingConfirm.bin.name}</p>
+                {(pendingConfirm.bin.shelfName || pendingConfirm.bin.aisleName) && (
+                  <p className="text-xl font-medium text-white/70 mt-2">
+                    {[pendingConfirm.bin.shelfName, pendingConfirm.bin.aisleName].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                <p className="text-sm text-white/60 mt-3">Scan this bin again to lock in</p>
+                {!pendingConfirm.isSuggested && (
+                  <p className="text-xs text-amber-200 mt-1">Override — not in suggestions</p>
+                )}
               </>
             )}
 
@@ -756,7 +846,22 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
 
       {/* Active context card — shows whichever context the scans established */}
       <div className="px-4 mb-3 shrink-0">
-        {activeBin ? (
+        {pendingConfirm && !activeBin && !activeLot ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/8 p-3 flex items-center gap-3" data-testid="card-pending-confirm">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-amber-400" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-none truncate">{lotLabel(pendingConfirm.lot)}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">→ {binFullLabel(pendingConfirm.bin)}</p>
+              <p className="text-[11px] text-amber-400 font-medium mt-0.5">Scan the bin again to confirm</p>
+            </div>
+            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0"
+              onClick={() => { if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current); setPendingConfirm(null); }}
+              data-testid="button-clear-pending-confirm"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : activeBin ? (
           <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-bin">
             <Archive className="h-5 w-5 shrink-0 text-yellow-400" />
             <div className="flex-1 min-w-0">
@@ -790,6 +895,39 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           </div>
         )}
       </div>
+
+      {/* RTF0 suggestion panel — top-5 candidate bins for new-stock lots */}
+      {activeLot && activeLot.locations.length === 0 && activeLot.suggestedBins && activeLot.suggestedBins.length > 0 && (
+        <div className="px-4 mb-3 shrink-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Nearby stock — suggested bins
+          </p>
+          <div className="space-y-1.5">
+            {activeLot.suggestedBins.map((s, i) => {
+              const label = [s.aisleName, s.shelfName, s.name].filter(Boolean).join(" › ");
+              const desc =
+                s.matchLevel === 1 ? "Same part · Consolidate into this baggie"
+                : s.matchLevel === 2 ? "Same part & condition · File alongside"
+                : s.matchLevel === 3 ? "Same part, different condition — do not mix baggies"
+                : s.matchLevel === 4 ? "Decoration variant · File alongside"
+                : "Part family · File alongside";
+              const isWarnLevel = s.matchLevel === 3;
+              return (
+                <div key={i} className="rounded-md border border-border px-3 py-2 flex items-center gap-3">
+                  <Archive className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-none">{label}</p>
+                    <p className={`text-[11px] mt-0.5 ${isWarnLevel ? "text-orange-400" : "text-muted-foreground"}`}>
+                      {desc}
+                    </p>
+                  </div>
+                  {isWarnLevel && <AlertTriangle className="h-4 w-4 shrink-0 text-orange-400" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Consolidate alert: this part already has stock filed — tell the filer
           to combine into the existing baggie (same condition) or at least

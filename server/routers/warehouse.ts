@@ -984,48 +984,60 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
       .leftJoin(whAisles,  eq(whShelves.aisleId,          whAisles.id))
       .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, lotId)));
 
-    // For a lot with no permanent home yet, suggest the bin where its closest
-    // sibling already lives, using the same part → part+condition → part+condition+color
-    // cascade as the listing-flow aisle hint. The worker can scan a bin to
-    // confirm this suggestion or override it by scanning a different bin.
-    let suggestedBin: {
+    // For a lot with no permanent home, suggest up to 5 candidate bins ranked by:
+    //  1 — same item + same color + same condition  → consolidate (same baggie)
+    //  2 — same item + same condition               → file alongside
+    //  3 — same item, different condition           → file alongside (warn: never mix N/U)
+    //  4 — decoration-family + same condition       → file alongside (pb/pr/c/pa variant)
+    //  5 — decoration-family, different condition   → weak match
+    const suggestedBins: Array<{
       id: number; name: string; shelfName: string | null;
       aisleName: string | null; matchLevel: number;
-    } | null = null;
+    }> = [];
     if (locations.length === 0) {
+      // Strip LEGO decoration suffixes to find the numeric base part number.
+      // "3001pb01" → "3001", "3001c01" → "3001", "32000" stays "32000".
+      const baseItemNo = lot.itemNo.replace(/[a-z]{1,3}\d+[a-z0-9]*$/i, '') || lot.itemNo;
+
       const hint = await db.execute(sql`
         SELECT wb.id AS id, wb.name AS name, ws.name AS shelf_name, wa.name AS aisle_name,
-          CASE
-            WHEN sib.color_id IS NOT DISTINCT FROM ${lot.colorId} AND sib.new_or_used = ${lot.newOrUsed} THEN 1
-            WHEN sib.new_or_used = ${lot.newOrUsed} THEN 2
-            ELSE 3
-          END AS match_level
+          MIN(CASE
+            WHEN sib.item_no = ${lot.itemNo} AND sib.color_id IS NOT DISTINCT FROM ${lot.colorId} AND sib.new_or_used = ${lot.newOrUsed} THEN 1
+            WHEN sib.item_no = ${lot.itemNo} AND sib.new_or_used = ${lot.newOrUsed} THEN 2
+            WHEN sib.item_no = ${lot.itemNo} THEN 3
+            WHEN sib.new_or_used = ${lot.newOrUsed} THEN 4
+            ELSE 5
+          END) AS match_level
         FROM bl_inventory sib
         JOIN inventory_locations il ON il.inventory_id = sib.id AND il.org_id = ${orgId}
         JOIN wh_bins wb ON wb.id = il.bin_id AND wb.org_id = ${orgId}
         LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id AND ws.org_id = ${orgId}
         LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id AND wa.org_id = ${orgId}
         WHERE sib.org_id = ${orgId}
-          AND sib.item_no = ${lot.itemNo}
           AND sib.item_type = ${lot.itemType}
           AND sib.id <> ${lot.id}
           AND sib.deleted_at IS NULL
+          AND (
+            sib.item_no = ${lot.itemNo}
+            OR regexp_replace(sib.item_no, '^([0-9]+).*$', '\\1') = ${baseItemNo}
+          )
+        GROUP BY wb.id, wb.name, ws.name, wa.name
         ORDER BY match_level ASC, wb.name ASC
-        LIMIT 1
+        LIMIT 5
       `);
-      const r = (hint as any).rows?.[0];
-      if (r) {
-        suggestedBin = {
-          id: Number(r.id),
-          name: String(r.name),
-          shelfName: r.shelf_name ?? null,
-          aisleName: r.aisle_name ?? null,
+      for (const r of (hint as any).rows ?? []) {
+        suggestedBins.push({
+          id:         Number(r.id),
+          name:       String(r.name),
+          shelfName:  r.shelf_name  ?? null,
+          aisleName:  r.aisle_name  ?? null,
           matchLevel: Number(r.match_level),
-        };
+        });
       }
     }
+    const suggestedBin = suggestedBins[0] ?? null; // backward-compat for existing consumers
 
-    return res.json({ type: 'lot', ...lot, locations, suggestedBin });
+    return res.json({ type: 'lot', ...lot, locations, suggestedBin, suggestedBins });
   }
 
   return res.status(400).json({ error: `Unrecognized code format` });

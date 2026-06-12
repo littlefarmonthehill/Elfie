@@ -397,7 +397,7 @@ function DateRangeLabels(props: {
         )}
       </div>
 
-      {enabled && (
+      {!!from && !!to && (
         <>
           {isFetching ? (
             <div className="flex items-center justify-center py-6 text-gray-500 text-sm">
