@@ -1553,7 +1553,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   // ── Structure tree helpers ────────────────────────────────────────────────
-  const renderBinRow = (bin: any) => (
+  const renderBinRow = (bin: any) => {
+    // Resolve effective capacity: empty bins are always 0%, otherwise use stored value
+    const effectiveCapacity: number | null = bin.itemCount === 0 ? 0 : (bin.capacity ?? null);
+    const capLabel = effectiveCapacity === null ? "?" : `${effectiveCapacity}%`;
+    const capColorClass =
+      bin.itemCount === 0 || effectiveCapacity === 0 ? "text-muted-foreground/50 border-border/40"
+      : effectiveCapacity === null ? "text-muted-foreground/50 border-border/40"
+      : effectiveCapacity <= 25 ? "text-green-400 border-green-500/30 bg-green-500/8"
+      : effectiveCapacity <= 50 ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/8"
+      : effectiveCapacity <= 75 ? "text-orange-400 border-orange-500/30 bg-orange-500/8"
+      : "text-red-400 border-red-500/30 bg-red-500/8";
+    return (
     <div key={bin.id} className="flex items-center gap-2 px-2 py-2 rounded-md hover-elevate" data-testid={`item-structure-bin-${bin.id}`}>
       {bin.isFilingQueue
         ? <Inbox className="h-4 w-4 text-indigo-400 shrink-0" />
@@ -1565,6 +1576,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           Queue
         </span>
       )}
+      <span
+        className={`text-[9px] font-semibold border rounded px-1 py-0.5 shrink-0 ${capColorClass}`}
+        title={effectiveCapacity === null ? "Capacity unknown — scan this bin to update" : `${effectiveCapacity}% full`}
+        data-testid={`badge-capacity-${bin.id}`}
+      >
+        {capLabel}
+      </span>
       {bin.itemCount > 0
         ? <span className="text-xs md:text-sm text-green-400 shrink-0">{bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}</span>
         : <span className="text-xs md:text-sm text-muted-foreground/40 shrink-0 italic">empty</span>
@@ -1611,6 +1629,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       </DropdownMenu>
     </div>
   );
+  };
 
   const renderShelfRow = (shelf: any) => {
     const isCollapsed = collapsedShelves.has(shelf.id);

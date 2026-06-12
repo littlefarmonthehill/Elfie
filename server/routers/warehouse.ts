@@ -257,6 +257,7 @@ router.get("/warehouse/bins", isApproved, asyncRoute(async (req: any, res) => {
       position: whBins.position,
       description: whBins.description,
       isFilingQueue: whBins.isFilingQueue,
+      capacity: whBins.capacity,
       createdAt: whBins.createdAt,
       updatedAt: whBins.updatedAt,
       itemCount: sql<number>`COUNT(${inventoryLocations.id})`,
@@ -310,6 +311,23 @@ router.patch("/warehouse/bins/:id/filing-queue", isApproved, asyncRoute(async (r
   const [bin] = await db
     .update(whBins)
     .set({ isFilingQueue, updatedAt: sql`CURRENT_TIMESTAMP` })
+    .where(and(eq(whBins.id, id), eq(whBins.orgId, orgId)))
+    .returning();
+  if (!bin) return res.status(404).json({ error: "Bin not found" });
+  res.json(bin);
+}));
+
+router.patch("/warehouse/bins/:id/capacity", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const id = parseInt(req.params.id);
+  const { capacity } = req.body;
+  const VALID = [0, 25, 50, 75, 100];
+  if (capacity !== null && !VALID.includes(capacity)) {
+    return res.status(400).json({ error: "capacity must be null, 0, 25, 50, 75, or 100" });
+  }
+  const [bin] = await db
+    .update(whBins)
+    .set({ capacity, updatedAt: sql`CURRENT_TIMESTAMP` })
     .where(and(eq(whBins.id, id), eq(whBins.orgId, orgId)))
     .returning();
   if (!bin) return res.status(404).json({ error: "Bin not found" });
@@ -935,6 +953,7 @@ router.get("/warehouse/scan/resolve", isApproved, asyncRoute(async (req: any, re
         name:      whBins.name,
         shelfName: whShelves.name,
         aisleName: whAisles.name,
+        capacity:  whBins.capacity,
         itemCount: sql<number>`(SELECT COUNT(*) FROM inventory_locations WHERE bin_id = ${whBins.id})`,
       })
       .from(whBins)

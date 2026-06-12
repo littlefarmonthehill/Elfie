@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   X, Camera, CameraOff, ScanLine, Package, Archive,
   CheckCircle2, AlertCircle, AlertTriangle, Loader2, RotateCcw, Undo2, Layers,
-  Volume2, VolumeX,
+  Volume2, VolumeX, Gauge,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
@@ -17,12 +17,42 @@ import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+// Capacity values: null = unknown (bin has lots but user hasn't set it),
+// 0/25/50/75/100 = percentage full. Empty bins are always 0% regardless.
+type BinCapacity = 0 | 25 | 50 | 75 | 100 | null;
+
+const CAPACITY_STEPS: BinCapacity[] = [0, 25, 50, 75, 100];
+
+function capacityLabel(capacity: BinCapacity, itemCount: number): string {
+  if (itemCount === 0) return "Empty";
+  if (capacity === null) return "Unknown";
+  if (capacity === 0) return "0%";
+  return `${capacity}%`;
+}
+
+function capacityColor(capacity: BinCapacity, itemCount: number): string {
+  if (itemCount === 0 || capacity === 0) return "text-muted-foreground";
+  if (capacity === null) return "text-muted-foreground";
+  if (capacity <= 25) return "text-green-400";
+  if (capacity <= 50) return "text-yellow-400";
+  if (capacity <= 75) return "text-orange-400";
+  return "text-red-400";
+}
+
+function capacitySpeech(capacity: BinCapacity, itemCount: number): string {
+  if (itemCount === 0) return "empty";
+  if (capacity === null) return "capacity unknown";
+  if (capacity === 0) return "zero percent full";
+  return `${capacity} percent full`;
+}
+
 interface ResolvedBin {
   type: "bin";
   id: number;
   name: string;
   shelfName: string | null;
   aisleName: string | null;
+  capacity: BinCapacity;
   itemCount: number;
 }
 
@@ -270,6 +300,16 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     },
   });
 
+  const capacityMutation = useMutation({
+    mutationFn: ({ binId, capacity }: { binId: number; capacity: BinCapacity }) =>
+      apiRequest("PATCH", `/api/warehouse/bins/${binId}/capacity`, { capacity }),
+    onSuccess: (_data, { capacity }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/bins"] });
+      // Update activeBin in-place so the UI reflects the new capacity immediately.
+      setActiveBin(prev => prev ? { ...prev, capacity } : null);
+    },
+  });
+
   const unassignMutation = useMutation({
     mutationFn: (body: { locationId: number; restoreRtfBin: string | null }) =>
       apiRequest("POST", "/api/warehouse/scan/unassign", body),
@@ -445,9 +485,13 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setActiveBin(resolved);
         if (soundOnRef.current) {
           playTone("ok");
-          speakBin(binFullLabel(resolved));
+          const capStr = capacitySpeech(resolved.capacity, resolved.itemCount);
+          speakBin(`${binFullLabel(resolved)}, ${capStr}`);
         }
-        updateFeed(feedId, { status: "ok", message: `Active bin: ${binFullLabel(resolved)} (${resolved.itemCount} lots)` });
+        updateFeed(feedId, {
+          status: "ok",
+          message: `Active bin: ${binFullLabel(resolved)} · ${resolved.itemCount} lots · ${capacityLabel(resolved.capacity, resolved.itemCount)}`,
+        });
       }
     }
 
@@ -767,6 +811,19 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <p className="text-xl font-medium text-white/70 mt-2">
                   {[activeBin.shelfName, activeBin.aisleName].filter(Boolean).join(" · ")}
                 </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <Gauge className="h-3.5 w-3.5 text-white/50" />
+                  <span className={`text-sm font-semibold ${
+                    activeBin.itemCount === 0 || activeBin.capacity === 0 ? "text-white/60"
+                    : activeBin.capacity === null ? "text-white/50"
+                    : activeBin.capacity <= 25 ? "text-green-300"
+                    : activeBin.capacity <= 50 ? "text-yellow-300"
+                    : activeBin.capacity <= 75 ? "text-orange-300"
+                    : "text-red-300"
+                  }`}>
+                    {capacityLabel(activeBin.capacity, activeBin.itemCount)}
+                  </span>
+                </div>
                 <p className="text-sm text-white/60 mt-1">Scan lots to file here</p>
               </>
             )}
@@ -862,15 +919,52 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
             </Button>
           </div>
         ) : activeBin ? (
-          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-bin">
-            <Archive className="h-5 w-5 shrink-0 text-yellow-400" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-none">{binFullLabel(activeBin)}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{activeBin.itemCount} lots currently in bin — scan lots to file them here</p>
+          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 space-y-2" data-testid="card-active-bin">
+            <div className="flex items-center gap-3">
+              <Archive className="h-5 w-5 shrink-0 text-yellow-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold leading-none">{binFullLabel(activeBin)}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {activeBin.itemCount} lots · capacity: <span className={`font-medium ${capacityColor(activeBin.capacity, activeBin.itemCount)}`}>{capacityLabel(activeBin.capacity, activeBin.itemCount)}</span>
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)} data-testid="button-clear-active-bin">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => setActiveBin(null)} data-testid="button-clear-active-bin">
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+            {/* Quick capacity picker — only shown for bins that have lots (empty = always 0%) */}
+            {activeBin.itemCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-0.5">Full</span>
+                {CAPACITY_STEPS.map(step => (
+                  <Button
+                    key={step}
+                    size="sm"
+                    variant="outline"
+                    className={`flex-1 h-6 text-[10px] px-0 ${
+                      activeBin.capacity === step
+                        ? step === 0 ? "bg-muted/60 border-muted-foreground/40 text-foreground"
+                          : step <= 25 ? "bg-green-500/15 border-green-500/40 text-green-400"
+                          : step <= 50 ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
+                          : step <= 75 ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
+                          : "bg-red-500/15 border-red-500/40 text-red-400"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      if (!activeBin) return;
+                      const newCap = activeBin.capacity === step ? null : step as BinCapacity;
+                      capacityMutation.mutate({ binId: activeBin.id, capacity: newCap });
+                      if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
+                    }}
+                    disabled={capacityMutation.isPending}
+                    data-testid={`button-capacity-${step}`}
+                  >
+                    {step}%
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         ) : activeLot ? (
           <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-lot">

@@ -1404,6 +1404,9 @@ export const whBins = pgTable("wh_bins", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   zoneId: integer("zone_id").references(() => whZones.id, { onDelete: 'cascade' }),
   isFilingQueue: boolean("is_filing_queue").notNull().default(false),
+  // null = unknown (has lots but user hasn't set); 0/25/50/75/100 = % full.
+  // Empty bins (0 lots) are always treated as 0% in the UI regardless of this value.
+  capacity: integer("capacity"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
