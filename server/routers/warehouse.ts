@@ -463,6 +463,37 @@ router.get("/warehouse/counts", isApproved, asyncRoute(async (req: any, res) => 
   res.json({ totalLots: totalNum, assignedLots: assignedNum, unassignedLots: totalNum - assignedNum });
 }));
 
+router.get("/warehouse/capacity-summary", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const rows: any = await db.execute(sql`
+    SELECT
+      z.id   AS zone_id,
+      z.name AS zone_name,
+      wb.capacity,
+      COUNT(*) AS count
+    FROM wh_bins wb
+    LEFT JOIN wh_zones z ON z.id = wb.zone_id AND z.org_id = ${orgId}
+    WHERE wb.org_id = ${orgId}
+    GROUP BY z.id, z.name, wb.capacity
+    ORDER BY z.name NULLS LAST, wb.capacity NULLS LAST
+  `);
+
+  const zoneMap = new Map<number | null, { id: number | null; name: string; levels: { capacity: number | null; count: number }[] }>();
+  for (const row of (rows.rows ?? []) as any[]) {
+    const zoneId = row.zone_id ?? null;
+    const zoneName = row.zone_name ?? 'Default';
+    if (!zoneMap.has(zoneId)) zoneMap.set(zoneId, { id: zoneId, name: zoneName, levels: [] });
+    zoneMap.get(zoneId)!.levels.push({
+      capacity: row.capacity !== null ? Number(row.capacity) : null,
+      count: Number(row.count),
+    });
+  }
+
+  const zones = Array.from(zoneMap.values());
+  const totalBins = zones.reduce((s, z) => s + z.levels.reduce((ls, l) => ls + l.count, 0), 0);
+  res.json({ zones, totalBins });
+}));
+
 // ── Unified lots endpoint — filter=all|assigned|unassigned|filing-queue, optional q and range ─
 router.get("/warehouse/lots", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);

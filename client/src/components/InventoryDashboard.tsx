@@ -209,6 +209,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: capacitySummary } = useQuery<{
+    zones: { id: number | null; name: string; levels: { capacity: number | null; count: number }[] }[];
+    totalBins: number;
+  }>({
+    queryKey: ['/api/warehouse/capacity-summary'],
+    staleTime: 5 * 60 * 1000,
+    enabled: showCargoBay,
+  });
+
   const { data: browseData, isLoading: browseLoading } = useQuery<{
     rows: any[];
     total: number;
@@ -385,6 +394,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           ];
           const pomHasActivity  = totalPomItems > 0;
           const lomHasActivity  = ['category','subcategory','finalsort','listing'].some(p => lomCount(p) > 0) || fileCount > 0;
+          const cargoBayHasActivity = showCargoBay && (capacitySummary?.zones ?? [])
+            .some(z => z.levels.some(l => (l.capacity === 75 || l.capacity === 100) && l.count > 0));
 
           const PipelineRow = ({
             buttonIcon,
@@ -456,14 +467,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               className={cn(
                 "relative rounded-lg border transition-all",
                 isCompact ? "p-3" : "p-2 md:p-3",
-                pomHasActivity || lomHasActivity
+                pomHasActivity || lomHasActivity || cargoBayHasActivity
                   ? "border-blue-400/55 shadow-[0_3px_0_rgba(0,0,0,0.55),0_0_18px_rgba(59,130,246,0.18)]"
                   : "border-gray-600/55 shadow-[0_3px_0_rgba(0,0,0,0.45),0_0_10px_rgba(59,130,246,0.08)]"
               )}
               style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
               data-testid="section-command-central-inventory"
             >
-              <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
+              <div className={cn("absolute top-0 left-0 right-0 h-[2px] rounded-t-lg", pomHasActivity || lomHasActivity || cargoBayHasActivity ? "bg-gradient-to-r from-blue-600/40 via-blue-400/70 to-blue-600/40" : "bg-gradient-to-r from-transparent via-gray-500/25 to-transparent")} />
 
               <div className="space-y-3">
               {/* Header */}
@@ -537,6 +548,76 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     </span>
                   </div>
                 ) : undefined}
+              />
+              )}
+
+              {showCargoBay && (
+              <div className="h-px bg-gradient-to-r from-transparent via-green-500/20 to-transparent" />
+              )}
+              {showCargoBay && (
+              <PipelineRow
+                buttonIcon={<Warehouse className="w-3.5 h-3.5 text-green-200" />}
+                buttonLabel="Bin Manager"
+                stage={tagStage('inv_cargo_bay')}
+                buttonStyle={{
+                  background: 'linear-gradient(180deg, rgba(16,185,129,0.45) 0%, rgba(5,150,105,0.28) 100%)',
+                  boxShadow: '0 3px 0 rgba(2,55,40,0.65), inset 0 1px 0 rgba(167,243,208,0.10)',
+                }}
+                buttonBorderClass="border-green-500/55"
+                onButtonClick={() => onDrawerChange('warehouse')}
+                testId="button-inv-warehouse"
+                statuses={[]}
+                trailingContent={(() => {
+                  const zones = capacitySummary?.zones ?? [];
+                  const LAMP: Record<string, string> = {
+                    '0':   'rgba(75,85,99,0.8)',
+                    '25':  'rgba(56,189,248,0.9)',
+                    '50':  'rgba(234,179,8,0.9)',
+                    '75':  'rgba(249,115,22,0.9)',
+                    '100': 'rgba(239,68,68,0.9)',
+                  };
+                  if (zones.length === 0) {
+                    return (
+                      <div className="flex-1 flex items-center justify-center">
+                        <span className="font-mono text-[9px] uppercase tracking-wide text-gray-600">No bins</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex-1 flex flex-col justify-center gap-0.5 overflow-hidden">
+                      {zones.slice(0, 5).map((zone) => {
+                        const nonZero = zone.levels
+                          .filter(l => l.count > 0)
+                          .sort((a, b) => (a.capacity ?? -1) - (b.capacity ?? -1));
+                        return (
+                          <div key={zone.id ?? 'default'} className="flex items-center gap-1 min-w-0">
+                            <span className="font-mono text-[7px] uppercase tracking-wide text-gray-500 w-8 shrink-0 truncate text-right leading-none">{zone.name}</span>
+                            <div className="w-px h-2.5 bg-gray-700/60 shrink-0" />
+                            <div className="flex items-center gap-0.5">
+                              {nonZero.length === 0 ? (
+                                <span className="font-mono text-[8px] text-gray-600">—</span>
+                              ) : nonZero.map((level) => {
+                                const color = LAMP[String(level.capacity)] ?? LAMP['0'];
+                                return (
+                                  <div key={String(level.capacity)} className="flex flex-col items-center gap-0">
+                                    <div
+                                      className="w-2.5 h-2.5 rounded-full ring-1 ring-white/20 shrink-0"
+                                      style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}` }}
+                                    />
+                                    <span className="font-mono text-[7px] font-bold text-gray-300 leading-none">{level.count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {zones.length > 5 && (
+                        <span className="font-mono text-[7px] text-gray-600 pl-9">+{zones.length - 5} zones</span>
+                      )}
+                    </div>
+                  );
+                })()}
               />
               )}
               </div>
@@ -640,18 +721,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             />
             )}
 
-            {showCargoBay && (
-            <StationTool
-              icon={Warehouse}
-              label="Bin Manager"
-              hex="#10b981"
-              glowRgb="16,185,129"
-              isCompact={isCompact}
-              onClick={() => onDrawerChange('warehouse')}
-              stage={tagStage('inv_cargo_bay')}
-              testId="tool-cargo-bay"
-            />
-            )}
 
           </div>
           )}
