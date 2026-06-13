@@ -819,21 +819,23 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         const isWarn = last?.status === "warn";
         const isErr  = last?.status === "err";
         const isBusy = last?.status === "busy";
-        const isIdle = !isLot && !isBin && !isPending && !isOk && !isNew && !isWarn && !isErr && !isBusy;
+        const isJustFiled = !isLot && !isBin && !isPending && !isOk && !isNew && !isWarn && !isErr && !isBusy && !!justFiledBin;
+        const isIdle = !isLot && !isBin && !isPending && !isOk && !isNew && !isWarn && !isErr && !isBusy && !justFiledBin;
 
         const bg =
-          isLot     ? "bg-blue-900 dark:bg-blue-950"
-          : isBin     ? "bg-yellow-700 dark:bg-yellow-800"
-          : isPending ? "bg-amber-600 dark:bg-amber-700"
-          : isOk   ? "bg-green-700 dark:bg-green-800"
-          : isNew  ? "bg-orange-600 dark:bg-orange-700"
-          : isWarn ? "bg-orange-600 dark:bg-orange-700"
-          : isErr  ? "bg-red-700 dark:bg-red-800"
+          isLot       ? "bg-blue-900 dark:bg-blue-950"
+          : isBin       ? "bg-yellow-700 dark:bg-yellow-800"
+          : isPending   ? "bg-amber-600 dark:bg-amber-700"
+          : isJustFiled ? "bg-green-700 dark:bg-green-800"
+          : isOk        ? "bg-green-700 dark:bg-green-800"
+          : isNew       ? "bg-orange-600 dark:bg-orange-700"
+          : isWarn      ? "bg-orange-600 dark:bg-orange-700"
+          : isErr       ? "bg-red-700 dark:bg-red-800"
           : "bg-muted";
 
         return (
           <div
-            className={`${bg} shrink-0 flex flex-col items-center justify-center min-h-52 px-6 py-5 text-center gap-1 transition-colors duration-300`}
+            className={`${bg} shrink-0 relative flex flex-col items-center justify-center min-h-52 px-6 py-5 text-center gap-1 transition-colors duration-300`}
             data-testid="hero-status-board"
           >
             {isLot && activeLot && (() => {
@@ -947,6 +949,32 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
               </>
             )}
 
+            {isJustFiled && justFiledBin && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">Filed into</p>
+                <p className="text-8xl font-black text-white leading-none">{justFiledBin.name}</p>
+                {(justFiledBin.shelfName || justFiledBin.aisleName) && (
+                  <p className="text-xl font-medium text-white/70 mt-2">
+                    {[justFiledBin.shelfName, justFiledBin.aisleName].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                <div className="mt-2 flex items-center gap-2">
+                  <Gauge className="h-3.5 w-3.5 text-white/50" />
+                  <span className={`text-sm font-semibold ${
+                    justFiledBin.capacity === null ? "text-white/50"
+                    : justFiledBin.capacity === 0 ? "text-green-300"
+                    : justFiledBin.capacity <= 25 ? "text-green-300"
+                    : justFiledBin.capacity <= 50 ? "text-yellow-300"
+                    : justFiledBin.capacity <= 75 ? "text-orange-300"
+                    : "text-red-300"
+                  }`}>
+                    {capacityLabel(justFiledBin.capacity, justFiledBin.itemCount)}
+                  </span>
+                </div>
+                <p className="text-sm text-white/60 mt-1">Scan next lot to continue</p>
+              </>
+            )}
+
             {isIdle && (
               <>
                 <ScanLine className="h-10 w-10 text-muted-foreground/30" />
@@ -955,6 +983,44 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 </p>
               </>
             )}
+
+            {/* Vertical capacity column — right edge of hero, 0% at bottom 100% at top */}
+            {(() => {
+              const capBin = (isBin ? activeBin : isJustFiled ? justFiledBin : null);
+              if (!capBin || capBin.itemCount === 0) return null;
+              const stepColors: Record<number, { idle: string; active: string }> = {
+                0:   { idle: "bg-white/10 text-white/40",   active: "bg-white/30 text-white font-bold" },
+                25:  { idle: "bg-green-400/20 text-green-300/70", active: "bg-green-400 text-white font-bold" },
+                50:  { idle: "bg-yellow-400/20 text-yellow-300/70", active: "bg-yellow-400 text-white font-bold" },
+                75:  { idle: "bg-orange-400/20 text-orange-300/70", active: "bg-orange-400 text-white font-bold" },
+                100: { idle: "bg-red-500/20 text-red-300/70",   active: "bg-red-500 text-white font-bold" },
+              };
+              return (
+                <div className="absolute right-2 top-0 bottom-0 flex flex-col-reverse py-3 gap-1.5" data-testid="hero-capacity-column">
+                  {CAPACITY_STEPS.map(step => {
+                    const isSelected = capBin.capacity === step;
+                    const c = stepColors[step];
+                    return (
+                      <button
+                        key={step}
+                        className={`w-10 flex-1 rounded-md text-[10px] transition-colors ${isSelected ? c.active : c.idle}`}
+                        onClick={() => {
+                          const newCap = capBin.capacity === step ? null : step as BinCapacity;
+                          capacityMutation.mutate({ binId: capBin.id, capacity: newCap });
+                          if (activeBin) setActiveBin(prev => prev ? { ...prev, capacity: newCap } : null);
+                          else setJustFiledBin(prev => prev ? { ...prev, capacity: newCap } : null);
+                          if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
+                        }}
+                        disabled={capacityMutation.isPending}
+                        data-testid={`button-hero-capacity-${step}`}
+                      >
+                        {step}%
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -996,39 +1062,6 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {/* Quick capacity picker — only shown for bins that have lots (empty = always 0%) */}
-            {activeBin.itemCount > 0 && (
-              <div className="flex items-center gap-1.5">
-                <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-0.5">Full</span>
-                {CAPACITY_STEPS.map(step => (
-                  <Button
-                    key={step}
-                    size="sm"
-                    variant="outline"
-                    className={`flex-1 h-6 text-[10px] px-0 ${
-                      activeBin.capacity === step
-                        ? step === 0 ? "bg-muted/60 border-muted-foreground/40 text-foreground"
-                          : step <= 25 ? "bg-green-500/15 border-green-500/40 text-green-400"
-                          : step <= 50 ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
-                          : step <= 75 ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
-                          : "bg-red-500/15 border-red-500/40 text-red-400"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      if (!activeBin) return;
-                      const newCap = activeBin.capacity === step ? null : step as BinCapacity;
-                      capacityMutation.mutate({ binId: activeBin.id, capacity: newCap });
-                      if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
-                    }}
-                    disabled={capacityMutation.isPending}
-                    data-testid={`button-capacity-${step}`}
-                  >
-                    {step}%
-                  </Button>
-                ))}
-              </div>
-            )}
           </div>
         ) : activeLot ? (
           <div className="rounded-md border border-yellow-500/40 bg-yellow-500/8 p-3 flex items-center gap-3" data-testid="card-active-lot">
@@ -1058,37 +1091,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mr-0.5">Full</span>
-              {CAPACITY_STEPS.map(step => (
-                <Button
-                  key={step}
-                  size="sm"
-                  variant="outline"
-                  className={`flex-1 h-6 text-[10px] px-0 ${
-                    justFiledBin.capacity === step
-                      ? step === 0 ? "bg-muted/60 border-muted-foreground/40 text-foreground"
-                        : step <= 25 ? "bg-green-500/15 border-green-500/40 text-green-400"
-                        : step <= 50 ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
-                        : step <= 75 ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
-                        : "bg-red-500/15 border-red-500/40 text-red-400"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    const newCap = justFiledBin.capacity === step ? null : step as BinCapacity;
-                    capacityMutation.mutate({ binId: justFiledBin.id, capacity: newCap });
-                    setJustFiledBin(prev => prev ? { ...prev, capacity: newCap } : null);
-                    if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
-                  }}
-                  disabled={capacityMutation.isPending}
-                  data-testid={`button-jf-capacity-${step}`}
-                >
-                  {step}%
-                </Button>
-              ))}
-            </div>
-            <p className="text-[10px] text-muted-foreground/50">Scan next lot to continue · auto-clears in 30 s</p>
+            <p className="text-[10px] text-muted-foreground/50">Set capacity on the board above · auto-clears in 30 s</p>
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border p-3 flex items-center gap-3" data-testid="card-active-empty">
