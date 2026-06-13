@@ -636,6 +636,7 @@ interface HistoryRow {
   new_value: string | null;
   item_name: string | null;
   color_name: string | null;
+  bin_location: string | null;
 }
 
 function sourceBadge(source: string) {
@@ -959,10 +960,20 @@ function HistoryView() {
                         <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
                       )}
                       {row.field === 'catalogSuperseded' || row.field === 'catalogObsolete' ? (
-                        <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                          <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
-                          <span className="text-muted-foreground/40">—</span>
-                          {formatHistoryValue(row.field, row.new_value)}
+                        <div className="space-y-0.5 mt-1">
+                          <div className="flex items-center gap-1.5 text-[10px]">
+                            <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                            <span className="text-muted-foreground/40">—</span>
+                            {formatHistoryValue(row.field, row.new_value)}
+                          </div>
+                          {row.bin_location ? (
+                            <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400/90">
+                              <span className="text-muted-foreground/40">bin</span>
+                              <span>{row.bin_location}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] font-mono text-muted-foreground/40">not in any bin</div>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 mt-1 text-[10px]">

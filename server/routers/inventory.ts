@@ -820,7 +820,22 @@ router.get("/inventory/history", isApproved, asyncRoute(async (req: any, res) =>
       ih.old_value,
       ih.new_value,
       bc.item_name,
-      bc.color_name
+      bc.color_name,
+      CASE WHEN ih.field IN ('catalogSuperseded', 'catalogObsolete') THEN (
+        SELECT STRING_AGG(
+            CASE
+              WHEN wa.name IS NOT NULL THEN wa.name || ' › ' || COALESCE(ws.name || ' › ', '') || wb.name
+              WHEN ws.name IS NOT NULL THEN ws.name || ' › ' || wb.name
+              ELSE wb.name
+            END,
+            ', ' ORDER BY COALESCE(wa.name,''), COALESCE(ws.name,''), wb.name
+          )
+         FROM inventory_locations ilh
+         JOIN wh_bins wb ON wb.id = ilh.bin_id
+         LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id
+         LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id
+         WHERE ilh.inventory_id = ih.inventory_id AND ilh.org_id = ${orgId}
+      ) END AS bin_location
     FROM inventory_history ih
     LEFT JOIN bl_catalog bc
       ON ih.item_no = bc.item_no
