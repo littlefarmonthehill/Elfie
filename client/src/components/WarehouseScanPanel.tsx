@@ -119,6 +119,16 @@ function binFullLabel(bin: ResolvedBin) {
   return [bin.aisleName, bin.shelfName, bin.name].filter(Boolean).join(" › ");
 }
 
+// For speech: if the bin name already encodes the aisle and shelf (e.g. "A2-3"
+// contains "A" and "A2"), skip the redundant prefix and just say the bin name.
+function binSpeechLabel(bin: ResolvedBin): string {
+  const n = bin.name.toLowerCase();
+  const hasAisle = !bin.aisleName || n.includes(bin.aisleName.toLowerCase());
+  const hasShelf = !bin.shelfName || n.includes(bin.shelfName.toLowerCase());
+  if (hasAisle && hasShelf) return bin.name;
+  return [bin.aisleName, bin.shelfName, bin.name].filter(Boolean).join(", ");
+}
+
 function lotLabel(lot: ResolvedLot) {
   return lot.itemName ?? lot.itemNo;
 }
@@ -460,7 +470,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           setPendingConfirm({ lot: pendingConfirm.lot, bin: resolved, isSuggested });
           if (soundOnRef.current) {
             playTone("warn");
-            speak(`Changed to ${toSpeech(binFullLabel(resolved))}. Scan again to confirm.`);
+            speak(`Changed to ${binSpeechLabel(resolved)}. Scan again to confirm.`);
           }
           updateFeed(feedId, {
             status: "warn",
@@ -498,7 +508,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         setPendingConfirm({ lot: lotForConfirm, bin: resolved, isSuggested });
         if (soundOnRef.current) {
           playTone("warn");
-          speak(`Confirm ${toSpeech(binFullLabel(resolved))}. Scan bin again.`);
+          speak(`Confirm ${binSpeechLabel(resolved)}. Scan bin again.`);
         }
         updateFeed(feedId, {
           status: "warn",
@@ -536,7 +546,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         if (soundOnRef.current) {
           playTone("ok");
           const capStr = capacitySpeech(resolved.capacity, resolved.itemCount);
-          speakBin(`${binFullLabel(resolved)}, ${capStr}`);
+          speakBin(`${binSpeechLabel(resolved)}, ${capStr}`);
         }
         updateFeed(feedId, {
           status: "ok",
