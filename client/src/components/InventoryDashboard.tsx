@@ -568,53 +568,52 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 testId="button-inv-warehouse"
                 statuses={[]}
                 trailingContent={(() => {
-                  const zones = capacitySummary?.zones ?? [];
                   const LAMP: Record<string, string> = {
-                    '0':   'rgba(75,85,99,0.8)',
-                    '25':  'rgba(56,189,248,0.9)',
-                    '50':  'rgba(234,179,8,0.9)',
-                    '75':  'rgba(249,115,22,0.9)',
-                    '100': 'rgba(239,68,68,0.9)',
+                    '0':    'rgba(75,85,99,0.8)',
+                    '25':   'rgba(56,189,248,0.9)',
+                    '50':   'rgba(234,179,8,0.9)',
+                    '75':   'rgba(249,115,22,0.9)',
+                    '100':  'rgba(239,68,68,0.9)',
+                    'null': 'rgba(75,85,99,0.8)',
                   };
-                  if (zones.length === 0) {
+                  const CAP_LABELS: Record<string, string> = {
+                    '0': '0%', '25': '25%', '50': '50%', '75': '75%', '100': '100%', 'null': '—',
+                  };
+                  // Aggregate across all zones
+                  const totals = new Map<string, number>();
+                  for (const zone of (capacitySummary?.zones ?? [])) {
+                    for (const level of zone.levels) {
+                      const key = level.capacity !== null ? String(level.capacity) : 'null';
+                      totals.set(key, (totals.get(key) ?? 0) + level.count);
+                    }
+                  }
+                  const totalBins = capacitySummary?.totalBins ?? 0;
+                  if (totalBins === 0) {
                     return (
                       <div className="flex-1 flex items-center justify-center">
                         <span className="font-mono text-[9px] uppercase tracking-wide text-gray-600">No bins</span>
                       </div>
                     );
                   }
+                  const LEVEL_KEYS = ['0','25','50','75','100','null'].filter(k => (totals.get(k) ?? 0) > 0);
                   return (
-                    <div className="flex-1 flex flex-col justify-center gap-0.5 overflow-hidden">
-                      {zones.slice(0, 5).map((zone) => {
-                        const nonZero = zone.levels
-                          .filter(l => l.count > 0)
-                          .sort((a, b) => (a.capacity ?? -1) - (b.capacity ?? -1));
+                    <div className="flex-1 flex items-start justify-around">
+                      {LEVEL_KEYS.map((key) => {
+                        const count = totals.get(key) ?? 0;
+                        const pct = Math.round((count / totalBins) * 100);
+                        const color = LAMP[key];
                         return (
-                          <div key={zone.id ?? 'default'} className="flex items-center gap-1 min-w-0">
-                            <span className="font-mono text-[7px] uppercase tracking-wide text-gray-500 w-8 shrink-0 truncate text-right leading-none">{zone.name}</span>
-                            <div className="w-px h-2.5 bg-gray-700/60 shrink-0" />
-                            <div className="flex items-center gap-0.5">
-                              {nonZero.length === 0 ? (
-                                <span className="font-mono text-[8px] text-gray-600">—</span>
-                              ) : nonZero.map((level) => {
-                                const color = LAMP[String(level.capacity)] ?? LAMP['0'];
-                                return (
-                                  <div key={String(level.capacity)} className="flex flex-col items-center gap-0">
-                                    <div
-                                      className="w-2.5 h-2.5 rounded-full ring-1 ring-white/20 shrink-0"
-                                      style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}` }}
-                                    />
-                                    <span className="font-mono text-[7px] font-bold text-gray-300 leading-none">{level.count}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          <div key={key} className="flex flex-col items-center gap-0.5 py-0">
+                            <span className="font-mono text-[9px] uppercase tracking-wide leading-none whitespace-nowrap text-gray-300">{CAP_LABELS[key]}</span>
+                            <div
+                              className="w-3 h-3 rounded-full z-10 ring-1 ring-white/20 shrink-0 panel-lamp-active"
+                              style={{ '--lamp-color': color, backgroundColor: color, boxShadow: `0 0 7px ${color}, 0 0 16px ${color}55` } as React.CSSProperties}
+                            />
+                            <span className="font-mono text-[8px] font-bold leading-none text-white">{count}</span>
+                            <span className="font-mono text-[7px] leading-none text-gray-500">{pct}%</span>
                           </div>
                         );
                       })}
-                      {zones.length > 5 && (
-                        <span className="font-mono text-[7px] text-gray-600 pl-9">+{zones.length - 5} zones</span>
-                      )}
                     </div>
                   );
                 })()}

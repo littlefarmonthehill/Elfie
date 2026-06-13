@@ -603,9 +603,12 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
 
     // Per-rtf bucket counts so the dashboard can render one bubble per
     // tote that actually has bags in it (rtf 0, rtf 3, …).
+    // Exclude lots already assigned to any bin (filed into a real location)
+    // so the count resets to 0 once the bag has been physically filed.
     db.select({ rtfBin: blInventory.rtfBin, count: sql<number>`COUNT(*)` })
       .from(blInventory)
-      .where(and(eq(blInventory.orgId, orgId), isNotNull(blInventory.rtfBin)))
+      .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+      .where(and(eq(blInventory.orgId, orgId), isNotNull(blInventory.rtfBin), isNull(inventoryLocations.id)))
       .groupBy(blInventory.rtfBin),
   ]);
 
