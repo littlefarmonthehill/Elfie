@@ -129,6 +129,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Nothing visible until a code resolves — then the scan panel pops up
   // pre-seeded with that code (mode is auto-detected from the first scan).
   const [scanInitialCode, setScanInitialCode] = useState<string | null>(null);
+  const [fileMode, setFileMode] = useState<'file' | 'split'>('file');
+  const fileModeRef = useRef<'file' | 'split'>('file');
+  const binsForScanRef = useRef<any[]>([]);
+  useEffect(() => { fileModeRef.current = fileMode; }, [fileMode]);
   const { setActive: setScanSessionActive } = useScanSession();
   useEffect(() => {
     if (activeView === 'lots') {
@@ -140,7 +144,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     onScan: (code) => {
       const upper = code.toUpperCase();
       if (upper.startsWith('BIN:') || upper.startsWith('LOT:')) {
-        setScanInitialCode(code);
+        if (fileModeRef.current === 'split' && upper.startsWith('BIN:')) {
+          const binName = code.slice(4);
+          const matchedBin = binsForScanRef.current.find(
+            (b: any) => b.name.toLowerCase() === binName.toLowerCase()
+          );
+          if (matchedBin) {
+            openBinDetail(matchedBin);
+          } else {
+            setScanInitialCode(code);
+          }
+        } else {
+          setScanInitialCode(code);
+        }
       }
     },
     disabled: activeView !== 'lots' || scanInitialCode !== null,
@@ -868,6 +884,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const filteredList = activeView === 'lots' ? lotsData : [];
+
+  const splitBins = useMemo(() => {
+    return bins
+      .filter((b: any) => b.itemCount > 0 && b.capacity != null && b.capacity >= 75)
+      .sort((a: any, b: any) => {
+        if (b.capacity !== a.capacity) return (b.capacity ?? 0) - (a.capacity ?? 0);
+        return (b.itemCount ?? 0) - (a.itemCount ?? 0);
+      });
+  }, [bins]);
+  useEffect(() => { binsForScanRef.current = bins; }, [bins]);
 
   // Bin detail: fetch lots for the open bin directly from a dedicated endpoint
   const { data: binDetailLots = [], isFetching: binDetailFetching } = useQuery<any[]>({
@@ -2161,6 +2187,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )
           ) : (
             <Fragment>
+          {/* File / Split mode toggle */}
+          <div className="flex items-center gap-1 mb-3">
+            <button
+              onClick={() => setFileMode('file')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs md:text-sm font-medium transition-colors ${fileMode === 'file' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+              data-testid="button-filemode-file"
+            >
+              <Package className="h-3.5 w-3.5" />
+              File
+            </button>
+            <button
+              onClick={() => setFileMode('split')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs md:text-sm font-medium transition-colors ${fileMode === 'split' ? 'bg-yellow-500/15 text-yellow-400' : 'text-muted-foreground hover-elevate'}`}
+              data-testid="button-filemode-split"
+            >
+              <SplitSquareHorizontal className="h-3.5 w-3.5" />
+              Split
+              {splitBins.length > 0 && (
+                <span className="ml-1 font-bold tabular-nums">{splitBins.length}</span>
+              )}
+            </button>
+          </div>
+          {fileMode === 'file' ? (
+            <>
           {/* Filter pills (Total / Assigned / Unassigned) — these drive the lots list */}
           <div className="flex items-center gap-1 mb-3 flex-wrap">
             {([
@@ -2411,6 +2461,54 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             ))}
           </div>
+            </>
+          ) : (
+            <>
+              {/* Split mode: bins at ≥75% capacity, sorted fullest first */}
+              {splitBins.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                  <SplitSquareHorizontal className="h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No bins are at 75% or 100% capacity.</p>
+                  <p className="text-xs text-muted-foreground/60">Set a bin's capacity in the Locations tab to see it here.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {splitBins.length} bin{splitBins.length !== 1 ? 's' : ''} at ≥75% — tap to view lots and move some out.
+                    <span className="ml-1 opacity-60">Scan a bin QR to open it directly.</span>
+                  </p>
+                  <div className="space-y-1 max-h-[calc(100dvh-340px)] min-h-[200px] overflow-y-auto">
+                    {splitBins.map((bin: any) => {
+                      const isFull = bin.capacity === 100;
+                      const path = [bin.aisleName, bin.shelfName].filter(Boolean).join(' → ');
+                      return (
+                        <div
+                          key={bin.id}
+                          className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
+                          onClick={() => openBinDetail(bin)}
+                          data-testid={`split-bin-row-${bin.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs md:text-sm font-medium">{bin.name}</span>
+                              {path && <span className="text-[10px] md:text-sm text-muted-foreground truncate">{path}</span>}
+                            </div>
+                            <span className="text-[10px] md:text-sm text-muted-foreground">
+                              {bin.itemCount} lot{bin.itemCount !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <Badge className={`text-[9px] md:text-[11px] px-1.5 py-0 no-default-active-elevate shrink-0 ${isFull ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                            {bin.capacity}%
+                          </Badge>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )}
             </Fragment>
           )}
         </Card>
