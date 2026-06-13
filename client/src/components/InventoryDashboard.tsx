@@ -643,7 +643,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             {showCargoBay && (
             <StationTool
               icon={Warehouse}
-              label="Cargo Bay"
+              label="Warehouse"
               hex="#10b981"
               glowRgb="16,185,129"
               isCompact={isCompact}
