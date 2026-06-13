@@ -519,6 +519,40 @@ function ProductMixOverview({ productMix }: { productMix: HealthSummary['product
 }
 
 function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
+  if (category === 'obsolete_catalog') {
+    return (
+      <div className="py-2.5 border-b border-border/50 last:border-0 space-y-1" data-testid={`health-row-${row.id}`}>
+        {/* Top line: old part # → new part # + qty */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
+          <ConditionBadge cond={row.new_or_used} />
+          {row.alternate_no ? (
+            <>
+              <span className="text-[10px] text-muted-foreground/50">→</span>
+              <span className="text-xs font-mono font-semibold text-amber-400">{row.alternate_no}</span>
+            </>
+          ) : (
+            <span className="text-[10px] font-mono text-rose-400">retired · no replacement</span>
+          )}
+          <span className="ml-auto text-xs font-mono text-blue-300 flex-shrink-0">{Number(row.quantity).toLocaleString()} pcs</span>
+        </div>
+        {/* Part name */}
+        <div className="text-[10px] text-muted-foreground truncate">
+          {row.item_name}{row.color_name && row.color_name !== 'No Color' ? ` · ${row.color_name}` : ''}
+        </div>
+        {/* Bin location */}
+        {row.bin_location ? (
+          <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400/90">
+            <span className="text-muted-foreground/40">bin</span>
+            <span>{row.bin_location}</span>
+          </div>
+        ) : (
+          <div className="text-[10px] font-mono text-muted-foreground/40">not in any bin</div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0" data-testid={`health-row-${row.id}`}>
       <div className="flex-1 min-w-0">
@@ -556,11 +590,6 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
           <div className="text-[10px] font-mono text-fuchsia-400">
             {row.new_or_used === 'N' ? 'New' : row.new_or_used === 'U' ? 'Used' : row.new_or_used}
           </div>
-        )}
-        {category === 'obsolete_catalog' && (
-          row.alternate_no
-            ? <div className="text-[10px] font-mono text-amber-400">replace with {row.alternate_no}</div>
-            : <div className="text-[10px] font-mono text-rose-400">retired · no replacement</div>
         )}
         {category === 'soft_deleted' && (
           row.is_linked
