@@ -339,6 +339,41 @@ export async function runCatalogDetailSync(): Promise<{
                 }));
                 await recordInventoryChanges(histEntries as any[]);
                 console.log(`[CatalogDetail] ${item.itemNo} ${gotReplacement ? `superseded → ${newAlternateNo}` : 'retired'}: notified ${affectedLots.length} lot(s)`);
+
+                // Also write a catalogPredecessor entry on the NEW part's lots, so opening
+                // the new part number's detail shows the renumber in its change history.
+                if (gotReplacement && newAlternateNo) {
+                  const newPartLots = await db.select({
+                    orgId: blInventory.orgId,
+                    id: blInventory.id,
+                    itemNo: blInventory.itemNo,
+                    colorId: blInventory.colorId,
+                  })
+                  .from(blInventory)
+                  .where(and(
+                    eq(blInventory.itemNo, newAlternateNo),
+                    eq(blInventory.itemType, item.itemType),
+                    isNull(blInventory.deletedAt),
+                    gt(blInventory.quantity, 0),
+                  ));
+
+                  if (newPartLots.length > 0) {
+                    const predecessorEntries = newPartLots.map(lot => ({
+                      orgId: lot.orgId,
+                      inventoryId: lot.id,
+                      itemNo: lot.itemNo,
+                      colorId: lot.colorId,
+                      changedAt: now,
+                      source: 'catalog_change' as const,
+                      sourceRef: null,
+                      field: 'catalogPredecessor',
+                      oldValue: item.itemNo,
+                      newValue: null,
+                    }));
+                    await recordInventoryChanges(predecessorEntries as any[]);
+                    console.log(`[CatalogDetail] ${newAlternateNo}: wrote catalogPredecessor from ${item.itemNo} on ${newPartLots.length} lot(s)`);
+                  }
+                }
               }
             } catch (histErr: any) {
               console.error(`[CatalogDetail] History write failed for ${item.itemNo}:`, histErr.message);

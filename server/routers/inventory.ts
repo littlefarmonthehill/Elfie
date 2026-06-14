@@ -763,21 +763,7 @@ router.get("/inventory/health/:category", isApproved, asyncRoute(async (req: any
     `);
   } else if (category === 'obsolete_catalog') {
     result = await db.execute(sql`
-      SELECT ${selectCols}, bc.alternate_no, bc.is_obsolete,
-        (SELECT STRING_AGG(
-            CASE
-              WHEN wa.name IS NOT NULL THEN wa.name || ' › ' || COALESCE(ws.name || ' › ', '') || wb.name
-              WHEN ws.name IS NOT NULL THEN ws.name || ' › ' || wb.name
-              ELSE wb.name
-            END,
-            ', ' ORDER BY COALESCE(wa.name,''), COALESCE(ws.name,''), wb.name
-          )
-         FROM inventory_locations il2
-         JOIN wh_bins wb ON wb.id = il2.bin_id
-         LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id
-         LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id
-         WHERE il2.inventory_id = bi.id AND il2.org_id = ${orgId}
-        ) AS bin_location
+      SELECT ${selectCols}, bc.alternate_no, bc.is_obsolete
       FROM bl_inventory bi
       LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type
         AND COALESCE(bi.color_id, 0) = bc.color_id
@@ -820,22 +806,7 @@ router.get("/inventory/history", isApproved, asyncRoute(async (req: any, res) =>
       ih.old_value,
       ih.new_value,
       bc.item_name,
-      bc.color_name,
-      CASE WHEN ih.field IN ('catalogSuperseded', 'catalogObsolete') THEN (
-        SELECT STRING_AGG(
-            CASE
-              WHEN wa.name IS NOT NULL THEN wa.name || ' › ' || COALESCE(ws.name || ' › ', '') || wb.name
-              WHEN ws.name IS NOT NULL THEN ws.name || ' › ' || wb.name
-              ELSE wb.name
-            END,
-            ', ' ORDER BY COALESCE(wa.name,''), COALESCE(ws.name,''), wb.name
-          )
-         FROM inventory_locations ilh
-         JOIN wh_bins wb ON wb.id = ilh.bin_id
-         LEFT JOIN wh_shelves ws ON ws.id = wb.shelf_id
-         LEFT JOIN wh_aisles wa ON wa.id = ws.aisle_id
-         WHERE ilh.inventory_id = ih.inventory_id AND ilh.org_id = ${orgId}
-      ) END AS bin_location
+      bc.color_name
     FROM inventory_history ih
     LEFT JOIN bl_catalog bc
       ON ih.item_no = bc.item_no

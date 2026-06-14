@@ -2430,6 +2430,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                                row.field === 'location' ? 'Location' :
                                row.field === 'catalogSuperseded' ? 'Design change' :
                                row.field === 'catalogObsolete' ? 'Retired' :
+                               row.field === 'catalogPredecessor' ? 'Formerly known as' :
                                row.field === 'part_alternate' ? 'Alternate' :
                                row.field}
                             </span>
@@ -2442,6 +2443,8 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                               <span className="text-[10px] text-rose-400">retired — no replacement</span>
                             ) : row.field === 'catalogSuperseded' ? (
                               <span className="text-[10px] font-mono text-amber-400">→ {row.new_value}</span>
+                            ) : row.field === 'catalogPredecessor' ? (
+                              <span className="text-[10px] font-mono text-amber-400">{row.old_value}</span>
                             ) : (
                               <>
                                 {row.old_value != null && (
