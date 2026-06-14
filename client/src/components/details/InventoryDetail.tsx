@@ -357,6 +357,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
   const [setsSearch, setSetsSearch] = useState('');
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'org' | 'catalog'>('all');
   const [partsDialogOpen, setPartsDialogOpen] = useState(false);
   const [partsSearch, setPartsSearch] = useState('');
   const [compositionDialogOpen, setCompositionDialogOpen] = useState(false);
@@ -589,6 +590,12 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     refetchOnWindowFocus: false,
   });
   const historyRows = historyData?.rows ?? [];
+  const CATALOG_SOURCES = ['catalog_change', 'rebrickable'];
+  const filteredHistoryRows = historyFilter === 'catalog'
+    ? historyRows.filter(r => CATALOG_SOURCES.includes(r.source))
+    : historyFilter === 'org'
+    ? historyRows.filter(r => !CATALOG_SOURCES.includes(r.source))
+    : historyRows;
 
   // Parts in this set (only for SET item type)
   const isSet = data.itemType === 'SET';
@@ -2366,7 +2373,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           </Dialog>
 
           {/* Change History Dialog */}
-          <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+          <Dialog open={historyDialogOpen} onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryFilter('all'); }}>
             <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" aria-describedby="history-dialog-description">
               <DialogHeader>
                 <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
@@ -2380,6 +2387,27 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   All recorded changes for this inventory lot
                 </p>
               </DialogHeader>
+              {/* Filter chips */}
+              <div className="flex items-center gap-1.5 pb-1 flex-shrink-0">
+                {([
+                  { id: 'all',     label: 'All' },
+                  { id: 'org',     label: 'My Inventory' },
+                  { id: 'catalog', label: 'Catalog' },
+                ] as const).map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setHistoryFilter(f.id)}
+                    className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${
+                      historyFilter === f.id
+                        ? 'bg-muted/60 border-border text-foreground'
+                        : 'bg-muted/20 border-border/30 text-muted-foreground hover-elevate'
+                    }`}
+                    data-testid={`button-history-filter-${f.id}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">
                 {loadingHistory ? (
                   <div className="flex items-center justify-center py-12">
@@ -2391,9 +2419,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     <p className="text-sm">No change history recorded yet</p>
                     <p className="text-xs opacity-60">Changes from BrickLink syncs, orders, and catalog updates will appear here</p>
                   </div>
+                ) : filteredHistoryRows.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-12 text-center text-gray-500">
+                    <History className="w-8 h-8 opacity-30" />
+                    <p className="text-sm">No {historyFilter === 'catalog' ? 'catalog' : 'inventory'} changes recorded yet</p>
+                  </div>
                 ) : (
                   <div className="space-y-1 py-2">
-                    {historyRows.map(row => (
+                    {filteredHistoryRows.map(row => (
                       <div key={row.id} className="flex items-start gap-2.5 px-2 py-2 rounded-md bg-gray-800/40 border border-gray-700/30">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
