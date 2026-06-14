@@ -557,7 +557,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               {showCargoBay && (
               <PipelineRow
                 buttonIcon={<Warehouse className="w-3.5 h-3.5 text-green-200" />}
-                buttonLabel="Bin Manager"
+                buttonLabel="Cargo Bay"
                 stage={tagStage('inv_cargo_bay')}
                 buttonStyle={{
                   background: 'linear-gradient(180deg, rgba(16,185,129,0.45) 0%, rgba(5,150,105,0.28) 100%)',

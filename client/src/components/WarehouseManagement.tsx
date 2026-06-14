@@ -1841,7 +1841,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-lots-sidebar"
               >
                 <Package className="w-4 h-4 shrink-0" />
-                File
+                Bin Manager
                 {unassignedLots > 0 && <Badge className="ml-auto text-xs px-1.5 py-0 no-default-active-elevate">{unassignedLots}</Badge>}
               </button>
             </nav>
@@ -1988,7 +1988,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 data-testid="button-view-lots"
               >
                 <Package className="w-3.5 h-3.5" />
-                File
+                Bin Manager
                 {unassignedLots > 0 && (
                   <Badge className="text-[9px] md:text-[11px] md:text-sm px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
                 )}
