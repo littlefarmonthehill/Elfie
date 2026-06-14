@@ -986,8 +986,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
 
             {/* Vertical capacity column — right edge of hero, 0% at bottom 100% at top */}
             {(() => {
-              const capBin = (isBin ? activeBin : isJustFiled ? justFiledBin : null);
-              if (!capBin || capBin.itemCount === 0) return null;
+              const capBin: { id: number; capacity: BinCapacity; itemCount?: number } | null =
+                isBin ? activeBin
+                : isJustFiled ? justFiledBin
+                : isPending ? (pendingConfirm?.bin ?? null)
+                : (isLot && activeLot?.suggestedBin)
+                  ? { ...activeLot.suggestedBin, capacity: activeLot.suggestedBin.capacity as BinCapacity }
+                  : null;
+              if (!capBin) return null;
+              if (capBin.itemCount === 0) return null;
               const stepColors: Record<number, { idle: string; active: string }> = {
                 0:   { idle: "bg-white/10 text-white/40",   active: "bg-white/30 text-white font-bold" },
                 25:  { idle: "bg-green-400/20 text-green-300/70", active: "bg-green-400 text-white font-bold" },
@@ -1008,7 +1015,9 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
                           const newCap = capBin.capacity === step ? null : step as BinCapacity;
                           capacityMutation.mutate({ binId: capBin.id, capacity: newCap });
                           if (activeBin) setActiveBin(prev => prev ? { ...prev, capacity: newCap } : null);
-                          else setJustFiledBin(prev => prev ? { ...prev, capacity: newCap } : null);
+                          else if (pendingConfirm) setPendingConfirm(prev => prev ? { ...prev, bin: { ...prev.bin, capacity: newCap } } : null);
+                          else if (justFiledBin) setJustFiledBin(prev => prev ? { ...prev, capacity: newCap } : null);
+                          else if (activeLot?.suggestedBin) setActiveLot(prev => prev ? { ...prev, suggestedBin: prev.suggestedBin ? { ...prev.suggestedBin, capacity: newCap } : null } : null);
                           if (soundOnRef.current && newCap !== null) speak(`${newCap} percent`);
                         }}
                         disabled={capacityMutation.isPending}

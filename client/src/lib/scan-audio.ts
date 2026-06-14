@@ -171,5 +171,5 @@ export function speak(text: string, rate = 0.75): void {
 // between each segment. No intro phrase — just the address.
 export function speakBin(binName: string): void {
   const binSpeech = binName.replace(/-/g, ", ");
-  speak(binSpeech, 0.65);
+  speak(binSpeech, 0.9);
 }
