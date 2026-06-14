@@ -1,6 +1,7 @@
 import pg from 'pg';
 const { Pool } = pg;
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from "@shared/schema";
 import { sql } from 'drizzle-orm';
 
@@ -10,29 +11,26 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// HTTP-based Neon client — stateless, no persistent connections, no pool exhaustion.
+// Each query is an independent HTTPS request; Neon handles cold-start wakeup internally.
+const neonHttp = neon(process.env.DATABASE_URL);
+export const db = drizzle(neonHttp, { schema });
+
+// Minimal pg.Pool kept only for three things that need a real TCP connection:
+//   1. connect-pg-simple session store
+//   2. password-reset raw queries (auth.ts)
+//   3. startup fix scripts in index.ts
+// max:3 stays well below Neon's connection ceiling even under full scheduler load.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 90000,    // 90 s — recycle idle connections before Neon kills them
-  connectionTimeoutMillis: 30000, // 30 s — allow time for Neon cold-start wake-up
+  max: 3,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {
-  // Neon serverless occasionally drops idle connections — this is expected and handled.
-  console.warn('[DB] Idle client reconnect (handled):', err.message);
+  console.warn('[DB] Pool client error (handled):', err.message);
 });
-
-// Keepalive: run a lightweight query every 60 s to prevent Neon serverless
-// from suspending compute during idle periods (Neon suspends after ~5 min idle).
-// 60 s is well within that window, preventing the cold-start delay that causes
-// "Connection terminated" errors in background schedulers.
-setInterval(() => {
-  pool.query('SELECT 1').catch((err: Error) => {
-    console.error('[DB] Keepalive query failed (will retry next cycle):', err.message);
-  });
-}, 60 * 1000);
-
-export const db = drizzle(pool, { schema });
 
 // ─── Multi-Tenant Migration ───────────────────────────────────────────────────
 // All statements use IF NOT EXISTS / WHERE IS NULL guards — safe to re-run on
