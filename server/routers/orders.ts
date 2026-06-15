@@ -343,7 +343,7 @@ router.get("/orders/dashboard", isApproved, asyncRoute(async (req: any, res) => 
 
 router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
   const orgId = reqOrgId(req);
-  const [agingResult, openOrdersResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult, orderSyncIssueResult] = await Promise.all([
+  const [agingResult, openOrdersResult, repeatResult, thisWeekResult, lastWeekResult, marketNewsResult, businessIntelResult, trackingErrorResult, orderSyncIssueResult, channelSyncErrorResult] = await Promise.all([
     db.execute(sql`SELECT COUNT(*) AS count FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_status IN ('awaiting_payment','awaiting_shipment') AND order_date < NOW() - INTERVAL '24 hours'`),
     // Total count + dollar total across ALL open (unshipped) orders, regardless of age.
     // Used by the Bridge Sales card to show "total amount of open orders".
@@ -379,6 +379,18 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
         AND status = 'open'
         AND severity IN ('critical', 'high')
     `),
+    // Open channel-sync failures (per-channel adapter errors, connection failures).
+    // Excludes scheduler_blocked which is a transient/expected condition.
+    db.execute(sql`
+      SELECT COUNT(*) AS count,
+             STRING_AGG(DISTINCT platform, ', ' ORDER BY platform) AS platforms
+      FROM sync_issues
+      WHERE org_id = ${orgId}
+        AND sync_type = 'channel_sync'
+        AND status = 'open'
+        AND severity IN ('critical', 'high')
+        AND issue_type != 'scheduler_blocked'
+    `),
   ]);
   const nowMs = Date.now();
   const msDays = (ms: number | null) => ms !== null ? Math.floor((nowMs - ms) / (1000 * 60 * 60 * 24)) : null;
@@ -396,6 +408,8 @@ router.get("/bridge/signals", isApproved, asyncRoute(async (req: any, res) => {
     businessIntelFreshDays: msDays(businessIntelTime),
     trackingErrors: Number((trackingErrorResult.rows[0] as any)?.count ?? 0),
     orderSyncIssues: Number((orderSyncIssueResult.rows[0] as any)?.count ?? 0),
+    channelSyncErrors: Number((channelSyncErrorResult.rows[0] as any)?.count ?? 0),
+    channelSyncErrorPlatforms: (channelSyncErrorResult.rows[0] as any)?.platforms ?? null,
     openaiHealth: getOpenAIHealthPublic(),
   });
 }));

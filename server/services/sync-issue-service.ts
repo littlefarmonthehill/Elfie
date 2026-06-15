@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
 export interface SyncIssueInput {
   syncType: string;
   platform: string;
+  orgId?: string;
   itemId?: string;
   itemNo?: string;
   issueType: string;
@@ -42,6 +43,7 @@ export async function recordSyncIssue(input: SyncIssueInput): Promise<void> {
     await db.insert(syncIssues).values({
       syncType: input.syncType,
       platform: input.platform,
+      orgId: input.orgId ?? null,
       itemId: input.itemId ?? null,
       itemNo: input.itemNo ?? null,
       issueType: input.issueType,
@@ -76,6 +78,29 @@ export async function resolveSchedulerIssues(syncType: string): Promise<void> {
       );
   } catch (err) {
     console.error(`Failed to resolve scheduler issues for ${syncType}:`, err);
+  }
+}
+
+/**
+ * Resolve all open issues for a specific sync type + platform combination.
+ * Use this to clear per-channel errors after a successful channel sync.
+ * Safe to call fire-and-forget — never throws.
+ */
+export async function resolveChannelSyncIssues(syncType: string, platform: string, orgId: string): Promise<void> {
+  try {
+    await db
+      .update(syncIssues)
+      .set({ status: 'resolved', resolvedAt: new Date(), resolvedBy: 'system' })
+      .where(
+        and(
+          eq(syncIssues.syncType, syncType),
+          eq(syncIssues.platform, platform),
+          eq(syncIssues.orgId, orgId),
+          eq(syncIssues.status, 'open'),
+        )
+      );
+  } catch (err) {
+    console.error(`Failed to resolve channel sync issues for ${syncType}/${platform}:`, err);
   }
 }
 

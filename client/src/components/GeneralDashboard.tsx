@@ -664,6 +664,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     businessIntelFreshDays: number | null;
     trackingErrors: number;
     orderSyncIssues: number;
+    channelSyncErrors: number;
+    channelSyncErrorPlatforms: string | null;
     openaiHealth?: {
       ok: boolean;
       kind: 'quota' | 'auth' | 'rate_limit' | 'other' | null;
@@ -935,6 +937,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }
   if (channelSyncFailed) {
     urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
+  }
+  const channelSyncErrors = bridgeSignals?.channelSyncErrors ?? 0;
+  const channelSyncErrorPlatforms = bridgeSignals?.channelSyncErrorPlatforms ?? null;
+  if (channelSyncErrors > 0) {
+    const platformLabel = channelSyncErrorPlatforms ? ` (${channelSyncErrorPlatforms})` : '';
+    urgentAlerts.push({ id: 'channel-sync-errors', icon: XCircle, iconColor: 'text-red-400', label: `Channel sync error${channelSyncErrors !== 1 ? 's' : ''}${platformLabel} — check platform settings`, severity: 'error', kind: 'critical', onClick: () => onOpenSettings?.('platforms') });
   }
 
   const strategyConfigured = !!(ieData?.pricingStrategyPreset || ieData?.visionMission);

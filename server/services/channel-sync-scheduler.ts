@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { isChannelSyncAbortRequested, SyncUpdatedItem } from "./brickowl";
 import { getChannelAdapter } from "./channel-factory";
 import { syncLock } from "./sync-lock";
-import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+import { recordSyncIssue, resolveSchedulerIssues, resolveChannelSyncIssues } from "./sync-issue-service";
 import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
 import { syncBricklinkData } from "./bricklink";
 import { runPlatformOrderSync } from "./order-sync-core";
@@ -372,6 +372,10 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
           recordsUpdated: result.lotsUpdated,
           errorMessage:   result.errors.length > 0 ? result.errors.slice(0, 3).join('; ') : null,
         });
+        // On success, clear any open per-channel sync issues
+        if (channelStatus === 'success') {
+          resolveChannelSyncIssues(SYNC_TYPE, channelKey, effectiveOrgId);
+        }
         // Clear this channel's progress slot — it's done
         channelSyncProgress[channelKey] = { processed: 0, total: 0, phase: 'idle' };
 
@@ -391,6 +395,16 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string, ta
         await upsertSyncMetadata(`channel_sync_${channelKey}`, effectiveOrgId, {
           status:       'error',
           errorMessage: chanErr.message,
+        });
+        // Record a persistent sync issue so it surfaces on the Bridge dashboard
+        recordSyncIssue({
+          syncType:         SYNC_TYPE,
+          platform:         channelKey,
+          orgId:            effectiveOrgId,
+          issueType:        'channel_sync_failed',
+          issueDescription: `[${channelKey}] Sync failed: ${chanErr.message}`,
+          severity:         'high',
+          metadata: { channelKey, error: chanErr.message, timestamp: new Date().toISOString() },
         });
         channelSyncProgress[channelKey] = { processed: 0, total: 0, phase: 'idle' };
       }
