@@ -5,7 +5,7 @@ import { z } from "zod";
 import { eq, desc, sql, inArray, notInArray, or, and, isNotNull, isNull, ne, like } from "drizzle-orm";
 import { db } from "../db";
 import { broadcast } from "../sse";
-import { asyncRoute, reqOrgId, activeOrderStatusWhere, maskSecret, maskSettingsSecrets, getOrgSettings, getOrgTimezone, tzDateBounds } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, activeOrderStatusWhere, maskSecret, maskSettingsSecrets, SECRET_FIELDS, getOrgSettings, getOrgTimezone, tzDateBounds } from "../lib/routeHelpers";
 import { apiErrorHandler } from "../middleware/errorHandler";
 import { isApproved } from "../auth";
 import { getPlatformOpenAIKey } from "../lib/platformSettings";

@@ -197,11 +197,14 @@ export const blInventory = pgTable("bl_inventory", {
   // Used by the date-range print view to deselect lots already printed today.
   labelPrintedAt: timestamp("label_printed_at"),
 }, (table) => ({
-  // Index for quantity-based filtering (general queries)
-  quantityIdx: index("bl_inv_qty_idx").on(table.quantity),
-  // Index for item lookup
-  itemNoIdx: index("bl_inv_item_no_idx").on(table.itemNo),
-  orgIdIdx: index("bl_inv_org_id_idx").on(table.orgId),
+  quantityIdx:     index("bl_inv_qty_idx").on(table.quantity),
+  itemNoIdx:       index("bl_inv_item_no_idx").on(table.itemNo),
+  orgIdIdx:        index("bl_inv_org_id_idx").on(table.orgId),
+  // Composite indexes for the dominant query pattern: orgId + one discriminator
+  orgItemNoIdx:    index("bl_inv_org_item_no_idx").on(table.orgId, table.itemNo),
+  orgConditionIdx: index("bl_inv_org_condition_idx").on(table.orgId, table.newOrUsed),
+  // Soft-delete filter — WHERE org_id=X AND deleted_at IS NULL AND quantity>0 appears 20+ times
+  orgDeletedIdx:   index("bl_inv_org_deleted_idx").on(table.orgId, table.deletedAt),
 }));
 
 export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
@@ -409,9 +412,11 @@ export const orders = pgTable("orders", {
   mergeGroupId: varchar("merge_group_id"),           // Set on both the original and delta order when a BO merge spawns a new order
   feedbackLeftAt: timestamp("feedback_left_at"),     // Set when seller manually confirms feedback was left on the channel
 }, (table) => ({
-  orgIdIdx: index("orders_org_id_idx").on(table.orgId),
-  orgIdDateIdx: index("orders_org_id_date_idx").on(table.orgId, table.orderDate),
-  orgIdStatusIdx: index("orders_org_id_status_idx").on(table.orgId, table.orderStatus),
+  orgIdIdx:          index("orders_org_id_idx").on(table.orgId),
+  orgIdDateIdx:      index("orders_org_id_date_idx").on(table.orgId, table.orderDate),
+  orgIdStatusIdx:    index("orders_org_id_status_idx").on(table.orgId, table.orderStatus),
+  // Order number lookups (dedup checks, order-number search, platform syncs)
+  orgOrderNumberIdx: index("orders_org_order_number_idx").on(table.orgId, table.orderNumber),
 }));
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
@@ -1112,7 +1117,12 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
   volatilityTier: text("volatility_tier").default('stable'), // 'hot' | 'active' | 'stable'
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Primary lookup key: POM queries this on every repricing cycle
+  lookupIdx:      index("pgc_lookup_idx").on(table.itemNo, table.itemType, table.colorId, table.newOrUsed),
+  // Scheduler uses nextRefresh to find stale entries in priority order
+  nextRefreshIdx: index("pgc_next_refresh_idx").on(table.nextRefresh),
+}));
 
 export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).omit({
   id: true,
@@ -1182,7 +1192,10 @@ export const inventoryEmbeddings = pgTable("inventory_embeddings", {
   embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // JOIN: find inventory rows that have no embedding yet
+  inventoryIdIdx: index("inv_emb_inventory_id_idx").on(table.inventoryId),
+}));
 
 export const insertInventoryEmbeddingSchema = createInsertSchema(inventoryEmbeddings).omit({
   id: true,
@@ -1202,7 +1215,10 @@ export const orderEmbeddings = pgTable("order_embeddings", {
   embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // JOIN: find orders that have no embedding yet
+  orderIdIdx: index("order_emb_order_id_idx").on(table.orderId),
+}));
 
 export const insertOrderEmbeddingSchema = createInsertSchema(orderEmbeddings).omit({
   id: true,
@@ -1222,7 +1238,10 @@ export const orderDetailEmbeddings = pgTable("order_detail_embeddings", {
   embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // JOIN: find order_details rows that have no embedding yet
+  orderDetailIdIdx: index("order_detail_emb_detail_id_idx").on(table.orderDetailId),
+}));
 
 export const insertOrderDetailEmbeddingSchema = createInsertSchema(orderDetailEmbeddings).omit({
   id: true,

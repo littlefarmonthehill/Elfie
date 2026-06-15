@@ -21,7 +21,7 @@ import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 // 0/25/50/75/100 = percentage full. Empty bins are always 0% regardless.
 type BinCapacity = 0 | 25 | 50 | 75 | 100 | null;
 
-const CAPACITY_STEPS: BinCapacity[] = [0, 25, 50, 75, 100];
+const CAPACITY_STEPS: Array<0 | 25 | 50 | 75 | 100> = [0, 25, 50, 75, 100];
 
 function capacityLabel(capacity: BinCapacity, itemCount: number): string {
   if (itemCount === 0) return "0%";

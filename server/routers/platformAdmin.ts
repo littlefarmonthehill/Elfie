@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { eq, desc, sql, inArray, or, and, isNull, isNotNull, count, gte, asc, ne } from "drizzle-orm";
 import { db, pool } from "../db";
-import { asyncRoute, reqOrgId, maskSecret, maskSettingsSecrets, getOrgSettings } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, maskSecret, maskSettingsSecrets, SECRET_FIELDS, getOrgSettings } from "../lib/routeHelpers";
 import { isAuthenticated, isApproved, isSuperAdmin } from "../auth";
 import { getPlatformSettings, getPlatformOpenAIKey, getPlatformBrickLinkCredentials } from "../lib/platformSettings";
 import { getRecentLogs, clearLogs } from "../services/server-log-buffer";
