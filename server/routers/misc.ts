@@ -2,9 +2,9 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, resolvedCatalogItemName } from "../lib/routeHelpers";
 import { isApproved, isSuperAdmin } from "../auth";
-import { getPlatformOpenAIKey, getPlatformSettings } from "../routes";
+import { getPlatformOpenAIKey, getPlatformSettings } from "../lib/platformSettings";
 import {
   blForumPosts, marketNews, appFeedback, orders, orderAdjustments,
   PLATFORM_ORG_ID, blInventory, blColors, blCatalog, blCategories,
@@ -12,14 +12,6 @@ import {
 } from "@shared/schema";
 
 const router = Router();
-
-// Resolves an item name from bl_catalog with a colorId=0 (Rebrickable universal) fallback,
-// then falls back to price_guide_cache.item_name if bl_catalog has no entry at all.
-const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
-  sql<string | null>`COALESCE(
-    (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
-    (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
-  )`;
 
 // ── Item Details ──────────────────────────────────────────────────────────────
 

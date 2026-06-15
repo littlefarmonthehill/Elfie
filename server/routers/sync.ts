@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
+import { asyncRoute, reqOrgId, decodeHtmlEntities, getOrgSettings } from '../lib/routeHelpers';
 import { apiErrorHandler } from '../middleware/errorHandler';
 import { isApproved, isSuperAdmin } from '../auth';
 import { db } from '../db';
@@ -27,9 +27,8 @@ import { syncLock } from '../services/sync-lock';
 import { syncBricklinkData, syncPriceOMagicCache, requestPomSyncStop } from '../services/bricklink';
 import { syncBrickLinkToBrickOwl, getBrickOwlApiKey } from '../services/brickowl';
 import { getPomIsRunning, setPomIsRunning } from '../services/pom-scheduler';
-import { getPlatformSettings } from '../routes';
+import { getPlatformSettings } from '../lib/platformSettings';
 import { broadcast } from '../sse';
-import { decodeHTML } from 'entities';
 import { checkAutomationLimit } from '../services/tierEnforcement';
 
 const router = Router();
@@ -49,30 +48,6 @@ let colorRepairProgress: {
   errors?: string[];
 } = { active: false, done: 0, total: 0, complete: false };
 
-// MODULE-SCOPE functions
-function decodeHtmlEntities(text: string | null | undefined): string {
-  if (!text) return '';
-  return decodeHTML(text)
-    .replace(/\u00a0/g, ' ')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .trim();
-}
-
-async function getOrgSettings(orgId: string) {
-  const [existing] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.id, orgId))
-    .limit(1);
-  if (existing) return existing;
-  const [created] = await db
-    .insert(appSettings)
-    .values({ id: orgId, orgId, aiEnabled: true })
-    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } })
-    .returning();
-  return created;
-}
 
 async function runColorRepair(orgId: string, lotIdsFilter: Set<string> | null) {
   const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName, toBOApiCondition } = await import('../services/brickowl');

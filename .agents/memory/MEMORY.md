@@ -11,3 +11,4 @@
 - [Lot label print orientation](lot-label-print-orientation.md) — keep jsPDF `orientation:'landscape'` (dropping it prints portrait/sideways & breaks iOS); macOS fix is user picking Landscape in print dialog, not a code change.
 - [Baggie consolidation rule](baggie-consolidation-rule.md) — a baggie never mixes new+used; same-condition (matchLevel 1/2) may combine, part-only match (level 3) co-locate only; drives filing consolidate-alert copy.
 - [Scan panel audio cues](scan-panel-audio.md) — camera scanFrame re-fires same QR every frame; dedupe by lastCameraCodeRef reset-on-no-code, not a timer (timer can auto-confirm wrong-bin override); cue() reads soundOnRef to dodge stale closures.
+- [Shared route utilities](shared-route-utilities.md) — 9 helpers were duplicated across 8 routers; canonical home is server/lib/routeHelpers.ts + server/lib/platformSettings.ts; routes.ts re-exports platform helpers for backward compat.

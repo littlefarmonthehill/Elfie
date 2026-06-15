@@ -5,10 +5,10 @@ import { z } from "zod";
 import { eq, desc, sql, inArray, notInArray, or, and, isNotNull, isNull, ne, like } from "drizzle-orm";
 import { db } from "../db";
 import { broadcast } from "../sse";
-import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, activeOrderStatusWhere, maskSecret, maskSettingsSecrets, getOrgSettings, getOrgTimezone, tzDateBounds } from "../lib/routeHelpers";
 import { apiErrorHandler } from "../middleware/errorHandler";
 import { isApproved } from "../auth";
-import { getPlatformOpenAIKey } from "../routes";
+import { getPlatformOpenAIKey } from "../lib/platformSettings";
 import {
   orders, orderDetails, blInventory, blCatalog, blCategories, blColors,
   appSettings, insertAppSettingsSchema, orgIntegrations, shipments, eodForms,
@@ -19,75 +19,6 @@ import {
 } from "@shared/schema";
 
 const router = Router();
-
-// ── Local helpers (mirrors module-scope functions in routes.ts) ───────────────
-
-function activeOrderStatusWhere() {
-  return or(
-    like(orders.orderStatus, '%awaiting_payment%'),
-    like(orders.orderStatus, '%awaiting_shipment%'),
-    like(orders.orderStatus, '%awaiting_fulfillment%')
-  );
-}
-
-const SECRET_FIELDS = [
-  'openaiApiKey',
-  'stripeSecretKey',
-  'easypostApiKey',
-  'easypostTestApiKey',
-] as const;
-
-function maskSecret(value: string | null | undefined): string | null {
-  if (!value) return null;
-  if (value.length <= 8) return '········';
-  return value.substring(0, 4) + '····' + value.substring(value.length - 4);
-}
-
-function maskSettingsSecrets(settings: Record<string, any> | null): Record<string, any> | null {
-  if (!settings) return settings;
-  const masked = { ...settings };
-  for (const field of SECRET_FIELDS) {
-    const val = masked[field];
-    masked[field] = maskSecret(val);
-    masked[`has_${field}`] = !!val;
-  }
-  return masked;
-}
-
-async function getOrgSettings(orgId: string) {
-  const [existing] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  if (existing) return existing;
-  const [created] = await db
-    .insert(appSettings)
-    .values({ id: orgId, orgId, aiEnabled: true })
-    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } })
-    .returning();
-  return created;
-}
-
-async function getOrgTimezone(orgId: string): Promise<string> {
-  const [row] = await db.select({ tz: appSettings.orgTimezone }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  return row?.tz ?? 'America/Chicago';
-}
-
-function tzDateBounds(range: string, tz: string): { start: ReturnType<typeof sql.raw> | null; end: ReturnType<typeof sql.raw> | null } {
-  const safeTz = /^[A-Za-z0-9/_+\-]+$/.test(tz) ? tz : 'America/Chicago';
-  const tzMon = (n: number) => n === 0
-    ? `(DATE_TRUNC('month', NOW() AT TIME ZONE '${safeTz}') AT TIME ZONE '${safeTz}')`
-    : `(DATE_TRUNC('month', (NOW() AT TIME ZONE '${safeTz}') + INTERVAL '${n} months') AT TIME ZONE '${safeTz}')`;
-  const tzYear = (n: number) => n === 0
-    ? `(DATE_TRUNC('year', NOW() AT TIME ZONE '${safeTz}') AT TIME ZONE '${safeTz}')`
-    : `(DATE_TRUNC('year', (NOW() AT TIME ZONE '${safeTz}') + INTERVAL '${n} years') AT TIME ZONE '${safeTz}')`;
-  switch (range) {
-    case 'mtd':       return { start: sql.raw(tzMon(0)),  end: null };
-    case 'lastmonth': return { start: sql.raw(tzMon(-1)), end: sql.raw(tzMon(0)) };
-    case '3months':   return { start: sql.raw(`(NOW() - INTERVAL '3 months')`), end: null };
-    case '1year':
-    case '1y':        return { start: sql.raw(`(NOW() - INTERVAL '1 year')`), end: null };
-    case 'prevyear':  return { start: sql.raw(tzYear(-1)), end: sql.raw(tzYear(0)) };
-    default:          return { start: null, end: null };
-  }
-}
 
 // LAN printer guard
 const isLanIp = (ip: string) =>

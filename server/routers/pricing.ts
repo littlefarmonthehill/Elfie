@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
+import { asyncRoute, reqOrgId, resolvedCatalogItemName, getOrgSettings, updateOrgSettings } from '../lib/routeHelpers';
 import { apiErrorHandler } from '../middleware/errorHandler';
 import { isApproved } from '../auth';
 import { db } from '../db';
@@ -7,35 +7,13 @@ import { eq, sql, and, desc, asc, inArray, isNull, isNotNull, gt, gte, lte, or }
 import { blInventory, blCatalog, priceGuideCache, blCategories, appSettings, pricingModel, syncMetadata, blApiCalls, blColors, blForumPosts, marketNews, businessInsights, ieStrategies, pomAiSettings, pomPriceDecisions, orderDetails, orders, whBins, inventoryLocations } from '@shared/schema';
 import { z } from 'zod';
 import OpenAI from 'openai';
-import { getPlatformOpenAIKey, getPlatformSettings } from '../routes';
+import { getPlatformOpenAIKey, getPlatformSettings } from '../lib/platformSettings';
 import { syncBricklinkData, fetchPriceOMagicData, calculateSuggestedPriceWithSupply, bricklinkCatalogRequest, requestPomSyncStop, syncPriceOMagicCache } from '../services/bricklink';
 import { getPomIsRunning, setPomIsRunning } from '../services/pom-scheduler';
 import { checkAutomationLimit } from '../services/tierEnforcement';
 import { trackUsage } from '../services/ai-usage-tracker';
 
 const router = Router();
-
-// ── Shared Helpers ───────────────────────────────────────────────────────────
-
-const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
-  sql<string | null>`COALESCE(
-    (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
-    (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
-  )`;
-
-async function getOrgSettings(orgId: string) {
-  const [existing] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  if (existing) return existing;
-  const [created] = await db.insert(appSettings).values({ id: orgId, orgId, aiEnabled: true })
-    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } }).returning();
-  return created;
-}
-
-async function updateOrgSettings(orgId: string, set: any) {
-  await db.update(appSettings)
-    .set({ ...set, updatedAt: new Date() })
-    .where(eq(appSettings.id, orgId));
-}
 
 // ── Pricing Routes ───────────────────────────────────────────────────────────
 

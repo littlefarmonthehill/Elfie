@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and, asc, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
-import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, resolvedCatalogItemName } from "../lib/routeHelpers";
 import { isApproved } from "../auth";
 import { broadcast } from "../sse";
 import { lotAisleHintSql } from "./listing-batches";
@@ -40,12 +40,6 @@ async function lotLocationLabel(orgId: string, inventoryId: number): Promise<str
     .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, inventoryId)));
   return inv?.rtfBin ? `Ready-to-File (aisle ${inv.rtfBin})` : 'Unfiled';
 }
-
-const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
-  sql<string | null>`COALESCE(
-    (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
-    (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
-  )`;
 
 // ── Zones ─────────────────────────────────────────────────────────────────────
 

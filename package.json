@@ -75,6 +75,7 @@
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
+    "knip": "^6.16.1",
     "kuroshiro": "^1.2.0",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
     "lucide-react": "^0.453.0",

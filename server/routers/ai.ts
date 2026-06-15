@@ -3,7 +3,7 @@ import multer from 'multer';
 import OpenAI from 'openai';
 import FormData from 'form-data';
 import axios from 'axios';
-import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
+import { asyncRoute, reqOrgId, getOrgSettings } from '../lib/routeHelpers';
 import { apiErrorHandler } from '../middleware/errorHandler';
 import { isApproved, isAuthenticated } from '../auth';
 import { db } from '../db';
@@ -24,32 +24,13 @@ import {
 } from '@shared/schema';
 import { eq, sql, and, desc, asc, inArray, isNull, isNotNull, gt, gte, lte, or, ilike } from 'drizzle-orm';
 import { z } from 'zod';
-import { getPlatformSettings, getPlatformOpenAIKey, getPlatformBrickLinkCredentials } from '../routes';
+import { getPlatformSettings, getPlatformOpenAIKey, getPlatformBrickLinkCredentials } from '../lib/platformSettings';
 import { listXMLBackups, getXMLBackup, saveXMLBackup } from '../services/export';
 import { searchBricklinkCatalogItem } from '../services/bricklink';
 import { getOrgWithLimits, checkAutomationLimit } from '../services/tierEnforcement';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-/**
- * Fetch org's app settings, creating a default row if none exists yet.
- */
-async function getOrgSettings(orgId: string) {
-  const [existing] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.id, orgId))
-    .limit(1);
-  if (existing) return existing;
-  // Lazy-init: create default settings row for this org
-  const [created] = await db
-    .insert(appSettings)
-    .values({ id: orgId, orgId, aiEnabled: true })
-    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } })
-    .returning();
-  return created;
-}
 
 // 1. POST /backups/list
 router.get("/backups/list", isApproved, asyncRoute(async (req: any, res) => {

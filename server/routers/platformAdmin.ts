@@ -3,9 +3,9 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { eq, desc, sql, inArray, or, and, isNull, isNotNull, count, gte, asc, ne } from "drizzle-orm";
 import { db, pool } from "../db";
-import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
+import { asyncRoute, reqOrgId, maskSecret, maskSettingsSecrets, getOrgSettings } from "../lib/routeHelpers";
 import { isAuthenticated, isApproved, isSuperAdmin } from "../auth";
-import { getPlatformSettings, getPlatformOpenAIKey, getPlatformBrickLinkCredentials } from "../routes";
+import { getPlatformSettings, getPlatformOpenAIKey, getPlatformBrickLinkCredentials } from "../lib/platformSettings";
 import { getRecentLogs, clearLogs } from "../services/server-log-buffer";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { getOrgWithLimits, checkSeatLimit, checkAutomationLimit, checkBrickspotterLimit } from "../services/tierEnforcement";
@@ -28,36 +28,7 @@ import {
 
 const router = Router();
 
-// ── Local helpers ─────────────────────────────────────────────────────────────
-
-const SECRET_FIELDS = ['openaiApiKey', 'stripeSecretKey', 'easypostApiKey', 'easypostTestApiKey'] as const;
-
-function maskSecret(value: string | null | undefined): string | null {
-  if (!value) return null;
-  if (value.length <= 8) return '········';
-  return value.substring(0, 4) + '····' + value.substring(value.length - 4);
-}
-
-function maskSettingsSecrets(settings: Record<string, any> | null): Record<string, any> | null {
-  if (!settings) return settings;
-  const masked = { ...settings };
-  for (const field of SECRET_FIELDS) {
-    const val = masked[field];
-    masked[field] = maskSecret(val);
-    masked[`has_${field}`] = !!val;
-  }
-  return masked;
-}
-
-async function getOrgSettings(orgId: string) {
-  const [existing] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
-  if (existing) return existing;
-  const [created] = await db.insert(appSettings).values({ id: orgId, orgId, aiEnabled: true })
-    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } }).returning();
-  return created;
-}
-
-// Billing helpers (copied from registerRoutes() scope in routes.ts)
+// Billing helpers
 function getBillingPeriodStart(billingStartDate: Date | null | undefined, now: Date): Date {
   if (!billingStartDate) return new Date(now.getFullYear(), now.getMonth(), 1);
   const signupDay = billingStartDate.getDate();

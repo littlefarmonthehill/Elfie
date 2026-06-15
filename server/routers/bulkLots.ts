@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 import { bulkLots } from '@shared/schema';
 import { isApproved } from '../auth';
 import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
-import { getPlatformOpenAIKey } from '../routes';
+import { getPlatformOpenAIKey } from '../lib/platformSettings';
 import { trackUsage } from '../services/ai-usage-tracker';
 
 const router = Router();

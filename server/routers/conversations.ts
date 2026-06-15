@@ -4,7 +4,7 @@ import { db } from '../db';
 import { conversations, conversationThreads, supportTickets, organizations } from '@shared/schema';
 import { isAuthenticated, isSuperAdmin } from '../auth';
 import { asyncRoute, reqOrgId } from '../lib/routeHelpers';
-import { getPlatformSettings } from '../routes';
+import { getPlatformSettings } from '../lib/platformSettings';
 import { trackUsage } from '../services/ai-usage-tracker';
 import { count } from 'drizzle-orm';
 
