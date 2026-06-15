@@ -10,7 +10,14 @@
  *   • Price-o-Matic    (price cache refresh)              ← compatible with Order Sync
  *   • Channel Sync     (Local DB → BrickOwl)
  *   • CatalogDetail    (BrickLink catalog enrichment)
+ *
+ * Safety: every lock has a maximum age of MAX_LOCK_AGE_MS. If a scheduler
+ * crashes before calling release(), the stale lock is automatically evicted
+ * on the next acquire() or isBlockedFor() call, preventing permanent deadlock.
  */
+
+// Locks older than this are considered stale and auto-released.
+const MAX_LOCK_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
 // Pairs that are allowed to run at the same time
 const COMPATIBLE_PAIRS: Array<[string, string]> = [
@@ -37,10 +44,26 @@ const COMPAT = buildCompatibilityMap();
 
 class SyncLockManager {
   private activeSyncs = new Set<string>();
+  private lockStarted = new Map<string, number>(); // name → Date.now() when acquired
   private blockedOnce = new Set<string>();
+
+  /** Evict any locks that have been held longer than MAX_LOCK_AGE_MS. */
+  private evictStaleLocks(): void {
+    const now = Date.now();
+    for (const [name, startedAt] of this.lockStarted) {
+      if (now - startedAt > MAX_LOCK_AGE_MS) {
+        const ageMin = Math.round((now - startedAt) / 60000);
+        console.warn(`[SyncLock] Auto-releasing stale lock "${name}" (held ${ageMin}m — probable crash without release)`);
+        this.activeSyncs.delete(name);
+        this.lockStarted.delete(name);
+        this.blockedOnce.clear();
+      }
+    }
+  }
 
   /** Names that would block `name` from starting (excludes compatible peers). */
   getBlockersFor(name: string): string[] {
+    this.evictStaleLocks();
     const compatible = COMPAT.get(name) ?? new Set<string>();
     return [...this.activeSyncs].filter(s => !compatible.has(s));
   }
@@ -55,7 +78,7 @@ class SyncLockManager {
    * Returns false if an incompatible sync is already running.
    */
   acquire(name: string): boolean {
-    const blockers = this.getBlockersFor(name);
+    const blockers = this.getBlockersFor(name); // evicts stale locks first
     if (blockers.length > 0) {
       const key = `${name}:${blockers.join(',')}`;
       if (!this.blockedOnce.has(key)) {
@@ -65,6 +88,7 @@ class SyncLockManager {
       return false;
     }
     this.activeSyncs.add(name);
+    this.lockStarted.set(name, Date.now());
     const peers = [...this.activeSyncs].filter(s => s !== name);
     if (peers.length > 0) {
       console.log(`🔒 ${name} acquired sync lock (running alongside: ${peers.join(', ')})`);
@@ -77,20 +101,22 @@ class SyncLockManager {
   /** Release the lock held by `name`. */
   release(name: string): void {
     this.activeSyncs.delete(name);
+    this.lockStarted.delete(name);
     this.blockedOnce.clear();
     console.log(`🔓 ${name} released sync lock`);
   }
 
   /** True if ANY sync is currently running. */
   isRunning(): boolean {
+    this.evictStaleLocks();
     return this.activeSyncs.size > 0;
   }
 
   /** Names of all currently-running syncs. */
   getActive(): string[] {
+    this.evictStaleLocks();
     return [...this.activeSyncs];
   }
-
 }
 
 // Global singleton

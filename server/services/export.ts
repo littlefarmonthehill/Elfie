@@ -164,9 +164,18 @@ export async function saveXMLBackup(orgId?: string): Promise<string> {
  */
 export async function listXMLBackups(orgId?: string): Promise<Array<{ filename: string; timestamp: Date; size: number }>> {
   try {
+    // Select metadata only — never pull the `content` column on a listing call.
+    // Full XML blobs accumulate quickly and a SELECT * would hit the response size limit.
+    const cols = {
+      id: xmlBackups.id,
+      filename: xmlBackups.filename,
+      createdAt: xmlBackups.createdAt,
+      sizeBytes: xmlBackups.sizeBytes,
+      orgId: xmlBackups.orgId,
+    };
     const query = orgId
-      ? db.select().from(xmlBackups).where(eq(xmlBackups.orgId, orgId)).orderBy(desc(xmlBackups.createdAt))
-      : db.select().from(xmlBackups).orderBy(desc(xmlBackups.createdAt));
+      ? db.select(cols).from(xmlBackups).where(eq(xmlBackups.orgId, orgId)).orderBy(desc(xmlBackups.createdAt))
+      : db.select(cols).from(xmlBackups).orderBy(desc(xmlBackups.createdAt));
 
     const rows = await query;
     return rows.map(r => ({

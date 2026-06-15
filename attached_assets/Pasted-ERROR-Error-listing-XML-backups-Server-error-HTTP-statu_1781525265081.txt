@@ -1,0 +1,134 @@
+ERROR
+Error listing XML backups: Server error (HTTP status 507): {"message":"response is too large (max is 67108864 bytes)","code":"","detail":null,"hint":null,"position":null,"internalPosition":null,"internalQuery":null,"severity":"","where":null,"table":null,"column":null,"schema":null,"dataType":null,"constraint":null,"file":null,"line":null,"routine":null,"neon:retryable":false}
+1m ago
+ERROR
+❌ Scheduled BrickOwl order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+15m ago
+WARN
+[TrackingRefresh] Tracker ID stale for 9400136208303534288414, re-creating...
+15m ago
+ERROR
+[EasyPost] Request timed out after 50s: GET /trackers/trk_62b57471817b4aa4b36024a2d0fe58b3
+15m ago
+ERROR
+❌ Scheduled eBay order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+17m ago
+ERROR
+❌ Scheduled BrickLink order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+32m ago
+ERROR
+[Channel] ✗ brickowl stack: NeonDbError: Error connecting to database: fetch failed at execute (file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1549:24) at async Promise.all (index 10) at async syncBrickLinkToBrickOwl (file:///home/runner/workspace/dist/index.js:6911:7) at async BrickOwlChannelAdapter.syncFromBrickLink (file:///home/runner/workspace/dist/index.js:13358:24) at async runScheduledChannelSync (file:///home/runner/workspace/dist/index.js:23608:24) at async checkAndRunChannelSync (file:///home/runner/workspace/dist/index.js:23492:5) at async Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:23432:5)
+37m ago
+ERROR
+[Channel] ✗ brickowl sync failed: Error connecting to database: fetch failed
+37m ago
+ERROR
+⚠️ Error saving post 1544598: Error connecting to database: fetch failed
+×2
+32m ago
+ERROR
+[CatalogDetail] Scheduler check error: Error connecting to database: fetch failed
+×2
+18m ago
+ERROR
+[CatalogScan] Scheduler check error: Error connecting to database: fetch failed
+×2
+32m ago
+ERROR
+[BusinessIntel] Scheduler error: Error connecting to database: fetch failed
+1h ago
+ERROR
+❌ Error in BrickOwl order sync scheduler: Error connecting to database: fetch failed
+1h ago
+ERROR
+❌ Error in inventory sync scheduler: Error connecting to database: fetch failed
+×3
+1h ago
+ERROR
+[POM] Error in sync scheduler: Error connecting to database: fetch failed
+1h ago
+ERROR
+❌ Error during forum sync: Error connecting to database: fetch failed
+1h ago
+ERROR
+[Rebrickable Scheduler] Error: Error connecting to database: fetch failed
+×2
+58m ago
+ERROR
+❌ Error in channel sync scheduler: Error connecting to database: fetch failed
+×2
+58m ago
+ERROR
+[Backup] Scheduler tick error (non-fatal): Error connecting to database: fetch failed
+×3
+32m ago
+ERROR
+❌ eBay sync failed for org org_planetbrick: The operation was aborted due to timeout
+2h ago
+ERROR
+⚠️ Error saving post 1544561: Error connecting to database: fetch failed
+×2
+2h ago
+ERROR
+❌ Scheduled BrickOwl order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+2h ago
+ERROR
+❌ Error in eBay order sync scheduler: Error connecting to database: fetch failed
+×4
+1h ago
+ERROR
+❌ Error in BrickOwl order sync scheduler: Error connecting to database: fetch failed
+3h ago
+ERROR
+❌ Error in forum sync scheduler: Error connecting to database: fetch failed
+3h ago
+ERROR
+[MarketNews] Scheduler error: Error connecting to database: fetch failed
+3h ago
+ERROR
+❌ Scheduled eBay order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+3h ago
+ERROR
+❌ Error in BrickLink order sync scheduler: Error connecting to database: fetch failed
+×6
+58m ago
+ERROR
+[MarketNews] Brave search error for "LEGO set retirement announcements": Request failed with status code 429
+4h ago
+ERROR
+Error processing embedding job: Error connecting to database: fetch failed
+×8
+1h ago
+ERROR
+⚠️ Error saving post 1544624: Error connecting to database: fetch failed
+×4
+3h ago
+ERROR
+❌ Error in channel sync scheduler: Error connecting to database: fetch failed
+×2
+3h ago
+ERROR
+[CatalogScan] Scheduler check error: Error connecting to database: fetch failed
+4h ago
+ERROR
+[Backup] Scheduler tick error (non-fatal): Error connecting to database: fetch failed
+×2
+3h ago
+ERROR
+[Rebrickable Scheduler] Error: Error connecting to database: fetch failed
+×2
+3h ago
+ERROR
+[EasyPost] Network error on GET /trackers/trk_c37686797c084dc4a6811e002c5b2855: fetch failed
+4h ago
+WARN
+[TrackingRefresh] Tracker ID stale for LM335137395US, re-creating...
+4h ago
+ERROR
+[EasyPost] Network error on GET /trackers/trk_f307d4c02c0049d79809f2cba025b07e: fetch failed
+4h ago
+ERROR
+[EasyPost] Network error on GET /trackers/trk_161e148d4141481a9f383d486f7a9bdf: fetch failed
+4h ago
+ERROR
+[EasyPost] Network error on GET /trackers

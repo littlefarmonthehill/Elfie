@@ -1,9 +1,17 @@
 import pg from 'pg';
 const { Pool } = pg;
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from "@shared/schema";
 import { sql } from 'drizzle-orm';
+
+// Required: give @neondatabase/serverless a WebSocket constructor in Node.js.
+// The WebSocket pool is far more reliable than neon-http for a long-running server:
+//   • No 64 MB per-response limit (eliminates "response is too large" 507 errors)
+//   • Proper request queuing — pool-full requests wait instead of throwing "fetch failed"
+//   • Persistent WebSocket connections tolerate concurrent scheduler load
+neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,16 +19,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// HTTP-based Neon client — stateless, no persistent connections, no pool exhaustion.
-// Each query is an independent HTTPS request; Neon handles cold-start wakeup internally.
-const neonHttp = neon(process.env.DATABASE_URL);
-export const db = drizzle(neonHttp, { schema });
+// WebSocket-based Neon pool — used for all application queries via Drizzle.
+const neonPool = new NeonPool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(neonPool, { schema });
 
-// Minimal pg.Pool kept only for three things that need a real TCP connection:
+// Minimal pg.Pool kept only for three things that need a real pg TCP connection:
 //   1. connect-pg-simple session store
 //   2. password-reset raw queries (auth.ts)
 //   3. startup fix scripts in index.ts
-// max:3 stays well below Neon's connection ceiling even under full scheduler load.
+// max:3 stays well below Neon's connection ceiling.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 3,
