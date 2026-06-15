@@ -1,8 +1,8 @@
 /** Blue tier: express, overnight, next day, same day, rush */
-export const EXPRESS_REGEX = /express|overnight|next[\s-]day|same[\s-]day|rush/i;
+const EXPRESS_REGEX = /express|overnight|next[\s-]day|same[\s-]day|rush/i;
 
 /** Red tier: priority, expedited, 2-day, 2nd day */
-export const PRIORITY_REGEX = /priority|expedited|2-day|2nd[\s-]day/i;
+const PRIORITY_REGEX = /priority|expedited|2-day|2nd[\s-]day/i;
 
 /**
  * Returns the shipping urgency tier for a service name.

@@ -24,7 +24,7 @@
  *   is same-origin and returns processed PNG safe for canvas use.
  */
 
-export function proxiedUrl(url: string | null | undefined): string | null {
+function proxiedUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.includes('img.bricklink.com')) return url;
   return `/api/images/proxy?url=${encodeURIComponent(url)}`;
@@ -74,7 +74,7 @@ export function partImageSources(
 }
 
 /** Single "best" URL for non-React contexts (e.g. print HTML). */
-export function resolvePartImageUrl(
+function resolvePartImageUrl(
   imageUrl: string | null | undefined,
   partNumber?: string | null,
   colorId?: number | null,

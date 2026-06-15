@@ -49,7 +49,7 @@ export interface ChannelFieldMeta {
   apiKeyHelp:       string;
 }
 
-export const CHANNEL_FIELD_META: Record<string, ChannelFieldMeta> = {
+const CHANNEL_FIELD_META: Record<string, ChannelFieldMeta> = {
   brickowl: {
     remarkDesc:      'Internal notes (BrickLink Remarks → BrickOwl personal note)',
     descriptionDesc: 'Public description (BrickLink Description → BrickOwl public note)',
@@ -87,7 +87,7 @@ export interface EbayChannelConfig {
   priceSyncMode:          'always' | 'initial_only';
 }
 
-export const defaultEbayChannelConfig: EbayChannelConfig = {
+const defaultEbayChannelConfig: EbayChannelConfig = {
   ebayBlIdField:          'custom_label',
   ebayCatalogMatch:       true,
   ebayListingDuration:    'GTC',

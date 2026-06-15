@@ -48,7 +48,7 @@ export interface LotLabelTemplate {
   group: string;
 }
 
-export const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
+const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
   avery5160: {
     name: 'Avery 5160 / 8160', desc: '1" × 2⅝" · 30 per sheet',
     w: '2.625in', h: '1in', cols: 3, perSheet: 30,
@@ -87,18 +87,18 @@ export const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
   },
 };
 
-export const LOT_LABEL_GROUPS: { groupName: string; keys: LotLabelKey[] }[] = [
+const LOT_LABEL_GROUPS: { groupName: string; keys: LotLabelKey[] }[] = [
   { groupName: 'Sheet labels (Avery)',  keys: ['avery5160', 'avery5163', 'avery5164'] },
   { groupName: 'Brother QL-810W',       keys: ['brotherDK1201', 'brotherDK2210', 'brotherDK1209'] },
 ];
 
 const LOT_LABEL_SIZE_KEY = 'elfie.lotLabelSize.v1';
-export function loadSavedLotLabelSize(): LotLabelKey {
+function loadSavedLotLabelSize(): LotLabelKey {
   if (typeof window === 'undefined') return 'brotherDK1201';
   const saved = window.localStorage.getItem(LOT_LABEL_SIZE_KEY) as LotLabelKey | null;
   return saved && LOT_LABEL_TEMPLATES[saved] ? saved : 'brotherDK1201';
 }
-export function saveLotLabelSize(key: LotLabelKey) {
+function saveLotLabelSize(key: LotLabelKey) {
   if (typeof window === 'undefined') return;
   try { window.localStorage.setItem(LOT_LABEL_SIZE_KEY, key); } catch { /* ignore */ }
 }
@@ -176,7 +176,7 @@ function conditionLabel(newOrUsed: string | null) {
 // ── PDF builder ──────────────────────────────────────────────────────────────
 // Identical layout/process used by List-o-Matic. Optionally marks each printed
 // lot with a Ready-to-File hint via /api/listing-batches/mark-rtf.
-export async function printLotLabelsWithTemplate(
+async function printLotLabelsWithTemplate(
   items: LotLabelPrintItem[],
   templateKey: LotLabelKey,
   opts: { markRtf?: boolean } = {},

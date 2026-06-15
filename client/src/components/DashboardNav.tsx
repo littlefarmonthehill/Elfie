@@ -25,7 +25,7 @@ interface DashboardNavProps {
   superAdmin?: boolean;
 }
 
-export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
+const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
   { id: 'dashboard', label: 'Bridge', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-gray-500', icon: Rocket },
   { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-gray-500', icon: ToyBrick },
   { id: 'sales', label: 'Sales', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-gray-500', icon: Orbit },

@@ -52,7 +52,7 @@ export async function sendPasswordResetEmail(
   }
 }
 
-export async function sendFeedbackFollowupEmail(
+async function sendFeedbackFollowupEmail(
   to: string,
   buyerUsername: string,
   marketplace: string,

@@ -68,6 +68,6 @@ export function useFeature(key: string): boolean {
  * Used to show a "Beta" marker on launchers so super admins (who see every
  * beta feature automatically) and opted-in orgs know the tool is beta.
  */
-export function useFeatureBeta(key: string): boolean {
+function useFeatureBeta(key: string): boolean {
   return useFeatureStage(key) === 'beta';
 }

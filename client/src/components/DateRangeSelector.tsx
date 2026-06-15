@@ -12,7 +12,7 @@ interface DateRangeSelectorProps {
   scaled?: boolean;
 }
 
-export const RANGE_SHORT_LABELS: Record<DateRangeValue, string> = {
+const RANGE_SHORT_LABELS: Record<DateRangeValue, string> = {
   mtd: 'MTD',
   lastmonth: 'Prev',
   '3months': '3M',

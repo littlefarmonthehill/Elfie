@@ -454,7 +454,7 @@ function FuelGauge({ remaining }: { remaining: number }) {
   );
 }
 
-export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, onDismissSetupItem, children }: {
+function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, onDismissSetupItem, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' | 'billing' | 'ieStrategies' | 'warehouse' | 'notifications' }>;
   billingStatus?: { plan: string; planName?: string | null; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;

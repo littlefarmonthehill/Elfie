@@ -70,7 +70,7 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 
-export function getSession() {
+function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({

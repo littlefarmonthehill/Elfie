@@ -132,23 +132,23 @@ export interface SugConfig {
   storePremium: number;
 }
 
-export const DEFAULT_SUG_CONFIG: SugConfig = {
+const DEFAULT_SUG_CONFIG: SugConfig = {
   soldAvgW: 0.5, stockMinW: 0.3, soldMaxW: 0.2,
   demandMult: 0.25, compCap: 1.15, floor: 0.95, storePremium: 1.10,
 };
 
-export interface ScoreConfig {
+interface ScoreConfig {
   wCeiling: number;
   wVelocity: number;
   wScarcity: number;
   wUndercut: number;
 }
 
-export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
+const DEFAULT_SCORE_CONFIG: ScoreConfig = {
   wCeiling: 0.4, wVelocity: 0.3, wScarcity: 0.2, wUndercut: 0.1,
 };
 
-export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
+function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
   const c = (lot.priceCeilingRatio ?? 0) * cfg.wCeiling;
   // STR clamped to [0,1] so 200%+ STR doesn't dominate over other signals
   const v = Math.min(1, lot.demandVelocity ?? 0) * cfg.wVelocity;
@@ -164,7 +164,7 @@ export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
 // nudge items up (underpriced) or down (overpriced) as the model earns trust.
 const SUG_INFLUENCE_WEIGHT = 0.25;
 
-export function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugCfg: SugConfig): number {
+function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugCfg: SugConfig): number {
   const base = calcScore(lot, scoreCfg);
   const current = parseFloat((lot as any).unitPrice || '0');
   if (current <= 0) return base;
@@ -174,7 +174,7 @@ export function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugC
   return base + divergence * SUG_INFLUENCE_WEIGHT;
 }
 
-export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg?: SugConfig) {
+function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg?: SugConfig) {
   const cRaw = lot.priceCeilingRatio ?? 0;
   const vRaw = lot.demandVelocity ?? 0;         // raw STR (can exceed 1.0)
   const vClamped = Math.min(1, vRaw);           // clamped to [0,1] for scoring
