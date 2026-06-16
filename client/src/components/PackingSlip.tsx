@@ -175,12 +175,31 @@ function isMacSafari(): boolean {
     !/Chrome|CriOS|FxiOS|Edg/.test(navigator.userAgent);
 }
 
+// Temporary: ship print-flow breadcrumbs to the server so they appear in
+// deployment logs (client console isn't visible there). Fire-and-forget.
+function printDebug(tag: string, data: Record<string, unknown> = {}): void {
+  try {
+    // eslint-disable-next-line no-console
+    console.log(`[PRINT-DEBUG] ${tag}`, data);
+    fetch('/api/debug/print-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({ tag, data }),
+    }).catch(() => { /* ignore */ });
+  } catch { /* ignore */ }
+}
+
 // Call this synchronously in the button-click handler — before any await —
 // while Safari still considers the event a user gesture and grants popup access.
 // Returns null on non-Safari platforms (ignored by hiddenPrint).
 export function openPrintWindow(): Window | null {
-  if (!isMacSafari()) return null;
-  return window.open('', '_blank', 'width=1,height=1');
+  const macSafari = isMacSafari();
+  printDebug('openPrintWindow', { ua: navigator.userAgent, isMacSafari: macSafari });
+  if (!macSafari) return null;
+  const win = window.open('', '_blank', 'width=1,height=1');
+  printDebug('openPrintWindow:result', { opened: !!win, closed: win ? win.closed : null });
+  return win;
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Window | null): void {
@@ -220,23 +239,40 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Wind
   // The caller must open the window synchronously via openPrintWindow() before
   // any await so Safari grants popup permission during the user gesture.
   if (isMacSafari()) {
-    const pdfUrl = URL.createObjectURL(blob);
     const win = (preWin && !preWin.closed) ? preWin : null;
+    printDebug('hiddenPrint:macSafari', {
+      filename,
+      blobSize: blob.size,
+      hadPreWin: !!preWin,
+      preWinClosed: preWin ? preWin.closed : null,
+      usingWin: !!win,
+    });
+    const pdfUrl = URL.createObjectURL(blob);
     if (win) {
+      const dbgScript =
+        'function dbg(t,d){try{fetch("/api/debug/print-log",{method:"POST",' +
+        'headers:{"Content-Type":"application/json"},keepalive:true,' +
+        'body:JSON.stringify({tag:t,data:d||{}})}).catch(function(){})}catch(e){}}' +
+        'dbg("popup:loaded",{});' +
+        'setTimeout(function(){dbg("popup:beforePrint",{});' +
+        'try{window.print();dbg("popup:printCalled",{});}' +
+        'catch(e){dbg("popup:printError",{msg:String(e)});}},1500);';
       const html = [
         '<!DOCTYPE html><html><head><title>Print</title>',
         '<style>*{margin:0;padding:0}html,body{width:100%;height:100%}',
         'object{display:block;width:100%;height:100%;border:none}</style></head>',
         '<body>',
         `<object data="${pdfUrl}" type="application/pdf" width="100%" height="100%"></object>`,
-        '<script>setTimeout(function(){try{window.print()}catch(e){}},1500);<\/script>',
+        `<script>${dbgScript}<\/script>`,
         '</body></html>',
       ].join('');
       win.document.open();
       win.document.write(html);
       win.document.close();
+      printDebug('hiddenPrint:macSafari:wroteHtml', { filename });
     } else {
       // No pre-opened window (popup blocked or caller forgot) — fall back to download
+      printDebug('hiddenPrint:macSafari:fallbackDownload', { filename });
       const a = document.createElement('a');
       a.href = pdfUrl;
       a.download = filename;

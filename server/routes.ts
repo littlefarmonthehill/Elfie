@@ -54,6 +54,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
 
+  // Temporary print-debug sink — client posts print-flow breadcrumbs here so we
+  // can read them in server/deployment logs (client console isn't visible there).
+  app.post('/api/debug/print-log', (req, res) => {
+    try {
+      const { tag, data } = req.body ?? {};
+      console.log(`[PRINT-DEBUG] ${tag ?? '(no-tag)'} ::`, JSON.stringify(data ?? {}));
+    } catch (e) {
+      console.log('[PRINT-DEBUG] failed to log', e);
+    }
+    res.json({ ok: true });
+  });
+
   // ── Domain sub-routers ────────────────────────────────────────────────────
   app.use('/api/billing', billingRouter);
   app.use('/api', easypostWebhookRouter);
