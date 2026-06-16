@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
+  DEFAULT_LABEL_PRESET_ID,
   getLabelPreset,
   printLotLabels,
   buildShortCodeMap,
@@ -24,22 +25,10 @@ interface Props {
   org?: OrgBranding;
 }
 
-const PRESET_KEY = "lotLabelPresetId";
+const preset = getLabelPreset(DEFAULT_LABEL_PRESET_ID);
 
 export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: Props) {
-  const [presetId, setPresetId] = useState<string>(() => {
-    if (typeof window === "undefined") return DEFAULT_LABEL_PRESET_ID;
-    return localStorage.getItem(PRESET_KEY) || DEFAULT_LABEL_PRESET_ID;
-  });
   const [printing, setPrinting] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem(PRESET_KEY, presetId);
-  }, [presetId]);
-
-  const preset = getLabelPreset(presetId);
-  const dieCut = LABEL_PRESETS.filter(p => p.kind === "die-cut");
-  const continuous = LABEL_PRESETS.filter(p => p.kind === "continuous");
 
   const codeMap = buildShortCodeMap(items.map(i => i.orderNumber).filter(Boolean) as string[]);
 
@@ -53,10 +42,6 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
       setPrinting(false);
     }
   };
-
-  const dim = preset.kind === "continuous"
-    ? `${preset.widthMm} mm continuous`
-    : `${preset.widthMm} × ${preset.lengthMm} mm`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,43 +57,10 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="label-media-select" className="text-xs">Label media</Label>
-            <Select value={presetId} onValueChange={setPresetId}>
-              <SelectTrigger id="label-media-select" data-testid="select-lot-label-media">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Die-cut labels</SelectLabel>
-                  {dieCut.map(p => (
-                    <SelectItem key={p.id} value={p.id} data-testid={`option-lot-label-${p.id}`}>
-                      {p.sku} — {p.desc} ({p.widthMm} × {p.lengthMm} mm)
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-                <SelectGroup>
-                  <SelectLabel>Continuous tape</SelectLabel>
-                  {continuous.map(p => (
-                    <SelectItem key={p.id} value={p.id} data-testid={`option-lot-label-${p.id}`}>
-                      {p.sku} — {p.widthMm} mm continuous
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground">
-              Saved as your default for next time.
-            </p>
-          </div>
-
           <div>
-            <div className="flex items-baseline justify-between mb-2">
-              <Label className="text-xs text-muted-foreground">
-                Preview (first {Math.min(4, items.length)} of {items.length})
-              </Label>
-              <span className="text-[10px] font-mono text-muted-foreground">{dim}</span>
-            </div>
+            <Label className="text-xs text-muted-foreground mb-2 block">
+              Preview (first {Math.min(4, items.length)} of {items.length})
+            </Label>
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
               {items.slice(0, 4).map((item, i) => (
                 <LabelPreviewCard

@@ -87,22 +87,6 @@ const LOT_LABEL_TEMPLATES: Record<LotLabelKey, LotLabelTemplate> = {
   },
 };
 
-const LOT_LABEL_GROUPS: { groupName: string; keys: LotLabelKey[] }[] = [
-  { groupName: 'Sheet labels (Avery)',  keys: ['avery5160', 'avery5163', 'avery5164'] },
-  { groupName: 'Brother QL-810W',       keys: ['brotherDK1201', 'brotherDK2210', 'brotherDK1209'] },
-];
-
-const LOT_LABEL_SIZE_KEY = 'elfie.lotLabelSize.v1';
-function loadSavedLotLabelSize(): LotLabelKey {
-  if (typeof window === 'undefined') return 'brotherDK1201';
-  const saved = window.localStorage.getItem(LOT_LABEL_SIZE_KEY) as LotLabelKey | null;
-  return saved && LOT_LABEL_TEMPLATES[saved] ? saved : 'brotherDK1201';
-}
-function saveLotLabelSize(key: LotLabelKey) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(LOT_LABEL_SIZE_KEY, key); } catch { /* ignore */ }
-}
-
 // Label-optimized image loader: small white-background JPEG suitable for
 // jsPDF embedding. Much smaller and faster than padded PNG dataURLs, which
 // matters when generating 100+ labels in a single PDF.
