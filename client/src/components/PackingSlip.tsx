@@ -160,14 +160,17 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 // ─── Hidden-print helper ──────────────────────────────────────────────────────
 
 function isMobile(): boolean {
+  // Never classify a real Mac as mobile — some Macs report maxTouchPoints > 1
+  // (Touch ID, Force Touch trackpad) which would otherwise trigger iPad detection.
+  if (/Macintosh/.test(navigator.userAgent)) return false;
   return (
     /Android|iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) // iPad iOS 13+ desktop UA
   );
 }
 
 function isMacDesktop(): boolean {
-  return /Macintosh/.test(navigator.userAgent) && !isMobile();
+  return /Macintosh/.test(navigator.userAgent);
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
