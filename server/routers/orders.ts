@@ -1170,6 +1170,52 @@ router.post("/settings", isApproved, asyncRoute(async (req: any, res) => {
   res.json(maskSettingsSecrets(settings as any));
 }));
 
+// Quick credential test — pings the external API with the saved key and returns
+// {ok, error}. Never reads env-var fallbacks; tests only the org's saved key.
+router.post("/settings/test-connection", isApproved, asyncRoute(async (req: any, res) => {
+  const { provider } = req.body;
+  const orgId = reqOrgId(req);
+  try {
+    if (provider === 'bricklink') {
+      const { bricklinkRequest } = await import('../services/bricklink');
+      const { data } = await bricklinkRequest('/colors', undefined, orgId);
+      if (!Array.isArray(data) || data.length === 0) {
+        return res.json({ ok: false, error: 'Unexpected response from BrickLink' });
+      }
+      return res.json({ ok: true });
+    }
+    if (provider === 'brickowl') {
+      const { getBrickOwlApiKey } = await import('../services/brickowl');
+      const apiKey = await getBrickOwlApiKey(orgId);
+      if (!apiKey) return res.json({ ok: false, error: 'No BrickOwl API key configured' });
+      const r = await fetch(`https://api.brickowl.com/v1/catalog/list?key=${encodeURIComponent(apiKey)}&type=Part&query=3001&limit=1`);
+      if (!r.ok) {
+        const body = await r.text().catch(() => '');
+        return res.json({ ok: false, error: `BrickOwl returned ${r.status}${body ? ': ' + body.slice(0, 100) : ''}` });
+      }
+      return res.json({ ok: true });
+    }
+    if (provider === 'easypost') {
+      const [row] = await db.select({
+        easypostApiKey:     appSettings.easypostApiKey,
+        easypostTestApiKey: appSettings.easypostTestApiKey,
+        easypostKeyMode:    appSettings.easypostKeyMode,
+      }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+      const keyMode = row?.easypostKeyMode ?? 'test';
+      const apiKey  = keyMode === 'production' ? row?.easypostApiKey : row?.easypostTestApiKey;
+      if (!apiKey) return res.json({ ok: false, error: 'No EasyPost API key configured' });
+      const r = await fetch('https://api.easypost.com/v2/users/me', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!r.ok) return res.json({ ok: false, error: `EasyPost returned ${r.status} — check your API key` });
+      return res.json({ ok: true });
+    }
+    res.status(400).json({ error: 'Unknown provider' });
+  } catch (e: any) {
+    res.json({ ok: false, error: e.message || 'Connection test failed' });
+  }
+}));
+
 // Dedicated beta opt-in toggle. Kept separate from POST /settings so a single
 // beta toggle never round-trips the full settings object (which would inject
 // schema defaults and clobber unrelated fields). Server-side merge avoids

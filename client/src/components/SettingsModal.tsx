@@ -2788,6 +2788,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [editIntApiKey, setEditIntApiKey] = useState('');
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
   const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'bricklink' | null>(null);
+  const [connTest, setConnTest] = useState<Record<string, { ok?: boolean; error?: string; loading: boolean }>>({});
+  const testConnection = async (provider: 'bricklink' | 'brickowl' | 'easypost') => {
+    setConnTest(prev => ({ ...prev, [provider]: { loading: true } }));
+    try {
+      const result = await apiRequest('POST', '/api/settings/test-connection', { provider }) as any;
+      setConnTest(prev => ({ ...prev, [provider]: { ok: result.ok, error: result.error, loading: false } }));
+    } catch (e: any) {
+      setConnTest(prev => ({ ...prev, [provider]: { ok: false, error: e.message || 'Request failed', loading: false } }));
+    }
+  };
   // Shipping weight defaults
   const [defaultWeightMode, setDefaultWeightMode] = useState<'none' | 'order'>('none');
   const [defaultWeightPerLotOz, setDefaultWeightPerLotOz] = useState("");
@@ -5659,7 +5669,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <p className="text-[10px] text-gray-500">Platform background schedulers use a separate credential set configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Services</button>.</p>
                     </div>
                     {blInt && (
-                      <div className="pt-2 border-t border-gray-700 flex justify-end">
+                      <div className="pt-2 border-t border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-test-bricklink" disabled={connTest['bricklink']?.loading} onClick={() => testConnection('bricklink')}>
+                            {connTest['bricklink']?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+                            Test connection
+                          </Button>
+                          {connTest['bricklink'] && !connTest['bricklink'].loading && (
+                            <span className={`text-[10px] ${connTest['bricklink'].ok ? 'text-green-400' : 'text-red-400'}`}>
+                              {connTest['bricklink'].ok ? '✓ Connected' : `✗ ${connTest['bricklink'].error ?? 'Failed'}`}
+                            </span>
+                          )}
+                        </div>
                         <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-bricklink" onClick={() => setRemovePrimaryDialog('bricklink')}><Trash2 className="w-3 h-3" /> Remove</Button>
                       </div>
                     )}
@@ -5699,7 +5720,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           data-testid="input-brickowl-key"
                         />
                       </div>
-                      <div className="pt-2 border-t border-gray-700 flex justify-end">
+                      <div className="pt-2 border-t border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-test-brickowl" disabled={connTest['brickowl']?.loading} onClick={() => testConnection('brickowl')}>
+                            {connTest['brickowl']?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+                            Test connection
+                          </Button>
+                          {connTest['brickowl'] && !connTest['brickowl'].loading && (
+                            <span className={`text-[10px] ${connTest['brickowl'].ok ? 'text-green-400' : 'text-red-400'}`}>
+                              {connTest['brickowl'].ok ? '✓ Connected' : `✗ ${connTest['brickowl'].error ?? 'Failed'}`}
+                            </span>
+                          )}
+                        </div>
                         <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}><Trash2 className="w-3 h-3" /> Remove</Button>
                       </div>
                     </div>
@@ -5871,6 +5903,17 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </div>
                     <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder={(settings as any)?.has_easypostApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Production API Key"} className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => { if (easypostApiKey) updateSettingsMutation.mutate({ easypostApiKey }); }} data-testid="input-easypost-key" /></div>
                     <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder={(settings as any)?.has_easypostTestApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Test API Key"} className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => { if (easypostTestApiKey) updateSettingsMutation.mutate({ easypostTestApiKey }); }} data-testid="input-easypost-test-key" /></div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-test-easypost" disabled={connTest['easypost']?.loading} onClick={() => testConnection('easypost')}>
+                        {connTest['easypost']?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+                        Test connection
+                      </Button>
+                      {connTest['easypost'] && !connTest['easypost'].loading && (
+                        <span className={`text-[10px] ${connTest['easypost'].ok ? 'text-green-400' : 'text-red-400'}`}>
+                          {connTest['easypost'].ok ? '✓ Connected' : `✗ ${connTest['easypost'].error ?? 'Failed'}`}
+                        </span>
+                      )}
+                    </div>
                     <div className="pt-3 border-t border-gray-700 space-y-3">
                       <div>
                         <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>

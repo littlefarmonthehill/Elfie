@@ -206,11 +206,13 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const availableChannels = SALES_CHANNELS.filter(ch => stageIsOffered(ch.featureKey));
 
   // Whole wizard steps whose sole purpose is setting up one gated feature. Such
-  // a step is removed (skipped) when its feature is alpha, per the staging rule.
+  // a step is removed (skipped) when its feature is not yet released — beta and
+  // alpha features are excluded from onboarding so new orgs only see stable flows.
   const STEP_FEATURE: Record<number, string> = { 4: 'inv_cargo_bay' };
   const isStepHidden = (stepId: number): boolean => {
     const fk = STEP_FEATURE[stepId];
-    return fk ? !stageIsOffered(fk) : false;
+    if (!fk) return false;
+    return effectiveStage(fk) !== 'released';
   };
   const visibleSteps = STEPS.filter(s => !isStepHidden(s.id));
   // Smallest in-wizard step (1–7) after `after` that isn't hidden.
@@ -430,9 +432,6 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const handleStep4 = async () => {
     if (selectedDepth !== null) {
       await saveDepthMutation.mutateAsync(selectedDepth);
-      // Warehouse management ships as the gated "Cargo Bay" feature — opt the
-      // org in when it's in beta so the tools they just set up stay visible.
-      await ensureBetaOptIn('inv_cargo_bay');
     }
     setStep(nextVisibleStep(4));
   };
