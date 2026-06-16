@@ -169,9 +169,6 @@ function isMobile(): boolean {
   );
 }
 
-function isMacDesktop(): boolean {
-  return /Macintosh/.test(navigator.userAgent);
-}
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
   // On iOS / Android we route through the native share sheet (navigator.share
@@ -203,35 +200,7 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
     return;
   }
 
-  // macOS desktop: open the PDF in a new window so the browser's native print
-  // dialog appears (Cmd+P / File → Print). The share-sheet path was used here
-  // previously but showed no Print option to the user.
-  if (isMacDesktop()) {
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank');
-    if (win) {
-      win.addEventListener('load', () => {
-        setTimeout(() => {
-          try { win.print(); } catch { /* ok */ }
-        }, 800);
-      }, { once: true });
-      // Safety net if load already fired
-      setTimeout(() => { try { win.print(); } catch { /* ok */ } }, 2000);
-      setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* ok */ } }, 60_000);
-    } else {
-      // Popup blocked — fall back to download
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* ok */ } }, 60_000);
-    }
-    return;
-  }
-
-  // Windows / Linux desktop: hidden-iframe auto-print.
+  // Desktop (macOS, Windows, Linux): hidden-iframe auto-print.
   //
   // Key Mac-Chrome fixes:
   //  1. Wait 1200 ms after the iframe "load" event before calling print() —
