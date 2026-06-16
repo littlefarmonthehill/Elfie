@@ -202,7 +202,7 @@ export function openPrintWindow(): Window | null {
   return win;
 }
 
-export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Window | null): void {
+export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Window | null, pageSizeCss?: string): void {
   // On iOS / Android we route through the native share sheet (navigator.share
   // with a File attachment) which hands the PDF directly to AirPrint / the OS
   // print pipeline — preserving exact label dimensions with no browser margins.
@@ -257,9 +257,16 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Wind
         'setTimeout(function(){dbg("popup:beforePrint",{});' +
         'try{window.print();dbg("popup:printCalled",{});}' +
         'catch(e){dbg("popup:printError",{msg:String(e)});}},1500);';
+      // Without a matching @page size the wrapper prints on the default Letter
+      // portrait sheet, so a small custom label (e.g. 90×29 mm DK tape) lands
+      // tiny in the corner. Setting @page to the PDF's own page size + margin:0
+      // makes the label fill the printed page at true scale (macOS auto-rotates
+      // a landscape page onto the portrait-feeding DK roll). Letter docs pass no
+      // pageSizeCss and keep the default sheet.
+      const pageRule = pageSizeCss ? `@page{size:${pageSizeCss};margin:0}` : '';
       const html = [
         '<!DOCTYPE html><html><head><title>Print</title>',
-        '<style>*{margin:0;padding:0}html,body{width:100%;height:100%}',
+        `<style>${pageRule}*{margin:0;padding:0}html,body{width:100%;height:100%}`,
         'object{display:block;width:100%;height:100%;border:none}</style></head>',
         '<body>',
         `<object data="${pdfUrl}" type="application/pdf" width="100%" height="100%"></object>`,
@@ -971,7 +978,7 @@ export async function printLotLabels(
     }
   }
 
-  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin);
+  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin, `${LBL_W}mm ${LBL_H}mm`);
 }
 
 // ─── Packing slips ────────────────────────────────────────────────────────────

@@ -356,7 +356,7 @@ async function printLotLabelsWithTemplate(
     }
   });
 
-  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin);
+  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin, `${pageW}in ${pageH}in`);
 
   if (opts.markRtf !== false) {
     const rtfPayload = items.map(l => ({

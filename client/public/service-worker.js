@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026.06.16.1';
+const CACHE_VERSION = '2026.06.16.2';
 const CACHE_NAME = `elfie-cache-v${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
