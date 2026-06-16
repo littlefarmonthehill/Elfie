@@ -5694,9 +5694,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     if (!brickowlApiKey) return;
                     const newCreds = { ...((boInt?.credentials as Record<string,string>) ?? {}), apiKey: brickowlApiKey };
                     if (boInt) {
-                      updateIntegrationMutation.mutate({ id: boInt.id, credentials: newCreds });
+                      updateIntegrationMutation.mutate({ id: boInt.id, credentials: newCreds }, { onSuccess: () => testConnection('brickowl') });
                     } else {
-                      createIntegrationMutation.mutate({ channel: 'brickowl', type: 'sales_channel', displayName: 'BrickOwl', credentials: newCreds });
+                      createIntegrationMutation.mutate({ channel: 'brickowl', type: 'sales_channel', displayName: 'BrickOwl', credentials: newCreds }, { onSuccess: () => testConnection('brickowl') });
                     }
                     setBrickowlApiKey('');
                   };
@@ -5901,8 +5901,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       {easypostKeyMode === 'test' && <p className="text-xs text-yellow-500/80">Test mode — labels will use test tracking numbers</p>}
                       {easypostKeyMode === 'production' && <p className="text-xs text-green-500/80">Production mode — real shipping labels will be created</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder={(settings as any)?.has_easypostApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Production API Key"} className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => { if (easypostApiKey) updateSettingsMutation.mutate({ easypostApiKey }); }} data-testid="input-easypost-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder={(settings as any)?.has_easypostTestApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Test API Key"} className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => { if (easypostTestApiKey) updateSettingsMutation.mutate({ easypostTestApiKey }); }} data-testid="input-easypost-test-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder={(settings as any)?.has_easypostApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Production API Key"} className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => { if (easypostApiKey) updateSettingsMutation.mutate({ easypostApiKey }, { onSuccess: () => testConnection('easypost') }); }} data-testid="input-easypost-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder={(settings as any)?.has_easypostTestApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Test API Key"} className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => { if (easypostTestApiKey) updateSettingsMutation.mutate({ easypostTestApiKey }, { onSuccess: () => testConnection('easypost') }); }} data-testid="input-easypost-test-key" /></div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-test-easypost" disabled={connTest['easypost']?.loading} onClick={() => testConnection('easypost')}>
                         {connTest['easypost']?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}

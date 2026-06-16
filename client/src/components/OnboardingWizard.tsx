@@ -139,6 +139,7 @@ const STEP_MESSAGES: Record<number, string> = {
   5: "Which other channels do you sell on? I'll keep them in sync with your BrickLink inventory automatically. You can skip this for now and connect channels any time from Settings.",
   6: "How do you ship orders? Connect a shipping service and I'll let you buy and print labels directly from the order workflow. You can always skip this and just mark orders shipped manually.",
   7: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
+  8: "My agents are analyzing your store now. Each one owns a domain — I'll coordinate everything they surface and keep you updated as new signals come in.",
   9: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
@@ -382,6 +383,13 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       data.tosAcceptedAt = new Date().toISOString();
     }
     await saveOrgMutation.mutateAsync(data);
+    // Auto-detect the browser's local timezone and persist it so the org's
+    // display times, sync windows, and reports all default to their region
+    // instead of the schema default (America/Chicago).
+    const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detectedTz) {
+      saveSettingsMutation.mutate({ orgTimezone: detectedTz } as any);
+    }
     setStep(nextVisibleStep(1));
   };
 
