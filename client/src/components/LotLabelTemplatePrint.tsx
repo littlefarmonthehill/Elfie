@@ -399,17 +399,14 @@ interface DialogProps {
 export default function LotLabelTemplatePrintDialog({
   open, onOpenChange, items, markRtf, title, description,
 }: DialogProps) {
-  const [size, setSize] = useState<LotLabelKey>(() => loadSavedLotLabelSize());
   const [printing, setPrinting] = useState(false);
   const { toast } = useToast();
-
-  const handleSize = (k: LotLabelKey) => { setSize(k); saveLotLabelSize(k); };
 
   const handlePrint = async () => {
     if (items.length === 0) return;
     setPrinting(true);
     try {
-      await printLotLabelsWithTemplate(items, size, { markRtf });
+      await printLotLabelsWithTemplate(items, 'brotherDK1201', { markRtf });
       onOpenChange(false);
     } catch (err: any) {
       toast({
@@ -437,41 +434,12 @@ export default function LotLabelTemplatePrintDialog({
 
         <div className="space-y-4">
           <div>
-            <Label className="text-xs mb-2 block">Label template</Label>
-            <div className="flex flex-col gap-1.5">
-              {LOT_LABEL_GROUPS.map(({ groupName, keys }) => (
-                <div key={groupName}>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">{groupName}</p>
-                  {keys.map(key => {
-                    const t = LOT_LABEL_TEMPLATES[key];
-                    const active = size === key;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => handleSize(key)}
-                        className={`w-full rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 mb-1 ${active ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
-                        data-testid={`button-lot-label-size-${key}`}
-                      >
-                        <div>
-                          <div className="font-semibold">{t.name}</div>
-                          <div className={`mt-0.5 ${active ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc}</div>
-                        </div>
-                        <div className={`text-[10px] font-mono shrink-0 ${active ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
             <Label className="text-xs mb-2 block text-muted-foreground">
               Preview (first {Math.min(3, items.length)})
             </Label>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {items.slice(0, 3).map(lot => {
-                const tmpl = LOT_LABEL_TEMPLATES[size];
+                const tmpl = LOT_LABEL_TEMPLATES['brotherDK1201'];
                 const qrData = `LOT:${lot.id}`;
                 const cond = conditionLabel(lot.newOrUsed);
                 const name = lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo;

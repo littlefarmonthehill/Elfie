@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Tag, Printer } from "lucide-react";
 import {
   Dialog,
@@ -10,17 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  LABEL_PRESETS,
-  DEFAULT_LABEL_PRESET_ID,
   getLabelPreset,
   printLotLabels,
   buildShortCodeMap,
