@@ -10,7 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import { apiRequest } from "@/lib/queryClient";
-import { hiddenPrint, openPrintWindow } from "./PackingSlip";
+import { hiddenPrint, hiddenPrintHtml, isMacSafari, openPrintWindow } from "./PackingSlip";
 import { partImageSources } from "@/lib/part-image";
 
 // ── Lot label item shape (superset used by both List-o-Matic and InventoryDetail) ──
@@ -157,6 +157,81 @@ function conditionLabel(newOrUsed: string | null) {
   return null;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── HTML label builder (macOS PWA / Safari only) ─────────────────────────────
+// Mirrors the jsPDF layout but as real HTML so it prints at full size on the
+// portrait-feeding DK label media (the PDF-in-<object> path adds margins and
+// won't auto-rotate there — see hiddenPrintHtml). The PDF page is landscape
+// (pageW × pageH); the printer media is portrait, so each label is rendered
+// landscape and rotated 90° to fill a portrait @page edge-to-edge.
+function buildTemplateLabelsHtml(
+  items: LotLabelPrintItem[],
+  geom: { pageW: number; pageH: number; padIn: number; qrIn: number; imgIn: number; showImage: boolean },
+  qrDataUrls: string[],
+  partImages: (string | null)[],
+): { headCss: string; body: string } {
+  const { pageW, pageH, padIn, qrIn, imgIn, showImage } = geom;
+  // Portrait page = label rotated: width = pageH (short), height = pageW (long).
+  const portraitW = pageH;
+  const portraitH = pageW;
+  const headCss =
+    `@page{size:${portraitW}in ${portraitH}in;margin:0}` +
+    `*{margin:0;padding:0;box-sizing:border-box}` +
+    `html,body{width:${portraitW}in;background:#fff}` +
+    `.pg{position:relative;width:${portraitW}in;height:${portraitH}in;overflow:hidden}` +
+    `.pg:not(:last-child){page-break-after:always}` +
+    `.lbl{position:absolute;top:0;left:0;width:${pageW}in;height:${pageH}in;` +
+    `transform-origin:top left;transform:translateX(${portraitW}in) rotate(90deg);` +
+    `display:flex;align-items:stretch;padding:${padIn}in;gap:0.06in;` +
+    `font-family:Helvetica,Arial,sans-serif;color:#000;background:#fff}` +
+    `.qrcol{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto}` +
+    `.qrcol img{width:${qrIn}in;height:${qrIn}in;display:block}` +
+    `.qrcap{font-size:9pt;font-weight:700;color:#666;margin-top:0.02in;line-height:1}` +
+    `.mid{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden}` +
+    `.meta{font-size:9pt;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}` +
+    `.name{font-size:11pt;font-weight:700;color:#000;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}` +
+    `.note{font-size:9pt;font-weight:700;color:#3c3200;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:0.03in}` +
+    `.imgcol{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;text-align:right}` +
+    `.lot{font-size:9pt;font-weight:700;color:#1a5f1a;line-height:1}` +
+    `.art{width:${imgIn}in;height:${imgIn}in;object-fit:contain;display:block}` +
+    `.artph{width:${imgIn}in;height:${imgIn}in;border:1px solid #dcdcdc;background:#f8f8f8;border-radius:0.03in}` +
+    `.rtf{font-size:12pt;font-weight:700;color:#1a5f1a;line-height:1}`;
+
+  const body = items.map((lot, i) => {
+    const name = escapeHtml(lot.itemName ? decodeHtml(lot.itemName) : lot.itemNo);
+    const cond = conditionLabel(lot.newOrUsed);
+    const meta = escapeHtml([lot.colorName, cond].filter(Boolean).join(' · '));
+    const note = escapeHtml(decodeHtml((lot.remarks ?? lot.description ?? '').trim()));
+    const partLabel = escapeHtml(`#${lot.itemNo}`);
+    const lotLabel = escapeHtml(`LOT:${lot.id}`);
+    const rtf = escapeHtml(`rtf ${lot.aisleName ?? 0}`);
+    const qr = qrDataUrls[i];
+    const art = partImages[i];
+    const imgCol = showImage
+      ? `<div class="imgcol"><div class="lot">${lotLabel}</div>` +
+        (art ? `<img class="art" src="${art}"/>` : `<div class="artph"></div>`) +
+        `<div class="rtf">${rtf}</div></div>`
+      : `<div class="imgcol"><div class="lot">${lotLabel}</div></div>`;
+    return (
+      `<div class="pg"><div class="lbl">` +
+      `<div class="qrcol"><img src="${qr}"/><div class="qrcap">${partLabel}</div></div>` +
+      `<div class="mid">${meta ? `<div class="meta">${meta}</div>` : ''}` +
+      `<div class="name">${name}</div>${note ? `<div class="note">${note}</div>` : ''}</div>` +
+      imgCol +
+      `</div></div>`
+    );
+  }).join('');
+
+  return { headCss, body };
+}
+
 // ── PDF builder ──────────────────────────────────────────────────────────────
 // Identical layout/process used by List-o-Matic. Optionally marks each printed
 // lot with a Ready-to-File hint via /api/listing-batches/mark-rtf.
@@ -235,6 +310,18 @@ async function printLotLabelsWithTemplate(
   // content drawn across pageW overflows and the whole label prints sideways.
   // iOS AirPrint auto-rotates this landscape page to fit the portrait-feeding
   // DK tape; on macOS the user selects "Landscape" in the print dialog.
+  // macOS PWA / Safari: print real HTML (rotated to fill the portrait label
+  // media) instead of an embedded PDF. iOS and desktop keep the PDF path below.
+  const macHtmlMode = isMacSafari() && !!preWin && !preWin.closed;
+  if (macHtmlMode) {
+    const { headCss, body } = buildTemplateLabelsHtml(
+      items,
+      { pageW, pageH, padIn, qrIn, imgIn, showImage },
+      qrDataUrls,
+      partImages,
+    );
+    hiddenPrintHtml(body, headCss, preWin);
+  } else {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pageW, pageH] });
 
   items.forEach((lot, i) => {
@@ -357,6 +444,7 @@ async function printLotLabelsWithTemplate(
   });
 
   hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin, `${pageW}in ${pageH}in`);
+  }
 
   if (opts.markRtf !== false) {
     const rtfPayload = items.map(l => ({

@@ -169,7 +169,7 @@ function isMobile(): boolean {
   );
 }
 
-function isMacSafari(): boolean {
+export function isMacSafari(): boolean {
   return /Macintosh/.test(navigator.userAgent) &&
     /Safari/.test(navigator.userAgent) &&
     !/Chrome|CriOS|FxiOS|Edg/.test(navigator.userAgent);
@@ -200,6 +200,45 @@ export function openPrintWindow(): Window | null {
   const win = window.open('', '_blank', 'width=1,height=1');
   printDebug('openPrintWindow:result', { opened: !!win, closed: win ? win.closed : null });
   return win;
+}
+
+// macOS PWA / Safari label printing. Embedding a PDF via <object> there is
+// unreliable: the PDF viewer adds its own page margins (margin:0 can't remove
+// them) and a landscape PDF on portrait label media prints as a tiny strip
+// because WebKit scales-to-fit instead of auto-rotating (iOS AirPrint does
+// rotate — that path is untouched). Solution: render the labels as real HTML
+// in the popup. margin:0 works on HTML, and the caller rotates the content to
+// match the printer's portrait media so it fills edge-to-edge.
+export function hiddenPrintHtml(bodyHtml: string, headCss: string, preWin?: Window | null): void {
+  const win = (preWin && !preWin.closed) ? preWin : null;
+  printDebug('hiddenPrintHtml', { hadPreWin: !!preWin, usingWin: !!win, bodyLen: bodyHtml.length });
+  if (!win) {
+    printDebug('hiddenPrintHtml:noWin', {});
+    return;
+  }
+  // Wait for all (data-URL) images to decode before printing, with a hard
+  // fallback so we never hang. Data URLs resolve near-instantly but the load
+  // events still fire asynchronously.
+  const script =
+    'function dbg(t,d){try{fetch("/api/debug/print-log",{method:"POST",' +
+    'headers:{"Content-Type":"application/json"},keepalive:true,' +
+    'body:JSON.stringify({tag:t,data:d||{}})}).catch(function(){})}catch(e){}}' +
+    'var imgs=document.images,n=imgs.length,c=0,fired=false;' +
+    'function go(){if(fired)return;fired=true;dbg("htmlpopup:beforePrint",{imgs:n});' +
+    'setTimeout(function(){try{window.focus();window.print();dbg("htmlpopup:printCalled",{});}' +
+    'catch(e){dbg("htmlpopup:printError",{msg:String(e)});}},200);}' +
+    'function tick(){if(++c>=n)go();}' +
+    'if(n===0){go();}else{for(var i=0;i<n;i++){var im=imgs[i];' +
+    'if(im.complete){tick();}else{im.addEventListener("load",tick);im.addEventListener("error",tick);}}}' +
+    'setTimeout(go,3000);';
+  const html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title>' +
+    '<style>' + headCss + '</style></head><body>' + bodyHtml +
+    '<script>' + script + '<\/script></body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  printDebug('hiddenPrintHtml:wrote', {});
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Window | null, pageSizeCss?: string): void {
