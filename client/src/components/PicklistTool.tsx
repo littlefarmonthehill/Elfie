@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle, ArrowUpAZ, ArrowDownAZ, Warehouse, Layers, Box } from "lucide-react";
-import { printPicklist, shortCode } from "./PackingSlip";
+import { printPicklist, openPrintWindow, shortCode } from "./PackingSlip";
 import PartImage from "./PartImage";
 import { useFeatures } from "@/hooks/use-feature";
 
@@ -400,6 +400,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
   const cmpDir = (n: number) => sortDir === 'asc' ? n : -n;
 
   const handlePrint = async () => {
+    const preWin = openPrintWindow();
     const sortedItems = [...flatItems].sort((a, b) => {
       const pk = cmpDir(partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
       if (pk !== 0) return pk;
@@ -407,7 +408,7 @@ export default function PicklistTool({ filterOrderIds, onItemClick }: PicklistTo
       if (condCmp !== 0) return condCmp;
       return cmpDir((a.colorName || '').localeCompare(b.colorName || ''));
     });
-    await printPicklist(sortedItems);
+    await printPicklist(sortedItems, preWin);
   };
 
   // ── Derived data ──

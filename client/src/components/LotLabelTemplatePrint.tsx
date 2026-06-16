@@ -10,7 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import { apiRequest } from "@/lib/queryClient";
-import { hiddenPrint } from "./PackingSlip";
+import { hiddenPrint, openPrintWindow } from "./PackingSlip";
 import { partImageSources } from "@/lib/part-image";
 
 // ── Lot label item shape (superset used by both List-o-Matic and InventoryDetail) ──
@@ -164,6 +164,7 @@ async function printLotLabelsWithTemplate(
   items: LotLabelPrintItem[],
   templateKey: LotLabelKey,
   opts: { markRtf?: boolean } = {},
+  preWin?: Window | null,
 ): Promise<void> {
   if (items.length === 0) return;
   const tmpl = LOT_LABEL_TEMPLATES[templateKey];
@@ -355,7 +356,7 @@ async function printLotLabelsWithTemplate(
     }
   });
 
-  hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
+  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin);
 
   if (opts.markRtf !== false) {
     const rtfPayload = items.map(l => ({
@@ -388,9 +389,10 @@ export default function LotLabelTemplatePrintDialog({
 
   const handlePrint = async () => {
     if (items.length === 0) return;
+    const preWin = openPrintWindow();
     setPrinting(true);
     try {
-      await printLotLabelsWithTemplate(items, 'brotherDK1201', { markRtf });
+      await printLotLabelsWithTemplate(items, 'brotherDK1201', { markRtf }, preWin);
       onOpenChange(false);
     } catch (err: any) {
       toast({

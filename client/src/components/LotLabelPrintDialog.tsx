@@ -13,6 +13,7 @@ import {
   DEFAULT_LABEL_PRESET_ID,
   getLabelPreset,
   printLotLabels,
+  openPrintWindow,
   buildShortCodeMap,
   type LotLabelItem,
   type OrgBranding,
@@ -34,9 +35,10 @@ export default function LotLabelPrintDialog({ open, onOpenChange, items, org }: 
 
   const handlePrint = async () => {
     if (items.length === 0) return;
+    const preWin = openPrintWindow();
     setPrinting(true);
     try {
-      await printLotLabels(items, org, preset);
+      await printLotLabels(items, org, preset, preWin);
       onOpenChange(false);
     } finally {
       setPrinting(false);

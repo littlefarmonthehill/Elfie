@@ -17,7 +17,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { shortCode, hiddenPrint } from "@/components/PackingSlip";
+import { shortCode, hiddenPrint, openPrintWindow } from "@/components/PackingSlip";
 import { shippingTier } from "@/lib/item-utils";
 import type { AppSettings } from "@shared/schema";
 import PrintMethodSetup from "@/components/PrintMethodSetup";
@@ -643,11 +643,12 @@ export default function InlineShippingCard({
             <Button variant="outline" size="sm" disabled={printLabelPending}
               data-testid={`button-print-label-${orderId}`}
               onClick={async () => {
+                const preWin = openPrintWindow();
                 setPrintLabelPending(true);
                 try {
                   const res = await fetch(purchasedLabel.labelUrl!);
                   const blob = await res.blob();
-                  hiddenPrint(blob, `label-${orderId}.pdf`);
+                  hiddenPrint(blob, `label-${orderId}.pdf`, preWin);
                 } catch {
                   toast({ title: 'Could not load label', variant: 'destructive' });
                 } finally {

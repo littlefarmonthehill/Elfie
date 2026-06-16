@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, Rocket, Star, CheckCheck, RotateCcw, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
-import { printPackingSlips, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
+import { printPackingSlips, openPrintWindow, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
@@ -909,6 +909,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
 
   const handlePrintPackingSlips = async (orderIds: string[]) => {
     if (orderIds.length === 0) return;
+    const preWin = openPrintWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
@@ -916,7 +917,7 @@ export default function FulfillmentTool({ onOrderDetail, onItemClick }: { onOrde
         body: JSON.stringify({ orderIds }),
       });
       const slipData = await response.json();
-      await printPackingSlips(slipData, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz);
+      await printPackingSlips(slipData, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz, preWin);
 
       // Promote any printed orders that are still "new" → "processing"
       const newOrderIds = orderIds.filter(id =>

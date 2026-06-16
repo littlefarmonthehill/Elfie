@@ -169,8 +169,21 @@ function isMobile(): boolean {
   );
 }
 
+function isMacSafari(): boolean {
+  return /Macintosh/.test(navigator.userAgent) &&
+    /Safari/.test(navigator.userAgent) &&
+    !/Chrome|CriOS|FxiOS|Edg/.test(navigator.userAgent);
+}
 
-export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
+// Call this synchronously in the button-click handler — before any await —
+// while Safari still considers the event a user gesture and grants popup access.
+// Returns null on non-Safari platforms (ignored by hiddenPrint).
+export function openPrintWindow(): Window | null {
+  if (!isMacSafari()) return null;
+  return window.open('', '_blank', 'width=1,height=1');
+}
+
+export function hiddenPrint(blob: Blob, filename = 'document.pdf', preWin?: Window | null): void {
   // On iOS / Android we route through the native share sheet (navigator.share
   // with a File attachment) which hands the PDF directly to AirPrint / the OS
   // print pipeline — preserving exact label dimensions with no browser margins.
@@ -200,7 +213,42 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
     return;
   }
 
-  // Desktop (macOS, Windows, Linux): hidden-iframe auto-print.
+  // macOS Safari: programmatic print() on a PDF triggers the share sheet, not
+  // the native print dialog. Fix: write an HTML page (with the PDF embedded via
+  // <object>) into the pre-opened window and call window.print() from the HTML
+  // context — Safari treats that as a native print, not a share action.
+  // The caller must open the window synchronously via openPrintWindow() before
+  // any await so Safari grants popup permission during the user gesture.
+  if (isMacSafari()) {
+    const pdfUrl = URL.createObjectURL(blob);
+    const win = (preWin && !preWin.closed) ? preWin : null;
+    if (win) {
+      const html = [
+        '<!DOCTYPE html><html><head><title>Print</title>',
+        '<style>*{margin:0;padding:0}html,body{width:100%;height:100%}',
+        'object{display:block;width:100%;height:100%;border:none}</style></head>',
+        '<body>',
+        `<object data="${pdfUrl}" type="application/pdf" width="100%" height="100%"></object>`,
+        '<script>setTimeout(function(){try{window.print()}catch(e){}},1500);<\/script>',
+        '</body></html>',
+      ].join('');
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } else {
+      // No pre-opened window (popup blocked or caller forgot) — fall back to download
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    setTimeout(() => { try { URL.revokeObjectURL(pdfUrl); } catch { /* ok */ } }, 60_000);
+    return;
+  }
+
+  // Desktop (macOS Chrome / Windows / Linux): hidden-iframe auto-print.
   //
   // Key Mac-Chrome fixes:
   //  1. Wait 1200 ms after the iframe "load" event before calling print() —
@@ -362,7 +410,7 @@ function loadUrlToSquarePNG(url: string, grayscale: boolean): Promise<string | n
   });
 }
 
-export async function printPicklist(items: PicklistItem[]): Promise<void> {
+export async function printPicklist(items: PicklistItem[], preWin?: Window | null): Promise<void> {
   if (items.length === 0) return;
 
   // ── Layout constants ────────────────────────────────────────────────────────
@@ -529,7 +577,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     y = rowY + itemH;
   }
 
-  hiddenPrint(doc.output('blob'), 'picklist.pdf');
+  hiddenPrint(doc.output('blob'), 'picklist.pdf', preWin);
 }
 
 // ─── Per-order bag labels (thermal, 2" × 3") ─────────────────────────────────
@@ -612,6 +660,7 @@ export async function printLotLabels(
   items: LotLabelItem[],
   org?: OrgBranding,
   preset: LabelPreset = LABEL_PRESETS[0],
+  preWin?: Window | null,
 ): Promise<void> {
   if (items.length === 0) return;
 
@@ -886,12 +935,12 @@ export async function printLotLabels(
     }
   }
 
-  hiddenPrint(doc.output('blob'), 'lot-labels.pdf');
+  hiddenPrint(doc.output('blob'), 'lot-labels.pdf', preWin);
 }
 
 // ─── Packing slips ────────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, tz: string = DEFAULT_ORG_TIMEZONE): Promise<void> {
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, tz: string = DEFAULT_ORG_TIMEZONE, preWin?: Window | null): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
@@ -1158,7 +1207,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     }
   }
 
-  hiddenPrint(doc.output('blob'), 'packing-slips.pdf');
+  hiddenPrint(doc.output('blob'), 'packing-slips.pdf', preWin);
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {

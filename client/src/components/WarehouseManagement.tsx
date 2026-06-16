@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { WarehouseScanPanel } from "./WarehouseScanPanel";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
-import { hiddenPrint } from "./PackingSlip";
+import { hiddenPrint, openPrintWindow } from "./PackingSlip";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -1426,6 +1426,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     // QR image size in inches (template stores px at 96 dpi)
     const qrIn = tmpl.qr / 96;
 
+    const preWin = openPrintWindow();
     try {
       // Generate every QR code client-side onto a canvas using the `qrcode`
       // package — no server fetch, no HTMLImageElement, no PNG parser.
@@ -1572,7 +1573,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       // On iOS it uses navigator.share({ files }) which opens the native share
       // sheet (tap Print → AirPrint).  On desktop it uses a hidden iframe +
       // window.print().
-      hiddenPrint(doc.output('blob'), 'labels.pdf');
+      hiddenPrint(doc.output('blob'), 'labels.pdf', preWin);
     } catch (err: any) {
       alert(`Label generation failed\n\n${String(err?.message ?? err)}`);
     }

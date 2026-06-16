@@ -23,7 +23,7 @@ import {
 import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
+import { printPackingSlips, printPicklist, openPrintWindow, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
 import LotLabelPrintDialog from "./LotLabelPrintDialog";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
@@ -331,6 +331,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   };
 
   const handlePrintPackingSlip = async (orderId: string) => {
+    const preWin = openPrintWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
@@ -338,13 +339,14 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         body: JSON.stringify({ orderIds: [orderId] }),
       });
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, tz, preWin);
     } catch (error) {
       toast({ title: "Error", description: "Failed to generate packing slip", variant: "destructive" });
     }
   };
 
   const handlePrintPicklistForOrder = async (order: ShippedOrder) => {
+    const preWin = openPrintWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
@@ -378,7 +380,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           inventoryId: item.inventoryId ? Number(item.inventoryId) : null,
           comment: item.comment || null,
         }));
-      await printPicklist(picklistItems);
+      await printPicklist(picklistItems, preWin);
     } catch (error) {
       toast({ title: "Error", description: "Failed to generate picklist", variant: "destructive" });
     }
