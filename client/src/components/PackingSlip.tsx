@@ -171,15 +171,10 @@ function isMacDesktop(): boolean {
 }
 
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
-  // On iOS, Android, and macOS desktop we route through the native share sheet
-  // (navigator.share with a File attachment), which hands the PDF directly to
-  // the OS print / AirPrint pipeline — preserving exact label dimensions with
-  // no browser margins applied.  macOS Safari's PDF plugin and Chrome's PDF
-  // renderer both add or distort margins when printing from a hidden iframe,
-  // so Mac desktop uses the same path as mobile.  Falls back to a plain
-  // download when the browser doesn't support file sharing (e.g. Firefox on
-  // Mac, or user activation expired after async PDF generation).
-  if (isMobile() || isMacDesktop()) {
+  // On iOS / Android we route through the native share sheet (navigator.share
+  // with a File attachment) which hands the PDF directly to AirPrint / the OS
+  // print pipeline — preserving exact label dimensions with no browser margins.
+  if (isMobile()) {
     const downloadPdf = () => {
       const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -202,6 +197,34 @@ export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
       return;
     }
     downloadPdf();
+    return;
+  }
+
+  // macOS desktop: open the PDF in a new window so the browser's native print
+  // dialog appears (Cmd+P / File → Print). The share-sheet path was used here
+  // previously but showed no Print option to the user.
+  if (isMacDesktop()) {
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.addEventListener('load', () => {
+        setTimeout(() => {
+          try { win.print(); } catch { /* ok */ }
+        }, 800);
+      }, { once: true });
+      // Safety net if load already fired
+      setTimeout(() => { try { win.print(); } catch { /* ok */ } }, 2000);
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* ok */ } }, 60_000);
+    } else {
+      // Popup blocked — fall back to download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* ok */ } }, 60_000);
+    }
     return;
   }
 
