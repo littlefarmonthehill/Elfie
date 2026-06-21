@@ -2382,6 +2382,21 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS inv_locations_bin_idx ON inventory_locations (bin_id)`);
     console.log('[Migration] Phase-117 (inventory_locations.bin_id index) complete.');
 
+    // Phase-118: expression index for the lot "aisle hint" sibling lookup.
+    // lotAisleHintSql (server/routers/listing-batches.ts) matches sibling lots by
+    // their numeric base via regexp_replace(item_no, '^([0-9]+).*$', '\\1'). Applying
+    // that regex to the column defeats the plain item_no index, so the correlated
+    // subquery in /warehouse/lots fell back to scanning every filed lot for each of
+    // the 200 output rows. At production scale that pegged the DB CPU and starved all
+    // other queries (auth/sessions included). This expression index lets the planner
+    // satisfy the regex branch with a bitmap index scan, turning a full scan into a
+    // targeted lookup (≈500ms → ≈3ms in dev; far larger savings at prod scale).
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS bl_inv_org_type_itembase_idx
+      ON bl_inventory (org_id, item_type, (regexp_replace(item_no, '^([0-9]+).*$', '\\1')))
+    `);
+    console.log('[Migration] Phase-118 (bl_inventory item-base expression index for aisle hint) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
