@@ -20,6 +20,15 @@ import {
 
 const router = Router();
 
+// EasyPost can lag: a label bought >24h ago whose tracker still says
+// `pre_transit` is almost certainly already with the carrier. Treat it as
+// `in_transit` so server-side recovery rules match what the UI shows the user
+// (the Shipped screen uses the same rule). The stored value is unchanged.
+function effectiveTrackingStatus(status: string | null, shipDate: Date | string | null): string | null {
+  const ageHrs = shipDate ? (Date.now() - new Date(shipDate).getTime()) / 3_600_000 : 0;
+  return status === 'pre_transit' && ageHrs > 24 ? 'in_transit' : status;
+}
+
 // LAN printer guard
 const isLanIp = (ip: string) =>
   /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|::1$|localhost)/i.test(ip.trim());
@@ -646,7 +655,10 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
     .where(and(eq(shipments.orderId, orderId), eq(shipments.orgId, orgId), notInArray(shipments.status, ['voided', 'failed'])))
     .orderBy(desc(shipments.createdAt)).limit(1);
   const PRE_TRANSIT_TRACKING = new Set(['pre_transit', 'unknown', 'error', 'cancelled']);
-  const alreadyInTransit = !!latestShip && latestShip.trackingStatus != null && !PRE_TRANSIT_TRACKING.has(latestShip.trackingStatus);
+  // Use the same aged-pre_transit rule as the Shipped UI: an order shown as
+  // "In Transit" (pre_transit label older than 24h) must not be returnable here.
+  const effLatestStatus = effectiveTrackingStatus(latestShip?.trackingStatus ?? null, order.shipDate);
+  const alreadyInTransit = !!latestShip && effLatestStatus != null && !PRE_TRANSIT_TRACKING.has(effLatestStatus);
   if (alreadyInTransit) {
     return res.status(409).json({
       error: "already_shipped",
@@ -669,7 +681,8 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
         // network). Once tracking moves beyond label, the label is used: we must
         // not ask the shipping service for a refund, and we leave the shipment
         // as-is (not locally voided) so a real in-transit label is never hidden.
-        const beyondLabel = shipment.trackingStatus != null && !PRE_TRANSIT_TRACKING.has(shipment.trackingStatus);
+        const effShipStatus = effectiveTrackingStatus(shipment.trackingStatus, order.shipDate);
+        const beyondLabel = effShipStatus != null && !PRE_TRANSIT_TRACKING.has(effShipStatus);
         if (beyondLabel) {
           skippedRefundCount++;
           continue;

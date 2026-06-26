@@ -67,15 +67,19 @@ const TRACKING_STATUS_OPTIONS: TrackingStatusOption[] = [
   { value: 'failure',              label: 'Delivery Issue',    Icon: AlertTriangle,   badgeClass: 'bg-red-900/60 text-red-300 border border-red-700/50' },
 ];
 
-function TrackingStatusBadge({ orderNumber, status, shipDate, onChange }: { orderNumber: string; status: string | null; shipDate: string | null; onChange: (s: TrackingStatusOption['value']) => void }) {
-  // EasyPost can lag behind the carrier — when a label has been bought for
-  // more than 24h and the carrier already has scans (visible on USPS/UPS sites)
-  // EasyPost may still report `pre_transit`. Once a shipment is older than a
-  // day, treat `pre_transit` as `in_transit` for display so the badge matches
-  // what the user sees when they click the tracking number. The stored value
-  // in the DB is unchanged — manual overrides via the dropdown still win.
+// EasyPost can lag behind the carrier — when a label has been bought for more
+// than 24h and the carrier already has scans (visible on USPS/UPS sites)
+// EasyPost may still report `pre_transit`. Once a shipment is older than a day,
+// treat `pre_transit` as `in_transit` so the badge AND the recovery-action menu
+// both match what the user sees when they click the tracking number. The stored
+// value in the DB is unchanged — manual overrides via the dropdown still win.
+function effectiveTrackingStatus(status: string | null, shipDate: string | null): string | null {
   const ageHrs = shipDate ? (Date.now() - new Date(shipDate).getTime()) / 3_600_000 : 0;
-  const displayStatus = status === 'pre_transit' && ageHrs > 24 ? 'in_transit' : status;
+  return status === 'pre_transit' && ageHrs > 24 ? 'in_transit' : status;
+}
+
+function TrackingStatusBadge({ orderNumber, status, shipDate, onChange }: { orderNumber: string; status: string | null; shipDate: string | null; onChange: (s: TrackingStatusOption['value']) => void }) {
+  const displayStatus = effectiveTrackingStatus(status, shipDate);
 
   const current = TRACKING_STATUS_OPTIONS.find(o => o.value === displayStatus)
     ?? (status === 'error' || status === 'cancelled'
@@ -644,7 +648,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               // "Not yet shipped" = label bought but the carrier hasn't taken it
               // yet (or no tracking at all). Return-to-Fulfillment is only safe
               // here; once a package is in transit/delivered, use Split instead.
-              const notYetShipped = !order.trackingStatus || ['pre_transit', 'unknown', 'error', 'cancelled'].includes(order.trackingStatus);
+              // Use the SAME aged-pre_transit adjustment as the badge so an order
+              // shown as "In Transit" never offers Return to Fulfillment.
+              const effTrackingStatus = effectiveTrackingStatus(order.trackingStatus, order.shipDate);
+              const notYetShipped = !effTrackingStatus || ['pre_transit', 'unknown', 'error', 'cancelled'].includes(effTrackingStatus);
 
               return (
                 <div
