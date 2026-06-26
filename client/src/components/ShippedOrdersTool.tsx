@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin } from "lucide-react";
+import { Search, Package, PackageCheck, Loader2, MoreHorizontal, Tag, FileText, RotateCcw, ScanLine, FlaskConical, ClipboardList, X, ExternalLink, RefreshCcw, Truck, CheckCircle2, AlertTriangle, ArrowLeftRight, Clock, MapPin, Scissors } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import { printPackingSlips, printPicklist, openPrintWindow, buildShortCodeMap, shortCode, type LotLabelItem } from "./PackingSlip";
@@ -159,6 +159,85 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const [returnDialog, setReturnDialog] = useState<{ open: boolean; order: ShippedOrder | null }>({ open: false, order: null });
   const [returnAmount, setReturnAmount] = useState("");
 
+  // Split dialog state — fix post-delivery packing mistakes by moving the wrong
+  // items into a new order to re-ship, without touching the original order.
+  const [splitDialog, setSplitDialog] = useState<{ open: boolean; order: ShippedOrder | null }>({ open: false, order: null });
+  const [splitItems, setSplitItems] = useState<Array<{ id: string; partNumber: string; name: string; quantity: number; colorName: string | null; condition: string | null }>>([]);
+  const [selectedSplitItems, setSelectedSplitItems] = useState<Set<string>>(new Set());
+  const [isLoadingSplitItems, setIsLoadingSplitItems] = useState(false);
+
+  const openSplitDialog = async (order: ShippedOrder) => {
+    setSplitDialog({ open: true, order });
+    setSelectedSplitItems(new Set());
+    setSplitItems([]);
+    setIsLoadingSplitItems(true);
+    try {
+      const detail = await apiRequest('GET', `/api/orders/${encodeURIComponent(order.id)}`);
+      const items = (detail?.items ?? [])
+        .filter((it: any) => it.id)
+        .map((it: any) => ({
+          id: it.id,
+          partNumber: it.partNumber ?? '',
+          name: it.name ?? '',
+          quantity: it.quantity ?? 0,
+          colorName: it.colorName ?? null,
+          condition: it.condition ?? null,
+        }));
+      setSplitItems(items);
+    } catch (err: any) {
+      toast({ title: "Could not load items", description: err?.message ?? '', variant: "destructive" });
+      setSplitDialog({ open: false, order: null });
+    } finally {
+      setIsLoadingSplitItems(false);
+    }
+  };
+
+  const toggleSplitItem = (id: string) =>
+    setSelectedSplitItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const splitOrderMutation = useMutation({
+    mutationFn: async ({ orderId, itemIdsToKeep }: { orderId: string; itemIdsToKeep: string[] }) =>
+      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/split`, { itemIdsToKeep }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Order split",
+        description: `Wrong items moved to new order ${data?.splitOrderNumber ?? ''}, ready to re-ship from Fulfillment. The original order is unchanged.`,
+      });
+      setSplitDialog({ open: false, order: null });
+      setSelectedSplitItems(new Set());
+      setSplitItems([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/workflow-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+    },
+    onError: (err: any) => {
+      let msg = "Failed to split order";
+      try {
+        const raw = err?.message || "";
+        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonStr);
+        msg = parsed.error || parsed.message || msg;
+      } catch {}
+      toast({ title: "Split failed", description: msg, variant: "destructive" });
+    },
+  });
+
+  const handleConfirmSplit = () => {
+    if (!splitDialog.order || selectedSplitItems.size === 0) return;
+    const itemIdsToKeep = splitItems.filter(it => !selectedSplitItems.has(it.id)).map(it => it.id);
+    if (itemIdsToKeep.length === splitItems.length) {
+      toast({ title: "No items selected", description: "Select the items that went to the wrong order.", variant: "destructive" });
+      return;
+    }
+    splitOrderMutation.mutate({ orderId: splitDialog.order.id, itemIdsToKeep });
+  };
+
   const returnToFulfillmentMutation = useMutation({
     mutationFn: async (orderId: string) =>
       apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/return-to-fulfillment`),
@@ -181,7 +260,14 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       queryClient.invalidateQueries({ queryKey: ['/api/shipments/tracking-summary'] });
     },
     onError: (err: any) => {
-      toast({ title: "Failed to return order", description: err.message, variant: "destructive" });
+      let msg = err?.message ?? '';
+      try {
+        const raw = err?.message || "";
+        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonStr);
+        msg = parsed.message || parsed.error || msg;
+      } catch {}
+      toast({ title: "Can't return to fulfillment", description: msg, variant: "destructive" });
     },
   });
 
@@ -555,6 +641,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               const refundTotalNum = parseFloat(order.refundTotal ?? '0');
               const isFullyRefunded = refundTotalNum > 0 && orderTotalNum > 0 && refundTotalNum >= orderTotalNum - 0.01;
               const isCancelled = order.orderStatus === 'cancelled' || order.orderStatus === 'Cancelled' || isFullyRefunded;
+              // "Not yet shipped" = label bought but the carrier hasn't taken it
+              // yet (or no tracking at all). Return-to-Fulfillment is only safe
+              // here; once a package is in transit/delivered, use Split instead.
+              const notYetShipped = !order.trackingStatus || ['pre_transit', 'unknown', 'error', 'cancelled'].includes(order.trackingStatus);
 
               return (
                 <div
@@ -706,22 +796,32 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         </DropdownMenuItem>
                       )}
 
-                      {!isCancelled && (
+                      {!isCancelled && !isReturned && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
-                            disabled={returnToFulfillmentMutation.isPending}
-                            data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
-                            className="text-amber-400 focus:text-amber-300"
+                            onClick={(e) => { e.stopPropagation(); openSplitDialog(order); }}
+                            data-testid={`menu-split-order-${order.orderNumber}`}
                           >
-                            {returnToFulfillmentMutation.isPending
-                              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              : <RotateCcw className="w-4 h-4 mr-2" />
-                            }
-                            Return to Fulfillment
+                            <Scissors className="w-4 h-4 mr-2" />
+                            Split Order
                           </DropdownMenuItem>
                         </>
+                      )}
+
+                      {!isCancelled && notYetShipped && (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
+                          disabled={returnToFulfillmentMutation.isPending}
+                          data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
+                          className="text-amber-400 focus:text-amber-300"
+                        >
+                          {returnToFulfillmentMutation.isPending
+                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            : <RotateCcw className="w-4 h-4 mr-2" />
+                          }
+                          Return to Fulfillment
+                        </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -828,6 +928,76 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
             >
               {markReturnedMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
               Mark as Returned
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Split Order Dialog — fix post-delivery / post-ship packing mistakes */}
+      <Dialog open={splitDialog.open} onOpenChange={(open) => !open && setSplitDialog({ open: false, order: null })}>
+        <DialogContent className="sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scissors className="w-5 h-5" />
+              Split Order {splitDialog.order?.orderNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Pick the items that were packed wrong. They'll move to a new order you can re-ship from Fulfillment. This order keeps its tracking and ship info — nothing about it changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {isLoadingSplitItems ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : splitItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No items found for this order.</p>
+            ) : (
+              <div className="space-y-1 max-h-72 overflow-y-auto">
+                {splitItems.map(item => (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 text-sm rounded-md px-2 py-1.5 hover-elevate cursor-pointer"
+                    data-testid={`split-item-${item.id}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4"
+                      checked={selectedSplitItems.has(item.id)}
+                      onChange={() => toggleSplitItem(item.id)}
+                      data-testid={`checkbox-split-item-${item.id}`}
+                    />
+                    <span className="flex-1 truncate">
+                      {item.partNumber && <span className="font-mono text-muted-foreground mr-1">{item.partNumber}</span>}
+                      {item.name}
+                      {item.colorName && <span className="text-muted-foreground"> · {item.colorName}</span>}
+                      {item.condition && <span className="text-muted-foreground"> · {item.condition}</span>}
+                    </span>
+                    <span className="text-muted-foreground shrink-0">×{item.quantity}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSplitDialog({ open: false, order: null })}
+              data-testid="button-cancel-split"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleConfirmSplit}
+              disabled={splitOrderMutation.isPending || selectedSplitItems.size === 0}
+              data-testid="button-confirm-split"
+            >
+              {splitOrderMutation.isPending
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <Scissors className="w-4 h-4 mr-2" />
+              }
+              Split {selectedSplitItems.size > 0 ? `${selectedSplitItems.size} item${selectedSplitItems.size !== 1 ? 's' : ''}` : 'Order'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -220,18 +220,19 @@ export async function previewShipment(orderId: string, itemIdsToShip: string[]):
  * Split an order into two orders
  * Uses a transaction to ensure atomicity - all operations succeed or all fail
  */
-export async function splitOrder(orderId: string, itemIdsToKeep: string[]): Promise<{
+export async function splitOrder(orderId: string, itemIdsToKeep: string[], orgId?: string): Promise<{
   originalOrderId: string;
   splitOrderId: string;
   splitOrderNumber: string;
 }> {
   // Wrap entire operation in a transaction for atomicity
   return await db.transaction(async (tx) => {
-    // Get original order
+    // Get original order. When orgId is supplied, scope the lookup to that org
+    // so a caller can never split an order belonging to another tenant (IDOR).
     const [originalOrder] = await tx
       .select()
       .from(orders)
-      .where(eq(orders.id, orderId))
+      .where(orgId ? and(eq(orders.id, orderId), eq(orders.orgId, orgId)) : eq(orders.id, orderId))
       .limit(1);
 
     if (!originalOrder) {

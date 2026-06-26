@@ -637,6 +637,23 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
   const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
+  // Guard: once a package is actually in transit or delivered, returning it to
+  // fulfillment would void a real (already-used) label and wipe the original's
+  // ship date and tracking. Only pre-transit orders (label bought but not yet
+  // handed to the carrier) may be reset here. Shipped/delivered packing mistakes
+  // must instead be fixed with Split, which leaves the original order untouched.
+  const [latestShip] = await db.select().from(shipments)
+    .where(and(eq(shipments.orderId, orderId), eq(shipments.orgId, orgId), notInArray(shipments.status, ['voided', 'failed'])))
+    .orderBy(desc(shipments.createdAt)).limit(1);
+  const PRE_TRANSIT_TRACKING = new Set(['pre_transit', 'unknown', 'error', 'cancelled']);
+  const alreadyInTransit = !!latestShip && latestShip.trackingStatus != null && !PRE_TRANSIT_TRACKING.has(latestShip.trackingStatus);
+  if (alreadyInTransit) {
+    return res.status(409).json({
+      error: "already_shipped",
+      message: "This order is already in transit or delivered. Use Split to move the wrong items into a new order — the original keeps its tracking and ship info.",
+    });
+  }
+
   const purchasedShipments = await db.select().from(shipments).where(and(eq(shipments.orderId, orderId), eq(shipments.orgId, orgId), eq(shipments.status, 'purchased')));
   let voidedCount = 0;
   let voidWarning: string | undefined;
@@ -950,6 +967,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
       const condition = conditionRaw === 'N' ? 'New' : conditionRaw === 'U' ? 'Used' : (conditionRaw ?? null);
 
       return {
+        id: item.id,
         partNumber,
         name: item.name,
         quantity: item.quantity,
@@ -1672,12 +1690,17 @@ router.post("/shipments/preview", isApproved, asyncRoute(async (req, res) => {
   res.json(preview);
 }));
 
-router.post("/orders/:orderId/split", isApproved, asyncRoute(async (req, res) => {
+router.post("/orders/:orderId/split", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
   const { orderId } = req.params;
   const { itemIdsToKeep } = req.body;
   if (!itemIdsToKeep || !Array.isArray(itemIdsToKeep)) return res.status(400).json({ error: "itemIdsToKeep array is required" });
+  if (itemIdsToKeep.length === 0) return res.status(400).json({ error: "Cannot split every item off an order — keep at least one item on the original" });
+  // Tenant guard: confirm the order belongs to the caller's org before splitting.
+  const [owned] = await db.select({ id: orders.id }).from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
+  if (!owned) return res.status(404).json({ error: "Order not found" });
   const { splitOrder } = await import('../services/order-shipping');
-  const result = await splitOrder(orderId, itemIdsToKeep);
+  const result = await splitOrder(orderId, itemIdsToKeep, orgId);
   res.json(result);
 }));
 
