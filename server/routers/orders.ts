@@ -656,6 +656,7 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
 
   const purchasedShipments = await db.select().from(shipments).where(and(eq(shipments.orderId, orderId), eq(shipments.orgId, orgId), eq(shipments.status, 'purchased')));
   let voidedCount = 0;
+  let skippedRefundCount = 0;
   let voidWarning: string | undefined;
   if (purchasedShipments.length > 0) {
     try {
@@ -663,6 +664,16 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
       const vendor = await getShippingProvider(orgId);
       for (const shipment of purchasedShipments) {
         if (!shipment.vendorShipmentId) continue;
+        // Only request a carrier refund while a shipment is still at the label
+        // stage (label bought but package not yet scanned into the carrier
+        // network). Once tracking moves beyond label, the label is used: we must
+        // not ask the shipping service for a refund, and we leave the shipment
+        // as-is (not locally voided) so a real in-transit label is never hidden.
+        const beyondLabel = shipment.trackingStatus != null && !PRE_TRANSIT_TRACKING.has(shipment.trackingStatus);
+        if (beyondLabel) {
+          skippedRefundCount++;
+          continue;
+        }
         try {
           const voidResult = await vendor.voidLabel(shipment.vendorShipmentId);
           await db.update(shipments).set({ status: 'voided', updatedAt: new Date() }).where(eq(shipments.id, shipment.id));
@@ -680,7 +691,7 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
   }
   const targetStatus = order.marketplace === 'BrickOwl' ? 'awaiting_shipment' : 'awaiting_fulfillment';
   await db.update(orders).set({ orderStatus: targetStatus, previousStatus: order.orderStatus, workflowStatus: 'new', shipDate: null, updatedAt: new Date() }).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
-  res.json({ success: true, orderStatus: targetStatus, voidedLabels: voidedCount, voidWarning });
+  res.json({ success: true, orderStatus: targetStatus, voidedLabels: voidedCount, skippedRefunds: skippedRefundCount, voidWarning });
 }));
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
