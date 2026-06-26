@@ -13,6 +13,7 @@
 - [Baggie consolidation rule](baggie-consolidation-rule.md) — a baggie never mixes new+used; same-condition (matchLevel 1/2) may combine, part-only match (level 3) co-locate only; drives filing consolidate-alert copy.
 - [Scan panel audio cues](scan-panel-audio.md) — camera scanFrame re-fires same QR every frame; dedupe by lastCameraCodeRef reset-on-no-code, not a timer (timer can auto-confirm wrong-bin override); cue() reads soundOnRef to dodge stale closures.
 - [Shared route utilities](shared-route-utilities.md) — 9 helpers were duplicated across 8 routers; canonical home is server/lib/routeHelpers.ts + server/lib/platformSettings.ts; routes.ts re-exports platform helpers for backward compat.
+- [Reship vs Split terminology](reship-vs-split-terminology.md) — post-ship order-split action is labeled "Reship Items" (not "Split"); pre-ship still "Split"; code identifiers unchanged, labels+internalNotes only.
 - [DB index gaps + push danger](db-index-gaps.md) — 9 indexes were missing (price_guide_cache had zero); drizzle db:push shows phantom-column drops — always use raw SQL CREATE INDEX IF NOT EXISTS instead of db:push for additive index work.
 - [Warehouse aisle-hint perf](warehouse-aisle-hint-perf.md) — /warehouse/lots regexp_replace on item_no defeats the index → per-row full scan saturates whole DB; fix = expression index matching the regex exactly.
 - [Dev shares prod DB](dev-shares-prod-db.md) — dev server and the deployment use the SAME Neon DATABASE_URL; any executeSql write hits production immediately, there's no separate dev copy.

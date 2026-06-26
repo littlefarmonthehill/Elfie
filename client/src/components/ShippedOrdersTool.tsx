@@ -208,8 +208,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/split`, { itemIdsToKeep }),
     onSuccess: (data: any) => {
       toast({
-        title: "Order split",
-        description: `Wrong items moved to new order ${data?.splitOrderNumber ?? ''}, ready to re-ship from Fulfillment. The original order is unchanged.`,
+        title: "Reship order created",
+        description: `Wrong items moved to new order ${data?.splitOrderNumber ?? ''}, ready to reship from Fulfillment. The original order is unchanged.`,
       });
       setSplitDialog({ open: false, order: null });
       setSelectedSplitItems(new Set());
@@ -221,14 +221,14 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
     },
     onError: (err: any) => {
-      let msg = "Failed to split order";
+      let msg = "Failed to create reship order";
       try {
         const raw = err?.message || "";
         const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
         const parsed = JSON.parse(jsonStr);
         msg = parsed.error || parsed.message || msg;
       } catch {}
-      toast({ title: "Split failed", description: msg, variant: "destructive" });
+      toast({ title: "Reship failed", description: msg, variant: "destructive" });
     },
   });
 
@@ -804,7 +804,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                       )}
 
                       {/* Once a package is beyond label status, you can't pull the
-                          whole order back — split the wrong items into a new order
+                          whole order back — reship the wrong items in a new order
                           that goes to fulfillment while the original stays shipped
                           with its tracking. Pre-ship (label) mistakes use Return to
                           Fulfillment below instead. */}
@@ -816,7 +816,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                             data-testid={`menu-split-order-${order.orderNumber}`}
                           >
                             <Scissors className="w-4 h-4 mr-2" />
-                            Split Order
+                            Reship Items
                           </DropdownMenuItem>
                         </>
                       )}
@@ -951,10 +951,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Scissors className="w-5 h-5" />
-              Split Order {splitDialog.order?.orderNumber}
+              Reship Items · Order {splitDialog.order?.orderNumber}
             </DialogTitle>
             <DialogDescription>
-              Pick the items that were packed wrong. They'll move to a new order you can re-ship from Fulfillment. This order keeps its tracking and ship info — nothing about it changes.
+              Pick the items that were packed wrong. They'll move to a new order you can reship from Fulfillment. This order keeps its tracking and ship info — nothing about it changes.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
@@ -1009,7 +1009,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                 ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 : <Scissors className="w-4 h-4 mr-2" />
               }
-              Split {selectedSplitItems.size > 0 ? `${selectedSplitItems.size} item${selectedSplitItems.size !== 1 ? 's' : ''}` : 'Order'}
+              Reship {selectedSplitItems.size > 0 ? `${selectedSplitItems.size} item${selectedSplitItems.size !== 1 ? 's' : ''}` : 'Items'}
             </Button>
           </DialogFooter>
         </DialogContent>

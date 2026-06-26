@@ -662,7 +662,7 @@ router.post("/orders/:id/return-to-fulfillment", isApproved, asyncRoute(async (r
   if (alreadyInTransit) {
     return res.status(409).json({
       error: "already_shipped",
-      message: "This order is already in transit or delivered. Use Split to move the wrong items into a new order — the original keeps its tracking and ship info.",
+      message: "This order is already in transit or delivered. Use Reship Items to move the wrong items into a new order — the original keeps its tracking and ship info.",
     });
   }
 
