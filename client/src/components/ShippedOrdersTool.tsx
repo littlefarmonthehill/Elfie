@@ -796,7 +796,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         </DropdownMenuItem>
                       )}
 
-                      {!isCancelled && !isReturned && (
+                      {/* Once a package is beyond label status, you can't pull the
+                          whole order back — split the wrong items into a new order
+                          that goes to fulfillment while the original stays shipped
+                          with its tracking. Pre-ship (label) mistakes use Return to
+                          Fulfillment below instead. */}
+                      {!isCancelled && !isReturned && !notYetShipped && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -809,7 +814,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         </>
                       )}
 
-                      {!isCancelled && notYetShipped && (
+                      {!isCancelled && !isReturned && notYetShipped && (
                         <DropdownMenuItem
                           onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
                           disabled={returnToFulfillmentMutation.isPending}
