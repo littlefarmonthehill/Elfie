@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, or, isNull, gte, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, or, isNull, gte, lte, inArray, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import { asyncRoute, reqOrgId } from "../lib/routeHelpers";
@@ -87,8 +87,12 @@ router.post("/listing-batches/mark-rtf", isApproved, asyncRoute(async (req: any,
 }));
 
 // GET /api/listing-batches/range/labels — returns lots in a date range for label print
-// Two cases are included:
-//   1. NEW lots — BL date_created falls in the window (lot was first listed in this period).
+// Three cases are included:
+//   1a. NEW lots (BL date) — BL date_created falls in the window (lot was first listed in this period).
+//   1b. NEW lots (sync date) — lot was first imported to ELFIE in this window (syncedAt in range).
+//       This catches lots with null date_created AND lots listed on BL earlier but only
+//       synced to ELFIE today — both are missing from inventory_history (no history is written
+//       for brand-new inserts) so without this check they'd be invisible to the queue.
 //   2. RESTOCKED lots — inventory_history has a net positive qty change in the window.
 // Qty-reduced lots (sales) and price/remarks-only changes are intentionally excluded.
 router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: any, res) => {
@@ -116,6 +120,7 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       description: blInventory.description,
       dateCreated: blInventory.dateCreated,
       labelPrintedAt: blInventory.labelPrintedAt,
+      syncedAt: blInventory.syncedAt,
       itemName: sql<string | null>`COALESCE(${blCatalog.itemName}, NULL)`,
       colorName: sql<string | null>`COALESCE(${blCatalog.colorName}, NULL)`,
       thumbnailUrl: sql<string | null>`COALESCE(${blCatalog.thumbnailUrl}, ${blCatalog.imageUrl}, NULL)`,
@@ -133,8 +138,12 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
       eq(blInventory.orgId, orgId),
       isNull(blInventory.deletedAt),
       or(
-        // Case 1: lot was newly listed on BrickLink in this window
-        and(gte(blInventory.dateCreated, from), lte(blInventory.dateCreated, to)),
+        // Case 1a: lot was newly listed on BrickLink in this window (BL creation date in range)
+        and(isNotNull(blInventory.dateCreated), gte(blInventory.dateCreated, from), lte(blInventory.dateCreated, to)),
+        // Case 1b: lot was first imported to ELFIE in this window (syncedAt in range).
+        // Catches new lots regardless of their BL dateCreated — brand-new inserts never
+        // get an inventory_history entry so without this check they'd never appear.
+        and(gte(blInventory.syncedAt, from), lte(blInventory.syncedAt, to)),
         // Case 2: lot had a net qty INCREASE recorded in inventory_history this window
         inArray(
           blInventory.id,
@@ -154,14 +163,15 @@ router.get("/listing-batches/range/labels", isApproved, asyncRoute(async (req: a
     .orderBy(sql`aisle_name NULLS LAST`, blInventory.itemNo, blInventory.colorId)
     .limit(2000);
 
-  // Derive changeType from the lot's BrickLink creation date relative to the
-  // requested window. A lot whose dateCreated falls inside the range is "new"
-  // (was first listed in this window); anything older was already on the shelf
-  // and merely had its quantity touched, i.e. "qty_updated".
+  // Derive changeType: a lot is "new" if either its BL creation date OR its
+  // first-sync-to-ELFIE date (syncedAt) falls inside the requested window.
+  // Using syncedAt as a fallback handles the case where dateCreated is null or
+  // where the lot was listed on BL before the window but first imported today.
   const fromMs = from.getTime();
   const enriched = rows.map(r => ({
     ...r,
-    changeType: r.dateCreated && r.dateCreated.getTime() >= fromMs
+    changeType: (r.dateCreated && r.dateCreated.getTime() >= fromMs)
+                || (r.syncedAt && r.syncedAt.getTime() >= fromMs)
       ? 'new' as const
       : 'qty_updated' as const,
   }));
