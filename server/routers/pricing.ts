@@ -560,11 +560,12 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
     db.select({ count: sql<number>`COUNT(*)` })
       .from(blInventory)
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
-      .where(and(eq(blInventory.orgId, orgId), isNull(inventoryLocations.id))),
+      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), isNull(inventoryLocations.id))),
 
     db.select({ count: sql<number>`COUNT(DISTINCT ${inventoryLocations.inventoryId})` })
       .from(inventoryLocations)
       .innerJoin(whBins, and(eq(whBins.id, inventoryLocations.binId), eq(whBins.isFilingQueue, true)))
+      .innerJoin(blInventory, and(eq(blInventory.id, inventoryLocations.inventoryId), eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)))
       .where(eq(inventoryLocations.orgId, orgId)),
 
     // "Unfiled & untagged" — lots that have neither a real bin nor an rtf
@@ -575,6 +576,7 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
       .where(and(
         eq(blInventory.orgId, orgId),
+        isNull(blInventory.deletedAt),
         isNull(inventoryLocations.id),
         isNull(blInventory.rtfBin),
       )),
@@ -583,10 +585,11 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
     // tote that actually has bags in it (rtf 0, rtf 3, …).
     // Exclude lots already assigned to any bin (filed into a real location)
     // so the count resets to 0 once the bag has been physically filed.
+    // Exclude soft-deleted lots — they no longer exist in the active inventory.
     db.select({ rtfBin: blInventory.rtfBin, count: sql<number>`COUNT(*)` })
       .from(blInventory)
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
-      .where(and(eq(blInventory.orgId, orgId), isNotNull(blInventory.rtfBin), isNull(inventoryLocations.id)))
+      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), isNotNull(blInventory.rtfBin), isNull(inventoryLocations.id)))
       .groupBy(blInventory.rtfBin),
   ]);
 
