@@ -483,57 +483,65 @@ function DateRangeLabels(props: {
                       onClick={() => toggleRow(r.id)}
                       data-testid={`range-row-${r.id}`}
                     >
+                      {/* Checkbox */}
                       <div className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-emerald-500 border-emerald-400' : 'border-border'}`}>
                         {isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>
+                      {/* Thumbnail */}
                       {r.thumbnailUrl ? (
                         <img src={r.thumbnailUrl} alt={r.itemNo} className="w-6 h-6 object-contain shrink-0 rounded bg-gray-800" />
                       ) : (
                         <div className="w-6 h-6 shrink-0 rounded bg-gray-800" />
                       )}
-                      <span className="font-mono text-xs font-semibold shrink-0 w-14 truncate text-foreground">{r.itemNo}</span>
-                      <div className="flex flex-col min-w-0 flex-1 gap-0">
-                        <span className="text-xs text-muted-foreground truncate">{r.itemName || '—'}</span>
-                        {r.colorName && <span className="text-[10px] text-muted-foreground/80 truncate">{r.colorName}</span>}
-                      </div>
-                      {r.newOrUsed && (
-                        <span className={`text-[9px] font-semibold rounded px-1 shrink-0 border ${r.newOrUsed === 'N' ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' : 'bg-zinc-800 text-zinc-300 border-zinc-600'}`}>
-                          {r.newOrUsed === 'N' ? 'N' : 'U'}
-                        </span>
-                      )}
-                      {r.changeType === 'new' && (
-                        <span className="text-[9px] font-semibold rounded px-1 shrink-0 border bg-amber-600/20 text-amber-300 border-amber-500/40">New</span>
-                      )}
-                      {r.changeType === 'new' ? (
-                        <span className="flex items-center gap-0.5 shrink-0 text-[9px] font-mono">
-                          {r.aisleName ? (
-                            // "0 → rtf A": faint 0 = current state (no bin),
-                            // arrow + violet aisle = suggested destination.
-                            <>
-                              <span className="text-muted-foreground/50">0</span>
-                              <span className="text-muted-foreground/40">→</span>
-                              <span className="text-violet-300">rtf {r.aisleName}</span>
-                            </>
-                          ) : (
-                            // No sibling bin found — show "rtf 0" so the filer knows
-                            // there's no pre-sort tote for this lot.
-                            <span className="text-muted-foreground/60">rtf 0</span>
+                      {/* Two-line content block — gives color its own full-width line */}
+                      <div className="flex-1 min-w-0">
+                        {/* Line 1: part number + item name */}
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="font-mono text-xs font-semibold shrink-0 text-foreground">{r.itemNo}</span>
+                          <span className="text-xs text-muted-foreground truncate">{r.itemName || '—'}</span>
+                        </div>
+                        {/* Line 2: color · condition · change-type · rtf · alerts */}
+                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                          {r.colorName && (
+                            <span className="text-[10px] text-muted-foreground/80">{r.colorName}</span>
                           )}
-                        </span>
-                      ) : (
-                        r.aisleName && (
-                          <span className="text-[9px] font-mono text-muted-foreground/50 shrink-0">rtf {r.aisleName}</span>
-                        )
-                      )}
-                      {isMultiBin && conflictAisles && (
-                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-orange-300 shrink-0" title={`Check consolidation — found in: ${conflictAisles.join(', ')}`}>
-                          <AlertTriangle className="h-3 w-3" />
-                          {conflictAisles.join(', ')}
-                        </span>
-                      )}
-                      {printedToday && (
-                        <span className="text-[9px] text-amber-400 shrink-0 font-medium">printed</span>
-                      )}
+                          {r.newOrUsed && (
+                            <span className={`text-[9px] font-semibold rounded px-1 border ${r.newOrUsed === 'N' ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' : 'bg-zinc-800 text-zinc-300 border-zinc-600'}`}>
+                              {r.newOrUsed === 'N' ? 'N' : 'U'}
+                            </span>
+                          )}
+                          {r.changeType === 'new' && (
+                            <span className="text-[9px] font-semibold rounded px-1 border bg-amber-600/20 text-amber-300 border-amber-500/40">New</span>
+                          )}
+                          {r.changeType === 'new' ? (
+                            <span className="flex items-center gap-0.5 text-[9px] font-mono">
+                              {r.aisleName ? (
+                                <>
+                                  <span className="text-muted-foreground/50">0</span>
+                                  <span className="text-muted-foreground/40">→</span>
+                                  <span className="text-violet-300">rtf {r.aisleName}</span>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground/60">rtf 0</span>
+                              )}
+                            </span>
+                          ) : (
+                            r.aisleName && (
+                              <span className="text-[9px] font-mono text-muted-foreground/50">rtf {r.aisleName}</span>
+                            )
+                          )}
+                          {isMultiBin && conflictAisles && (
+                            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-orange-300" title={`Check consolidation — found in: ${conflictAisles.join(', ')}`}>
+                              <AlertTriangle className="h-3 w-3" />
+                              {conflictAisles.join(', ')}
+                            </span>
+                          )}
+                          {printedToday && (
+                            <span className="text-[9px] text-amber-400 font-medium">printed</span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Individual print button */}
                       <Button
                         size="icon"
                         variant="ghost"
