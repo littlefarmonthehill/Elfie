@@ -506,12 +506,17 @@ function DateRangeLabels(props: {
                       )}
                       {r.changeType === 'new' ? (
                         <span className="flex items-center gap-0.5 shrink-0 text-[9px] font-mono">
-                          <span className="text-muted-foreground/60">rtf 0</span>
-                          {r.aisleName && (
+                          {r.aisleName ? (
+                            // Suggestion found — show only the pin+aisle; "New" badge already
+                            // communicates the lot is unassigned so "rtf 0" is redundant here.
                             <>
                               <MapPin className="h-2.5 w-2.5 text-violet-400 shrink-0" />
                               <span className="text-violet-300">rtf {r.aisleName}</span>
                             </>
+                          ) : (
+                            // No sibling bin found — show "rtf 0" so the filer knows
+                            // there's no pre-sort tote for this lot.
+                            <span className="text-muted-foreground/60">rtf 0</span>
                           )}
                         </span>
                       ) : (
