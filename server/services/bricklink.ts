@@ -715,7 +715,33 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           orgId,
         }));
         
-        await db.insert(blInventory).values(values).onConflictDoNothing();
+        const insertedRows = await db.insert(blInventory).values(values).onConflictDoNothing()
+          .returning({ id: blInventory.id });
+
+        // Write a "lot created" history entry for each row that was actually
+        // inserted (onConflictDoNothing may silently skip conflicts). This makes
+        // the Inventory Detail change history show when a lot first appeared in
+        // ELFIE (displayed as BL Sync · Qty ~~0~~ → N).
+        if (insertedRows.length > 0) {
+          const insertedIds = new Set(insertedRows.map(r => Number(r.id)));
+          const changedAt = new Date();
+          await recordInventoryChanges(
+            batch
+              .filter(item => insertedIds.has(Number(item.inventory_id)))
+              .map(item => ({
+                orgId,
+                inventoryId: Number(item.inventory_id),
+                itemNo: item.item.no,
+                colorId: item.color_id || null,
+                changedAt,
+                source: 'bricklink_sync',
+                sourceRef: null,
+                field: 'quantity',
+                oldValue: '0',
+                newValue: String(item.quantity),
+              })),
+          );
+        }
 
         // Dual-write: upsert catalog-level fields to bl_catalog (deduplicate within batch)
         const batchCatMap = new Map<string, any>();
