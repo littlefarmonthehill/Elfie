@@ -9,48 +9,58 @@ export type ScanTone = "ok" | "new" | "warn" | "err";
 let ctx: AudioContext | null = null;
 
 // ── AudioContext keepalive ────────────────────────────────────────────────
-// iOS/Safari suspends the AudioContext when no audio has been output for a
-// few seconds, even if the page is still active.  Hardware scanner input
-// (keyboard Enter key) is NOT counted as a user gesture, so ctx.resume()
-// called just before scheduling notes often hasn't resolved yet and the
-// notes are silently dropped.
+// iOS/Safari aggressively suspends the AudioContext when no audio has been
+// produced for a few seconds, even while the page is active.  Hardware
+// scanner input (Enter key from a barcode gun) is NOT a user gesture, so
+// calling ctx.resume() just before scheduling notes is async — notes get
+// scheduled on a still-suspended context and are silently dropped.
 //
-// Fix: while the filing panel is mounted we ping the context every 4 s with
-// a near-silent 1 ms oscillator burst — just enough to keep the state
-// 'running' between scans.
+// Previous approach: poll with setInterval + one-shot silent bursts.
+// Problem: two races — (a) the burst fires AFTER resume() but the context
+//   re-suspends before the next tick, and (b) if suspended at tick time,
+//   resume() is called but returns immediately before actually running, so
+//   the silent burst path is skipped.
+//
+// Real fix: a continuously-running oscillator at acoustically-inaudible
+// gain (0.00001 ≈ -100 dB).  While a node is actively outputting audio the
+// browser cannot suspend the context, so the AC stays in 'running' state
+// between scans no matter how long the filer pauses.
 
-let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
+let silenceOsc: OscillatorNode | null = null;
+let silenceGain: GainNode | null = null;
+let keepaliveHandle: ReturnType<typeof setInterval> | null = null; // kept for cleanup compat
 
-function keepaliveTick(): void {
-  if (!ctx) return;
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
-    return;
-  }
-  if (ctx.state !== 'running') return;
+function attachSilenceGenerator(ac: AudioContext): void {
+  if (silenceOsc) return; // already attached
   try {
-    const t = ctx.currentTime;
-    const gn = ctx.createGain();
-    // Gain so small it is acoustically inaudible on any device.
-    gn.gain.setValueAtTime(0.0001, t);
-    gn.gain.exponentialRampToValueAtTime(0.00001, t + 0.001);
-    const osc = ctx.createOscillator();
-    osc.frequency.setValueAtTime(1, t); // 1 Hz — also inaudible
-    osc.connect(gn).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.002);
+    silenceGain = ac.createGain();
+    silenceGain.gain.setValueAtTime(0.00001, ac.currentTime); // ~−100 dB — inaudible
+    silenceGain.connect(ac.destination);
+    silenceOsc = ac.createOscillator();
+    silenceOsc.frequency.setValueAtTime(1, ac.currentTime); // 1 Hz — subsonic
+    silenceOsc.connect(silenceGain);
+    silenceOsc.start();
+    // No .stop() — runs until detachSilenceGenerator() or page unload.
   } catch { /* best-effort */ }
+}
+
+function detachSilenceGenerator(): void {
+  try { silenceOsc?.stop(); } catch {}
+  try { silenceOsc?.disconnect(); } catch {}
+  try { silenceGain?.disconnect(); } catch {}
+  silenceOsc = null;
+  silenceGain = null;
 }
 
 export function startAudioKeepalive(): void {
   stopAudioKeepalive();
-  // Ensure context exists (creates it if first call, which is fine — this
-  // runs after the user has already tapped the File tab).
-  getCtx();
-  keepaliveHandle = setInterval(keepaliveTick, 4_000);
+  // Create context now (within or just after a user gesture from the tab tap).
+  const ac = getCtx();
+  if (ac) attachSilenceGenerator(ac);
 }
 
 export function stopAudioKeepalive(): void {
+  detachSilenceGenerator();
   if (keepaliveHandle !== null) {
     clearInterval(keepaliveHandle);
     keepaliveHandle = null;
@@ -65,13 +75,22 @@ function getCtx(): AudioContext | null {
       if (!AC) return null;
       ctx = new AC();
     }
-    // Browsers suspend the context until a user gesture; scans happen via a
-    // tap / keypress / camera button so resuming here is safe.
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
     return ctx;
   } catch {
     return null;
   }
+}
+
+// Returns a Promise that resolves to a running AudioContext, or null if
+// unavailable.  Awaiting this before scheduling notes guarantees the context
+// is actually running — critical for melody functions called from non-gesture
+// event paths (scanner input, timers).
+function getRunningCtx(): Promise<AudioContext | null> {
+  const ac = getCtx();
+  if (!ac) return Promise.resolve(null);
+  if (ac.state === 'running') return Promise.resolve(ac);
+  return ac.resume().then(() => ac).catch(() => null);
 }
 
 // Play a single note at `freq` Hz for `dur` seconds starting at time `t`.
@@ -261,48 +280,57 @@ function playRecoveryMelody(ac: AudioContext): void {
  *   - Recovery (first good file after a slow stint): ascending fanfare
  */
 export function reportFilingSuccess(speech?: string): void {
-  const ac = getCtx();
-
+  // Pace tracking is synchronous — do it immediately so timestamps are exact.
   const now = Date.now();
-  // Trim timestamps older than 60 s so the array stays small.
   const cutoff = now - 60_000;
   while (recentFileTimes.length > 0 && recentFileTimes[0] < cutoff) recentFileTimes.shift();
-
   const gapMs = recentFileTimes.length > 0 ? now - recentFileTimes[recentFileTimes.length - 1] : null;
   recentFileTimes.push(now);
 
   const prevState = paceState;
-  let melodyMs = 280; // ms to wait before speaking so voice trails the melody
 
-  if (ac) {
-    try {
-      if (gapMs === null) {
-        // First filing — welcome chime.
-        paceState = 'unknown';
-        playGoodPaceMelody(ac);
-      } else {
-        const nextState: PaceState = gapMs / 1000 > 14 ? 'slow' : 'good';
-        paceState = nextState;
-        if (nextState === 'slow') {
-          playHurryMelody(ac);
-          melodyMs = 800;
-        } else if (prevState === 'slow') {
-          playRecoveryMelody(ac);
-          melodyMs = 440;
-        } else {
-          playGoodPaceMelody(ac);
-        }
-      }
-    } catch {
-      // Melody failed — fall back to the standard ok tone so filing isn't silent.
-      try { playTone("ok"); } catch { /* best-effort */ }
-      melodyMs = 160;
+  // Determine which melody to play and how long before we should speak.
+  // We compute this now so the speak() timer fires at the right offset even
+  // though melody scheduling is async.
+  let melodyMs = 280;
+  let chosenMelody: 'good' | 'hurry' | 'recovery' = 'good';
+  if (gapMs === null) {
+    paceState = 'unknown';
+    chosenMelody = 'good';
+    melodyMs = 280;
+  } else {
+    const nextState: PaceState = gapMs / 1000 > 14 ? 'slow' : 'good';
+    paceState = nextState;
+    if (nextState === 'slow') {
+      chosenMelody = 'hurry';
+      melodyMs = 800;
+    } else if (prevState === 'slow') {
+      chosenMelody = 'recovery';
+      melodyMs = 440;
+    } else {
+      chosenMelody = 'good';
+      melodyMs = 280;
     }
   }
 
-  // Speak the confirmation after the melody; call speak() directly so the
-  // chirp + utterance are scheduled even if pace melodies aren't available.
+  // Schedule the speak timer now (using the conservative melodyMs offset) so
+  // it fires at the right moment regardless of how long the AC resume takes.
   if (speech) setTimeout(() => speak(speech), melodyMs);
+
+  // getRunningCtx() awaits resume() if suspended before scheduling notes —
+  // this eliminates the "notes dropped on suspended context" race that the
+  // old getCtx() call had.  The silence generator normally keeps the AC
+  // running, so this usually resolves synchronously.
+  getRunningCtx().then(ac => {
+    if (!ac) return;
+    try {
+      if (chosenMelody === 'hurry') playHurryMelody(ac);
+      else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
+      else playGoodPaceMelody(ac);
+    } catch {
+      try { playTone("ok"); } catch { /* best-effort */ }
+    }
+  });
 }
 
 // Pending speech timer — cancelled if a new speak() fires before it triggers
