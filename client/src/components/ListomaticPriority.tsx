@@ -507,7 +507,7 @@ function DateRangeLabels(props: {
                           )}
                           {r.newOrUsed && (
                             <span className={`text-[9px] font-semibold rounded px-1 border ${r.newOrUsed === 'N' ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' : 'bg-zinc-800 text-zinc-300 border-zinc-600'}`}>
-                              {r.newOrUsed === 'N' ? 'N' : 'U'}
+                              {r.newOrUsed === 'N' ? 'New' : 'Used'}
                             </span>
                           )}
                           {r.changeType === 'new' && (
