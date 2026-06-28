@@ -8,6 +8,55 @@ export type ScanTone = "ok" | "new" | "warn" | "err";
 
 let ctx: AudioContext | null = null;
 
+// ── AudioContext keepalive ────────────────────────────────────────────────
+// iOS/Safari suspends the AudioContext when no audio has been output for a
+// few seconds, even if the page is still active.  Hardware scanner input
+// (keyboard Enter key) is NOT counted as a user gesture, so ctx.resume()
+// called just before scheduling notes often hasn't resolved yet and the
+// notes are silently dropped.
+//
+// Fix: while the filing panel is mounted we ping the context every 4 s with
+// a near-silent 1 ms oscillator burst — just enough to keep the state
+// 'running' between scans.
+
+let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
+
+function keepaliveTick(): void {
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+    return;
+  }
+  if (ctx.state !== 'running') return;
+  try {
+    const t = ctx.currentTime;
+    const gn = ctx.createGain();
+    // Gain so small it is acoustically inaudible on any device.
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(0.00001, t + 0.001);
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(1, t); // 1 Hz — also inaudible
+    osc.connect(gn).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.002);
+  } catch { /* best-effort */ }
+}
+
+export function startAudioKeepalive(): void {
+  stopAudioKeepalive();
+  // Ensure context exists (creates it if first call, which is fine — this
+  // runs after the user has already tapped the File tab).
+  getCtx();
+  keepaliveHandle = setInterval(keepaliveTick, 4_000);
+}
+
+export function stopAudioKeepalive(): void {
+  if (keepaliveHandle !== null) {
+    clearInterval(keepaliveHandle);
+    keepaliveHandle = null;
+  }
+}
+
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   try {

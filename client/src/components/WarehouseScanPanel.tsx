@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
-import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, playFilingStartup, type ScanTone } from "@/lib/scan-audio";
+import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, playFilingStartup, startAudioKeepalive, stopAudioKeepalive, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
@@ -283,13 +283,20 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
     setCameraSupported("BarcodeDetector" in window);
   }, []);
 
-  // Play startup jingle when the filing session opens, and reset the pace
-  // tracker so the session always begins fresh regardless of prior activity.
+  // Play startup jingle and start the AudioContext keepalive when the filing
+  // session opens.  The keepalive pings a near-silent note every 4 s so iOS
+  // never suspends the AudioContext between hardware-scanner scans (keyboard
+  // Enter key is not a user gesture, so a suspended ctx drops all melody
+  // notes silently while speech synthesis still works fine).
   useEffect(() => {
+    startAudioKeepalive();
     const t = setTimeout(() => {
       if (soundOnRef.current) playFilingStartup();
     }, 180); // let the tab animation finish before the melody fires
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      stopAudioKeepalive();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
