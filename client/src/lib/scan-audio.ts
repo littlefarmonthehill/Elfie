@@ -32,16 +32,37 @@ let keepaliveHandle: ReturnType<typeof setInterval> | null = null; // kept for c
 
 function attachSilenceGenerator(ac: AudioContext): void {
   if (silenceOsc) return; // already attached
-  try {
-    silenceGain = ac.createGain();
-    silenceGain.gain.setValueAtTime(0.00001, ac.currentTime); // ~−100 dB — inaudible
-    silenceGain.connect(ac.destination);
-    silenceOsc = ac.createOscillator();
-    silenceOsc.frequency.setValueAtTime(1, ac.currentTime); // 1 Hz — subsonic
-    silenceOsc.connect(silenceGain);
-    silenceOsc.start();
-    // No .stop() — runs until detachSilenceGenerator() or page unload.
-  } catch { /* best-effort */ }
+
+  const startOsc = () => {
+    if (silenceOsc) return; // guard against double-start from statechange
+    try {
+      silenceGain = ac.createGain();
+      silenceGain.gain.setValueAtTime(0.00001, ac.currentTime); // ~−100 dB — inaudible
+      silenceGain.connect(ac.destination);
+      silenceOsc = ac.createOscillator();
+      silenceOsc.frequency.setValueAtTime(1, ac.currentTime); // 1 Hz — subsonic
+      silenceOsc.connect(silenceGain);
+      silenceOsc.start();
+      // No .stop() — runs until detachSilenceGenerator() or page unload.
+    } catch { /* best-effort */ }
+  };
+
+  if (ac.state === 'running') {
+    // Context is already running — start the oscillator immediately.
+    startOsc();
+  } else {
+    // Context is suspended (common on iOS when created outside a gesture).
+    // Wait for it to become running, then start the oscillator.  This ensures
+    // the oscillator is never started on a suspended context (which would mean
+    // it begins silently and may never actually keep the context alive).
+    const onState = () => {
+      if (ac.state === 'running') {
+        ac.removeEventListener('statechange', onState as EventListener);
+        startOsc();
+      }
+    };
+    ac.addEventListener('statechange', onState as EventListener);
+  }
 }
 
 function detachSilenceGenerator(): void {
@@ -82,15 +103,24 @@ function getCtx(): AudioContext | null {
   }
 }
 
-// Returns a Promise that resolves to a running AudioContext, or null if
-// unavailable.  Awaiting this before scheduling notes guarantees the context
-// is actually running — critical for melody functions called from non-gesture
-// event paths (scanner input, timers).
-function getRunningCtx(): Promise<AudioContext | null> {
-  const ac = getCtx();
-  if (!ac) return Promise.resolve(null);
-  if (ac.state === 'running') return Promise.resolve(ac);
-  return ac.resume().then(() => ac).catch(() => null);
+// Schedule `fn` to run as soon as `ac` is in the 'running' state.
+// If already running: executes synchronously so notes land at currentTime.
+// If suspended: listens for the statechange event and fires when the context
+// confirms it is running.  This prevents notes from being scheduled at a
+// currentTime that iOS has already advanced past while the context was paused.
+function whenRunning(ac: AudioContext, fn: () => void): void {
+  if (ac.state === 'running') { fn(); return; }
+  const onState = () => {
+    if (ac.state === 'running') {
+      ac.removeEventListener('statechange', onState as EventListener);
+      fn();
+    }
+  };
+  ac.addEventListener('statechange', onState as EventListener);
+  // Drop the listener if the context never resumes within 1 s.
+  setTimeout(() => ac.removeEventListener('statechange', onState as EventListener), 1000);
+  // Kick the resume in case nobody else already did.
+  ac.resume().catch(() => {});
 }
 
 // Play a single note at `freq` Hz for `dur` seconds starting at time `t`.
@@ -315,13 +345,17 @@ function playPaceMelody(): number {
 
   const ac = getCtx();
   if (ac) {
-    try {
-      if (chosenMelody === 'hurry') playHurryMelody(ac);
-      else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
-      else playGoodPaceMelody(ac);
-    } catch {
-      try { playTone("ok"); } catch { /* best-effort */ }
-    }
+    // Use whenRunning so notes are scheduled at ac.currentTime only AFTER the
+    // context is confirmed running.  On iOS, currentTime keeps advancing while
+    // the context is suspended, so notes scheduled on a suspended context land
+    // in the past and are silently dropped.
+    whenRunning(ac, () => {
+      try {
+        if (chosenMelody === 'hurry') playHurryMelody(ac);
+        else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
+        else playGoodPaceMelody(ac);
+      } catch { /* best-effort */ }
+    });
   }
 
   return melodyMs;
