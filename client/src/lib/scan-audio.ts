@@ -137,7 +137,7 @@ export function unlockAudio(): void {
 // so rapid successive cues don't queue up stale phrases.
 let pendingSpeakTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function speak(text: string, rate = 0.75): void {
+export function speak(text: string, rate = 1.1): void {
   try {
     const synth = window.speechSynthesis;
     if (!synth) return;
@@ -158,7 +158,7 @@ export function speak(text: string, rate = 0.75): void {
       pendingSpeakTimer = null;
       const u = new SpeechSynthesisUtterance(text);
       u.pitch = 1.5;  // higher pitch — classic friendly-robot register
-      u.rate = rate;  // deliberate, slightly slower cadence
+      u.rate = rate;
       synth.speak(u);
     }, 120);
   } catch {
@@ -171,5 +171,5 @@ export function speak(text: string, rate = 0.75): void {
 // between each segment. No intro phrase — just the address.
 export function speakBin(binName: string): void {
   const binSpeech = binName.replace(/-/g, ", ");
-  speak(binSpeech, 0.9);
+  speak(binSpeech, 1.15);
 }
