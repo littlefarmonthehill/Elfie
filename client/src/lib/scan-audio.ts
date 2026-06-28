@@ -140,6 +140,33 @@ const recentFileTimes: number[] = [];
 type PaceState = 'unknown' | 'good' | 'slow';
 let paceState: PaceState = 'unknown';
 
+// 8-bit boot-up jingle: rising power-on sweep then a bright 4-note arpeggio.
+// Played when the filing panel first mounts so the filer knows the session is live.
+function playStartupMelody(ac: AudioContext): void {
+  let t = ac.currentTime + 0.12; // let the tab transition settle first
+  // Rising sawtooth sweep — "powering up"
+  t = sweep(ac, t, 110, 440, 0.28, 'sawtooth', 0.11);
+  t += 0.05;
+  // Ascending major arpeggio — "ready!"
+  t = note(ac, t, 523,  0.08, 'square',   0.16); // C5
+  t = note(ac, t, 659,  0.08, 'square',   0.17); // E5
+  t = note(ac, t, 784,  0.08, 'square',   0.18); // G5
+  note(ac,  t, 1047, 0.28, 'triangle', 0.15);     // C6 — bell ring
+}
+
+/**
+ * Play the filing-session startup melody and reset pace tracking so every
+ * new session begins with a clean slate (no carry-over from a prior session).
+ */
+export function playFilingStartup(): void {
+  // Reset pace state so each new session starts fresh.
+  recentFileTimes.length = 0;
+  paceState = 'unknown';
+  const ac = getCtx();
+  if (!ac) return;
+  try { playStartupMelody(ac); } catch { /* best-effort */ }
+}
+
 // Mario-style "hurry up" nudge — plays when the filer has gone slow (gap > 14 s).
 // Classic SMB main-theme opening, fast square-wave, ~0.8 s total.
 function playHurryMelody(ac: AudioContext): void {

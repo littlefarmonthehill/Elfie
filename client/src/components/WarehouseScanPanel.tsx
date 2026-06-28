@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
-import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, type ScanTone } from "@/lib/scan-audio";
+import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, playFilingStartup, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
@@ -282,6 +282,15 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
   useEffect(() => {
     setCameraSupported("BarcodeDetector" in window);
   }, []);
+
+  // Play startup jingle when the filing session opens, and reset the pace
+  // tracker so the session always begins fresh regardless of prior activity.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (soundOnRef.current) playFilingStartup();
+    }, 180); // let the tab animation finish before the melody fires
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!cameraOpen) inputRef.current?.focus();
