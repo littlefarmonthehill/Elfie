@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse, Check, Trash2, AlertTriangle } from "lucide-react";
+import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse, Check, Trash2, AlertTriangle, MapPin } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -12,6 +12,7 @@ import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import DashboardNotifications, { useSyncIssueCount } from "./DashboardNotifications";
 import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -247,6 +248,49 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       toast({ title: 'RTF bins cleared', description: 'All pre-sort hints have been reset. Lots are now unfiled.' });
     },
     onError: () => toast({ title: 'Failed to clear RTF bins', variant: 'destructive' }),
+  });
+
+  // ── Unfiled lot assignment ───────────────────────────────────────────────
+  interface BinOption { id: number; name: string; aisleName: string | null; shelfName: string | null; isFilingQueue: boolean; }
+  const [selectedLotIds, setSelectedLotIds] = useState<Set<number>>(new Set());
+  const [binSearch, setBinSearch] = useState('');
+  const [pickedBin, setPickedBin] = useState<BinOption | null>(null);
+  const [binDropdownOpen, setBinDropdownOpen] = useState(false);
+
+  // Reset selection + bin pick whenever the sheet opens to a different kind or closes.
+  useEffect(() => {
+    setSelectedLotIds(new Set());
+    setPickedBin(null);
+    setBinSearch('');
+    setBinDropdownOpen(false);
+  }, [drillDown?.kind]);
+
+  const { data: allBins = [] } = useQuery<BinOption[]>({
+    queryKey: ['/api/warehouse/bins'],
+    enabled: drillDown?.kind === 'unfiled',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filteredBins = binSearch.trim()
+    ? allBins.filter(b => {
+        const q = binSearch.toLowerCase();
+        return b.name.toLowerCase().includes(q) || (b.aisleName ?? '').toLowerCase().includes(q);
+      }).slice(0, 20)
+    : allBins.slice(0, 20);
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ lotIds, binId }: { lotIds: number[]; binId: number }) => {
+      await Promise.all(lotIds.map(id => apiRequest('POST', '/api/warehouse/scan/assign', { inventoryId: id, binId })));
+    },
+    onSuccess: (_, { lotIds }) => {
+      setSelectedLotIds(new Set());
+      setPickedBin(null);
+      setBinSearch('');
+      queryClient.invalidateQueries({ queryKey: ['/api/listomatc/unfiled-lots'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/listomatc/category-phases'] });
+      toast({ title: `${lotIds.length} lot${lotIds.length !== 1 ? 's' : ''} assigned`, description: `Filed into ${pickedBin?.name ?? 'bin'}.` });
+    },
+    onError: () => toast({ title: 'Assignment failed', variant: 'destructive' }),
   });
 
   const { data: capacitySummary } = useQuery<{
@@ -985,6 +1029,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <div className="flex items-center justify-center py-12 text-gray-500 text-sm">Loading…</div>
             ) : (() => {
               const lots = (drillDown?.kind === 'unfiled' ? unfiledLots?.lots : rtfLots?.lots) ?? [];
+              const isUnfiled = drillDown?.kind === 'unfiled';
               if (lots.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-600">
@@ -995,8 +1040,57 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               }
               return (
                 <div className="divide-y divide-gray-800/60">
+                  {isUnfiled && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-900/60 border-b border-gray-800 sticky top-0 z-10">
+                      <Checkbox
+                        id="select-all-unfiled"
+                        checked={selectedLotIds.size === lots.length && lots.length > 0}
+                        onCheckedChange={(checked) => {
+                          setSelectedLotIds(checked ? new Set(lots.map(l => l.id)) : new Set());
+                        }}
+                        className="border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                        data-testid="checkbox-select-all-unfiled"
+                      />
+                      <label htmlFor="select-all-unfiled" className="text-[11px] text-gray-400 cursor-pointer select-none">
+                        {selectedLotIds.size === 0
+                          ? `Select all ${lots.length} lots`
+                          : `${selectedLotIds.size} of ${lots.length} selected`}
+                      </label>
+                      {selectedLotIds.size > 0 && (
+                        <button
+                          className="ml-auto text-[11px] text-gray-500 hover:text-gray-300"
+                          onClick={() => setSelectedLotIds(new Set())}
+                          data-testid="button-clear-unfiled-selection"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {lots.map((lot) => (
-                    <div key={lot.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-filing-lot-${lot.id}`}>
+                    <div
+                      key={lot.id}
+                      className={cn("flex items-center gap-3 px-4 py-2.5", isUnfiled && "cursor-pointer hover:bg-gray-900/40")}
+                      onClick={isUnfiled ? () => setSelectedLotIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(lot.id)) next.delete(lot.id); else next.add(lot.id);
+                        return next;
+                      }) : undefined}
+                      data-testid={`row-filing-lot-${lot.id}`}
+                    >
+                      {isUnfiled && (
+                        <Checkbox
+                          checked={selectedLotIds.has(lot.id)}
+                          onCheckedChange={() => setSelectedLotIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(lot.id)) next.delete(lot.id); else next.add(lot.id);
+                            return next;
+                          })}
+                          onClick={e => e.stopPropagation()}
+                          className="shrink-0 border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                          data-testid={`checkbox-lot-${lot.id}`}
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono text-xs text-gray-300">{lot.itemNo}</span>
@@ -1020,6 +1114,71 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               );
             })()}
           </div>
+
+          {/* Assign-to-bin footer — only for unfiled, only when lots are selected */}
+          {drillDown?.kind === 'unfiled' && selectedLotIds.size > 0 && (
+            <div className="shrink-0 border-t border-gray-800 bg-gray-900/80 px-4 py-3 flex flex-col gap-2">
+              <div className="text-xs text-gray-400 font-medium">
+                Assign {selectedLotIds.size} lot{selectedLotIds.size !== 1 ? 's' : ''} to a bin
+              </div>
+
+              {/* Bin picker */}
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                    <Input
+                      placeholder={pickedBin ? pickedBin.name : "Search bins…"}
+                      value={pickedBin ? pickedBin.name : binSearch}
+                      onFocus={() => { setBinDropdownOpen(true); if (pickedBin) { setBinSearch(''); setPickedBin(null); } }}
+                      onChange={e => { setBinSearch(e.target.value); setPickedBin(null); setBinDropdownOpen(true); }}
+                      onBlur={() => setTimeout(() => setBinDropdownOpen(false), 150)}
+                      className="pl-8 h-8 bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-500 text-xs"
+                      data-testid="input-unfiled-bin-search"
+                    />
+                    {pickedBin && (
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                        onMouseDown={e => { e.preventDefault(); setPickedBin(null); setBinSearch(''); }}
+                        data-testid="button-clear-picked-bin"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!pickedBin || assignMutation.isPending}
+                    onClick={() => pickedBin && assignMutation.mutate({ lotIds: Array.from(selectedLotIds), binId: pickedBin.id })}
+                    className="shrink-0 border-indigo-700/60 text-indigo-300 hover:text-indigo-200 hover:border-indigo-500/60 disabled:opacity-40"
+                    data-testid="button-assign-unfiled-lots"
+                  >
+                    {assignMutation.isPending ? 'Assigning…' : 'Assign'}
+                  </Button>
+                </div>
+
+                {/* Dropdown */}
+                {binDropdownOpen && !pickedBin && (
+                  <div className="absolute bottom-full mb-1 left-0 right-0 z-50 bg-gray-900 border border-gray-700 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {filteredBins.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">No bins found</div>
+                    ) : filteredBins.map(bin => (
+                      <button
+                        key={bin.id}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-800 flex items-center justify-between gap-2"
+                        onMouseDown={e => { e.preventDefault(); setPickedBin(bin); setBinSearch(''); setBinDropdownOpen(false); }}
+                        data-testid={`option-bin-${bin.id}`}
+                      >
+                        <span className="text-gray-200 font-mono">{bin.name}</span>
+                        <span className="text-gray-500 shrink-0">{[bin.aisleName, bin.shelfName].filter(Boolean).join(' › ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
 
