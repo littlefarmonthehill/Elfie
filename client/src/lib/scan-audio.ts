@@ -37,7 +37,7 @@ function attachSilenceGenerator(ac: AudioContext): void {
     if (silenceOsc) return; // guard against double-start from statechange
     try {
       silenceGain = ac.createGain();
-      silenceGain.gain.setValueAtTime(0.00001, ac.currentTime); // ~−100 dB — inaudible
+      silenceGain.gain.setValueAtTime(0.001, ac.currentTime); // −60 dB — inaudible but non-trivial to iOS
       silenceGain.connect(ac.destination);
       silenceOsc = ac.createOscillator();
       silenceOsc.frequency.setValueAtTime(1, ac.currentTime); // 1 Hz — subsonic
@@ -103,24 +103,17 @@ function getCtx(): AudioContext | null {
   }
 }
 
-// Schedule `fn` to run as soon as `ac` is in the 'running' state.
-// If already running: executes synchronously so notes land at currentTime.
-// If suspended: listens for the statechange event and fires when the context
-// confirms it is running.  This prevents notes from being scheduled at a
-// currentTime that iOS has already advanced past while the context was paused.
-function whenRunning(ac: AudioContext, fn: () => void): void {
+// Call `fn` as soon as `ac` is confirmed running.
+// • If already running: synchronous call — notes land at the current time.
+// • If suspended: use ac.resume() (Promise-based).  The Promise resolves ONLY
+//   after the context is actually in 'running' state, so `ac.currentTime`
+//   inside fn() will be a fresh, present value and notes won't be dropped.
+//   statechange events are NOT used here because on iOS they can fire while
+//   the context is still transitioning and `ac.state` may not yet read
+//   'running', causing the note-scheduling callback to be silently skipped.
+function scheduleWhenRunning(ac: AudioContext, fn: () => void): void {
   if (ac.state === 'running') { fn(); return; }
-  const onState = () => {
-    if (ac.state === 'running') {
-      ac.removeEventListener('statechange', onState as EventListener);
-      fn();
-    }
-  };
-  ac.addEventListener('statechange', onState as EventListener);
-  // Drop the listener if the context never resumes within 1 s.
-  setTimeout(() => ac.removeEventListener('statechange', onState as EventListener), 1000);
-  // Kick the resume in case nobody else already did.
-  ac.resume().catch(() => {});
+  ac.resume().then(fn).catch(() => {});
 }
 
 // Play a single note at `freq` Hz for `dur` seconds starting at time `t`.
@@ -267,8 +260,9 @@ export function playFilingStartup(): void {
 
 // Mario-style "hurry up" nudge — plays when the filer has gone slow (gap > 14 s).
 // Classic SMB main-theme opening, fast square-wave, ~0.8 s total.
-function playHurryMelody(ac: AudioContext): void {
-  let t = ac.currentTime; // no offset — same as playTone
+// `t` is always provided by the caller (read from ac.currentTime + offset just
+// before scheduling so notes never land in the past after an async resume).
+function playHurryMelody(ac: AudioContext, t: number): void {
   const q = 0.09;
   t = note(ac, t, 659, q,       "square", 0.18); // E5
   t += q * 0.55;
@@ -283,18 +277,14 @@ function playHurryMelody(ac: AudioContext): void {
 }
 
 // Good-pace chime — ascending 3-note arpeggio.
-// Uses ac.currentTime with no offset, exactly like playTone, to avoid iOS
-// "note in the past" drops when the context resumes from a brief suspension.
-function playGoodPaceMelody(ac: AudioContext): void {
-  let t = ac.currentTime; // no offset — same as playTone
+function playGoodPaceMelody(ac: AudioContext, t: number): void {
   t = note(ac, t, 523, 0.07, "square", 0.17); // C5
   t = note(ac, t, 659, 0.07, "square", 0.18); // E5
   note(ac, t,  784, 0.18, "square", 0.19);     // G5
 }
 
 // Recovery fanfare — first good file after a slow streak.
-function playRecoveryMelody(ac: AudioContext): void {
-  let t = ac.currentTime; // no offset — same as playTone
+function playRecoveryMelody(ac: AudioContext, t: number): void {
   t = note(ac, t, 523, 0.07, "square", 0.16); // C5
   t = note(ac, t, 659, 0.07, "square", 0.17); // E5
   t = note(ac, t, 784, 0.07, "square", 0.18); // G5
@@ -345,15 +335,18 @@ function playPaceMelody(): number {
 
   const ac = getCtx();
   if (ac) {
-    // Use whenRunning so notes are scheduled at ac.currentTime only AFTER the
-    // context is confirmed running.  On iOS, currentTime keeps advancing while
-    // the context is suspended, so notes scheduled on a suspended context land
-    // in the past and are silently dropped.
-    whenRunning(ac, () => {
+    // scheduleWhenRunning uses ac.resume().then() (Promise-based) so the
+    // callback fires only after the context is CONFIRMED running.  `t` is
+    // read inside the callback — not before — so it is always a fresh
+    // ac.currentTime value and notes are never scheduled in the past.
+    // A 50 ms forward offset gives iOS a tiny runway to process the notes
+    // before the context could re-suspend.
+    scheduleWhenRunning(ac, () => {
       try {
-        if (chosenMelody === 'hurry') playHurryMelody(ac);
-        else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
-        else playGoodPaceMelody(ac);
+        const t = ac.currentTime + 0.05;
+        if (chosenMelody === 'hurry') playHurryMelody(ac, t);
+        else if (chosenMelody === 'recovery') playRecoveryMelody(ac, t);
+        else playGoodPaceMelody(ac, t);
       } catch { /* best-effort */ }
     });
   }
