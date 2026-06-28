@@ -238,7 +238,7 @@ export function playFilingStartup(): void {
 // Mario-style "hurry up" nudge — plays when the filer has gone slow (gap > 14 s).
 // Classic SMB main-theme opening, fast square-wave, ~0.8 s total.
 function playHurryMelody(ac: AudioContext): void {
-  let t = ac.currentTime + 0.01;
+  let t = ac.currentTime; // no offset — same as playTone
   const q = 0.09;
   t = note(ac, t, 659, q,       "square", 0.18); // E5
   t += q * 0.55;
@@ -252,35 +252,38 @@ function playHurryMelody(ac: AudioContext): void {
   note(ac, t,       392, q * 2.4, "square", 0.13); // G4 (low, bass undertone)
 }
 
-// Good-pace chime — ascending 3-note arpeggio, square wave to match the
-// volume and character of the ok/err tones that the filer already knows.
+// Good-pace chime — ascending 3-note arpeggio.
+// Uses ac.currentTime with no offset, exactly like playTone, to avoid iOS
+// "note in the past" drops when the context resumes from a brief suspension.
 function playGoodPaceMelody(ac: AudioContext): void {
-  let t = ac.currentTime + 0.01;
-  t = note(ac, t, 523,  0.07, "square", 0.17); // C5
-  t = note(ac, t, 659,  0.07, "square", 0.18); // E5
-  note(ac, t,  784,  0.18, "square", 0.19);     // G5 — held slightly longer
+  let t = ac.currentTime; // no offset — same as playTone
+  t = note(ac, t, 523, 0.07, "square", 0.17); // C5
+  t = note(ac, t, 659, 0.07, "square", 0.18); // E5
+  note(ac, t,  784, 0.18, "square", 0.19);     // G5
 }
 
 // Recovery fanfare — first good file after a slow streak.
-// Short ascending arpeggio to celebrate getting back on pace.
 function playRecoveryMelody(ac: AudioContext): void {
-  let t = ac.currentTime + 0.01;
-  t = note(ac, t, 523,  0.07, "square", 0.16); // C5
-  t = note(ac, t, 659,  0.07, "square", 0.17); // E5
-  t = note(ac, t, 784,  0.07, "square", 0.18); // G5
-  note(ac, t,  1047, 0.22, "square", 0.20);     // C6 — ring out
+  let t = ac.currentTime; // no offset — same as playTone
+  t = note(ac, t, 523, 0.07, "square", 0.16); // C5
+  t = note(ac, t, 659, 0.07, "square", 0.17); // E5
+  t = note(ac, t, 784, 0.07, "square", 0.18); // G5
+  note(ac, t, 1047, 0.22, "square", 0.20);     // C6 — ring out
 }
 
 /**
- * Call on every successful lot-filed event.
- * Tracks pace and plays the appropriate melody, then speaks the confirmation.
- * Falls back to the standard ok tone if the melody fails so filing is never silent.
- *   - First file or good pace: calm 3-note chime
- *   - Slow pace (> 14 s gap): Mario hurry melody
+ * Update the filing-pace state and play the appropriate melody.
+ * Returns the melody duration in ms so callers can time follow-up speech.
+ *
+ * Melody selection:
+ *   - First file or good pace (≤ 14 s gap): calm 3-note ascending chime
+ *   - Slow pace (> 14 s gap): Mario-style hurry melody
  *   - Recovery (first good file after a slow stint): ascending fanfare
+ *
+ * Scheduling uses ac.currentTime with no offset — identical to playTone() —
+ * so notes are never dropped when iOS resumes a briefly-suspended context.
  */
-export function reportFilingSuccess(speech?: string): void {
-  // Pace tracking is synchronous — do it immediately so timestamps are exact.
+function playPaceMelody(): number {
   const now = Date.now();
   const cutoff = now - 60_000;
   while (recentFileTimes.length > 0 && recentFileTimes[0] < cutoff) recentFileTimes.shift();
@@ -288,12 +291,9 @@ export function reportFilingSuccess(speech?: string): void {
   recentFileTimes.push(now);
 
   const prevState = paceState;
-
-  // Determine which melody to play and how long before we should speak.
-  // We compute this now so the speak() timer fires at the right offset even
-  // though melody scheduling is async.
   let melodyMs = 280;
   let chosenMelody: 'good' | 'hurry' | 'recovery' = 'good';
+
   if (gapMs === null) {
     paceState = 'unknown';
     chosenMelody = 'good';
@@ -313,21 +313,36 @@ export function reportFilingSuccess(speech?: string): void {
     }
   }
 
-  // Schedule the speak timer.
-  if (speech) setTimeout(() => speak(speech), melodyMs);
-
-  // Use getCtx() synchronously — the same path used by playTone(), speak(),
-  // and playFilingStartup(), all of which work reliably.  The silence
-  // generator keeps the context running between scans, so this is safe.
   const ac = getCtx();
-  if (!ac) return;
-  try {
-    if (chosenMelody === 'hurry') playHurryMelody(ac);
-    else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
-    else playGoodPaceMelody(ac);
-  } catch {
-    try { playTone("ok"); } catch { /* best-effort */ }
+  if (ac) {
+    try {
+      if (chosenMelody === 'hurry') playHurryMelody(ac);
+      else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
+      else playGoodPaceMelody(ac);
+    } catch {
+      try { playTone("ok"); } catch { /* best-effort */ }
+    }
   }
+
+  return melodyMs;
+}
+
+/**
+ * Call after a successful lot filing.
+ * Plays the pace melody then speaks the confirmation after the melody finishes.
+ */
+export function reportFilingSuccess(speech?: string): void {
+  const melodyMs = playPaceMelody();
+  if (speech) setTimeout(() => speak(speech), melodyMs);
+}
+
+/**
+ * Call after a failed filing attempt (alongside cue("err")).
+ * Plays the pace melody without additional speech so the filer still gets
+ * pacing feedback even when a scan goes wrong.
+ */
+export function reportFilingPace(): void {
+  playPaceMelody();
 }
 
 // Pending speech timer — cancelled if a new speak() fires before it triggers

@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
-import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, playFilingStartup, startAudioKeepalive, stopAudioKeepalive, type ScanTone } from "@/lib/scan-audio";
+import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, reportFilingPace, playFilingStartup, startAudioKeepalive, stopAudioKeepalive, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
@@ -405,6 +405,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
       justFiledTimerRef.current = setTimeout(() => setJustFiledBin(null), 30_000);
     } catch {
       cue("err", "Assignment failed.");
+      if (soundOnRef.current) reportFilingPace();
       updateFeed(feedId, { status: "err", message: "Assignment failed" });
     }
   }, [activeLot, assignMutation, addFeed, updateFeed, cue]);
@@ -457,6 +458,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         return true;
       } catch {
         cue("err", "Assignment failed.");
+        if (soundOnRef.current) reportFilingPace();
         updateFeed(feedId, { status: "err", message: "Assignment failed" });
         return false;
       }
