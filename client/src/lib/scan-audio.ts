@@ -252,13 +252,13 @@ function playHurryMelody(ac: AudioContext): void {
   note(ac, t,       392, q * 2.4, "square", 0.13); // G4 (low, bass undertone)
 }
 
-// Calm chime — plays when the filer is at a good pace.
-// Quick ascending triangle triplet; pleasant, not jarring.
+// Good-pace chime — ascending 3-note arpeggio, square wave to match the
+// volume and character of the ok/err tones that the filer already knows.
 function playGoodPaceMelody(ac: AudioContext): void {
   let t = ac.currentTime + 0.01;
-  t = note(ac, t, 523,  0.07, "triangle", 0.15); // C5
-  t = note(ac, t, 659,  0.07, "triangle", 0.16); // E5
-  note(ac, t,  784,  0.14, "triangle", 0.17);     // G5
+  t = note(ac, t, 523,  0.07, "square", 0.17); // C5
+  t = note(ac, t, 659,  0.07, "square", 0.18); // E5
+  note(ac, t,  784,  0.18, "square", 0.19);     // G5 — held slightly longer
 }
 
 // Recovery fanfare — first good file after a slow streak.
@@ -313,24 +313,21 @@ export function reportFilingSuccess(speech?: string): void {
     }
   }
 
-  // Schedule the speak timer now (using the conservative melodyMs offset) so
-  // it fires at the right moment regardless of how long the AC resume takes.
+  // Schedule the speak timer.
   if (speech) setTimeout(() => speak(speech), melodyMs);
 
-  // getRunningCtx() awaits resume() if suspended before scheduling notes —
-  // this eliminates the "notes dropped on suspended context" race that the
-  // old getCtx() call had.  The silence generator normally keeps the AC
-  // running, so this usually resolves synchronously.
-  getRunningCtx().then(ac => {
-    if (!ac) return;
-    try {
-      if (chosenMelody === 'hurry') playHurryMelody(ac);
-      else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
-      else playGoodPaceMelody(ac);
-    } catch {
-      try { playTone("ok"); } catch { /* best-effort */ }
-    }
-  });
+  // Use getCtx() synchronously — the same path used by playTone(), speak(),
+  // and playFilingStartup(), all of which work reliably.  The silence
+  // generator keeps the context running between scans, so this is safe.
+  const ac = getCtx();
+  if (!ac) return;
+  try {
+    if (chosenMelody === 'hurry') playHurryMelody(ac);
+    else if (chosenMelody === 'recovery') playRecoveryMelody(ac);
+    else playGoodPaceMelody(ac);
+  } catch {
+    try { playTone("ok"); } catch { /* best-effort */ }
+  }
 }
 
 // Pending speech timer — cancelled if a new speak() fires before it triggers
