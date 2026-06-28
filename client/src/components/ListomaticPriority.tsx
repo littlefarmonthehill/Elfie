@@ -511,7 +511,7 @@ function DateRangeLabels(props: {
                             </span>
                           )}
                           {r.changeType === 'new' && (
-                            <span className="text-[9px] font-semibold rounded px-1 border bg-amber-600/20 text-amber-300 border-amber-500/40">New</span>
+                            <span className="text-[9px] font-semibold rounded px-1 border bg-amber-600/20 text-amber-300 border-amber-500/40">1st</span>
                           )}
                           {r.changeType === 'new' ? (
                             <span className="flex items-center gap-0.5 text-[9px] font-mono">
