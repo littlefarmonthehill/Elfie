@@ -616,6 +616,94 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
   res.json({ success: true, categories, fileLotCounts, rtfLotCounts });
 }));
 
+// ── Filing drill-down: lots with no bin and no rtf hint (truly unfiled) ──────
+router.get("/listomatc/unfiled-lots", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const rows = await db
+    .select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      newOrUsed: blInventory.newOrUsed,
+      quantity: blInventory.quantity,
+      itemName: blCatalog.itemName,
+      colorName: blCatalog.colorName,
+    })
+    .from(blInventory)
+    .leftJoin(blCatalog, and(
+      eq(blCatalog.itemNo, blInventory.itemNo),
+      eq(blCatalog.itemType, blInventory.itemType),
+      eq(blCatalog.colorId, blInventory.colorId),
+    ))
+    .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+    .where(and(
+      eq(blInventory.orgId, orgId),
+      isNull(blInventory.deletedAt),
+      gt(blInventory.quantity, 0),
+      isNull(inventoryLocations.id),
+      isNull(blInventory.rtfBin),
+    ))
+    .orderBy(blCatalog.colorName, blInventory.itemNo)
+    .limit(300);
+  res.json({ lots: rows });
+}));
+
+// ── Filing drill-down: lots in a specific rtf bucket (have hint, not yet filed) ──
+router.get("/listomatc/rtf-lots", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  const { rtfBin } = req.query as { rtfBin?: string };
+  if (!rtfBin) return res.status(400).json({ error: "rtfBin query param required" });
+
+  const rows = await db
+    .select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      newOrUsed: blInventory.newOrUsed,
+      quantity: blInventory.quantity,
+      rtfBin: blInventory.rtfBin,
+      itemName: blCatalog.itemName,
+      colorName: blCatalog.colorName,
+    })
+    .from(blInventory)
+    .leftJoin(blCatalog, and(
+      eq(blCatalog.itemNo, blInventory.itemNo),
+      eq(blCatalog.itemType, blInventory.itemType),
+      eq(blCatalog.colorId, blInventory.colorId),
+    ))
+    .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
+    .where(and(
+      eq(blInventory.orgId, orgId),
+      isNull(blInventory.deletedAt),
+      gt(blInventory.quantity, 0),
+      eq(blInventory.rtfBin, rtfBin),
+      isNull(inventoryLocations.id),
+    ))
+    .orderBy(blCatalog.colorName, blInventory.itemNo)
+    .limit(300);
+  res.json({ lots: rows });
+}));
+
+// ── Clear all RTF bin hints for the org (resets pre-sort tags on unassigned lots) ──
+router.delete("/listomatc/rtf-bins", isApproved, asyncRoute(async (req: any, res) => {
+  const orgId = reqOrgId(req);
+  // Only clear rtfBin on lots that are NOT yet assigned to a real bin location.
+  // Lots that have already been scanned into a bin keep their filing record untouched.
+  const assignedIds = db
+    .select({ inventoryId: inventoryLocations.inventoryId })
+    .from(inventoryLocations)
+    .where(eq(inventoryLocations.orgId, orgId));
+
+  const result = await db
+    .update(blInventory)
+    .set({ rtfBin: null })
+    .where(and(
+      eq(blInventory.orgId, orgId),
+      isNull(blInventory.deletedAt),
+      isNotNull(blInventory.rtfBin),
+      sql`${blInventory.id} NOT IN (${assignedIds})`,
+    ));
+  res.json({ success: true, cleared: result.rowCount ?? 0 });
+}));
+
 router.patch("/listomatc/category-phase", isApproved, asyncRoute(async (req, res) => {
   const { categoryId, phase } = req.body as { categoryId: number; phase: string | null };
   const validPhases = ['category', 'subcategory', 'finalsort', 'listing', 'file', null];

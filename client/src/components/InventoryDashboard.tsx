@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, ComponentType } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse, Check } from "lucide-react";
+import { InfoIcon, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Layers, Crosshair, TrendingDown, Rocket, ListOrdered, Gauge, Bot, Atom, Warehouse, Check, Trash2, AlertTriangle } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { StationTool } from "./StationTool";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
@@ -14,7 +17,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useFeature, useFeatures, type Stage } from "@/hooks/use-feature";
 import { useAuth } from "@/hooks/useAuth";
@@ -207,6 +209,44 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }>({
     queryKey: ['/api/listomatc/category-phases'],
     staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Filing drill-down sheet ──────────────────────────────────────────────
+  type DrillDown = { kind: 'unfiled' } | { kind: 'rtf'; rtfBin: string } | null;
+  const [drillDown, setDrillDown] = useState<DrillDown>(null);
+  const [confirmClearRtf, setConfirmClearRtf] = useState(false);
+
+  interface FilingLot {
+    id: number; itemNo: string; newOrUsed: string | null;
+    quantity: number | null; itemName: string | null; colorName: string | null;
+    rtfBin?: string | null;
+  }
+
+  const { data: unfiledLots, isLoading: unfiledLoading } = useQuery<{ lots: FilingLot[] }>({
+    queryKey: ['/api/listomatc/unfiled-lots'],
+    enabled: drillDown?.kind === 'unfiled',
+    staleTime: 30_000,
+  });
+
+  const { data: rtfLots, isLoading: rtfLoading } = useQuery<{ lots: FilingLot[] }>({
+    queryKey: ['/api/listomatc/rtf-lots', drillDown?.kind === 'rtf' ? drillDown.rtfBin : ''],
+    enabled: drillDown?.kind === 'rtf',
+    staleTime: 30_000,
+    // @ts-ignore — custom fetch with query param
+    queryFn: drillDown?.kind === 'rtf'
+      ? () => fetch(`/api/listomatc/rtf-lots?rtfBin=${encodeURIComponent((drillDown as { kind: 'rtf'; rtfBin: string }).rtfBin)}`).then(r => r.json())
+      : undefined,
+  });
+
+  const clearRtfMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', '/api/listomatc/rtf-bins'),
+    onSuccess: () => {
+      setConfirmClearRtf(false);
+      setDrillDown(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/listomatc/category-phases'] });
+      toast({ title: 'RTF bins cleared', description: 'All pre-sort hints have been reset. Lots are now unfiled.' });
+    },
+    onError: () => toast({ title: 'Failed to clear RTF bins', variant: 'destructive' }),
   });
 
   const { data: capacitySummary } = useQuery<{
@@ -407,6 +447,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             statuses,
             trailingContent,
             stage,
+            onStatusClick,
           }: {
             buttonIcon: React.ReactNode;
             buttonLabel: string;
@@ -417,6 +458,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             statuses: { key: string; label: string; count: number; lampColor: string }[];
             trailingContent?: React.ReactNode;
             stage?: Stage;
+            onStatusClick?: (key: string) => void;
           }) => (
             <div className="flex items-stretch gap-3">
               <button
@@ -434,11 +476,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="flex items-start">
                   {statuses.map(({ key, label, count, lampColor }) => {
                     const isActive = count > 0;
+                    const clickable = !!onStatusClick && isActive;
+                    const El = clickable ? 'button' : 'div';
                     return (
-                      <div
+                      <El
                         key={key}
                         data-testid={`directive-inv-${key}`}
-                        className="flex-1 flex flex-col items-center gap-0.5 py-0"
+                        {...(clickable ? { onClick: () => onStatusClick!(key), title: `View ${label} lots` } : {})}
+                        className={cn(
+                          "flex-1 flex flex-col items-center gap-0.5 py-0 rounded",
+                          clickable && "cursor-pointer hover:bg-white/5 transition-colors"
+                        )}
                       >
                         <span className={cn("font-mono text-[9px] uppercase tracking-wide leading-none whitespace-nowrap", isActive ? "text-gray-300" : "text-gray-400")}>{label}</span>
                         <div
@@ -453,7 +501,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                           )}
                         />
                         <span className={cn("font-mono text-[8px] font-bold leading-none", isActive ? "text-white" : "text-gray-400")}>{count}</span>
-                      </div>
+                      </El>
                     );
                   })}
                   {trailingContent}
@@ -548,6 +596,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     </span>
                   </div>
                 ) : undefined}
+                onStatusClick={(key) => {
+                  if (key === 'lom-unf') {
+                    setDrillDown({ kind: 'unfiled' });
+                  } else if (key.startsWith('lom-rtf-')) {
+                    setDrillDown({ kind: 'rtf', rtfBin: key.replace('lom-rtf-', '') });
+                  }
+                }}
               />
               )}
 
@@ -887,6 +942,115 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           onItemClick={onItemClick}
         />
       )}
+
+      {/* ── Filing drill-down sheet ──────────────────────────────────────── */}
+      <Sheet open={!!drillDown} onOpenChange={(open) => { if (!open) setDrillDown(null); }}>
+        <SheetContent
+          side="bottom"
+          className="bg-gray-950 border-t border-gray-800 text-gray-200 max-h-[80vh] flex flex-col p-0"
+        >
+          <SheetHeader className="px-4 pt-4 pb-3 border-b border-gray-800 shrink-0">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <SheetTitle className="text-gray-100 text-sm">
+                  {drillDown?.kind === 'unfiled'
+                    ? 'Unfiled lots — no bin, no RTF hint'
+                    : drillDown?.kind === 'rtf'
+                    ? `RTF ${(drillDown as any).rtfBin} — lots pending filing`
+                    : ''}
+                </SheetTitle>
+                <SheetDescription className="text-gray-500 text-xs mt-0.5">
+                  {drillDown?.kind === 'unfiled'
+                    ? 'These lots have no bin assignment and no pre-sort tote hint yet.'
+                    : 'These lots have been pre-sorted into this RTF tote but not filed into a bin yet.'}
+                </SheetDescription>
+              </div>
+              {drillDown?.kind === 'rtf' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 border-red-800/60 text-red-400 hover:text-red-300 hover:border-red-600/60"
+                  onClick={() => setConfirmClearRtf(true)}
+                  data-testid="button-clear-rtf-bins"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Clear all RTF bins
+                </Button>
+              )}
+            </div>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {(drillDown?.kind === 'unfiled' ? unfiledLoading : rtfLoading) ? (
+              <div className="flex items-center justify-center py-12 text-gray-500 text-sm">Loading…</div>
+            ) : (() => {
+              const lots = (drillDown?.kind === 'unfiled' ? unfiledLots?.lots : rtfLots?.lots) ?? [];
+              if (lots.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-600">
+                    <Check className="w-6 h-6 text-emerald-500" />
+                    <span className="text-sm">All clear — nothing here.</span>
+                  </div>
+                );
+              }
+              return (
+                <div className="divide-y divide-gray-800/60">
+                  {lots.map((lot) => (
+                    <div key={lot.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-filing-lot-${lot.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs text-gray-300">{lot.itemNo}</span>
+                          {lot.newOrUsed === 'U' && (
+                            <span className="text-[10px] px-1 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate">
+                          {[lot.itemName, lot.colorName].filter(Boolean).join(' · ') || '—'}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="font-mono text-xs text-indigo-300">{lot.quantity ?? 0} pcs</div>
+                      </div>
+                    </div>
+                  ))}
+                  {lots.length >= 300 && (
+                    <div className="px-4 py-2 text-[11px] text-gray-600 text-center">Showing first 300 lots</div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* RTF clear confirm dialog */}
+      <Dialog open={confirmClearRtf} onOpenChange={setConfirmClearRtf}>
+        <DialogContent className="bg-gray-950 border-gray-800 text-gray-200 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-4 h-4" />
+              Clear all RTF bins?
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              This removes the pre-sort tote hint from every unassigned lot. They'll all move to "Unfiled" and you'll need to re-run the RTF assignment. Lots already scanned into real bins are not affected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmClearRtf(false)} data-testid="button-cancel-clear-rtf">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={clearRtfMutation.isPending}
+              onClick={() => clearRtfMutation.mutate()}
+              data-testid="button-confirm-clear-rtf"
+            >
+              {clearRtfMutation.isPending ? 'Clearing…' : 'Clear all RTF bins'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
