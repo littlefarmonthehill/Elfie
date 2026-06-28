@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
 import { formatTime } from "@/lib/utils";
-import { playTone, speak, speakBin, unlockAudio, type ScanTone } from "@/lib/scan-audio";
+import { playTone, speak, speakBin, unlockAudio, reportFilingSuccess, type ScanTone } from "@/lib/scan-audio";
 import { useScanSession } from "@/contexts/ScanSessionContext";
 import { useHardwareScanner } from "@/hooks/use-hardware-scanner";
 
@@ -376,7 +376,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
         message: `${lotLabel(activeLot)} — ${priorLoc} → ${binLabel}`,
         undo: undoMeta,
       });
-      cue("ok", `Filed into ${s.name}.`);
+      if (soundOnRef.current) reportFilingSuccess(`Filed into ${s.name}.`);
       setActiveLot(null);
       // Show capacity picker for the just-filed bin (same as lot-first flow).
       const filedBin: ResolvedBin = {
@@ -437,7 +437,7 @@ export function WarehouseScanPanel({ onClose, initialCode, embedded = false }: P
           message: `${lotLabel(lot)} — ${priorLoc} → ${binFullLabel(bin)}`,
           undo: undoMeta,
         });
-        cue(tone, tone === "new" ? "Filed. Override." : "Filed.");
+        if (soundOnRef.current) reportFilingSuccess(tone === "new" ? "Filed. Override." : "Filed.");
         return true;
       } catch {
         cue("err", "Assignment failed.");

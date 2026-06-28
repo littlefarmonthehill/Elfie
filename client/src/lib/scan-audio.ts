@@ -133,6 +133,94 @@ export function unlockAudio(): void {
   }
 }
 
+// ── Pace-aware filing melodies ────────────────────────────────────────────
+
+// Timestamps of the last few successful lot-filed events.
+const recentFileTimes: number[] = [];
+type PaceState = 'unknown' | 'good' | 'slow';
+let paceState: PaceState = 'unknown';
+
+// Mario-style "hurry up" nudge — plays when the filer has gone slow (gap > 14 s).
+// Classic SMB main-theme opening, fast square-wave, ~0.8 s total.
+function playHurryMelody(ac: AudioContext): void {
+  let t = ac.currentTime + 0.01;
+  const q = 0.09;
+  t = note(ac, t, 659, q,       "square", 0.18); // E5
+  t += q * 0.55;
+  t = note(ac, t, 659, q,       "square", 0.18); // E5
+  t += q * 0.55;
+  t = note(ac, t, 659, q,       "square", 0.18); // E5
+  t += q * 0.45;
+  t = note(ac, t, 523, q * 0.7, "square", 0.15); // C5
+  t = note(ac, t, 659, q,       "square", 0.18); // E5
+  t = note(ac, t, 784, q * 1.9, "square", 0.20); // G5 (held)
+  note(ac, t,       392, q * 2.4, "square", 0.13); // G4 (low, bass undertone)
+}
+
+// Calm chime — plays when the filer is at a good pace.
+// Quick ascending triangle triplet; pleasant, not jarring.
+function playGoodPaceMelody(ac: AudioContext): void {
+  let t = ac.currentTime + 0.01;
+  t = note(ac, t, 523,  0.07, "triangle", 0.15); // C5
+  t = note(ac, t, 659,  0.07, "triangle", 0.16); // E5
+  note(ac, t,  784,  0.14, "triangle", 0.17);     // G5
+}
+
+// Recovery fanfare — first good file after a slow streak.
+// Short ascending arpeggio to celebrate getting back on pace.
+function playRecoveryMelody(ac: AudioContext): void {
+  let t = ac.currentTime + 0.01;
+  t = note(ac, t, 523,  0.07, "square", 0.16); // C5
+  t = note(ac, t, 659,  0.07, "square", 0.17); // E5
+  t = note(ac, t, 784,  0.07, "square", 0.18); // G5
+  note(ac, t,  1047, 0.22, "square", 0.20);     // C6 — ring out
+}
+
+/**
+ * Call on every successful lot-filed event.
+ * Tracks pace and plays the appropriate melody, then schedules `speech`
+ * so the voice starts after the melody finishes:
+ *   - First file or good pace: calm 3-note chime
+ *   - Slow pace (> 14 s gap): Mario hurry melody
+ *   - Recovery (first good file after a slow stint): ascending fanfare
+ */
+export function reportFilingSuccess(speech?: string): void {
+  const ac = getCtx();
+  if (!ac) return;
+
+  const now = Date.now();
+  // Trim timestamps older than 60 s so the array stays small.
+  const cutoff = now - 60_000;
+  while (recentFileTimes.length > 0 && recentFileTimes[0] < cutoff) recentFileTimes.shift();
+
+  const gapMs = recentFileTimes.length > 0 ? now - recentFileTimes[recentFileTimes.length - 1] : null;
+  recentFileTimes.push(now);
+
+  const prevState = paceState;
+  let melodyMs = 320; // how long to wait before speaking
+
+  if (gapMs === null) {
+    // First scan — no pace data yet, welcome chime.
+    paceState = 'unknown';
+    playGoodPaceMelody(ac);
+  } else {
+    const nextState: PaceState = gapMs / 1000 > 14 ? 'slow' : 'good';
+    paceState = nextState;
+    if (nextState === 'slow') {
+      playHurryMelody(ac);
+      melodyMs = 820;
+    } else if (prevState === 'slow') {
+      // Recovered from slow — celebrate.
+      playRecoveryMelody(ac);
+      melodyMs = 480;
+    } else {
+      playGoodPaceMelody(ac);
+    }
+  }
+
+  if (speech) setTimeout(() => speak(speech), melodyMs);
+}
+
 // Pending speech timer — cancelled if a new speak() fires before it triggers
 // so rapid successive cues don't queue up stale phrases.
 let pendingSpeakTimer: ReturnType<typeof setTimeout> | null = null;
