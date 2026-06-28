@@ -560,23 +560,25 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
     db.select({ count: sql<number>`COUNT(*)` })
       .from(blInventory)
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
-      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), isNull(inventoryLocations.id))),
+      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0), isNull(inventoryLocations.id))),
 
     db.select({ count: sql<number>`COUNT(DISTINCT ${inventoryLocations.inventoryId})` })
       .from(inventoryLocations)
       .innerJoin(whBins, and(eq(whBins.id, inventoryLocations.binId), eq(whBins.isFilingQueue, true)))
-      .innerJoin(blInventory, and(eq(blInventory.id, inventoryLocations.inventoryId), eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)))
+      .innerJoin(blInventory, and(eq(blInventory.id, inventoryLocations.inventoryId), eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)))
       .where(eq(inventoryLocations.orgId, orgId)),
 
     // "Unfiled & untagged" — lots that have neither a real bin nor an rtf
     // pre-sort hint. These are brand-new lots the lister hasn't even
     // printed labels for yet; nothing tells anyone where to find them.
+    // Zero-qty lots are excluded — nothing to physically file.
     db.select({ count: sql<number>`COUNT(*)` })
       .from(blInventory)
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
       .where(and(
         eq(blInventory.orgId, orgId),
         isNull(blInventory.deletedAt),
+        gt(blInventory.quantity, 0),
         isNull(inventoryLocations.id),
         isNull(blInventory.rtfBin),
       )),
@@ -585,11 +587,11 @@ router.get("/listomatc/category-phases", isApproved, asyncRoute(async (req: any,
     // tote that actually has bags in it (rtf 0, rtf 3, …).
     // Exclude lots already assigned to any bin (filed into a real location)
     // so the count resets to 0 once the bag has been physically filed.
-    // Exclude soft-deleted lots — they no longer exist in the active inventory.
+    // Exclude soft-deleted lots and zero-qty lots — nothing to physically file.
     db.select({ rtfBin: blInventory.rtfBin, count: sql<number>`COUNT(*)` })
       .from(blInventory)
       .leftJoin(inventoryLocations, eq(inventoryLocations.inventoryId, blInventory.id))
-      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), isNotNull(blInventory.rtfBin), isNull(inventoryLocations.id)))
+      .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0), isNotNull(blInventory.rtfBin), isNull(inventoryLocations.id)))
       .groupBy(blInventory.rtfBin),
   ]);
 
