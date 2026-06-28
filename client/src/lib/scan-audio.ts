@@ -178,15 +178,14 @@ function playRecoveryMelody(ac: AudioContext): void {
 
 /**
  * Call on every successful lot-filed event.
- * Tracks pace and plays the appropriate melody, then schedules `speech`
- * so the voice starts after the melody finishes:
+ * Tracks pace and plays the appropriate melody, then speaks the confirmation.
+ * Falls back to the standard ok tone if the melody fails so filing is never silent.
  *   - First file or good pace: calm 3-note chime
  *   - Slow pace (> 14 s gap): Mario hurry melody
  *   - Recovery (first good file after a slow stint): ascending fanfare
  */
 export function reportFilingSuccess(speech?: string): void {
   const ac = getCtx();
-  if (!ac) return;
 
   const now = Date.now();
   // Trim timestamps older than 60 s so the array stays small.
@@ -197,27 +196,36 @@ export function reportFilingSuccess(speech?: string): void {
   recentFileTimes.push(now);
 
   const prevState = paceState;
-  let melodyMs = 320; // how long to wait before speaking
+  let melodyMs = 280; // ms to wait before speaking so voice trails the melody
 
-  if (gapMs === null) {
-    // First scan — no pace data yet, welcome chime.
-    paceState = 'unknown';
-    playGoodPaceMelody(ac);
-  } else {
-    const nextState: PaceState = gapMs / 1000 > 14 ? 'slow' : 'good';
-    paceState = nextState;
-    if (nextState === 'slow') {
-      playHurryMelody(ac);
-      melodyMs = 820;
-    } else if (prevState === 'slow') {
-      // Recovered from slow — celebrate.
-      playRecoveryMelody(ac);
-      melodyMs = 480;
-    } else {
-      playGoodPaceMelody(ac);
+  if (ac) {
+    try {
+      if (gapMs === null) {
+        // First filing — welcome chime.
+        paceState = 'unknown';
+        playGoodPaceMelody(ac);
+      } else {
+        const nextState: PaceState = gapMs / 1000 > 14 ? 'slow' : 'good';
+        paceState = nextState;
+        if (nextState === 'slow') {
+          playHurryMelody(ac);
+          melodyMs = 800;
+        } else if (prevState === 'slow') {
+          playRecoveryMelody(ac);
+          melodyMs = 440;
+        } else {
+          playGoodPaceMelody(ac);
+        }
+      }
+    } catch {
+      // Melody failed — fall back to the standard ok tone so filing isn't silent.
+      try { playTone("ok"); } catch { /* best-effort */ }
+      melodyMs = 160;
     }
   }
 
+  // Speak the confirmation after the melody; call speak() directly so the
+  // chirp + utterance are scheduled even if pace melodies aren't available.
   if (speech) setTimeout(() => speak(speech), melodyMs);
 }
 
