@@ -215,7 +215,7 @@ function buildTemplateLabelsHtml(
     // New lots have no confirmed bin yet — show "0 → rtf X" when a sibling
     // aisle suggestion exists so the filer can see both current state and destination.
     const rtf = lot.isNewLot && lot.aisleName
-      ? escapeHtml(`0 → rtf ${lot.aisleName}`)
+      ? escapeHtml(`0 > rtf ${lot.aisleName}`)
       : escapeHtml(`rtf ${lot.aisleName ?? 0}`);
     const qr = qrDataUrls[i];
     const art = partImages[i];
@@ -379,7 +379,7 @@ async function printLotLabelsWithTemplate(
         doc.setFontSize(aislePt);
         doc.setTextColor(26, 95, 26);
         doc.text(
-          lot.isNewLot && lot.aisleName ? `0 → rtf ${lot.aisleName}` : `rtf ${lot.aisleName ?? 0}`,
+          lot.isNewLot && lot.aisleName ? `0 > rtf ${lot.aisleName}` : `rtf ${lot.aisleName ?? 0}`,
           imgX + imgIn, aisleY, { baseline: 'top', align: 'right' },
         );
       }
