@@ -12,7 +12,7 @@ window.addEventListener('vite:preloadError', () => {
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js');
+      const registration = await navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
       
       // Force update check immediately on iOS
       registration.update();

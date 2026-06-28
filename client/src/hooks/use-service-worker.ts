@@ -8,7 +8,7 @@ export function useServiceWorker() {
       // Register service worker with stable URL (no dynamic timestamp)
       // The registration.update() call below handles checking for updates
       navigator.serviceWorker
-        .register('/service-worker.js')
+        .register('/service-worker.js', { updateViaCache: 'none' })
         .then((registration) => {
           console.log('✅ Service Worker registered');
 
