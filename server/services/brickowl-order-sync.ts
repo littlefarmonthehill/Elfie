@@ -178,6 +178,12 @@ async function processBrickOwlOrder(
 
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id, boOrder.status ?? boOrder.status_name);
   const effectiveOrderId = existingOrder?.id ?? orderId;
+  // Tracks the order's resolved status through this sync pass (starts as whatever we had
+  // stored; updated below once we compute the real post-sync status). Used to decide whether
+  // a "merge" is even plausible — a shipped/completed/cancelled order can't legitimately
+  // receive new items, so any apparent item diff on one is treated as a data anomaly
+  // (e.g. a relisted lot's stale BrickOwl record), not a real merge.
+  let finalOrderStatus: string | null = existingOrder?.orderStatus ?? null;
   // BrickOwl status_id 0/1/7 map to 'awaiting_payment' — order exists but payment not confirmed.
   const isUnpaid = normalizedStatus === 'awaiting_payment';
 
@@ -354,6 +360,8 @@ async function processBrickOwlOrder(
     const { status: updatedStatus, wasDemotionBlocked, isShippedCancellation } = allowDemotion
       ? { status: normalizedStatus, wasDemotionBlocked: false, isShippedCancellation: false }
       : resolveOrderStatus(existingOrder.orderStatus, normalizedStatus);
+
+    finalOrderStatus = updatedStatus;
 
     if (wasDemotionBlocked) {
       console.log(`🔒 BrickOwl order ${effectiveOrderId}: Preserving local shipped status (BrickOwl shows: ${normalizedStatus})`);
@@ -648,6 +656,12 @@ async function processBrickOwlOrder(
     adjustInventoryForOrder(effectiveOrderId, 'bo-new-order').catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
     });
+  } else if (itemsChanged && deltaItems.length > 0 && ['shipped', 'completed', 'cancelled', 'returned'].includes(finalOrderStatus ?? '')) {
+    // A shipped/completed/cancelled/returned order can't legitimately gain new items — this is
+    // almost certainly a stale/reused BrickOwl lot reference (e.g. the original lot was sold,
+    // then later relisted) rather than a real merge. Skip delta-order creation entirely so we
+    // don't spawn a phantom "-M" order + push notification for an order that's already done.
+    console.warn(`⚠️ Order ${effectiveOrderId}: item diff detected but order status is '${finalOrderStatus}' (terminal) — suppressing merge-delta creation (likely relisted lot, not a real merge)`);
   } else if (itemsChanged && deltaItems.length > 0) {
     // Items were added or quantities increased on an existing order — genuine BrickOwl merge.
     // Create a new "delta" order that contains only the additional items so the operator

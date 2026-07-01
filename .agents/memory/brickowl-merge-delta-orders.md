@@ -28,3 +28,16 @@ alerts, digests) that queries recently-synced orders, filter with
 change how `ordersAdded` is counted or how delta orders are created —
 they're needed for correct picking; only exclude them from
 customer/operator-facing "new order arrived" framing.
+
+**Second root cause (relisted lots on an already-terminal order):** a
+false "merge" can also be detected on an order that's already
+shipped/completed/cancelled/returned — a lot that was sold and later
+relisted can still carry stale `external_lot_ids`/lot_id references
+that get diffed against the old order's stored items, producing a
+spurious item delta on an order that can never legitimately receive new
+items. Fix: `brickowl-order-sync.ts` now tracks the order's resolved
+status through the sync pass (`finalOrderStatus`) and skips delta-order
+creation entirely when that status is terminal, logging a warning
+instead. If phantom merges recur on non-terminal orders, the root cause
+is different (real duplicate/stale lot_id reuse) and needs separate
+investigation.
