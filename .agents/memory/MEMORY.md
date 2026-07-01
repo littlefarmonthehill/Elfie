@@ -17,3 +17,4 @@
 - [DB index gaps + push danger](db-index-gaps.md) — 9 indexes were missing (price_guide_cache had zero); drizzle db:push shows phantom-column drops — always use raw SQL CREATE INDEX IF NOT EXISTS instead of db:push for additive index work.
 - [Warehouse aisle-hint perf](warehouse-aisle-hint-perf.md) — /warehouse/lots regexp_replace on item_no defeats the index → per-row full scan saturates whole DB; fix = expression index matching the regex exactly.
 - [Dev shares prod DB](dev-shares-prod-db.md) — dev server and the deployment use the SAME Neon DATABASE_URL; any executeSql write hits production immediately, there's no separate dev copy.
+- [BrickOwl merge-delta orders](brickowl-merge-delta-orders.md) — synthetic "-M" delta order rows (bookkeeping for item-added merges) count toward ordersAdded; any "new order" query/notification must exclude id != merge_group_id or it reports phantom orders.

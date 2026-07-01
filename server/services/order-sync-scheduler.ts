@@ -136,10 +136,15 @@ async function runScheduledChannelSync(
         try {
           const { sendOrderSyncNotifications } = await import('./push-notifications');
           const { db: dbInner } = await import('../db');
+          // Exclude BrickOwl merge-delta rows (id != merge_group_id) — these are internal
+          // bookkeeping orders created when BrickOwl adds items to an existing order, not
+          // genuinely new orders placed by a customer. Notifying about them is misleading
+          // (e.g. "8051734-M is in the queue" when no such order exists on the channel).
           const newRows = await dbInner.execute(drizzleSql`
             SELECT order_number AS "orderNumber", NULL AS "shippingTier"
             FROM orders
             WHERE marketplace = ${marketplaceName} AND org_id = ${orgId}
+              AND (merge_group_id IS NULL OR id = merge_group_id)
             ORDER BY synced_at DESC LIMIT ${added}
           `);
           await sendOrderSyncNotifications(

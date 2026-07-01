@@ -1704,8 +1704,12 @@ router.post("/sync/brickowl/orders", isApproved, asyncRoute(async (req: any, res
   if (added > 0) {
     broadcast(orgId, 'order.synced', { platform: 'brickowl', added });
     const { sendOrderSyncNotifications } = await import("../services/push-notifications");
+    // Exclude merge-delta rows (id != merge_group_id) — internal bookkeeping orders
+    // created when BrickOwl adds items to an existing order, not genuine new orders.
     const newRows = await db.select({ orderNumber: orders.orderNumber })
-      .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(added);
+      .from(orders)
+      .where(and(eq(orders.orgId, orgId), or(isNull(orders.mergeGroupId), eq(orders.id, orders.mergeGroupId))))
+      .orderBy(desc(orders.syncedAt)).limit(added);
     sendOrderSyncNotifications(orgId, newRows).catch(() => {});
   }
 }));
@@ -1747,8 +1751,12 @@ router.post("/sync/all-platforms/orders", isApproved, asyncRoute(async (req: any
   if (totalAdded > 0) {
     broadcast(orgId, 'order.synced', { platform: 'all', added: totalAdded });
     const { sendOrderSyncNotifications } = await import("../services/push-notifications");
+    // Exclude merge-delta rows (id != merge_group_id) — internal bookkeeping orders
+    // created when BrickOwl adds items to an existing order, not genuine new orders.
     const newRows = await db.select({ orderNumber: orders.orderNumber })
-      .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(totalAdded);
+      .from(orders)
+      .where(and(eq(orders.orgId, orgId), or(isNull(orders.mergeGroupId), eq(orders.id, orders.mergeGroupId))))
+      .orderBy(desc(orders.syncedAt)).limit(totalAdded);
     sendOrderSyncNotifications(orgId, newRows).catch(() => {});
   }
 }));
