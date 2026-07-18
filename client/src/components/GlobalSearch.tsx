@@ -56,7 +56,6 @@ export default function GlobalSearch({ open, onClose, onSelect }: GlobalSearchPr
     if (open) {
       setQ('');
       setDebouncedQ('');
-      setTimeout(() => inputRef.current?.focus(), 80);
     }
   }, [open]);
 
@@ -110,6 +109,7 @@ export default function GlobalSearch({ open, onClose, onSelect }: GlobalSearchPr
               className="flex-1 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 outline-none"
               data-testid="input-global-search"
               onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+              autoFocus
             />
             {q && (
               <button onClick={() => setQ('')} className="text-gray-500 hover:text-gray-300">
