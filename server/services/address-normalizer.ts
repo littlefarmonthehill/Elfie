@@ -217,6 +217,38 @@ async function normalizeField(
   return { normalized: out, warnings };
 }
 
+/**
+ * When street1 is too long, split the overflow into street2 at a clean word
+ * boundary so the full address is preserved across both lines.
+ * If street2 is already occupied, the overflow is prepended to street2
+ * (space-separated), then street2 is itself truncated to its own limit.
+ */
+function spillStreet1IntoStreet2(
+  street1: string,
+  street2: string,
+  warnings: string[],
+): { street1: string; street2: string } {
+  const limit = FIELD_LIMITS['street1'] ?? 35;
+  if (street1.length <= limit) return { street1, street2 };
+
+  // Find the last space at or before the limit so we don't cut mid-word
+  let splitAt = street1.lastIndexOf(' ', limit);
+  if (splitAt <= 0) splitAt = limit; // no space found — hard cut at limit
+
+  const line1    = street1.slice(0, splitAt).trim();
+  const overflow = street1.slice(splitAt).trim();
+
+  const combined = street2 ? `${overflow} ${street2}` : overflow;
+  const line2Limit = FIELD_LIMITS['street2'] ?? 35;
+  const line2 = combined.slice(0, line2Limit).trim();
+
+  warnings.push(
+    `Field "street1" overflowed ${limit} characters — remainder moved to street2 to preserve full address`
+  );
+
+  return { street1: line1, street2: line2 };
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface AddressFields {
@@ -278,6 +310,36 @@ export async function normalizeAddress(address: AddressFields): Promise<Normaliz
     warnings.push(...fw);
     if (raw && norm !== raw) {
       changes.push({ field, original: raw, normalized: norm });
+    }
+  }
+
+  // Post-process: if street1 overflowed its limit, spill the remainder into
+  // street2 rather than losing it. This preserves unit/apartment numbers on
+  // long international addresses (e.g. Japan, Korea) instead of truncating.
+  // We re-run normalizeField with a non-existent key ('street1_nolimit') so
+  // the length limit is skipped, giving us the full normalized value to split.
+  {
+    const rawStreet1 = String(address.street1 ?? '');
+    const rawStreet2 = String(address.street2 ?? '');
+    const { normalized: fullStreet1 } = await normalizeField(rawStreet1, 'street1_nolimit', country);
+    const limit = FIELD_LIMITS['street1'] ?? 35;
+    if (fullStreet1.length > limit) {
+      const currentStreet2 = normalized.street2 ?? '';
+      const spilled = spillStreet1IntoStreet2(fullStreet1, currentStreet2, warnings);
+      // Remove the blunt truncation warning — we handled it more gracefully
+      const truncIdx = warnings.findIndex(w => w.includes('"street1" truncated to'));
+      if (truncIdx !== -1) warnings.splice(truncIdx, 1);
+      normalized.street1 = spilled.street1 || undefined;
+      normalized.street2 = spilled.street2 || undefined;
+      // Keep changes array accurate
+      const s1ChangeIdx = changes.findIndex(c => c.field === 'street1');
+      if (s1ChangeIdx !== -1) changes[s1ChangeIdx].normalized = spilled.street1;
+      else if (rawStreet1 !== spilled.street1) changes.push({ field: 'street1', original: rawStreet1, normalized: spilled.street1 });
+      if (spilled.street2 && spilled.street2 !== rawStreet2) {
+        const s2ChangeIdx = changes.findIndex(c => c.field === 'street2');
+        if (s2ChangeIdx !== -1) changes[s2ChangeIdx].normalized = spilled.street2;
+        else changes.push({ field: 'street2', original: rawStreet2, normalized: spilled.street2 });
+      }
     }
   }
 
