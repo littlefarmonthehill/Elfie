@@ -36,6 +36,7 @@ interface AcqCommonItem {
   sellerPrice: number | null;
   orgQty: number;
   orgPrice: number | null;
+  orgConditions?: string[];
   marketAvgNew: number | null;
   marketAvgUsed: number | null;
 }
@@ -58,6 +59,10 @@ interface AcqSummary {
   totalSellerValue: number | null;
   commonLots: number;
   commonSellerQty: number;
+  conditionOnlyLots: number;
+  conditionOnlySellerQty: number;
+  existingLots: number;
+  existingSellerQty: number;
   commonSellerValue: number | null;
   commonOrgListValue: number | null;
   // Listed (stock avg) market values
@@ -79,6 +84,7 @@ interface AcqSummary {
 interface AcqResult {
   summary: AcqSummary;
   common: AcqCommonItem[];
+  conditionOnlyItems: AcqCommonItem[];
   newItems: AcqNewItem[];
 }
 
@@ -353,7 +359,7 @@ function fmt$(n: number | null | undefined): string {
 type SortCol = 'itemNo' | 'condition' | 'sellerQty' | 'sellerPrice' | 'orgQty' | 'orgPrice' | 'market';
 type SortDir = 'asc' | 'desc';
 
-function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; type: 'common' | 'new' }) {
+function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; type: 'common' | 'conditionOnly' | 'new' }) {
   const [expanded, setExpanded] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol>('itemNo');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -428,8 +434,8 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
               <Th col="condition" align="center">Cond</Th>
               <Th col="sellerQty">Seller Qty</Th>
               <Th col="sellerPrice">Seller Price</Th>
-              {type === 'common' && <Th col="orgQty">Our Qty</Th>}
-              {type === 'common' && <Th col="orgPrice">Our Price</Th>}
+              {type !== 'new' && <Th col="orgQty">Our Qty</Th>}
+              {type !== 'new' && <Th col="orgPrice">Our Price</Th>}
               <Th col="market">Market Avg</Th>
             </tr>
           </thead>
@@ -464,7 +470,11 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
                   <td className="px-2 py-1.5 text-right text-gray-300">{item.sellerQty}</td>
                   <td className="px-2 py-1.5 text-right text-gray-300">{fmt$(item.sellerPrice)}</td>
                   {!isNew && <td className="px-2 py-1.5 text-right text-gray-300">{common.orgQty}</td>}
-                  {!isNew && <td className="px-2 py-1.5 text-right text-gray-300">{fmt$(common.orgPrice)}</td>}
+                  {!isNew && <td className="px-2 py-1.5 text-right text-gray-300">
+                    {type === 'conditionOnly'
+                      ? <span title={`Existing condition: ${(common.orgConditions ?? []).map(c => c === 'N' ? 'New' : 'Used').join(', ')}`}>—</span>
+                      : fmt$(common.orgPrice)}
+                  </td>}
                   <td className="px-2.5 py-1.5 text-right">
                     {market != null ? (
                       <span className={cn("font-medium", valueDiff != null && valueDiff > 0 ? "text-green-400" : "text-gray-300")}>
@@ -501,7 +511,7 @@ export default function AcquisitionEvaluator() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<AcqResult | null>(null);
-  const [section, setSection] = useState<'common' | 'new'>('common');
+  const [section, setSection] = useState<'common' | 'conditionOnly' | 'new'>('common');
   const [snapshotText, setSnapshotText] = useState('');
   const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null);
 
@@ -885,12 +895,12 @@ export default function AcquisitionEvaluator() {
             />
             <SummaryCard
               label="Already in Your Stock"
-              value={s.commonLots.toLocaleString()}
-              sub={`${s.commonSellerQty.toLocaleString()} pcs · ${Math.round((s.commonLots / (s.totalSellerLots || 1)) * 100)}% overlap`}
+              value={s.existingLots.toLocaleString()}
+              sub={`${s.existingSellerQty.toLocaleString()} pcs · ${Math.round((s.existingLots / (s.totalSellerLots || 1)) * 100)}% overlap`}
               color="border-amber-700/40 bg-amber-900/10"
             />
             <SummaryCard
-              label="New Lots You'd Add"
+              label="Totally New Lots You'd Add"
               value={s.newLots.toLocaleString()}
               sub={`${s.newSellerQty.toLocaleString()} pcs · ${fmt$(s.newSellerValue)} seller asking`}
               color="border-green-700/40 bg-green-900/10"
@@ -908,7 +918,7 @@ export default function AcquisitionEvaluator() {
           </div>
 
           {/* Section tabs */}
-          <div className="flex gap-1.5 border-b border-gray-700/50 pb-0">
+          <div className="flex flex-wrap gap-1.5 border-b border-gray-700/50 pb-0">
             <button
               onClick={() => setSection('common')}
               data-testid="acq-tab-common"
@@ -920,7 +930,20 @@ export default function AcquisitionEvaluator() {
               )}
             >
               <Layers className="w-3 h-3 inline mr-1" />
-              Common ({s.commonLots})
+              Exact Match ({s.commonLots})
+            </button>
+            <button
+              onClick={() => setSection('conditionOnly')}
+              data-testid="acq-tab-condition-only"
+              className={cn(
+                "text-xs font-semibold px-3 py-1.5 border-b-2 -mb-px transition-colors",
+                section === 'conditionOnly'
+                  ? "text-orange-300 border-orange-400"
+                  : "text-gray-500 border-transparent hover:text-gray-300"
+              )}
+            >
+              <ShieldAlert className="w-3 h-3 inline mr-1" />
+              Other Condition ({s.conditionOnlyLots})
             </button>
             <button
               onClick={() => setSection('new')}
@@ -933,7 +956,7 @@ export default function AcquisitionEvaluator() {
               )}
             >
               <Package className="w-3 h-3 inline mr-1" />
-              New Additions ({s.newLots})
+              Totally New ({s.newLots})
             </button>
           </div>
 
@@ -947,6 +970,16 @@ export default function AcquisitionEvaluator() {
             result.newItems.length > 0
               ? <ItemsTable items={result.newItems} type="new" />
               : <p className="text-xs text-gray-500 text-center py-4">All seller lots already exist in your inventory.</p>
+          )}
+          {section === 'conditionOnly' && (
+            result.conditionOnlyItems.length > 0
+              ? <>
+                  <p className="text-[10px] text-gray-500 -mt-2">
+                    These part/color combinations exist in your inventory, but only in the other condition.
+                  </p>
+                  <ItemsTable items={result.conditionOnlyItems} type="conditionOnly" />
+                </>
+              : <p className="text-xs text-gray-500 text-center py-4">No part/color matches found in the other condition.</p>
           )}
         </div>
       )}

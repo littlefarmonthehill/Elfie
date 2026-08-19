@@ -2432,6 +2432,7 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
     .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)));
 
   const orgMap = new Map<string, { quantity: number; unitPrice: string | null }>();
+  const orgPartMap = new Map<string, { quantity: number; conditions: Set<string> }>();
   for (const lot of orgInv) {
     const key = `${lot.itemNo}|${lot.colorId ?? 0}|${lot.condition}`;
     const existing = orgMap.get(key);
@@ -2439,6 +2440,17 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       existing.quantity += lot.quantity;
     } else {
       orgMap.set(key, { quantity: lot.quantity, unitPrice: lot.unitPrice });
+    }
+    const partKey = `${lot.itemNo}|${lot.colorId ?? 0}`;
+    const partExisting = orgPartMap.get(partKey);
+    if (partExisting) {
+      partExisting.quantity += lot.quantity;
+      partExisting.conditions.add(lot.condition);
+    } else {
+      orgPartMap.set(partKey, {
+        quantity: lot.quantity,
+        conditions: new Set([lot.condition]),
+      });
     }
   }
 
@@ -2473,12 +2485,14 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
   }
 
   const common: any[] = [];
+  const conditionOnlyItems: any[] = [];
   const newItems: any[] = [];
 
   let totalSellerQty = 0;
   let totalSellerValue = 0;
   let hasSellerValue = false;
   let commonSellerQty = 0;
+  let conditionOnlySellerQty = 0;
   let commonSellerValue = 0;
   let commonOrgListValue = 0;
   let newSellerQty = 0;
@@ -2518,6 +2532,7 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
     }
 
     const orgLot = orgMap.get(key);
+    const orgPart = orgPartMap.get(catKey);
     if (orgLot) {
       commonSellerQty += item.quantity;
       if (item.price != null) { commonSellerValue += item.price * item.quantity; }
@@ -2535,6 +2550,22 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
         sellerPrice: item.price ?? null,
         orgQty: orgLot.quantity,
         orgPrice: orgLot.unitPrice != null ? parseFloat(orgLot.unitPrice) : null,
+        marketAvgNew: listedNew,
+        marketAvgUsed: listedUsed,
+      });
+    } else if (orgPart) {
+      conditionOnlySellerQty += item.quantity;
+      conditionOnlyItems.push({
+        itemNo: item.itemNo,
+        colorId: item.colorId ?? 0,
+        colorName: cat.colorName,
+        itemName: cat.itemName,
+        condition: item.condition,
+        sellerQty: item.quantity,
+        sellerPrice: item.price ?? null,
+        orgQty: orgPart.quantity,
+        orgPrice: null,
+        orgConditions: Array.from(orgPart.conditions),
         marketAvgNew: listedNew,
         marketAvgUsed: listedUsed,
       });
@@ -2565,6 +2596,10 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       totalSellerValue: hasSellerValue ? Math.round(totalSellerValue * 100) / 100 : null,
       commonLots: common.length,
       commonSellerQty,
+      conditionOnlyLots: conditionOnlyItems.length,
+      conditionOnlySellerQty,
+      existingLots: common.length + conditionOnlyItems.length,
+      existingSellerQty: commonSellerQty + conditionOnlySellerQty,
       commonSellerValue: commonSellerValue > 0 ? Math.round(commonSellerValue * 100) / 100 : null,
       commonOrgListValue: commonOrgListValue > 0 ? Math.round(commonOrgListValue * 100) / 100 : null,
       newLots: newItems.length,
@@ -2583,6 +2618,7 @@ router.post("/inventory/acquisition-evaluate", isApproved, asyncRoute(async (req
       commonUnpricedQty,
     },
     common,
+    conditionOnlyItems,
     newItems,
   });
 }));
