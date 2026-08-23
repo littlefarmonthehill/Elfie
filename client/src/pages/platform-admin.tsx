@@ -504,6 +504,197 @@ function HistoricalOrderRecovery() {
   );
 }
 
+type DuplicateCleanupStatusCandidate = {
+  candidateKey: string;
+  candidateHash: string;
+  localOrder: { id: string; orderKey: string | null; orderStatus: string };
+  sourceOrderId: string | null;
+  marketplaceEvidence: {
+    sourceStatus: string | null;
+    paymentStatus: string | null;
+    normalizedStatus: string;
+    dateStatusChanged: string | null;
+    retrievedAt: string;
+  } | null;
+  evidenceError: string | null;
+  comparison: "matches" | "mismatch" | "unavailable";
+  review: { decision: string; reason: string | null; reviewedBy: string; reviewedAt: string } | null;
+};
+
+type DuplicateCleanupStatusResponse = {
+  candidates: DuplicateCleanupStatusCandidate[];
+  summary: { total: number; matches: number; mismatches: number; unavailable: number; reviewed: number };
+};
+
+function DuplicateCleanupStatusReview() {
+  const { toast } = useToast();
+  const [loaded, setLoaded] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const queryKey = ["/api/platform-admin/duplicate-cleanup-status-review/candidates", refreshNonce];
+  const { data, isFetching, error } = useQuery<DuplicateCleanupStatusResponse>({
+    queryKey,
+    queryFn: async () => {
+      const response = await fetch("/api/platform-admin/duplicate-cleanup-status-review/candidates", { credentials: "include" });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Could not load marketplace status comparisons");
+      return response.json();
+    },
+    enabled: loaded,
+    staleTime: 0,
+  });
+
+  const review = useMutation({
+    mutationFn: async ({ candidate, decision, reason }: {
+      candidate: DuplicateCleanupStatusCandidate;
+      decision: "confirm_status" | "correct_status" | "skip";
+      reason?: string;
+    }) => apiRequest("POST", `/api/platform-admin/duplicate-cleanup-status-review/${encodeURIComponent(candidate.candidateKey)}/review`, {
+      decision,
+      sourceOrderId: candidate.sourceOrderId,
+      expectedCandidateHash: candidate.candidateHash,
+      reason: reason ?? null,
+    }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-admin/duplicate-cleanup-status-review/candidates"] });
+      toast({
+        title: variables.decision === "correct_status"
+          ? "Status correction recorded"
+          : variables.decision === "confirm_status"
+            ? "Legitimate status recorded"
+            : "Unavailable evidence recorded",
+        description: "The marketplace comparison and decision were saved in the recovery audit trail.",
+      });
+    },
+    onError: (err: Error) => toast({ title: err.message || "Status review failed", variant: "destructive" }),
+  });
+
+  const confirmLegitimate = (candidate: DuplicateCleanupStatusCandidate) => {
+    if (!window.confirm(`Confirm that the marketplace status (${candidate.marketplaceEvidence?.normalizedStatus}) legitimately matches ${candidate.localOrder.id}? This records the comparison without changing the order.`)) return;
+    review.mutate({ candidate, decision: "confirm_status" });
+  };
+
+  const approveCorrection = (candidate: DuplicateCleanupStatusCandidate) => {
+    const sourceStatus = candidate.marketplaceEvidence?.normalizedStatus;
+    if (!sourceStatus) return;
+    if (!window.confirm(`Approve changing ${candidate.localOrder.id} from ${candidate.localOrder.orderStatus} to ${sourceStatus}? This is a status-only correction for a zero-line historical order and will be saved in the recovery audit trail.`)) return;
+    review.mutate({ candidate, decision: "correct_status" });
+  };
+
+  const recordUnavailable = (candidate: DuplicateCleanupStatusCandidate) => {
+    const reason = window.prompt("Why can this marketplace status not be verified? This note is saved in the recovery audit trail.");
+    if (!reason?.trim()) return;
+    review.mutate({ candidate, decision: "skip", reason: reason.trim() });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Reviews the nine zero-line records changed by the March 25 duplicate-reconciliation batch against BrickLink’s immutable source order ID. Displayed order numbers are never used to identify or correct a record.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A matching source status can be confirmed, a mismatch needs explicit approval before a status-only correction, and unavailable evidence must be recorded as a skip.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { setLoaded(true); setRefreshNonce(value => value + 1); }}
+          disabled={isFetching}
+          data-testid="button-load-duplicate-cleanup-status-review"
+        >
+          {isFetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {loaded ? "Refresh Marketplace Evidence" : "Load Status Comparisons"}
+        </Button>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
+      {data && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Affected records</p><p className="font-semibold">{data.summary.total}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Match</p><p className="font-semibold">{data.summary.matches}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Mismatch</p><p className="font-semibold">{data.summary.mismatches}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Evidence unavailable</p><p className="font-semibold">{data.summary.unavailable}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Audited</p><p className="font-semibold">{data.summary.reviewed}</p></div>
+          </div>
+
+          <div className="border rounded-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Canonical local record</TableHead>
+                  <TableHead>Local status</TableHead>
+                  <TableHead>Marketplace evidence</TableHead>
+                  <TableHead>Comparison</TableHead>
+                  <TableHead>Audit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.candidates.map(candidate => (
+                  <TableRow key={candidate.candidateKey} data-testid={`row-duplicate-cleanup-status-${candidate.localOrder.id}`}>
+                    <TableCell>
+                      <p className="font-medium font-mono text-xs">{candidate.localOrder.id}</p>
+                      <p className="text-xs text-muted-foreground">Key {candidate.localOrder.orderKey || "missing"} · BrickLink source {candidate.sourceOrderId || "unverified"}</p>
+                    </TableCell>
+                    <TableCell><Badge variant="secondary">{candidate.localOrder.orderStatus}</Badge></TableCell>
+                    <TableCell>
+                      {candidate.marketplaceEvidence ? (
+                        <>
+                          <p className="font-medium">{candidate.marketplaceEvidence.normalizedStatus}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Order {candidate.marketplaceEvidence.sourceStatus || "—"} · Payment {candidate.marketplaceEvidence.paymentStatus || "—"}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="max-w-xs text-xs text-muted-foreground">{candidate.evidenceError || "No marketplace evidence returned"}</p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={candidate.comparison === "matches" ? "secondary" : candidate.comparison === "mismatch" ? "outline" : "secondary"}>
+                        {candidate.comparison === "matches" ? "Matches" : candidate.comparison === "mismatch" ? "Mismatch" : "Unavailable"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {candidate.review ? (
+                        <div className="text-xs">
+                          <Badge variant="secondary">{candidate.review.decision.replace("_", " ")}</Badge>
+                          <p className="mt-1 text-muted-foreground">{candidate.review.reason || `Reviewed by ${candidate.review.reviewedBy}`}</p>
+                        </div>
+                      ) : (
+                        <div className="flex min-w-[150px] flex-col gap-2">
+                          {candidate.comparison === "matches" && (
+                            <Button variant="secondary" size="sm" onClick={() => confirmLegitimate(candidate)} disabled={review.isPending} data-testid={`button-confirm-duplicate-status-${candidate.localOrder.id}`}>
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              Confirm legitimate
+                            </Button>
+                          )}
+                          {candidate.comparison === "mismatch" && (
+                            <Button variant="outline" size="sm" onClick={() => approveCorrection(candidate)} disabled={review.isPending} data-testid={`button-correct-duplicate-status-${candidate.localOrder.id}`}>
+                              <AlertTriangle className="h-4 w-4 mr-1" />
+                              Approve correction
+                            </Button>
+                          )}
+                          {candidate.comparison === "unavailable" && (
+                            <Button variant="outline" size="sm" onClick={() => recordUnavailable(candidate)} disabled={review.isPending} data-testid={`button-skip-duplicate-status-${candidate.localOrder.id}`}>
+                              <CircleSlash className="h-4 w-4 mr-1" />
+                              Record unavailable
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 export default function PlatformAdmin() {
   const tz = useOrgTimezone();
@@ -592,6 +783,13 @@ export default function PlatformAdmin() {
               Historical Line-Item Recovery
             </p>
             <HistoricalOrderRecovery />
+          </div>
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+              Duplicate Cleanup Status Review
+            </p>
+            <DuplicateCleanupStatusReview />
           </div>
         </div>
 

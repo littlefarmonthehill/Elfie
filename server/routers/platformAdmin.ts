@@ -29,6 +29,10 @@ import {
 } from "@shared/schema";
 import { getHistoricalRecoveryCandidates, clearShipStationRecoveryCache, canConfirmShipStationLineItem, isImmutableLineConflict } from "../services/shipstation-recovery";
 import { compareDuplicateOrderRecords } from "../services/order-sync-helpers";
+import {
+  duplicateCleanupLocalSnapshotHash,
+  getDuplicateCleanupStatusReviewCandidates,
+} from "../services/duplicate-cleanup-status-review";
 
 const router = Router();
 
@@ -639,6 +643,154 @@ router.post("/platform-admin/historical-order-recovery/:candidateKey/review", is
 
   if (response.conflict) return res.status(409).json({ message: "The local quantity changed. Reload the candidates before confirming." });
   if (response.alreadyReviewed) return res.status(409).json({ message: "This recovery candidate has already been reviewed. Reload to see the audit record." });
+  res.json({ success: true, ...response });
+}));
+
+const duplicateCleanupStatusReviewSchema = z.object({
+  decision: z.enum(["confirm_status", "correct_status", "skip"]),
+  sourceOrderId: z.string().regex(/^\d+$/).nullable(),
+  expectedCandidateHash: z.string().length(64),
+  reason: z.string().trim().max(2000).nullable().optional(),
+});
+
+router.get("/platform-admin/duplicate-cleanup-status-review/candidates", isSuperAdmin, asyncRoute(async (_req, res) => {
+  res.json(await getDuplicateCleanupStatusReviewCandidates());
+}));
+
+router.post("/platform-admin/duplicate-cleanup-status-review/:candidateKey/review", isSuperAdmin, asyncRoute(async (req: any, res) => {
+  const input = duplicateCleanupStatusReviewSchema.parse(req.body);
+  const candidateKey = String(req.params.candidateKey);
+  const { candidates } = await getDuplicateCleanupStatusReviewCandidates();
+  const candidate = candidates.find(item => item.candidateKey === candidateKey);
+  if (!candidate) return res.status(404).json({ message: "This status-review candidate no longer belongs to the duplicate-reconciliation batch." });
+  if (candidate.review) return res.status(409).json({ message: "This status comparison has already been reviewed.", review: candidate.review });
+  if (candidate.candidateHash !== input.expectedCandidateHash || candidate.sourceOrderId !== input.sourceOrderId) {
+    return res.status(409).json({ message: "The marketplace evidence or local status changed. Reload and compare it again." });
+  }
+  if (input.decision === "skip" && !input.reason) {
+    return res.status(400).json({ message: "A reason is required when marketplace evidence is unavailable." });
+  }
+  if (input.decision === "confirm_status" && candidate.comparison !== "matches") {
+    return res.status(400).json({ message: "Only a verified matching marketplace status can be confirmed as legitimate." });
+  }
+  if (input.decision === "correct_status" && candidate.comparison !== "mismatch") {
+    return res.status(400).json({ message: "A correction requires a verified marketplace-status mismatch." });
+  }
+  if (input.decision === "correct_status" && !candidate.localOrder.zeroLineEligible) {
+    return res.status(400).json({ message: "This historical record now has line items and cannot receive a status-only correction." });
+  }
+  if (input.decision !== "skip" && !candidate.marketplaceEvidence) {
+    return res.status(400).json({ message: "Marketplace evidence is unavailable. This status cannot be confirmed or corrected." });
+  }
+
+  const reviewer = req.user?.email || req.user?.id || "platform-admin";
+  const now = new Date();
+  let response: { conflict: boolean; correctedStatus?: string | null };
+  try {
+    response = await db.transaction(async (tx) => {
+      const locked = await tx.execute(sql`
+        SELECT id, org_id, order_key, order_status, updated_at
+        FROM orders
+        WHERE id = ${candidate.localOrder.id}
+        FOR UPDATE
+      `);
+      const current = (locked.rows as any[])[0];
+      if (!current) return { conflict: true };
+      const currentSnapshotHash = duplicateCleanupLocalSnapshotHash({
+        id: current.id,
+        orgId: current.org_id,
+        orderKey: current.order_key,
+        orderStatus: current.order_status,
+        updatedAt: new Date(current.updated_at),
+        // The correction path separately locks and verifies the current
+        // zero-line condition below. For the pre-lock identity snapshot, keep
+        // the reviewed candidate's eligibility bit so unrelated header writes
+        // are still detected before that recheck.
+        zeroLineEligible: candidate.localOrder.zeroLineEligible,
+      });
+      if (currentSnapshotHash !== candidate.localSnapshotHash) return { conflict: true };
+
+      if (input.decision === "correct_status") {
+        // No order-line foreign key protects this legacy table, so hold a
+        // short table lock while rechecking that a concurrent sync has not
+        // added an item. Status-only corrections are intentionally limited to
+        // the original zero-line recovery records.
+        await tx.execute(sql`LOCK TABLE order_details IN SHARE ROW EXCLUSIVE MODE`);
+        const existingLines = await tx.execute(sql`
+          SELECT 1 FROM order_details WHERE order_id = ${candidate.localOrder.id} LIMIT 1
+        `);
+        if ((existingLines.rows as any[]).length > 0) return { conflict: true };
+      }
+
+      const [existingReview] = await tx.select({ id: historicalOrderRecovery.id })
+        .from(historicalOrderRecovery)
+        .where(eq(historicalOrderRecovery.candidateKey, candidateKey))
+        .limit(1);
+      if (existingReview) return { conflict: true };
+
+      let afterSnapshot: string | null = null;
+      if (input.decision === "correct_status") {
+        const correctedStatus = candidate.marketplaceEvidence!.normalizedStatus;
+        const [updated] = await tx.update(orders)
+          .set({
+            previousStatus: candidate.localOrder.orderStatus,
+            orderStatus: correctedStatus,
+            workflowStatus: ["awaiting_payment", "awaiting_fulfillment", "awaiting_shipment"].includes(correctedStatus) ? "new" : undefined,
+            updatedAt: now,
+          })
+          .where(and(
+            eq(orders.id, candidate.localOrder.id),
+            eq(orders.orderKey, candidate.localOrder.orderKey!),
+            eq(orders.orderStatus, candidate.localOrder.orderStatus),
+          ))
+          .returning();
+        if (!updated) return { conflict: true };
+        afterSnapshot = JSON.stringify({
+          id: updated.id,
+          orderKey: updated.orderKey,
+          orderStatus: updated.orderStatus,
+          previousStatus: updated.previousStatus,
+          updatedAt: updated.updatedAt,
+        });
+      }
+
+      await tx.insert(historicalOrderRecovery).values({
+        candidateKey,
+        orderId: candidate.localOrder.id,
+        orderDetailId: null,
+        orgId: candidate.localOrder.orgId,
+        sourceOrderId: candidate.sourceOrderId,
+        sourceLineItemKey: candidate.sourceOrderId ? `status:${candidate.sourceOrderId}` : null,
+        candidateType: "duplicate_cleanup_status",
+        decision: input.decision,
+        reason: input.reason ?? null,
+        beforeSnapshot: JSON.stringify(candidate.localOrder),
+        sourceSnapshot: JSON.stringify({
+          reviewKind: "duplicate_cleanup_marketplace_status",
+          sourceOrderId: candidate.sourceOrderId,
+          marketplaceEvidence: candidate.marketplaceEvidence,
+          evidenceError: candidate.evidenceError,
+          comparison: candidate.comparison,
+        }),
+        afterSnapshot,
+        reviewedBy: reviewer,
+        reviewedAt: now,
+      });
+      return {
+        conflict: false,
+        correctedStatus: input.decision === "correct_status"
+          ? candidate.marketplaceEvidence!.normalizedStatus
+          : null,
+      };
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      return res.status(409).json({ message: "This status comparison was reviewed by another administrator. Reload to see the audit record." });
+    }
+    throw error;
+  }
+
+  if (response.conflict) return res.status(409).json({ message: "The local order changed or was reviewed while this comparison was open. Reload before continuing." });
   res.json({ success: true, ...response });
 }));
 
