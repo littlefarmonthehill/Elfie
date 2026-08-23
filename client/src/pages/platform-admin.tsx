@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Organization } from "@shared/schema";
 import { formatDate } from "@/lib/utils";
 import { useOrgTimezone } from "@/hooks/use-org-timezone";
-import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2, ClipboardCheck, RefreshCw, CircleSlash } from "lucide-react";
 import { Link } from "wouter";
 
 const overrideSchema = z.object({
@@ -277,6 +277,206 @@ function DuplicateOrderCleanup() {
   );
 }
 
+type HistoricalRecoveryCandidate = {
+  candidateKey: string;
+  candidateType: "missing_line_item" | "quantity_mismatch" | "ambiguous";
+  reason: string | null;
+  order: { id: string; orderNumber: string; orderDate: string; marketplace: string | null; orderStatus: string };
+  sourceOrder: { orderId: string | null; orderNumber: string | null; orderStatus: string | null; marketplaceName: string | null };
+  sourceItem: { lineItemKey: string; sku: string | null; name: string | null; quantity: number | null; unitPrice: number | null; hasStableKey: boolean };
+  localItem: { id: string; lineItemKey: string | null; sku: string | null; name: string; quantity: number; unitPrice: string | null } | null;
+  sourceSnapshotHash: string;
+  orderMappingStatus: "verified" | "order_number_only";
+  review: { decision: string; reason: string | null; reviewedBy: string; reviewedAt: string } | null;
+};
+
+type HistoricalRecoveryResponse = {
+  candidates: HistoricalRecoveryCandidate[];
+  summary: { total: number; missingOrders: number; missingItems: number; quantityDifferences: number; ambiguous: number; reviewed: number };
+};
+
+function HistoricalOrderRecovery() {
+  const { toast } = useToast();
+  const [loaded, setLoaded] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const { data, isFetching, error } = useQuery<HistoricalRecoveryResponse>({
+    queryKey: ["/api/platform-admin/historical-order-recovery/candidates", refreshNonce],
+    queryFn: async () => {
+      const response = await fetch(`/api/platform-admin/historical-order-recovery/candidates${refreshNonce ? "?refresh=true" : ""}`, { credentials: "include" });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Could not load ShipStation candidates");
+      return response.json();
+    },
+    enabled: loaded,
+    staleTime: 0,
+  });
+
+  const review = useMutation({
+    mutationFn: async ({ candidate, decision, reason }: { candidate: HistoricalRecoveryCandidate; decision: "confirm_add" | "confirm_quantity" | "skip"; reason?: string }) => {
+      if (decision !== "skip" && !candidate.sourceOrder.orderId) throw new Error("This ShipStation order has no stable source ID and cannot be repaired.");
+      return apiRequest("POST", `/api/platform-admin/historical-order-recovery/${encodeURIComponent(candidate.candidateKey)}/review`, {
+        decision,
+        sourceOrderId: candidate.sourceOrder.orderId,
+        sourceLineItemKey: candidate.sourceItem.lineItemKey,
+        expectedSourceSnapshotHash: candidate.sourceSnapshotHash,
+        expectedLocalQuantity: candidate.localItem?.quantity ?? null,
+        reason: reason ?? null,
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-admin/historical-order-recovery/candidates"] });
+      toast({
+        title: variables.decision === "skip" ? "Candidate skipped" : "Historical line item restored",
+        description: "The decision and its source snapshot were recorded in the audit trail.",
+      });
+    },
+    onError: (err: Error) => toast({ title: err.message || "Recovery review failed", variant: "destructive" }),
+  });
+
+  const verifyOrderLink = useMutation({
+    mutationFn: async (candidate: HistoricalRecoveryCandidate) => {
+      if (!candidate.sourceOrder.orderId) throw new Error("ShipStation did not provide an immutable order ID for this review.");
+      return apiRequest("POST", `/api/platform-admin/historical-order-recovery/${encodeURIComponent(candidate.candidateKey)}/verify-order-link`, {
+        sourceOrderId: candidate.sourceOrder.orderId,
+        sourceSnapshotHash: candidate.sourceSnapshotHash,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-admin/historical-order-recovery/candidates"] });
+      toast({ title: "Order link verified", description: "The immutable ShipStation-to-channel mapping was saved. Reloaded candidates can now be reviewed for line recovery." });
+    },
+    onError: (err: Error) => toast({ title: err.message || "Order link verification failed", variant: "destructive" }),
+  });
+
+  const confirmCandidate = (candidate: HistoricalRecoveryCandidate) => {
+    const action = candidate.candidateType === "missing_line_item" ? "restore this missing item" : "update this quantity";
+    if (!window.confirm(`Confirm ${action} for order ${candidate.order.orderNumber}? This changes only the historical line item; inventory and order headers are not changed.`)) return;
+    review.mutate({ candidate, decision: candidate.candidateType === "missing_line_item" ? "confirm_add" : "confirm_quantity" });
+  };
+
+  const skipCandidate = (candidate: HistoricalRecoveryCandidate) => {
+    const reason = window.prompt("Why is this candidate being skipped? This note is saved in the audit trail.");
+    if (!reason?.trim()) return;
+    review.mutate({ candidate, decision: "skip", reason: reason.trim() });
+  };
+
+  const confirmOrderLink = (candidate: HistoricalRecoveryCandidate) => {
+    if (!window.confirm(`Verify that ShipStation order ${candidate.sourceOrder.orderNumber || candidate.sourceOrder.orderId} is the same channel order as ${candidate.order.orderNumber}? Compare both source records before continuing. This saves only an immutable identity link; it does not change the order or its items.`)) return;
+    verifyOrderLink.mutate(candidate);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Cross-checks historical order rows against ShipStation using exact order and line-item identifiers. Each repair requires an individual confirmation and never adjusts inventory or the order header.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Rows without a stable source identity are shown as ambiguous and can only be skipped with a recorded reason.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { setLoaded(true); setRefreshNonce(value => value + 1); }}
+          disabled={isFetching}
+          data-testid="button-load-historical-order-recovery"
+        >
+          {isFetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {loaded ? "Refresh ShipStation" : "Load Candidates"}
+        </Button>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
+      {data && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Missing orders</p><p className="font-semibold">{data.summary.missingOrders}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Missing items</p><p className="font-semibold">{data.summary.missingItems}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Quantity differences</p><p className="font-semibold">{data.summary.quantityDifferences}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Ambiguous</p><p className="font-semibold">{data.summary.ambiguous}</p></div>
+            <div className="rounded border p-3"><p className="text-muted-foreground text-xs">Reviewed</p><p className="font-semibold">{data.summary.reviewed}</p></div>
+          </div>
+
+          {data.candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3">No unresolved historical line-item gaps were found.</p>
+          ) : (
+            <div className="border rounded-md overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Difference</TableHead>
+                    <TableHead>ShipStation source</TableHead>
+                    <TableHead>Local record</TableHead>
+                    <TableHead>Review</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.candidates.map(candidate => (
+                    <TableRow key={candidate.candidateKey} data-testid={`row-historical-recovery-${candidate.candidateKey}`}>
+                      <TableCell>
+                        <p className="font-medium">{candidate.order.orderNumber}</p>
+                        <p className="text-xs text-muted-foreground">{candidate.order.marketplace || "Unknown channel"} · {formatDate(candidate.order.orderDate)}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={candidate.candidateType === "ambiguous" ? "secondary" : candidate.candidateType === "missing_line_item" ? "destructive" : "default"}>
+                          {candidate.candidateType === "missing_line_item" ? "Missing item" : candidate.candidateType === "quantity_mismatch" ? "Quantity mismatch" : "Ambiguous"}
+                        </Badge>
+                        {candidate.reason && <p className="mt-1 max-w-xs text-xs text-muted-foreground">{candidate.reason}</p>}
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium">{candidate.sourceItem.name || "Unnamed item"}</p>
+                        <p className="text-xs text-muted-foreground">SKU {candidate.sourceItem.sku || "—"} · Qty {candidate.sourceItem.quantity ?? "—"} · ${candidate.sourceItem.unitPrice ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">Line key {candidate.sourceItem.lineItemKey}</p>
+                      </TableCell>
+                      <TableCell>
+                        {candidate.localItem ? (
+                          <>
+                            <p className="font-medium">{candidate.localItem.name}</p>
+                            <p className="text-xs text-muted-foreground">SKU {candidate.localItem.sku || "—"} · Qty {candidate.localItem.quantity} · ${candidate.localItem.unitPrice ?? "—"}</p>
+                          </>
+                        ) : <span className="text-sm text-muted-foreground">No local line item</span>}
+                      </TableCell>
+                      <TableCell>
+                        {candidate.review ? (
+                          <div className="text-xs">
+                            <Badge variant="secondary">{candidate.review.decision.replace("_", " ")}</Badge>
+                            <p className="mt-1 text-muted-foreground">{candidate.review.reason || `Reviewed by ${candidate.review.reviewedBy}`}</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2 min-w-[130px]">
+                            {candidate.candidateType !== "ambiguous" && candidate.sourceOrder.orderId && (
+                              <Button size="sm" onClick={() => confirmCandidate(candidate)} disabled={review.isPending} data-testid={`button-confirm-historical-recovery-${candidate.candidateKey}`}>
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Confirm
+                              </Button>
+                            )}
+                            {candidate.orderMappingStatus === "order_number_only" && candidate.sourceOrder.orderId && (
+                              <Button variant="secondary" size="sm" onClick={() => confirmOrderLink(candidate)} disabled={verifyOrderLink.isPending || review.isPending} data-testid={`button-verify-historical-order-link-${candidate.candidateKey}`}>
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Verify order link
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => skipCandidate(candidate)} disabled={review.isPending} data-testid={`button-skip-historical-recovery-${candidate.candidateKey}`}>
+                              <CircleSlash className="h-4 w-4 mr-1" />
+                              Skip
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 
 export default function PlatformAdmin() {
   const tz = useOrgTimezone();
@@ -358,6 +558,13 @@ export default function PlatformAdmin() {
           <div className="border-t pt-4">
             <p className="text-sm font-medium mb-2">Duplicate Order Cleanup</p>
             <DuplicateOrderCleanup />
+          </div>
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+              Historical Line-Item Recovery
+            </p>
+            <HistoricalOrderRecovery />
           </div>
         </div>
 

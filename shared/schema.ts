@@ -1075,6 +1075,52 @@ export const insertSyncIssueSchema = createInsertSchema(syncIssues).omit({
 export type InsertSyncIssue = z.infer<typeof insertSyncIssueSchema>;
 export type SyncIssue = typeof syncIssues.$inferSelect;
 
+// Human-reviewed repairs for historical order lines. This is deliberately
+// separate from sync_issues: a review is an immutable audit record, while a
+// sync issue may be refreshed or resolved by an automated sync.
+export const historicalOrderRecovery = pgTable("historical_order_recovery", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  candidateKey: text("candidate_key").notNull().unique(),
+  orderId: varchar("order_id").notNull(),
+  orderDetailId: varchar("order_detail_id"),
+  orgId: varchar("org_id"),
+  sourceOrderId: text("source_order_id"),
+  sourceLineItemKey: text("source_line_item_key"),
+  candidateType: text("candidate_type").notNull(),
+  decision: text("decision").notNull(), // 'confirm_add' | 'confirm_quantity' | 'skip'
+  reason: text("reason"),
+  beforeSnapshot: text("before_snapshot"),
+  sourceSnapshot: text("source_snapshot").notNull(),
+  afterSnapshot: text("after_snapshot"),
+  reviewedBy: text("reviewed_by").notNull(),
+  reviewedAt: timestamp("reviewed_at").defaultNow().notNull(),
+}, (table) => ({
+  orderIdx: index("historical_recovery_order_idx").on(table.orderId),
+  orgIdx: index("historical_recovery_org_idx").on(table.orgId),
+  reviewedAtIdx: index("historical_recovery_reviewed_at_idx").on(table.reviewedAt),
+}));
+
+export type HistoricalOrderRecovery = typeof historicalOrderRecovery.$inferSelect;
+
+// Explicitly human-verified bridge between a ShipStation order and the local
+// channel order. It is required before any historical line recovery can mutate
+// local fulfillment records.
+export const shipstationOrderMappings = pgTable("shipstation_order_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull(),
+  localOrderId: varchar("local_order_id").notNull(),
+  sourceOrderId: text("source_order_id").notNull(),
+  sourceOrderKey: text("source_order_key"),
+  sourceSnapshot: text("source_snapshot").notNull(),
+  verifiedBy: text("verified_by").notNull(),
+  verifiedAt: timestamp("verified_at").defaultNow().notNull(),
+}, (table) => ({
+  sourceOrderIdx: uniqueIndex("shipstation_order_mapping_source_unique").on(table.orgId, table.sourceOrderId),
+  localOrderIdx: uniqueIndex("shipstation_order_mapping_local_unique").on(table.orgId, table.localOrderId),
+}));
+
+export type ShipstationOrderMapping = typeof shipstationOrderMappings.$inferSelect;
+
 // Price-o-Matic Cache - Stores merged BrickLink item details and price guide data
 export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

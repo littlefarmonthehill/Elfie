@@ -11,6 +11,7 @@ import { isApproved } from "../auth";
 import { getPlatformOpenAIKey } from "../lib/platformSettings";
 import {
   orders, orderDetails, blInventory, blCatalog, blCategories, blColors,
+  historicalOrderRecovery,
   appSettings, insertAppSettingsSchema, orgIntegrations, shipments, eodForms,
   orderAdjustments, insertOrderAdjustmentSchema, updateFulfillmentSchema,
   inventoryLocations, whBins, whShelves, whAisles, picklistItems,
@@ -871,7 +872,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
   const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
-  const [items, adjustments, [latestShipment], customerPastOrders] = await Promise.all([
+  const [items, adjustments, [latestShipment], customerPastOrders, recoveryHistory] = await Promise.all([
     db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId)),
     db.select().from(orderAdjustments).where(eq(orderAdjustments.orderId, orderId)).orderBy(desc(orderAdjustments.createdAt)),
     db.select().from(shipments).where(and(eq(shipments.orderId, orderId), notInArray(shipments.status, ['voided', 'failed']))).orderBy(desc(shipments.createdAt)).limit(1),
@@ -890,6 +891,16 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
           sql`${orders.orderStatus} != 'purged'`,
         )).orderBy(desc(orders.orderDate)).limit(20)
       : Promise.resolve([]),
+    db.select({
+      id: historicalOrderRecovery.id,
+      candidateType: historicalOrderRecovery.candidateType,
+      decision: historicalOrderRecovery.decision,
+      reason: historicalOrderRecovery.reason,
+      beforeSnapshot: historicalOrderRecovery.beforeSnapshot,
+      afterSnapshot: historicalOrderRecovery.afterSnapshot,
+      reviewedBy: historicalOrderRecovery.reviewedBy,
+      reviewedAt: historicalOrderRecovery.reviewedAt,
+    }).from(historicalOrderRecovery).where(eq(historicalOrderRecovery.orderId, orderId)).orderBy(desc(historicalOrderRecovery.reviewedAt)),
   ]);
 
   // Enrich order items with imageUrl, part number, and colorId by looking up
@@ -1022,6 +1033,7 @@ router.get("/orders/:id", isApproved, asyncRoute(async (req: any, res) => {
       total: parseFloat(o.orderTotal ?? '0'),
       status: (statusMap[o.orderStatus ?? ''] ?? 'Paid') as 'Pending' | 'Paid' | 'Shipped' | 'Cancelled' | 'Returned',
     })),
+    recoveryHistory,
   });
 }));
 

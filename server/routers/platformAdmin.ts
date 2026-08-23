@@ -23,8 +23,10 @@ import {
   insertPlanSchema, insertProductOkrSchema, insertProductKeyResultSchema,
   insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema,
   channelLotLinks, blInventory as blInv, channelLotLinks as cll,
+  historicalOrderRecovery, orderDetails, shipstationOrderMappings,
   PLATFORM_ORG_ID,
 } from "@shared/schema";
+import { getHistoricalRecoveryCandidates, clearShipStationRecoveryCache, canConfirmShipStationLineItem, isImmutableLineConflict } from "../services/shipstation-recovery";
 
 const router = Router();
 
@@ -227,6 +229,195 @@ router.post("/platform-admin/cleanup-shipstation-duplicate-orders", isSuperAdmin
   await db.execute(sql`DELETE FROM orders WHERE id IN (SELECT bare.id FROM orders bare INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4) WHERE bare.order_number LIKE 'BL.%')`);
   console.log(`[AdminCleanup] Deleted ${dupIds.length} duplicate BL orders`);
   res.json({ success: true, ordersDeleted: dupIds.length, message: `Deleted ${dupIds.length} duplicate BL orders` });
+}));
+
+const historicalRecoveryReviewSchema = z.object({
+  decision: z.enum(["confirm_add", "confirm_quantity", "skip"]),
+  sourceOrderId: z.string().min(1).nullable().optional(),
+  sourceLineItemKey: z.string().min(1),
+  expectedSourceSnapshotHash: z.string().length(64),
+  expectedLocalQuantity: z.number().int().nonnegative().nullable().optional(),
+  reason: z.string().trim().max(2000).nullable().optional(),
+});
+
+const historicalOrderMappingSchema = z.object({
+  sourceOrderId: z.string().min(1),
+  sourceSnapshotHash: z.string().length(64),
+});
+
+router.get("/platform-admin/historical-order-recovery/candidates", isSuperAdmin, asyncRoute(async (req, res) => {
+  const result = await getHistoricalRecoveryCandidates({
+    forceRefresh: req.query.refresh === "true",
+  });
+  res.json(result);
+}));
+
+router.post("/platform-admin/historical-order-recovery/cache/clear", isSuperAdmin, asyncRoute(async (_req, res) => {
+  clearShipStationRecoveryCache();
+  res.json({ success: true });
+}));
+
+router.post("/platform-admin/historical-order-recovery/:candidateKey/verify-order-link", isSuperAdmin, asyncRoute(async (req: any, res) => {
+  const candidateKey = String(req.params.candidateKey);
+  const input = historicalOrderMappingSchema.parse(req.body);
+  const { candidates } = await getHistoricalRecoveryCandidates({ forceRefresh: true });
+  const candidate = candidates.find(item => item.candidateKey === candidateKey);
+  if (!candidate || candidate.orderMappingStatus !== "order_number_only" || !candidate.sourceOrder.orderId) {
+    return res.status(409).json({ message: "This order link is no longer an unresolved review candidate. Reload before continuing." });
+  }
+  if (candidate.sourceOrder.orderId !== input.sourceOrderId || candidate.sourceSnapshotHash !== input.sourceSnapshotHash) {
+    return res.status(409).json({ message: "The reviewed ShipStation source changed. Reload and compare the order again." });
+  }
+  try {
+    await db.insert(shipstationOrderMappings).values({
+      orgId: candidate.order.orgId ?? PLATFORM_ORG_ID,
+      localOrderId: candidate.order.id,
+      sourceOrderId: candidate.sourceOrder.orderId,
+      sourceOrderKey: candidate.sourceOrder.orderKey,
+      sourceSnapshot: JSON.stringify(candidate.sourceOrder),
+      verifiedBy: req.user?.email || req.user?.id || "platform-admin",
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") return res.status(409).json({ message: "This ShipStation or local order is already linked. Reload to review the current mapping." });
+    throw error;
+  }
+  clearShipStationRecoveryCache();
+  res.json({ ok: true });
+}));
+
+router.post("/platform-admin/historical-order-recovery/:candidateKey/review", isSuperAdmin, asyncRoute(async (req: any, res) => {
+  const input = historicalRecoveryReviewSchema.parse(req.body);
+  const candidateKey = req.params.candidateKey;
+  const result = await getHistoricalRecoveryCandidates({ forceRefresh: true });
+  const candidate = result.candidates.find(item => item.candidateKey === candidateKey);
+  if (!candidate) return res.status(404).json({ message: "Recovery candidate no longer exists or could not be matched to ShipStation." });
+  if (candidate.review) return res.status(409).json({ message: "This recovery candidate has already been reviewed.", review: candidate.review });
+  if ((input.decision !== "skip" && !candidate.sourceOrder.orderId) ||
+    candidate.sourceOrder.orderId !== (input.sourceOrderId ?? null) ||
+    candidate.sourceItem.lineItemKey !== input.sourceLineItemKey) {
+    return res.status(409).json({ message: "The source record changed. Reload the candidates and review the current record." });
+  }
+  if (candidate.sourceSnapshotHash !== input.expectedSourceSnapshotHash) {
+    return res.status(409).json({ message: "The reviewed ShipStation item changed. Reload the candidates before confirming." });
+  }
+  if (input.decision === "skip" && !input.reason) {
+    return res.status(400).json({ message: "A reason is required when skipping an ambiguous or unverified candidate." });
+  }
+  if (input.decision === "confirm_add" && candidate.candidateType !== "missing_line_item") {
+    return res.status(400).json({ message: "Only a verified missing line item can be added." });
+  }
+  if (input.decision === "confirm_quantity" && candidate.candidateType !== "quantity_mismatch") {
+    return res.status(400).json({ message: "Only a verified quantity mismatch can be repaired." });
+  }
+  if (input.decision !== "skip" && candidate.candidateType === "ambiguous") {
+    return res.status(400).json({ message: "Ambiguous source-format differences must be skipped, not guessed." });
+  }
+  if (input.decision !== "skip" && !canConfirmShipStationLineItem(candidate.sourceItem)) {
+    return res.status(400).json({ message: "A stable ShipStation line-item ID/key is required before a historical line can be repaired." });
+  }
+
+  const reviewer = req.user?.email || req.user?.id || "platform-admin";
+  const sourceSnapshot = JSON.stringify({ sourceOrder: candidate.sourceOrder, sourceItem: candidate.sourceItem });
+  const beforeSnapshot = candidate.localItem ? JSON.stringify(candidate.localItem) : null;
+  const now = new Date();
+
+  let response: { conflict: boolean; alreadyReviewed?: boolean; orderDetailId?: string | null; decision?: string };
+  try {
+    response = await db.transaction(async (tx) => {
+      const [existingReview] = await tx.select({ id: historicalOrderRecovery.id })
+        .from(historicalOrderRecovery)
+        .where(eq(historicalOrderRecovery.candidateKey, candidateKey))
+        .limit(1);
+      if (existingReview) return { conflict: false, alreadyReviewed: true };
+      let orderDetailId = candidate.localItem?.id ?? null;
+      let afterSnapshot: string | null = null;
+
+      if (input.decision === "confirm_add") {
+        const sourceItem = candidate.sourceItem;
+        if (!sourceItem.name || sourceItem.quantity == null || sourceItem.quantity < 0) {
+          throw new Error("ShipStation source row does not contain a safe name and integer quantity.");
+        }
+        // The candidate was generated before this transaction. Re-check the
+        // immutable source line key here; the database trigger is the final
+        // all-writers guard if a channel sync inserts the line concurrently.
+        const [lineAddedSinceReview] = await tx.select({ id: orderDetails.id })
+          .from(orderDetails)
+          .where(and(
+            eq(orderDetails.orderId, candidate.order.id),
+            eq(orderDetails.lineItemKey, sourceItem.lineItemKey),
+          ))
+          .limit(1);
+        if (lineAddedSinceReview) return { conflict: true };
+        const fulfilled = ["shipped", "completed", "cancelled", "returned"].includes(candidate.order.orderStatus.toLowerCase());
+        const [inserted] = await tx.insert(orderDetails).values({
+          orderId: candidate.order.id,
+          lineItemKey: sourceItem.lineItemKey,
+          sku: sourceItem.sku,
+          name: sourceItem.name,
+          quantity: sourceItem.quantity,
+          unitPrice: sourceItem.unitPrice == null ? null : String(sourceItem.unitPrice),
+          taxAmount: sourceItem.taxAmount == null ? null : String(sourceItem.taxAmount),
+          weight: sourceItem.weight == null ? null : String(sourceItem.weight),
+          weightUnits: sourceItem.weightUnits,
+          description: sourceItem.description,
+          options: sourceItem.options == null ? null : JSON.stringify(sourceItem.options),
+          customField1: sourceItem.customField1,
+          customField2: sourceItem.customField2,
+          customField3: sourceItem.customField3,
+          fulfilled,
+        }).returning();
+        orderDetailId = inserted.id;
+        afterSnapshot = JSON.stringify(inserted);
+      } else if (input.decision === "confirm_quantity") {
+        if (!candidate.localItem || input.expectedLocalQuantity == null) {
+          throw new Error("The current local quantity is required to confirm a quantity repair.");
+        }
+        if (candidate.localItem.quantity !== input.expectedLocalQuantity) {
+          return { conflict: true };
+        }
+        const [updated] = await tx.update(orderDetails)
+          .set({ quantity: candidate.sourceItem.quantity!, updatedAt: now })
+          .where(and(
+            eq(orderDetails.id, candidate.localItem.id),
+            eq(orderDetails.orderId, candidate.order.id),
+            eq(orderDetails.quantity, input.expectedLocalQuantity),
+          ))
+          .returning();
+        if (!updated) return { conflict: true };
+        afterSnapshot = JSON.stringify(updated);
+      }
+
+      await tx.insert(historicalOrderRecovery).values({
+        candidateKey,
+        orderId: candidate.order.id,
+        orderDetailId,
+        orgId: candidate.order.orgId,
+        sourceOrderId: candidate.sourceOrder.orderId,
+        sourceLineItemKey: candidate.sourceItem.lineItemKey,
+        candidateType: candidate.candidateType,
+        decision: input.decision,
+        reason: input.reason ?? null,
+        beforeSnapshot,
+        sourceSnapshot,
+        afterSnapshot,
+        reviewedBy: reviewer,
+        reviewedAt: now,
+      });
+      return { conflict: false, orderDetailId, decision: input.decision };
+    });
+  } catch (error: any) {
+    if (isImmutableLineConflict(error)) {
+      return res.status(409).json({ message: "This ShipStation line was added by another writer. Reload before making another recovery decision." });
+    }
+    if (error?.code === "23505") {
+      return res.status(409).json({ message: "This recovery candidate was reviewed by another administrator. Reload to see the audit record." });
+    }
+    throw error;
+  }
+
+  if (response.conflict) return res.status(409).json({ message: "The local quantity changed. Reload the candidates before confirming." });
+  if (response.alreadyReviewed) return res.status(409).json({ message: "This recovery candidate has already been reviewed. Reload to see the audit record." });
+  res.json({ success: true, ...response });
 }));
 
 router.patch("/platform-admin/orgs/:id/plan", isSuperAdmin, asyncRoute(async (req, res) => {

@@ -2397,6 +2397,99 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-118 (bl_inventory item-base expression index for aisle hint) complete.');
 
+    // Phase-119: immutable audit trail for explicitly confirmed historical
+    // ShipStation line-item recovery. The unique candidate key makes a review
+    // idempotent even if two admins submit the same decision concurrently.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS historical_order_recovery (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        candidate_key TEXT NOT NULL,
+        order_id VARCHAR NOT NULL,
+        order_detail_id VARCHAR,
+        org_id VARCHAR,
+        source_order_id TEXT,
+        source_line_item_key TEXT,
+        candidate_type TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        reason TEXT,
+        before_snapshot TEXT,
+        source_snapshot TEXT NOT NULL,
+        after_snapshot TEXT,
+        reviewed_by TEXT NOT NULL,
+        reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'historical_order_recovery_candidate_key_unique'
+            AND conrelid = 'historical_order_recovery'::regclass
+        ) THEN
+          ALTER TABLE historical_order_recovery
+            ADD CONSTRAINT historical_order_recovery_candidate_key_unique UNIQUE (candidate_key);
+        END IF;
+      END $$;
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS historical_recovery_order_idx ON historical_order_recovery(order_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS historical_recovery_org_idx ON historical_order_recovery(org_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS historical_recovery_reviewed_at_idx ON historical_order_recovery(reviewed_at)`);
+    console.log('[Migration] Phase-119 (historical order recovery audit table) complete.');
+
+    // Phase-120: block new duplicate immutable order-line identities. Legacy
+    // duplicates are intentionally preserved for review; this trigger applies
+    // the invariant to every future writer without deleting or rewriting them.
+    // The advisory lock serializes concurrent inserts for the same identity,
+    // including normal channel syncs that do not know about recovery reviews.
+    await client.query(`
+      CREATE OR REPLACE FUNCTION reject_duplicate_order_detail_line_key()
+      RETURNS trigger AS $$
+      BEGIN
+        IF NEW.line_item_key IS NOT NULL THEN
+          PERFORM pg_advisory_xact_lock(hashtextextended(NEW.order_id || ':' || NEW.line_item_key, 0));
+          IF EXISTS (
+            SELECT 1
+            FROM order_details
+            WHERE order_id = NEW.order_id
+              AND line_item_key = NEW.line_item_key
+              AND id IS DISTINCT FROM NEW.id
+          ) THEN
+            RAISE EXCEPTION USING
+              ERRCODE = '23505',
+              CONSTRAINT = 'order_details_order_line_item_key_unique',
+              MESSAGE = 'duplicate immutable order line item key';
+          END IF;
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+    await client.query(`DROP TRIGGER IF EXISTS order_details_reject_duplicate_line_key ON order_details`);
+    await client.query(`
+      CREATE TRIGGER order_details_reject_duplicate_line_key
+      BEFORE INSERT OR UPDATE OF order_id, line_item_key ON order_details
+      FOR EACH ROW EXECUTE FUNCTION reject_duplicate_order_detail_line_key()
+    `);
+    console.log('[Migration] Phase-120 (new immutable order-line key guard) complete.');
+
+    // Phase-121: explicit, reviewed ShipStation-to-local order identity links.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS shipstation_order_mappings (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id VARCHAR NOT NULL,
+        local_order_id VARCHAR NOT NULL,
+        source_order_id TEXT NOT NULL,
+        source_order_key TEXT,
+        source_snapshot TEXT NOT NULL,
+        verified_by TEXT NOT NULL,
+        verified_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS shipstation_order_mapping_source_unique ON shipstation_order_mappings(org_id, source_order_id)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS shipstation_order_mapping_local_unique ON shipstation_order_mappings(org_id, local_order_id)`);
+    console.log('[Migration] Phase-121 (reviewed ShipStation order identity mappings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
