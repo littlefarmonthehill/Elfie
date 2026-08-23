@@ -54,4 +54,4 @@ RESET_TOKEN = "1421a8be6dbda97b3f526dc7c782ca67c609876eb882acb3"
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 20000
+timeoutMs = 120000
