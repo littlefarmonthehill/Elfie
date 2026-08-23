@@ -1121,6 +1121,32 @@ export const shipstationOrderMappings = pgTable("shipstation_order_mappings", {
 
 export type ShipstationOrderMapping = typeof shipstationOrderMappings.$inferSelect;
 
+// A non-destructive audit archive for legacy ShipStation duplicate candidates.
+// The original order and its lines remain untouched; this record captures the
+// comparison and snapshots that an administrator explicitly reviewed.
+export const shipstationDuplicateOrderArchives = pgTable("shipstation_duplicate_order_archives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  candidateKey: text("candidate_key").notNull().unique(),
+  candidateHash: text("candidate_hash").notNull(),
+  orgId: varchar("org_id"),
+  duplicateOrderId: varchar("duplicate_order_id").notNull(),
+  canonicalOrderId: varchar("canonical_order_id").notNull(),
+  duplicateSnapshot: text("duplicate_snapshot").notNull(),
+  canonicalSnapshot: text("canonical_snapshot").notNull(),
+  duplicateDetailsSnapshot: text("duplicate_details_snapshot").notNull(),
+  comparisonSnapshot: text("comparison_snapshot").notNull(),
+  safeReason: text("safe_reason").notNull(),
+  reviewReason: text("review_reason"),
+  archivedBy: text("archived_by").notNull(),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+}, (table) => ({
+  duplicateOrderIdx: index("shipstation_duplicate_archive_duplicate_idx").on(table.duplicateOrderId),
+  canonicalOrderIdx: index("shipstation_duplicate_archive_canonical_idx").on(table.canonicalOrderId),
+  archivedAtIdx: index("shipstation_duplicate_archive_archived_at_idx").on(table.archivedAt),
+}));
+
+export type ShipstationDuplicateOrderArchive = typeof shipstationDuplicateOrderArchives.$inferSelect;
+
 // Price-o-Matic Cache - Stores merged BrickLink item details and price guide data
 export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

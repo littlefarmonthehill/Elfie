@@ -2490,6 +2490,33 @@ export async function runMigrations() {
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS shipstation_order_mapping_local_unique ON shipstation_order_mappings(org_id, local_order_id)`);
     console.log('[Migration] Phase-121 (reviewed ShipStation order identity mappings) complete.');
 
+    // Phase-122: retain reviewed legacy duplicate candidates without deleting
+    // their source records. This is intentionally an archive of evidence, not
+    // a soft-delete marker, so historical order and fulfillment data remains
+    // available until a separately audited retention process exists.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS shipstation_duplicate_order_archives (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        candidate_key TEXT NOT NULL UNIQUE,
+        candidate_hash TEXT NOT NULL,
+        org_id VARCHAR,
+        duplicate_order_id VARCHAR NOT NULL,
+        canonical_order_id VARCHAR NOT NULL,
+        duplicate_snapshot TEXT NOT NULL,
+        canonical_snapshot TEXT NOT NULL,
+        duplicate_details_snapshot TEXT NOT NULL,
+        comparison_snapshot TEXT NOT NULL,
+        safe_reason TEXT NOT NULL,
+        review_reason TEXT,
+        archived_by TEXT NOT NULL,
+        archived_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS shipstation_duplicate_archive_duplicate_idx ON shipstation_duplicate_order_archives(duplicate_order_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS shipstation_duplicate_archive_canonical_idx ON shipstation_duplicate_order_archives(canonical_order_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS shipstation_duplicate_archive_archived_at_idx ON shipstation_duplicate_order_archives(archived_at)`);
+    console.log('[Migration] Phase-122 (non-destructive ShipStation duplicate archive) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

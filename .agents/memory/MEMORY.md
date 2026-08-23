@@ -19,3 +19,4 @@
 - [Dev shares prod DB](dev-shares-prod-db.md) — dev server and the deployment use the SAME Neon DATABASE_URL; any executeSql write hits production immediately, there's no separate dev copy.
 - [BrickOwl merge-delta orders](brickowl-merge-delta-orders.md) — synthetic "-M" delta order rows (bookkeeping for item-added merges) count toward ordersAdded; any "new order" query/notification must exclude id != merge_group_id or it reports phantom orders.
 - [Historical recovery identity](historical-recovery-identity.md) — only immutable order and line identifiers may repair history; order-number and fingerprint matches are review-only skips.
+- [Non-destructive order cleanup](non-destructive-order-cleanup.md) — a legacy ID pattern is only a review lead; archive certified evidence under a transaction instead of deleting order history.

@@ -1534,8 +1534,10 @@ function BetaFeaturesSection() {
 
 function MaintenancePanel() {
   const { toast } = useToast();
-  const [dryRunResult, setDryRunResult] = useState<{ ordersToDelete: number; orderDetailsToDelete: number; sampleIds: string[] } | null>(null);
-  const [done, setDone] = useState(false);
+  const [dryRunResult, setDryRunResult] = useState<any | null>(null);
+  const { data: archiveData } = useQuery<any>({
+    queryKey: ['/api/platform-admin/cleanup-shipstation-duplicate-orders/archives'],
+  });
 
   const dryRun = useMutation({
     mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders'),
@@ -1543,13 +1545,22 @@ function MaintenancePanel() {
     onError: () => toast({ title: 'Dry run failed', variant: 'destructive' }),
   });
 
-  const execute = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders?confirm=true'),
+  const archive = useMutation({
+    mutationFn: (candidate: any) => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders/archive', {
+      candidateKey: candidate.candidateKey,
+      expectedCandidateHash: candidate.candidateHash,
+    }),
     onSuccess: (data: any) => {
-      setDone(true);
-      toast({ title: `Deleted ${data.ordersDeleted} duplicate orders` });
+      setDryRunResult((previous: any) => previous ? {
+        ...previous,
+        candidates: previous.candidates.map((candidate: any) =>
+          candidate.candidateKey === data.candidateKey ? { ...candidate, archived: true } : candidate,
+        ),
+      } : previous);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/cleanup-shipstation-duplicate-orders/archives'] });
+      toast({ title: 'Candidate archived for review', description: 'The original order history was retained.' });
     },
-    onError: () => toast({ title: 'Cleanup failed', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Archive failed', description: error.message, variant: 'destructive' }),
   });
 
   return (
@@ -1557,16 +1568,11 @@ function MaintenancePanel() {
       <div>
         <h3 className="text-sm font-semibold text-gray-100 mb-0.5">Duplicate Order Cleanup</h3>
         <p className="text-xs text-gray-400">
-          Removes legacy duplicate BL orders (bare numeric IDs like BL.XXXXXX) where a proper <code className="bg-gray-800 px-1 rounded">bl-XXXXXX</code> record already exists.
+          Reviews legacy <code className="bg-gray-800 px-1 rounded">BL.XXXXXX</code> records against canonical orders. Archiving preserves the original order and line-item history.
         </p>
       </div>
 
-      {done ? (
-        <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
-          <CheckCircle2 className="h-4 w-4" />
-          Cleanup complete — duplicate orders removed.
-        </div>
-      ) : !dryRunResult ? (
+      {!dryRunResult ? (
         <Button
           variant="outline"
           size="sm"
@@ -1582,35 +1588,64 @@ function MaintenancePanel() {
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-3 space-y-2">
             <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
               <AlertTriangle className="h-3.5 w-3.5" />
-              Review before confirming
+              Review each candidate before archiving
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Orders to delete</p>
-                <p className="font-bold text-sm text-gray-100">{dryRunResult.ordersToDelete.toLocaleString()}</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Ready for archive</p>
+                <p className="font-bold text-sm text-gray-100">{dryRunResult.summary.readyForArchive.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Line items to delete</p>
-                <p className="font-bold text-sm text-gray-100">{dryRunResult.orderDetailsToDelete.toLocaleString()}</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Blocked as ambiguous</p>
+                <p className="font-bold text-sm text-gray-100">{dryRunResult.summary.blocked.toLocaleString()}</p>
               </div>
             </div>
-            <p className="text-[10px] text-gray-500">Sample IDs: {dryRunResult.sampleIds.slice(0, 4).join(', ')}</p>
+            <p className="text-[10px] text-gray-500">{dryRunResult.message}</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDryRunResult(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => execute.mutate()}
-              disabled={execute.isPending}
-              data-testid="button-confirm-cleanup"
-            >
-              {execute.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Delete {dryRunResult.ordersToDelete.toLocaleString()} Orders
-            </Button>
+          <div className="space-y-2">
+            {dryRunResult.candidates.map((candidate: any) => (
+              <div key={candidate.candidateKey} className="rounded border border-gray-700 p-2 text-xs space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-gray-100">{candidate.duplicateOrder.id} → {candidate.canonicalOrder.id}</p>
+                    <p className="text-gray-500">{candidate.duplicateDetailsCount} line item{candidate.duplicateDetailsCount === 1 ? '' : 's'} retained</p>
+                  </div>
+                  {candidate.archived ? (
+                    <span className="text-green-400 font-medium">Archived</span>
+                  ) : candidate.comparison.isSafe ? (
+                    <Button size="sm" variant="outline" onClick={() => archive.mutate(candidate)} disabled={archive.isPending} data-testid={`button-archive-cleanup-${candidate.duplicateOrder.id}`}>
+                      {archive.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
+                      Archive review
+                    </Button>
+                  ) : (
+                    <span className="text-amber-400 font-medium">Blocked</span>
+                  )}
+                </div>
+                <p className="text-gray-500">
+                  Key: {candidate.duplicateOrder.order_key ?? 'missing'} · Source: {candidate.duplicateOrder.marketplace ?? 'missing'} · Date: {candidate.duplicateOrder.order_date ?? 'missing'} · Total: {candidate.duplicateOrder.order_total ?? 'missing'}
+                </p>
+                {!candidate.comparison.isSafe && <p className="text-amber-400">Not archived: {candidate.comparison.reasons.join('; ')}.</p>}
+              </div>
+            ))}
           </div>
+          {archiveData?.archives?.length > 0 && (
+            <div className="space-y-2 border-t border-gray-700 pt-3">
+              <p className="text-xs font-medium text-gray-100">Archived review evidence</p>
+              {archiveData.archives.map((archive: any) => (
+                <div key={archive.candidateKey} className="rounded border border-gray-700 p-2 text-xs space-y-1">
+                  <p className="font-medium text-gray-100">{archive.duplicateOrderId} → {archive.canonicalOrderId}</p>
+                  <p className="text-gray-500">
+                    Archived {new Date(archive.archivedAt).toLocaleString()} by {archive.archivedBy} · {archive.duplicateDetailsSnapshot.length} line item{archive.duplicateDetailsSnapshot.length === 1 ? '' : 's'} retained
+                  </p>
+                  <p className="text-gray-400">Duplicate: key {archive.duplicateSnapshot.order_key ?? 'missing'} · {archive.duplicateSnapshot.marketplace ?? 'missing'} · {archive.duplicateSnapshot.order_date ?? 'missing'} · {archive.duplicateSnapshot.order_total ?? 'missing'}</p>
+                  <p className="text-gray-400">Canonical: key {archive.canonicalSnapshot.order_key ?? 'missing'} · {archive.canonicalSnapshot.marketplace ?? 'missing'} · {archive.canonicalSnapshot.order_date ?? 'missing'} · {archive.canonicalSnapshot.order_total ?? 'missing'}</p>
+                  <p className="text-green-400">{archive.safeReason}</p>
+                  {archive.reviewReason && <p className="text-gray-500">Reviewer note: {archive.reviewReason}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setDryRunResult(null)}>Close review</Button>
         </div>
       )}
     </div>

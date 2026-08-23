@@ -1,6 +1,7 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { z } from "zod";
+import { createHash } from "crypto";
 import { eq, desc, sql, inArray, or, and, isNull, isNotNull, count, gte, asc, ne } from "drizzle-orm";
 import { db, pool } from "../db";
 import { asyncRoute, reqOrgId, maskSecret, maskSettingsSecrets, SECRET_FIELDS, getOrgSettings } from "../lib/routeHelpers";
@@ -23,10 +24,11 @@ import {
   insertPlanSchema, insertProductOkrSchema, insertProductKeyResultSchema,
   insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema,
   channelLotLinks, blInventory as blInv, channelLotLinks as cll,
-  historicalOrderRecovery, orderDetails, shipstationOrderMappings,
+  historicalOrderRecovery, orderDetails, shipstationOrderMappings, shipstationDuplicateOrderArchives,
   PLATFORM_ORG_ID,
 } from "@shared/schema";
 import { getHistoricalRecoveryCandidates, clearShipStationRecoveryCache, canConfirmShipStationLineItem, isImmutableLineConflict } from "../services/shipstation-recovery";
+import { compareDuplicateOrderRecords } from "../services/order-sync-helpers";
 
 const router = Router();
 
@@ -216,19 +218,239 @@ router.post("/platform-admin/orgs/:id/factory-reset", isSuperAdmin, asyncRoute(a
   res.json({ success: true, orgId, orgName: org.name });
 }));
 
+type LegacyDuplicateOrderSnapshot = {
+  id: string;
+  order_key: string | null;
+  marketplace: string | null;
+  order_date: string | Date | null;
+  order_total: string | number | null;
+};
+
+function parseDatabaseJson<T>(value: unknown): T {
+  return typeof value === "string" ? JSON.parse(value) as T : value as T;
+}
+
+function duplicateOrderCandidateHash(candidate: {
+  duplicateOrder: unknown;
+  canonicalOrder: unknown;
+  duplicateDetails: unknown;
+  comparison: unknown;
+}): string {
+  return createHash("sha256").update(JSON.stringify(candidate)).digest("hex");
+}
+
+type SqlExecutor = {
+  execute: (query: any) => Promise<any>;
+};
+
+async function getShipStationDuplicateCleanupCandidates(executor: SqlExecutor = db) {
+  const result = await executor.execute(sql`
+    SELECT
+      bare.id AS duplicate_order_id,
+      proper.id AS canonical_order_id,
+      bare.org_id AS org_id,
+      to_jsonb(bare) AS duplicate_order,
+      to_jsonb(proper) AS canonical_order,
+      COALESCE((
+        SELECT jsonb_agg(to_jsonb(od) ORDER BY od.id)
+        FROM order_details od
+        WHERE od.order_id = bare.id
+      ), '[]'::jsonb) AS duplicate_details,
+      (
+        bare.parent_order_id IS NOT NULL
+        OR bare.local_only
+        OR bare.order_number ~ '-[0-9]+$'
+        OR EXISTS (
+          SELECT 1 FROM order_splits split
+          WHERE split.parent_order_id = bare.id OR split.split_order_id = bare.id
+        )
+      ) AS duplicate_is_split,
+      (
+        proper.parent_order_id IS NOT NULL
+        OR proper.local_only
+        OR proper.order_number ~ '-[0-9]+$'
+        OR EXISTS (
+          SELECT 1 FROM order_splits split
+          WHERE split.parent_order_id = proper.id OR split.split_order_id = proper.id
+        )
+      ) AS canonical_is_split,
+      EXISTS (
+        SELECT 1
+        FROM orders reused
+        WHERE reused.id NOT IN (bare.id, proper.id)
+          AND reused.org_id IS NOT DISTINCT FROM bare.org_id
+          AND (reused.order_number = bare.order_number OR reused.order_number = proper.order_number)
+      ) AS has_reused_order_number,
+      archive.id AS archive_id,
+      archive.archived_at AS archived_at
+    FROM orders bare
+    INNER JOIN orders proper
+      ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4)
+      AND proper.org_id IS NOT DISTINCT FROM bare.org_id
+    LEFT JOIN shipstation_duplicate_order_archives archive
+      ON archive.candidate_key = bare.id || ':' || proper.id
+    WHERE bare.order_number LIKE 'BL.%'
+    ORDER BY bare.order_date DESC, bare.id
+  `);
+
+  return (result.rows as any[]).map((row) => {
+    const duplicateOrder = parseDatabaseJson<LegacyDuplicateOrderSnapshot>(row.duplicate_order);
+    const canonicalOrder = parseDatabaseJson<LegacyDuplicateOrderSnapshot>(row.canonical_order);
+    const duplicateDetails = parseDatabaseJson<unknown[]>(row.duplicate_details);
+    const comparison = compareDuplicateOrderRecords({
+      duplicate: {
+        orderKey: duplicateOrder.order_key,
+        source: duplicateOrder.marketplace,
+        orderDate: duplicateOrder.order_date,
+        orderTotal: duplicateOrder.order_total,
+      },
+      canonical: {
+        orderKey: canonicalOrder.order_key,
+        source: canonicalOrder.marketplace,
+        orderDate: canonicalOrder.order_date,
+        orderTotal: canonicalOrder.order_total,
+      },
+      duplicateIsSplit: Boolean(row.duplicate_is_split),
+      canonicalIsSplit: Boolean(row.canonical_is_split),
+      hasReusedOrderNumber: Boolean(row.has_reused_order_number),
+    });
+    const candidateKey = `${row.duplicate_order_id}:${row.canonical_order_id}`;
+    const candidateHash = duplicateOrderCandidateHash({
+      duplicateOrder,
+      canonicalOrder,
+      duplicateDetails,
+      comparison,
+    });
+
+    return {
+      candidateKey,
+      candidateHash,
+      duplicateOrder,
+      canonicalOrder,
+      duplicateDetails,
+      duplicateDetailsCount: duplicateDetails.length,
+      comparison,
+      archived: Boolean(row.archive_id),
+      archivedAt: row.archived_at ?? null,
+      orgId: row.org_id ?? null,
+    };
+  });
+}
+
+const duplicateOrderArchiveSchema = z.object({
+  candidateKey: z.string().min(1),
+  expectedCandidateHash: z.string().length(64),
+  reviewReason: z.string().trim().max(2000).nullable().optional(),
+});
+
 router.post("/platform-admin/cleanup-shipstation-duplicate-orders", isSuperAdmin, asyncRoute(async (req, res) => {
-  const confirm = req.query.confirm === 'true';
-  const dupsResult = await db.execute(sql`SELECT bare.id AS dup_id FROM orders bare INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4) WHERE bare.order_number LIKE 'BL.%'`);
-  const dupIds = (dupsResult.rows as any[]).map(r => r.dup_id as string);
-  if (!confirm) {
-    const detailCountResult = await db.execute(sql`SELECT COUNT(*) as cnt FROM order_details od WHERE od.order_id IN (SELECT bare.id FROM orders bare INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4) WHERE bare.order_number LIKE 'BL.%')`);
-    return res.json({ dryRun: true, ordersToDelete: dupIds.length, orderDetailsToDelete: Number((detailCountResult.rows[0] as any)?.cnt ?? 0), sampleIds: dupIds.slice(0, 10), message: 'Pass ?confirm=true to execute the deletion' });
+  if (req.query.confirm === "true") {
+    return res.status(400).json({
+      message: "Bulk deletion is no longer permitted. Review and archive one verified candidate at a time.",
+    });
   }
-  if (dupIds.length === 0) return res.json({ message: 'No duplicate orders found — nothing to delete.' });
-  await db.execute(sql`DELETE FROM order_details WHERE order_id IN (SELECT bare.id FROM orders bare INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4) WHERE bare.order_number LIKE 'BL.%')`);
-  await db.execute(sql`DELETE FROM orders WHERE id IN (SELECT bare.id FROM orders bare INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4) WHERE bare.order_number LIKE 'BL.%')`);
-  console.log(`[AdminCleanup] Deleted ${dupIds.length} duplicate BL orders`);
-  res.json({ success: true, ordersDeleted: dupIds.length, message: `Deleted ${dupIds.length} duplicate BL orders` });
+
+  const candidates = await getShipStationDuplicateCleanupCandidates();
+  const safeCandidates = candidates.filter(candidate => candidate.comparison.isSafe && !candidate.archived);
+  const blockedCandidates = candidates.filter(candidate => !candidate.comparison.isSafe);
+  const archivedCandidates = candidates.filter(candidate => candidate.archived);
+  res.json({
+    dryRun: true,
+    candidates,
+    summary: {
+      total: candidates.length,
+      readyForArchive: safeCandidates.length,
+      blocked: blockedCandidates.length,
+      archived: archivedCandidates.length,
+      duplicateDetails: candidates.reduce((total, candidate) => total + candidate.duplicateDetailsCount, 0),
+    },
+    message: "No orders or line items were removed. Only fully matching, non-split, non-reused candidates may be archived for review.",
+  });
+}));
+
+router.post("/platform-admin/cleanup-shipstation-duplicate-orders/archive", isSuperAdmin, asyncRoute(async (req: any, res) => {
+  const input = duplicateOrderArchiveSchema.parse(req.body);
+  let response: { ok: boolean; status?: number; message?: string; reasons?: string[]; candidateKey?: string };
+  try {
+    response = await db.transaction(async (tx) => {
+      // The comparison reads orders, line items, and split relations. Lock all
+      // three tables for this brief review transaction so a sync cannot change
+      // any of that evidence between revalidation and archive insertion.
+      await tx.execute(sql`LOCK TABLE orders, order_details, order_splits IN SHARE ROW EXCLUSIVE MODE`);
+      const candidates = await getShipStationDuplicateCleanupCandidates(tx);
+      const candidate = candidates.find(item => item.candidateKey === input.candidateKey);
+      if (!candidate) return { ok: false, status: 404, message: "This duplicate candidate no longer exists. Reload the review list." };
+      if (candidate.archived) return { ok: false, status: 409, message: "This candidate has already been archived for review." };
+      if (candidate.candidateHash !== input.expectedCandidateHash) {
+        return { ok: false, status: 409, message: "The candidate changed since it was reviewed. Reload and compare it again." };
+      }
+      if (!candidate.comparison.isSafe || !candidate.comparison.safeReason) {
+        return {
+          ok: false,
+          status: 400,
+          message: "This candidate is ambiguous and cannot be archived as a duplicate.",
+          reasons: candidate.comparison.reasons,
+        };
+      }
+
+      await tx.insert(shipstationDuplicateOrderArchives).values({
+        candidateKey: candidate.candidateKey,
+        candidateHash: candidate.candidateHash,
+        orgId: candidate.orgId,
+        duplicateOrderId: candidate.duplicateOrder.id,
+        canonicalOrderId: candidate.canonicalOrder.id,
+        duplicateSnapshot: JSON.stringify(candidate.duplicateOrder),
+        canonicalSnapshot: JSON.stringify(candidate.canonicalOrder),
+        duplicateDetailsSnapshot: JSON.stringify(candidate.duplicateDetails),
+        comparisonSnapshot: JSON.stringify(candidate.comparison),
+        safeReason: candidate.comparison.safeReason,
+        reviewReason: input.reviewReason ?? null,
+        archivedBy: req.user?.email || req.user?.id || "platform-admin",
+      });
+      return { ok: true, candidateKey: candidate.candidateKey };
+    });
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      return res.status(409).json({ message: "This candidate was archived by another administrator. Reload the review list." });
+    }
+    throw error;
+  }
+
+  if (!response.ok) return res.status(response.status ?? 400).json({ message: response.message, reasons: response.reasons });
+  console.log(`[AdminCleanup] Archived reviewed ShipStation duplicate candidate ${response.candidateKey}; original orders and line items retained.`);
+  res.json({
+    success: true,
+    candidateKey: response.candidateKey,
+    message: "Candidate archived for review. Original orders and line items were retained.",
+  });
+}));
+
+router.get("/platform-admin/cleanup-shipstation-duplicate-orders/archives", isSuperAdmin, asyncRoute(async (_req, res) => {
+  const archives = await db.select({
+    candidateKey: shipstationDuplicateOrderArchives.candidateKey,
+    candidateHash: shipstationDuplicateOrderArchives.candidateHash,
+    duplicateOrderId: shipstationDuplicateOrderArchives.duplicateOrderId,
+    canonicalOrderId: shipstationDuplicateOrderArchives.canonicalOrderId,
+    duplicateSnapshot: shipstationDuplicateOrderArchives.duplicateSnapshot,
+    canonicalSnapshot: shipstationDuplicateOrderArchives.canonicalSnapshot,
+    duplicateDetailsSnapshot: shipstationDuplicateOrderArchives.duplicateDetailsSnapshot,
+    comparisonSnapshot: shipstationDuplicateOrderArchives.comparisonSnapshot,
+    safeReason: shipstationDuplicateOrderArchives.safeReason,
+    reviewReason: shipstationDuplicateOrderArchives.reviewReason,
+    archivedBy: shipstationDuplicateOrderArchives.archivedBy,
+    archivedAt: shipstationDuplicateOrderArchives.archivedAt,
+  }).from(shipstationDuplicateOrderArchives)
+    .orderBy(desc(shipstationDuplicateOrderArchives.archivedAt));
+
+  res.json({
+    archives: archives.map(archive => ({
+      ...archive,
+      duplicateSnapshot: parseDatabaseJson<LegacyDuplicateOrderSnapshot>(archive.duplicateSnapshot),
+      canonicalSnapshot: parseDatabaseJson<LegacyDuplicateOrderSnapshot>(archive.canonicalSnapshot),
+      duplicateDetailsSnapshot: parseDatabaseJson<unknown[]>(archive.duplicateDetailsSnapshot),
+      comparisonSnapshot: parseDatabaseJson<ReturnType<typeof compareDuplicateOrderRecords>>(archive.comparisonSnapshot),
+    })),
+  });
 }));
 
 const historicalRecoveryReviewSchema = z.object({

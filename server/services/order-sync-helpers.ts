@@ -7,6 +7,95 @@ import { eq, and } from "drizzle-orm";
  * Add new channel adapters here rather than duplicating these patterns.
  */
 
+// ── Historical duplicate review ──────────────────────────────────────────────
+
+export interface DuplicateOrderComparisonInput {
+  duplicate: {
+    orderKey: string | null;
+    source: string | null;
+    orderDate: Date | string | null;
+    orderTotal: string | number | null;
+  };
+  canonical: {
+    orderKey: string | null;
+    source: string | null;
+    orderDate: Date | string | null;
+    orderTotal: string | number | null;
+  };
+  duplicateIsSplit: boolean;
+  canonicalIsSplit: boolean;
+  hasReusedOrderNumber: boolean;
+}
+
+export interface DuplicateOrderComparisonResult {
+  isSafe: boolean;
+  reasons: string[];
+  safeReason: string | null;
+}
+
+function normalizedText(value: string | null): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized.toLowerCase() : null;
+}
+
+function normalizedDate(value: Date | string | null): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function normalizedMoney(value: string | number | null): string | null {
+  if (value == null || value === "") return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount.toFixed(2) : null;
+}
+
+/**
+ * A legacy ID pattern is only a lead, never proof that two orders are
+ * duplicates. Archiving is allowed only when all immutable-ish business
+ * fields agree and neither record is involved in an order split.
+ */
+export function compareDuplicateOrderRecords(
+  input: DuplicateOrderComparisonInput,
+): DuplicateOrderComparisonResult {
+  const reasons: string[] = [];
+  const duplicateKey = normalizedText(input.duplicate.orderKey);
+  const canonicalKey = normalizedText(input.canonical.orderKey);
+  const duplicateSource = normalizedText(input.duplicate.source);
+  const canonicalSource = normalizedText(input.canonical.source);
+  const duplicateDate = normalizedDate(input.duplicate.orderDate);
+  const canonicalDate = normalizedDate(input.canonical.orderDate);
+  const duplicateTotal = normalizedMoney(input.duplicate.orderTotal);
+  const canonicalTotal = normalizedMoney(input.canonical.orderTotal);
+
+  if (!duplicateKey || !canonicalKey || duplicateKey !== canonicalKey) {
+    reasons.push("order key is missing or does not match");
+  }
+  if (!duplicateSource || !canonicalSource || duplicateSource !== canonicalSource) {
+    reasons.push("source marketplace is missing or does not match");
+  }
+  if (!duplicateDate || !canonicalDate || duplicateDate !== canonicalDate) {
+    reasons.push("order date is missing or does not match");
+  }
+  if (!duplicateTotal || !canonicalTotal || duplicateTotal !== canonicalTotal) {
+    reasons.push("order total is missing or does not match");
+  }
+  if (input.duplicateIsSplit || input.canonicalIsSplit) {
+    reasons.push("one of the orders is a split or reship record");
+  }
+  if (input.hasReusedOrderNumber) {
+    reasons.push("the legacy order number is reused by another order");
+  }
+
+  return {
+    isSafe: reasons.length === 0,
+    reasons,
+    safeReason: reasons.length === 0
+      ? "Order key, source marketplace, order date, and total all match; neither order is split and the legacy number is not reused."
+      : null,
+  };
+}
+
 // ── DB Connection Resilience ──────────────────────────────────────────────────
 
 /**
