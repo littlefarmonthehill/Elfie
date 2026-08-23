@@ -32,7 +32,7 @@ export interface ShipStationOrderItem {
   customField3?: string | null;
 }
 
-interface ShipStationOrder {
+export interface ShipStationOrder {
   orderId?: number | string | null;
   orderNumber?: string | null;
   orderKey?: string | null;
@@ -42,6 +42,10 @@ interface ShipStationOrder {
   modifyDate?: string | null;
   marketplaceId?: string | null;
   marketplaceName?: string | null;
+  orderTotal?: number | string | null;
+  amountPaid?: number | string | null;
+  taxAmount?: number | string | null;
+  shippingAmount?: number | string | null;
   orderItems?: ShipStationOrderItem[] | null;
   // Kept as a compatibility alias for archived exports and API proxies that
   // normalize ShipStation's canonical `orderItems` field.
@@ -108,7 +112,7 @@ async function shipStationRequest<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function fetchShipStationOrders(forceRefresh = false): Promise<ShipStationOrder[]> {
+export async function getShipStationOrders(forceRefresh = false): Promise<ShipStationOrder[]> {
   if (!forceRefresh && cachedOrders && cachedOrders.expiresAt > Date.now()) {
     return cachedOrders.orders;
   }
@@ -284,7 +288,7 @@ export async function getHistoricalRecoveryCandidates(options: { forceRefresh?: 
     )),
     db.select().from(orderDetails),
     db.select().from(shipstationOrderMappings).where(eq(shipstationOrderMappings.orgId, shipStationOrgId)),
-    fetchShipStationOrders(Boolean(options.forceRefresh)),
+    getShipStationOrders(Boolean(options.forceRefresh)),
   ]);
 
   const localById = new Map<string, typeof localOrders>();

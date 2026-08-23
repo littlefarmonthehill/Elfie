@@ -21,3 +21,4 @@
 - [Historical recovery identity](historical-recovery-identity.md) — only immutable order and line identifiers may repair history; order-number and fingerprint matches are review-only skips.
 - [Non-destructive order cleanup](non-destructive-order-cleanup.md) — a legacy ID pattern is only a review lead; archive certified evidence under a transaction instead of deleting order history.
 - [Duplicate cleanup status audit](duplicate-cleanup-status-audit.md) — historical batch reviews need a fixed source-ID manifest; dynamic status/timestamp filters lose corrected records and blur audit scope.
+- [Historical revenue reconciliation](historical-revenue-reconciliation.md) — resolve source/local identity across full history before date filtering; ambiguous source claims are evidence, never revenue.

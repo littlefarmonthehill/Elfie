@@ -33,6 +33,7 @@ import {
   duplicateCleanupLocalSnapshotHash,
   getDuplicateCleanupStatusReviewCandidates,
 } from "../services/duplicate-cleanup-status-review";
+import { getHistoricalRevenueReport } from "../services/historical-revenue";
 
 const router = Router();
 
@@ -792,6 +793,57 @@ router.post("/platform-admin/duplicate-cleanup-status-review/:candidateKey/revie
 
   if (response.conflict) return res.status(409).json({ message: "The local order changed or was reviewed while this comparison was open. Reload before continuing." });
   res.json({ success: true, ...response });
+}));
+
+const historicalRevenueQuerySchema = z.object({
+  orgId: z.string().trim().min(1).max(128).optional(),
+  from: z.string().trim().optional(),
+  to: z.string().trim().optional(),
+  forceRefresh: z.enum(["true", "false"]).optional(),
+});
+
+function parseHistoricalRevenueDate(value: string | undefined, label: string): Date | undefined {
+  if (!value) return undefined;
+  // Date-only values are interpreted as UTC boundaries so a report does not
+  // move an order to the adjacent day based on the server's local timezone.
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00.000Z`)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`Invalid historical revenue ${label} date.`);
+  return date;
+}
+
+// Read-only report used after the duplicate/status review. It intentionally
+// lives behind super-admin auth because ShipStation credentials are account
+// wide and the result includes historical order-level evidence.
+router.get("/platform-admin/historical-revenue-reconciliation", isSuperAdmin, asyncRoute(async (req: any, res) => {
+  const parsed = historicalRevenueQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ message: "Invalid historical revenue report parameters." });
+
+  let from: Date | undefined;
+  let to: Date | undefined;
+  try {
+    from = parseHistoricalRevenueDate(parsed.data.from, "start");
+    to = parseHistoricalRevenueDate(parsed.data.to, "end");
+  } catch (error: any) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  try {
+    res.json(await getHistoricalRevenueReport({
+      // A platform admin can choose another org for a dedicated ShipStation
+      // account; otherwise retain the currently selected organization.
+      orgId: parsed.data.orgId ?? reqOrgId(req),
+      from,
+      to,
+      forceRefresh: parsed.data.forceRefresh === "true",
+    }));
+  } catch (error: any) {
+    if (/credentials are not configured/i.test(error?.message ?? "")) {
+      return res.status(503).json({ message: "ShipStation credentials are not configured for the historical revenue report." });
+    }
+    throw error;
+  }
 }));
 
 router.patch("/platform-admin/orgs/:id/plan", isSuperAdmin, asyncRoute(async (req, res) => {

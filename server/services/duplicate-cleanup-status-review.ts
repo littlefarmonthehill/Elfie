@@ -10,7 +10,7 @@ import { historicalOrderRecovery, orders, PLATFORM_ORG_ID } from "@shared/schema
 // IDs and BrickLink source IDs are the canonical source identity pair; neither
 // the query nor a correction relies on a displayed order number or a mutable
 // timestamp/status predicate.
-const DUPLICATE_RECONCILIATION_MANIFEST = [
+export const DUPLICATE_RECONCILIATION_MANIFEST = [
   { localOrderId: "bl-17141345", sourceOrderId: "17141345" },
   { localOrderId: "bl-12398298", sourceOrderId: "12398298" },
   { localOrderId: "bl-10406576", sourceOrderId: "10406576" },
