@@ -71,6 +71,7 @@ async function fetchAndCacheMissingLot(inventoryId: number, orgId: string): Prom
 
 export interface BrickLinkOrderSyncResult {
   ordersAdded: number;
+  newOrderIds: string[];
   ordersUpdated: number;
   orderDetailsAdded: number;
   totalOrders: number;
@@ -92,6 +93,7 @@ export async function syncBrickLinkOrders(
 ): Promise<BrickLinkOrderSyncResult> {
   const result: BrickLinkOrderSyncResult = {
     ordersAdded: 0,
+    newOrderIds: [],
     ordersUpdated: 0,
     orderDetailsAdded: 0,
     totalOrders: 0,
@@ -767,6 +769,7 @@ async function processBrickLinkOrder(
 
   // Trigger inventory adjustment for new orders after items are inserted
   if (isNewOrder) {
+    result.newOrderIds.push(orderId);
     console.log(`📦 New BrickLink order ${orderId} — triggering inventory adjustment`);
     adjustInventoryForOrder(orderId).catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new order ${orderId}:`, error);

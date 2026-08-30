@@ -165,7 +165,7 @@ function parseSkuToBlInvId(sku: string | null | undefined): number | null {
 async function processEbayOrder(
   ebayOrder: any,
   orgId: string,
-  result: { ordersAdded: number; ordersUpdated: number; errors: string[] },
+  result: { ordersAdded: number; newOrderIds: string[]; ordersUpdated: number; errors: string[] },
 ): Promise<void> {
   const rawId = ebayOrder.orderId ?? ebayOrder.legacyOrderId;
   if (!rawId) return;
@@ -328,6 +328,7 @@ async function processEbayOrder(
   // adjustInventoryForOrder is atomic-locked internally — safe to fire here.
   // It deducts local BL stock and triggers cross-platform sync to all other channels.
   if (isNewOrder) {
+    result.newOrderIds.push(orderId);
     adjustInventoryForOrder(orderId, 'ebay-new-order').catch(err =>
       console.error(`⚠️ Inventory adjustment failed for new eBay order ${orderId}:`, err)
     );
@@ -341,7 +342,7 @@ export async function syncEbayOrders(
   options: ChannelOrderSyncOptions = {},
   onProgress?: OrderSyncProgressCallback,
 ): Promise<ChannelOrderSyncResult> {
-  const result = { ordersAdded: 0, ordersUpdated: 0, errors: [] as string[] };
+  const result = { ordersAdded: 0, newOrderIds: [] as string[], ordersUpdated: 0, errors: [] as string[] };
 
   // ── Load & validate credentials ───────────────────────────────────────────
   const creds = await loadEbayCreds(orgId);

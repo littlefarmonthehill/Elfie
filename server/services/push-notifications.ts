@@ -51,15 +51,44 @@ function pickMessage(templates: ((c: number, ids: string[]) => string)[], count:
   return templates[Math.floor(Math.random() * templates.length)](count, ids);
 }
 
+export interface PushNotificationDeliverySummary {
+  attempted: number;
+  sent: number;
+  failed: number;
+  stale: number;
+}
+
+function emptyDeliverySummary(): PushNotificationDeliverySummary {
+  return { attempted: 0, sent: 0, failed: 0, stale: 0 };
+}
+
+function safePushFailureDetails(error: unknown): string {
+  const err = error as { statusCode?: unknown; code?: unknown };
+  const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : null;
+  const code = typeof err?.code === 'string' && /^[A-Z0-9_-]+$/i.test(err.code)
+    ? err.code
+    : null;
+  return [statusCode != null ? `status=${statusCode}` : null, code ? `code=${code}` : null]
+    .filter(Boolean)
+    .join(' ') || 'status=unknown';
+}
+
 export async function sendOrderSyncNotifications(
   orgId: string,
   allNewOrders: { orderNumber: string; shippingTier?: string | null }[]
-) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
-  if (allNewOrders.length === 0) return;
+): Promise<PushNotificationDeliverySummary> {
+  const summary = emptyDeliverySummary();
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.info(`[Push] order-sync org=${orgId} skipped=missing-vapid`);
+    return summary;
+  }
+  if (allNewOrders.length === 0) return summary;
 
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.orgId, orgId));
-  if (subs.length === 0) return;
+  if (subs.length === 0) {
+    console.info(`[Push] order-sync org=${orgId} skipped=no-subscriptions`);
+    return summary;
+  }
 
   const allIds = allNewOrders.map((o) => o.orderNumber);
   const priorityOrders = allNewOrders.filter(
@@ -67,43 +96,50 @@ export async function sendOrderSyncNotifications(
   );
   const priorityIds = priorityOrders.map((o) => o.orderNumber);
 
-  const staleEndpoints: number[] = [];
+  const staleEndpoints = new Set<number>();
+
+  const sendToSubscription = async (
+    subscriptionId: number,
+    notificationType: 'all-orders' | 'priority',
+    pushSub: { endpoint: string; keys: { p256dh: string; auth: string } },
+    payload: object,
+  ) => {
+    summary.attempted++;
+    try {
+      await webpush.sendNotification(pushSub, JSON.stringify(payload));
+      summary.sent++;
+      console.info(`[Push] order-sync org=${orgId} subscription=${subscriptionId} type=${notificationType} result=sent`);
+    } catch (error: unknown) {
+      summary.failed++;
+      const statusCode = (error as { statusCode?: unknown })?.statusCode;
+      if (statusCode === 410 || statusCode === 404) staleEndpoints.add(subscriptionId);
+      // Intentionally do not include endpoint URLs, subscription keys, or an
+      // arbitrary provider error message in logs.
+      console.warn(`[Push] order-sync org=${orgId} subscription=${subscriptionId} type=${notificationType} result=failed ${safePushFailureDetails(error)}`);
+    }
+  };
 
   for (const sub of subs) {
     const pushSub = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
 
     // All orders notification
     if (sub.notifyAllOrders && allNewOrders.length > 0) {
-      try {
-        await webpush.sendNotification(
-          pushSub,
-          JSON.stringify({
-            title: 'E.L.F.I.E. · New Orders Incoming!',
-            body: pickMessage(ELFIE_ALL_MESSAGES, allNewOrders.length, allIds),
-            tag: 'elfie-all-orders',
-            url: '/',
-          })
-        );
-      } catch (err: any) {
-        if (err.statusCode === 410 || err.statusCode === 404) staleEndpoints.push(sub.id);
-      }
+      await sendToSubscription(sub.id, 'all-orders', pushSub, {
+        title: 'E.L.F.I.E. · New Orders Incoming!',
+        body: pickMessage(ELFIE_ALL_MESSAGES, allNewOrders.length, allIds),
+        tag: 'elfie-all-orders',
+        url: '/',
+      });
     }
 
     // Priority-only notification (only if there are priority orders AND all-orders is off, or always if priority-only is on)
     if (sub.notifyPriorityOrders && priorityOrders.length > 0 && !sub.notifyAllOrders) {
-      try {
-        await webpush.sendNotification(
-          pushSub,
-          JSON.stringify({
-            title: 'E.L.F.I.E. · Priority Alert!',
-            body: pickMessage(ELFIE_PRIORITY_MESSAGES, priorityOrders.length, priorityIds),
-            tag: 'elfie-priority-orders',
-            url: '/',
-          })
-        );
-      } catch (err: any) {
-        if (err.statusCode === 410 || err.statusCode === 404) staleEndpoints.push(sub.id);
-      }
+      await sendToSubscription(sub.id, 'priority', pushSub, {
+        title: 'E.L.F.I.E. · Priority Alert!',
+        body: pickMessage(ELFIE_PRIORITY_MESSAGES, priorityOrders.length, priorityIds),
+        tag: 'elfie-priority-orders',
+        url: '/',
+      });
     }
   }
 
@@ -111,4 +147,6 @@ export async function sendOrderSyncNotifications(
   for (const id of staleEndpoints) {
     await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id));
   }
+  summary.stale = staleEndpoints.size;
+  return summary;
 }

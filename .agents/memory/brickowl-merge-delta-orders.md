@@ -29,6 +29,21 @@ change how `ordersAdded` is counted or how delta orders are created —
 they're needed for correct picking; only exclude them from
 customer/operator-facing "new order arrived" framing.
 
+**Fresh-alert rule:** a new-order notification must use only IDs proven to
+have been inserted as customer orders during the current sync run. Broad
+`ordersAdded` values, recency queries, and `inventoryDeducted` are
+operational/recovery signals, not notification evidence.
+
+**Why:** incremental BrickOwl syncs fetch updates as well as new orders, and
+an interrupted or concurrent sync can leave an existing order undeducted.
+Those cases still need inventory recovery, but announcing them as a newly
+placed customer order creates a false alert.
+
+**How to apply:** carry a dedicated list of verified fresh order IDs from the
+adapter to every notification caller. Prove insertion with an insert that
+returns a row only on success; on a conflict, update/recover the existing row
+without adding it to the notification list.
+
 **Second root cause (relisted lots on an already-terminal order):** a
 false "merge" can also be detected on an order that's already
 shipped/completed/cancelled/returned — a lot that was sold and later

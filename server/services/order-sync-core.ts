@@ -3,6 +3,9 @@ import { appSettings, PLATFORM_ORG_ID } from "@shared/schema";
 import { syncLock } from "./sync-lock";
 import { sql } from "drizzle-orm";
 import { CHANNEL_ORDER_SYNCS } from "./channel-order-registry";
+import { getVerifiedNewOrderIds } from "./channel-order-sync-interface";
+
+export { getVerifiedNewOrderIds } from "./channel-order-sync-interface";
 
 // ── Platform type ─────────────────────────────────────────────────────────────
 // 'all' runs every registered channel; named keys target a specific one.
@@ -26,6 +29,7 @@ export interface ChannelSyncOutcome {
   success: boolean;
   skipped: boolean;
   ordersAdded: number;
+  newOrderIds: string[];
   error: string | null;
 }
 
@@ -78,7 +82,7 @@ export function getOrderSyncIsRunning() {
 // ── Default outcome ───────────────────────────────────────────────────────────
 
 function defaultOutcome(): ChannelSyncOutcome {
-  return { success: false, skipped: false, ordersAdded: 0, error: null };
+  return { success: false, skipped: false, ordersAdded: 0, newOrderIds: [], error: null };
 }
 
 /**
@@ -165,15 +169,11 @@ export async function runPlatformOrderSync(
 
           result[channel.channelKey].success = true;
           result[channel.channelKey].ordersAdded += chResult.ordersAdded ?? 0;
+          result[channel.channelKey].newOrderIds.push(...getVerifiedNewOrderIds(chResult));
           console.log(`✅ ${channel.label} (${orgId}): ${chResult.ordersAdded ?? 0} orders added`);
 
-          if (withEmbeddings && (chResult.ordersAdded ?? 0) > 0) {
-            const rows = await db.execute(sql`
-              SELECT id FROM orders
-              WHERE marketplace = ${channel.marketplaceName} AND org_id = ${orgId}
-              ORDER BY synced_at DESC LIMIT ${chResult.ordersAdded}
-            `);
-            newOrderIds.push(...rows.rows.map((r: any) => r.id));
+          if (withEmbeddings) {
+            newOrderIds.push(...getVerifiedNewOrderIds(chResult));
           }
         } catch (err: any) {
           result[channel.channelKey].error = err.message;

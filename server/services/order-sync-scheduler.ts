@@ -1,9 +1,8 @@
 import { db } from "../db";
-import { appSettings, syncMetadata } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
-import { sql as drizzleSql } from "drizzle-orm";
+import { appSettings, syncMetadata, orders } from "@shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { syncLock } from "./sync-lock";
-import { runPlatformOrderSync } from "./order-sync-core";
+import { getVerifiedNewOrderIds, runPlatformOrderSync } from "./order-sync-core";
 import { CHANNEL_ORDER_SYNCS } from "./channel-order-registry";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata } from "./order-sync-helpers";
@@ -120,7 +119,8 @@ async function runScheduledChannelSync(
     });
 
     const added = result[channelKey]?.ordersAdded ?? 0;
-    console.log(`\n✨ Scheduled ${label} order sync complete — ${added} new orders`);
+    const newOrderIds = getVerifiedNewOrderIds(result[channelKey]);
+    console.log(`\n✨ Scheduled ${label} order sync complete — ${added} order records added, ${newOrderIds.length} fresh customer orders`);
 
     await upsertSyncMetadata(syncId, orgId, {
       status:         'success',
@@ -130,29 +130,33 @@ async function runScheduledChannelSync(
 
     if (added > 0) {
       broadcast(orgId, 'order.synced', { platform: channelKey, added, source: 'scheduler' });
+    }
 
+    if (newOrderIds.length > 0) {
       // Push notifications — fire and forget
       (async () => {
         try {
           const { sendOrderSyncNotifications } = await import('./push-notifications');
-          const { db: dbInner } = await import('../db');
-          // Exclude BrickOwl merge-delta rows (id != merge_group_id) — these are internal
-          // bookkeeping orders created when BrickOwl adds items to an existing order, not
-          // genuinely new orders placed by a customer. Notifying about them is misleading
-          // (e.g. "8051734-M is in the queue" when no such order exists on the channel).
-          const newRows = await dbInner.execute(drizzleSql`
-            SELECT order_number AS "orderNumber", NULL AS "shippingTier"
-            FROM orders
-            WHERE marketplace = ${marketplaceName} AND org_id = ${orgId}
-              AND (merge_group_id IS NULL OR id = merge_group_id)
-            ORDER BY synced_at DESC LIMIT ${added}
-          `);
-          await sendOrderSyncNotifications(
+          const newRows = await db.select({
+            orderNumber: orders.orderNumber,
+            shippingTier: orders.requestedShippingService,
+          })
+            .from(orders)
+            .where(and(
+              eq(orders.orgId, orgId),
+              eq(orders.marketplace, marketplaceName),
+              inArray(orders.id, newOrderIds),
+            ));
+          const delivery = await sendOrderSyncNotifications(
             orgId,
-            newRows.rows as { orderNumber: string; shippingTier?: string | null }[]
+            newRows,
           );
+          console.info(`[Push] order-sync org=${orgId} channel=${channelKey} freshOrders=${newOrderIds.length} attempted=${delivery.attempted} sent=${delivery.sent} failed=${delivery.failed} stale=${delivery.stale}`);
         } catch (notifErr: any) {
-          console.error(`⚠️ Push notifications failed (non-fatal): ${notifErr.message}`);
+          // Do not log provider error text here; it can contain subscription
+          // endpoint details. Per-subscription failures are logged safely by
+          // sendOrderSyncNotifications.
+          console.error('⚠️ Push notifications dispatch failed (non-fatal)');
         }
       })();
 
@@ -160,18 +164,9 @@ async function runScheduledChannelSync(
       (async () => {
         try {
           const { batchEmbedOrders, batchEmbedOrderDetails } = await import('./embeddings');
-          const { db } = await import('../db');
-          const rows = await db.execute(drizzleSql`
-            SELECT id FROM orders
-            WHERE marketplace = ${marketplaceName} AND org_id = ${orgId}
-            ORDER BY synced_at DESC LIMIT ${added}
-          `);
-          const ids = rows.rows.map((r: any) => r.id);
-          if (ids.length > 0) {
-            await batchEmbedOrders(ids);
-            await batchEmbedOrderDetails(ids);
-            console.log(`✓ Background embeddings complete for ${ids.length} ${label} order(s)`);
-          }
+          await batchEmbedOrders(newOrderIds);
+          await batchEmbedOrderDetails(newOrderIds);
+          console.log(`✓ Background embeddings complete for ${newOrderIds.length} ${label} order(s)`);
         } catch (embErr) {
           console.error(`✗ Background embeddings failed (non-fatal):`, embErr);
         }

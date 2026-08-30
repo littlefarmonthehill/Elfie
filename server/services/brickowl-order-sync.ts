@@ -12,6 +12,7 @@ const SYNC_ID = 'brickowl_orders';
 
 export interface BrickOwlOrderSyncResult {
   ordersAdded: number;
+  newOrderIds: string[];
   ordersUpdated: number;
   orderDetailsAdded: number;
   totalOrders: number;
@@ -32,6 +33,7 @@ export async function syncBrickOwlOrders(
 ): Promise<BrickOwlOrderSyncResult> {
   const result: BrickOwlOrderSyncResult = {
     ordersAdded: 0,
+    newOrderIds: [],
     ordersUpdated: 0,
     orderDetailsAdded: 0,
     totalOrders: 0,
@@ -204,6 +206,7 @@ async function processBrickOwlOrder(
     new Date();
 
   let isNewOrder = false;
+  let requiresInventoryRecovery = false;
 
   const orderData = {
     id: orderId,
@@ -275,53 +278,43 @@ async function processBrickOwlOrder(
   };
 
   if (!existingOrder) {
-    // UPSERT instead of plain INSERT — handles race conditions from multi-device manual syncs
-    // and cross-session re-inserts after server restarts.  inventoryDeducted is intentionally
-    // excluded from the conflict update set so a previously-deducted order is never re-deducted.
+    // Use DO NOTHING rather than a mutating UPSERT so RETURNING is proof this
+    // run inserted the row. A conflict can be a previously interrupted sync
+    // whose inventory still needs recovery, but it must never be announced as
+    // a newly placed customer order.
     if (isUnpaid) {
       console.log(`💳 BrickOwl order ${orderId}: awaiting payment (status_id ${boOrder.status_id}) — setting workflowStatus='unpaid'`);
     }
-    const [upserted] = await db
+    const [inserted] = await db
       .insert(orders)
       .values([{ ...orderData, orgId, workflowStatus: isUnpaid ? 'unpaid' : 'new' }])
-      .onConflictDoUpdate({
-        target: orders.id,
-        set: {
-          orderStatus:               sql`EXCLUDED.order_status`,
-          previousStatus:            sql`EXCLUDED.previous_status`,
-          customerUsername:          sql`EXCLUDED.customer_username`,
-          customerEmail:             sql`EXCLUDED.customer_email`,
-          shipTo:                    sql`EXCLUDED.ship_to`,
-          billTo:                    sql`EXCLUDED.bill_to`,
-          shipByDate:                sql`EXCLUDED.ship_by_date`,
-          orderTotal:                sql`EXCLUDED.order_total`,
-          shippingAmount:            sql`EXCLUDED.shipping_amount`,
-          taxAmount:                 sql`EXCLUDED.tax_amount`,
-          internalNotes:             sql`EXCLUDED.internal_notes`,
-          // COALESCE: never overwrite an existing note with null — preserve it if the
-          // API returns no note field (wrong field name, blank response, etc.)
-          customerNotes:             sql`COALESCE(EXCLUDED.customer_notes, orders.customer_notes)`,
-          requestedShippingService:  sql`EXCLUDED.requested_shipping_service`,
-          carrierCode:               sql`EXCLUDED.carrier_code`,
-          serviceCode:               sql`EXCLUDED.service_code`,
-          updatedAt:                 sql`EXCLUDED.updated_at`,
-          // inventoryDeducted: deliberately NOT included — preserves true from a prior sync session
-          // orgId: deliberately NOT included — org never changes on a re-sync
-        },
-      })
-      .returning({ id: orders.id, inventoryDeducted: orders.inventoryDeducted });
+      .onConflictDoNothing({ target: orders.id })
+      .returning({ id: orders.id });
 
-    if (!upserted?.inventoryDeducted) {
-      // Fresh insert (or conflict with an un-deducted row) — treat as new, fire inventory adjustment.
+    if (inserted) {
       result.ordersAdded++;
       isNewOrder = true;
     } else {
-      // Conflict with a row that already has inventoryDeducted=true — a prior sync session
-      // (multi-device manual sync, server restart, etc.) already processed this order.
-      // The atomic guard in adjustInventoryForOrder would block a duplicate anyway, but we
-      // skip the fire-and-forget entirely to avoid unnecessary DB chatter.
-      console.log(`⚠️ Order ${orderId}: UPSERT conflict — inventoryDeducted already true (prior sync session). Skipping re-adjustment.`);
+      const [racedOrder] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!racedOrder) {
+        throw new Error(`BrickOwl order ${orderId} conflicted on insert but could not be reloaded`);
+      }
+
+      const { status: recoveredStatus } = resolveOrderStatus(racedOrder.orderStatus, normalizedStatus);
+      finalOrderStatus = recoveredStatus;
+      await db
+        .update(orders)
+        .set({
+          ...orderData,
+          id: racedOrder.id,
+          orderStatus: recoveredStatus,
+          previousStatus: racedOrder.orderStatus,
+          customerNotes: orderData.customerNotes ?? racedOrder.customerNotes ?? null,
+        })
+        .where(eq(orders.id, racedOrder.id));
       result.ordersUpdated++;
+      requiresInventoryRecovery = !racedOrder.inventoryDeducted;
+      console.log(`⚠️ Order ${orderId}: existing row won insert race — treating as update${requiresInventoryRecovery ? ' and recovering inventory' : ''}, never as a new-order alert.`);
     }
   } else {
     // If the order is locally 'shipped' but BrickOwl is reporting a lower status,
@@ -652,9 +645,19 @@ async function processBrickOwlOrder(
   }
 
   if (isNewOrder) {
+    // This is the only point at which a BrickOwl customer order is eligible
+    // for an arrival notification. Merge-delta rows are created below and
+    // deliberately never enter this list.
+    result.newOrderIds.push(orderId);
     console.log(`📦 New BrickOwl order ${effectiveOrderId} — triggering inventory adjustment`);
     adjustInventoryForOrder(effectiveOrderId, 'bo-new-order').catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
+    });
+  } else if (requiresInventoryRecovery) {
+    // Preserve the prior operational behavior for an interrupted/competing
+    // sync without turning that recovery into a customer-order notification.
+    adjustInventoryForOrder(effectiveOrderId, 'bo-inventory-recovery').catch(error => {
+      console.error(`⚠️ Inventory recovery failed for BrickOwl order ${effectiveOrderId}:`, error);
     });
   } else if (itemsChanged && deltaItems.length > 0 && ['shipped', 'completed', 'cancelled', 'returned'].includes(finalOrderStatus ?? '')) {
     // A shipped/completed/cancelled/returned order can't legitimately gain new items — this is

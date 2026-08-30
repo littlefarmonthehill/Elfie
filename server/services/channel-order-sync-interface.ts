@@ -25,8 +25,25 @@ export type OrderSyncProgressCallback = (processed: number, total: number) => vo
 
 export interface ChannelOrderSyncResult {
   ordersAdded: number;
+  /**
+   * Local order IDs that were verified as fresh customer orders during this
+   * sync run. This is intentionally separate from ordersAdded because channel
+   * adapters may also count internal fulfillment records (such as merge
+   * deltas) there.
+   */
+  newOrderIds?: string[];
   ordersUpdated?: number;
   errors?: string[];
+}
+
+/**
+ * Notification callers must only use IDs explicitly returned by a channel
+ * adapter, never a broad records-added count or a recency query.
+ */
+export function getVerifiedNewOrderIds(
+  outcome: Pick<ChannelOrderSyncResult, 'newOrderIds'> | undefined,
+): string[] {
+  return [...new Set(outcome?.newOrderIds ?? [])];
 }
 
 export interface IChannelOrderSync {
