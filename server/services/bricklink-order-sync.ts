@@ -79,6 +79,19 @@ export interface BrickLinkOrderSyncResult {
   needsInventorySync?: boolean;
 }
 
+export function hasBrickLinkPaymentAfterLastSync(
+  payment: { status?: string | null; date_paid?: string | null } | null | undefined,
+  syncedAt: Date | string | null | undefined
+): boolean {
+  if (!payment?.status || payment.status === 'None' || payment.status === 'Returned' || !payment.date_paid) {
+    return false;
+  }
+
+  const paidAtMs = new Date(payment.date_paid).getTime();
+  const syncedAtMs = syncedAt ? new Date(syncedAt).getTime() : 0;
+  return Number.isFinite(paidAtMs) && paidAtMs > syncedAtMs;
+}
+
 /**
  * Sync orders directly from BrickLink API.
  *
@@ -154,11 +167,24 @@ export async function syncBrickLinkOrders(
       // Incremental: only process orders that are new, have changed status, or have
       // an incomplete address (e.g. blank state from a prior partial sync).
       const existingOrders = await db
-        .select({ id: orders.id, orderStatus: orders.orderStatus, workflowStatus: orders.workflowStatus, shipTo: orders.shipTo, customerNotes: orders.customerNotes })
+        .select({
+          id: orders.id,
+          orderStatus: orders.orderStatus,
+          workflowStatus: orders.workflowStatus,
+          shipTo: orders.shipTo,
+          customerNotes: orders.customerNotes,
+          syncedAt: orders.syncedAt,
+        })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), sql`${orders.id} LIKE 'bl-%'`));
 
-      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, workflowStatus: o.workflowStatus, shipTo: o.shipTo, customerNotes: o.customerNotes }]));
+      const existingMap = new Map(existingOrders.map(o => [o.id, {
+        status: o.orderStatus,
+        workflowStatus: o.workflowStatus,
+        shipTo: o.shipTo,
+        customerNotes: o.customerNotes,
+        syncedAt: o.syncedAt,
+      }]));
 
       const CLOSED_STATUSES = new Set(['shipped', 'returned', 'cancelled', 'Cancelled', 'purged', 'completed', 'Completed']);
 
@@ -187,6 +213,13 @@ export async function syncBrickLinkOrders(
 
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
+
+        // Payment changes are independent of both BrickLink's order status and our
+        // local workflow. For example, an old unpaid order may be moved to "bump"
+        // before the buyer pays. BrickLink supplies date_paid in the order summary,
+        // so compare it with the last successful processing time instead of relying
+        // on workflowStatus === 'unpaid'.
+        if (hasBrickLinkPaymentAfterLastSync(order.payment, existing.syncedAt)) return true;
 
         // Always re-check orders stuck in unpaid workflow — BrickLink payment.status
         // changes do NOT update date_status_changed, so incremental sync would otherwise
@@ -356,6 +389,7 @@ async function processBrickLinkOrder(
     console.warn(`[BL Order ${blOrder.order_id}] State empty after all fallbacks. Raw address: ${JSON.stringify(addr)}`);
   }
 
+  const syncTime = new Date();
   const orderData = {
     id: orderId,
     orderNumber: blOrder.order_id.toString(),
@@ -396,7 +430,8 @@ async function processBrickLinkOrder(
     serviceCode: null,
     weight: null,
     weightUnits: null,
-    updatedAt: new Date(),
+    syncedAt: syncTime,
+    updatedAt: syncTime,
   };
 
   let isNewOrder = false;
@@ -514,6 +549,7 @@ async function processBrickLinkOrder(
           requestedShippingService: sql`EXCLUDED.requested_shipping_service`,
           carrierCode:              sql`EXCLUDED.carrier_code`,
           serviceCode:              sql`EXCLUDED.service_code`,
+          syncedAt:                 sql`EXCLUDED.synced_at`,
           updatedAt:                sql`EXCLUDED.updated_at`,
           // inventoryDeducted: deliberately NOT included — preserves true from a prior sync session
           // orgId: deliberately NOT included — org never changes on a re-sync
