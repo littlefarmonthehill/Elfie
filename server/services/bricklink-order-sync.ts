@@ -92,6 +92,17 @@ export function hasBrickLinkPaymentAfterLastSync(
   return Number.isFinite(paidAtMs) && paidAtMs > syncedAtMs;
 }
 
+export function hasBrickLinkOrderUpdateAfterLastSync(
+  dateStatusChanged: string | null | undefined,
+  syncedAt: Date | string | null | undefined
+): boolean {
+  if (!dateStatusChanged) return false;
+
+  const changedAtMs = new Date(dateStatusChanged).getTime();
+  const syncedAtMs = syncedAt ? new Date(syncedAt).getTime() : 0;
+  return Number.isFinite(changedAtMs) && changedAtMs > syncedAtMs;
+}
+
 /**
  * Sync orders directly from BrickLink API.
  *
@@ -213,6 +224,11 @@ export async function syncBrickLinkOrders(
 
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
+
+        // BrickLink can update remarks, addresses, shipping, totals, or items
+        // without changing the normalized order status. Reprocess any order whose
+        // channel update timestamp is newer than our last successful processing.
+        if (hasBrickLinkOrderUpdateAfterLastSync(order.date_status_changed, existing.syncedAt)) return true;
 
         // Payment changes are independent of both BrickLink's order status and our
         // local workflow. For example, an old unpaid order may be moved to "bump"
